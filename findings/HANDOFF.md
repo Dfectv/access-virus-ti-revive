@@ -27,7 +27,8 @@ _Last updated: 2026-10-10 ~19:10. VM now runs WinUSB instead of the Access drive
 ## VM driver state (IMPORTANT)
 - Since E038 the VM has NO Access driver: usbccgp + WinUSB on MI_03/MI_04 (src/inf/vti_winusb.inf), usbaudio on MI_00. The original plugin cannot work in this state until our emulation exists.
 - Back to the Access driver: `vm.sh revert pre-winusb` (live snapshot 2026-10-10 17:20, Access driver + Ableton setup). Other snapshots: clean, suite-ready, lab-ready, claude-starts.
-- Windows build: make -C src/broker -> work/build/vtiprobe.exe (WinUSB backend vticore_winusb.c).
+- Windows build: make -C src/broker -> work/build/vtiprobe.exe, vtisend.exe (WinUSB backend vticore_winusb.c). vtisend sends SysEx hex strings and prints all RX (copied to VM C:\vti\).
+- Synth global 0x3A is back at 1 (dumps on cable 1) after the E039 test.
 
 ## Working procedure (VM)
 - Never physically replug the Virus during a session: host snd-usb-audio grabs it first (host also uses USB audio: mainboard + Sennheiser mic, so don't unload it).
