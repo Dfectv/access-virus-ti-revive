@@ -29,7 +29,8 @@ _Last updated: 2026-10-10 ~21:00. MILESTONE M1 (E043): plugin works in Ableton v
 - replay_table.h is generated: python3 -I scripts/gen_replay.py captures/trace/vtihook-1896.log src/wrapper/replay_table.h
 - A loaded vtiemu*.dll is locked in the VM while the DAW runs: push rebuilds under a new name (vtiemu-f.dll is current).
 - If all pipes fail with error 31 / writes time out (121): USB reset via `vm.sh detach && vm.sh attach` (guest stays clean with usbccgp).
-- Next: test vtiemu-f.dll in Ableton (audio device must NOT be the Virus ASIO driver); then wrapper VST3; then broker for multi-client + MIDI ports.
+- M2 wrapper: src/wrapper/vtiwrap.c -> work/build/VirusTI_WinUSB.vst3 (emulation linked in, -DVTIEMU_NO_DLLMAIN). Installs to C:\Program Files\Common Files\VST3\. Shows as "Virus TI (WinUSB)" (class IDs byte 15 XOR 0x5A). Do not also inject vtiemu into the same DAW.
+- Next: test the wrapper in Ableton (rescan plug-ins); then M3 broker.
 
 ## VM driver state (IMPORTANT)
 - Since E038 the VM has NO Access driver: usbccgp + WinUSB on MI_03/MI_04 (src/inf/vti_winusb.inf), usbaudio on MI_00. The original plugin cannot work in this state until our emulation exists.

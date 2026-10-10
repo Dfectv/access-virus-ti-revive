@@ -521,11 +521,14 @@ static void patch_process(HMODULE self)
     CloseHandle(snap);
 }
 
-BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID unused)
+// Set up logging and the hooks. self = this module (never patched). Called from DllMain when injected
+// (vtiemu.dll) or from the wrapper VST3 before it loads the original plugin (vtiwrap.c).
+void vtiemu_init(HMODULE self)
 {
-    (void)unused;
-    if (reason == DLL_PROCESS_ATTACH) {
-        DisableThreadLibraryCalls(inst);
+    static LONG once;
+    if (InterlockedExchange(&once, 1))
+        return;
+    {
         InitializeCriticalSection(&g_cs);
         InitializeCriticalSection(&g_dev_cs);
         QueryPerformanceFrequency(&g_freq);
@@ -550,7 +553,24 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID unused)
         GetModuleFileNameA(NULL, exe, sizeof exe);
         vlog("vtiemu attached to pid %lu %s", GetCurrentProcessId(), exe);
         vti_log = vlog_vti;
-        patch_process(inst);
+        patch_process(self);
+    }
+}
+
+// Fully patch Access modules loaded by the caller (the wrapper calls this right after loading the plugin).
+void vtiemu_patch_access(void)
+{
+    patch_access_modules();
+}
+
+#ifndef VTIEMU_NO_DLLMAIN
+BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID unused)
+{
+    (void)unused;
+    if (reason == DLL_PROCESS_ATTACH) {
+        DisableThreadLibraryCalls(inst);
+        vtiemu_init(inst);
     }
     return TRUE;
 }
+#endif
