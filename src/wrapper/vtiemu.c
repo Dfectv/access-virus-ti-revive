@@ -12,6 +12,7 @@
 #include "replay_table.h"
 #include <windows.h>
 #include <setupapi.h>
+#include <cfgmgr32.h>
 #include <shlwapi.h>
 #include <tlhelp32.h>
 #include <stdarg.h>
@@ -407,6 +408,67 @@ static BOOL WINAPI hook_CloseHandle(HANDLE h)
     return real_CloseHandle(h);
 }
 
+// ---- device topology (Control Center, E050) ----
+// With the Access driver the {8002DBFF} interface lives on the USB device node itself (parent = hub). Ours
+// lives on the MI_04 child of the composite device (parent = composite). Programs that walk to the hub via
+// CM_Get_Parent / read the instance ID (Control Center: "no Virus TI found") see the original layout:
+// MI_04 node -> reported as the composite device (ID) whose parent is the hub.
+static CONFIGRET(WINAPI *real_CM_Get_Parent)(PDEVINST, DEVINST, ULONG);
+static CONFIGRET(WINAPI *real_CM_Get_Device_IDA)(DEVINST, PSTR, ULONG, ULONG);
+
+static int is_our_mi04(DEVINST d)
+{
+    char id[MAX_DEVICE_ID_LEN];
+    return real_CM_Get_Device_IDA && real_CM_Get_Device_IDA(d, id, sizeof id, 0) == CR_SUCCESS &&
+           StrStrIA(id, "VID_133E&PID_0815&MI_04");
+}
+
+static CONFIGRET WINAPI hook_CM_Get_Parent(PDEVINST parent, DEVINST d, ULONG fl)
+{
+    CONFIGRET r = real_CM_Get_Parent(parent, d, fl);
+    if (r == CR_SUCCESS && is_our_mi04(d)) {
+        DEVINST composite = *parent;
+        r = real_CM_Get_Parent(parent, composite, fl); // skip the composite node: hub, as with VirusUSB.sys
+    }
+    char id[MAX_DEVICE_ID_LEN] = "";
+    if (r == CR_SUCCESS && real_CM_Get_Device_IDA)
+        real_CM_Get_Device_IDA(*parent, id, sizeof id, 0);
+    vlog("CM_Get_Parent(%lu) -> %lu cr=%lu %s", d, r == CR_SUCCESS ? *parent : 0, r, id);
+    return r;
+}
+
+static CONFIGRET WINAPI hook_CM_Get_Device_IDA(DEVINST d, PSTR buf, ULONG len, ULONG fl)
+{
+    DEVINST use = d, parent;
+    if (is_our_mi04(d) && real_CM_Get_Parent(&parent, d, 0) == CR_SUCCESS)
+        use = parent; // report the composite device's ID (USB\VID_133E&PID_0815\...)
+    CONFIGRET r = real_CM_Get_Device_IDA(use, buf, len, fl);
+    vlog("CM_Get_Device_IDA(%lu) -> cr=%lu %s", d, r, r == CR_SUCCESS ? buf : "");
+    return r;
+}
+
+static FARPROC(WINAPI *real_GetProcAddress)(HMODULE, LPCSTR);
+
+static FARPROC WINAPI hook_GetProcAddress(HMODULE m, LPCSTR name)
+{
+    FARPROC p = real_GetProcAddress(m, name);
+    if (!p || (ULONG_PTR)name < 0x10000) // ordinal lookup
+        return p;
+    if (!strcmp(name, "CM_Get_Parent")) {
+        real_CM_Get_Parent = (void *)p;
+        if (!real_CM_Get_Device_IDA)
+            real_CM_Get_Device_IDA = (void *)real_GetProcAddress(m, "CM_Get_Device_IDA");
+        return (FARPROC)(void *)hook_CM_Get_Parent;
+    }
+    if (!strcmp(name, "CM_Get_Device_IDA")) {
+        real_CM_Get_Device_IDA = (void *)p;
+        if (!real_CM_Get_Parent)
+            real_CM_Get_Parent = (void *)real_GetProcAddress(m, "CM_Get_Parent");
+        return (FARPROC)(void *)hook_CM_Get_Device_IDA;
+    }
+    return p;
+}
+
 static void patch_module(HMODULE m, int all);
 
 static void patch_access_modules(void);
@@ -465,6 +527,7 @@ static const struct {
     {"kernel32.dll", "LoadLibraryW", hook_LoadLibraryW, 1},
     {"kernel32.dll", "LoadLibraryExA", hook_LoadLibraryExA, 1},
     {"kernel32.dll", "LoadLibraryExW", hook_LoadLibraryExW, 1},
+    {"kernel32.dll", "GetProcAddress", hook_GetProcAddress, 0},
 };
 
 static int dll_matches(const char *imp, const char *want)
@@ -574,6 +637,7 @@ void vtiemu_init(HMODULE self)
         real_LoadLibraryW = (void *)GetProcAddress(k32, "LoadLibraryW");
         real_LoadLibraryExA = (void *)GetProcAddress(k32, "LoadLibraryExA");
         real_LoadLibraryExW = (void *)GetProcAddress(k32, "LoadLibraryExW");
+        real_GetProcAddress = (void *)GetProcAddress(k32, "GetProcAddress");
         char exe[MAX_PATH];
         GetModuleFileNameA(NULL, exe, sizeof exe);
         vlog("vtiemu attached to pid %lu %s", GetCurrentProcessId(), exe);
