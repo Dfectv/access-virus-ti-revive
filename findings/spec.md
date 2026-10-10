@@ -61,3 +61,31 @@ Device interface GUID {8002DBFF-C173-4BFF-80BE-6815D7E13071} (E017). All codes M
 | 0x2200e8 | 0x3a | 0x18 | 0x18000e35b, 0x18000e419 |
 | 0x220408 | 0x102 | 0x4c | 0x18000a446 |
 | 0x220410 | 0x104 | ? (not in 25-insn window) | 0x18000a547 |
+
+### 11.1 Dispatcher semantics (VirusUSB.sys 2.9.66, E034/E035)
+Buffers: METHOD_BUFFERED; "out" = OutputBufferLength checked by the driver; UB = Irp->UserBuffer used directly.
+| Code | Size | Semantics | Used by |
+|------|------|-----------|---------|
+| 0x220000 / 0x220004 | n | copy version string A / B | ASIO, VC |
+| 0x220008 | >=8 | STD_VENDOR_REQUEST: bmRequestType, bRequest, wValue, wIndex + data (control transfer pass-through; flash read E026) | VC |
+| 0x22000C | 0x18118 | read large state block | ASIO, VC |
+| 0x220010 | 0x18 | generic PtIOCTL request | ASIO, VC |
+| 0x220014 | 0x4C | read info block | ASIO, VC |
+| 0x220024 | 0x18 (UB) | set (FUN_f1016ee0) | ASIO, VC |
+| 0x220028 / 0x22002C | 0x560 | Read/WriteMixerData (US3xx_UI) | - |
+| 0x220030 | 0x10 (UB) | per-client set | ASIO, VC |
+| 0x22004C | 4 | const 0x001FFDD8 | ASIO, VC |
+| 0x220064 / 0x220068 | 0xF04 | write / read config block | ASIO, VC |
+| 0x220070 | 4 | read value | ASIO, VC |
+| 0x22007C / 0x220080 | 4 | wMaxPacketSize IN / OUT pipe | VC |
+| 0x220084 | n (UB) | raw pipe WRITE (USB-MIDI packets, verbatim) | VC |
+| 0x220088 | 0x8020 (UB) | raw pipe OPEN (shared RX ring + event handle) | VC |
+| 0x22008C | - | flush RX ring | VC |
+| 0x220090 | - | raw pipe CLOSE | VC |
+| 0x22009C | 4 | read byte | ASIO, VC |
+| 0x2200A4 | 4 | const 0x02094200 (driver 2.9.66) | ASIO, VC |
+| 0x2200A8 / 0x2200AC | 8 / - | TX ring status / flush | VC |
+| 0x2200B0..0x2200BC | 4/4/4/8 | per-client ASIO params | ASIO, VC |
+| 0x2200D0 / 0x2200D4 | 0x104 | read / per-client query | ASIO / VC |
+| 0x2200E4 / 0x2200E8 | 0x18 (UB) | REGISTER_APC_BS / _Notify (ASIO buffer switch) | ASIO, VC |
+| 0x220408 / 0x220410 | 0x4C | rejected by 2.9.66 (newer-driver probe?) | ASIO, VC |

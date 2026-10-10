@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-10 ~17:05, Phase 0.3/2 captures done: handshake, framing, knobs, sync, preset switching decoded (E020-E033, spec.md §2-7)_
+_Last updated: 2026-10-10 ~17:40. Final goal: user-mode Win11 driver + MSI (see findings/design.md). IOCTL semantics decoded (E034/E035, spec §11.1)._
 
 ## State
 - Workspace ~/virus-ti-re; git tracks findings/ and scripts/ only. work/ = untracked working copies (Access binaries: never commit/redistribute).
@@ -34,8 +34,13 @@ _Last updated: 2026-10-10 ~17:05, Phase 0.3/2 captures done: handshake, framing,
 - Key: (c) looks likely; confirm which device interface GUID/IOCTLs Virus Control.dll uses, and whether it uses MI_04 for Remote/editor traffic and MI_03 only for the Windows MIDI ports.
 - User's "inbox driver handles playback": true only without VirusUSB.sys? (claims C9)
 
+## Key results (Phase 2.2)
+- VirusUSB.sys dispatcher decompiled: work/decomp/VirusUSB.sys_ioctl_dispatch_f102c010.c (untracked). Plugin MIDI/Remote = raw pipe IOCTLs 0x220084/88/8C/90 forwarding USB-MIDI packets verbatim (E035). Flash read = 0x220008 vendor request pass-through.
+- Architecture proposal + open user decisions: findings/design.md (DECIDE 1-3).
+
 ## Next step
+0. Waiting on user for design.md DECIDE 1-3. Meanwhile: runtime-log Virus Control.dll DeviceIoControl in/out buffers in the VM (API hook or ProcMon-like tracer) to capture real values of 0x22000C/0x220010/0x220014/0x220064-68/0x2200D0-D4 for emulation; test claim C9 (inbox usbaudio on MI_00..02) on Win11.
 1. Open: meaning of 74/39/14/6E, the post-dump CC 113 / Poly Pressure A0 messages, and F5 xx yy. Use usbdecode.py --events for any counting/filtering (several events share one transfer).
 2. Test C7 "needs": does the synth behave differently without F5/F8 (needs a host-side sender; Linux amidi to hw:Virus with snd-usb-audio is one option).
-3. Phase 2.2: decode IOCTL semantics. Decompile the VirusUSB_X64.dll wrappers around each call site (spec.md §11), then the VirusUSB.sys IRP_MJ_DEVICE_CONTROL dispatch (switch on code-0x220000), to find which IOCTLs submit interrupt URBs on EP 0x05/0x06 (MIDI/SysEx path).
+3. (done) Phase 2.2 IOCTL semantics, see E034/E035. Remaining: confirm raw pipe = EP 0x06/0x86 at runtime; 0x220408/410 meaning.
 4. Tip: objdump -d -M intel + scanning for `mov edx,imm` before `call [IAT]` is much faster than per-function decompile for listing call-site constants.
