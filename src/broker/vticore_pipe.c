@@ -169,3 +169,8 @@ int vti_control(vti *v, uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue
     LeaveCriticalSection(&v->ctl_cs);
     return r;
 }
+
+int vti_is_dead(vti *v)
+{
+    return !v->connected;
+}

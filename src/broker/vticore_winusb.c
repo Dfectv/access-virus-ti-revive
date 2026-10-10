@@ -21,7 +21,7 @@ struct vti {
     iface mi[2]; // [0] = MI_03, [1] = MI_04
     vti_rx_cb cb;
     void *user;
-    volatile LONG stop;
+    volatile LONG stop, dead;
     HANDLE rd[2];
 };
 
@@ -78,16 +78,22 @@ static DWORD WINAPI reader(LPVOID p)
     ULONG timeout = 200; // ms, so the stop flag is noticed
     WinUsb_SetPipePolicy(f->usb, a.ep, PIPE_TRANSFER_TIMEOUT, sizeof timeout, &timeout);
     uint8_t buf[64];
+    int fails = 0;
     while (!a.v->stop) {
         ULONG got = 0;
-        if (WinUsb_ReadPipe(f->usb, a.ep, buf, sizeof buf, &got, NULL) && got)
+        if (WinUsb_ReadPipe(f->usb, a.ep, buf, sizeof buf, &got, NULL) && got) {
+            fails = 0;
             a.v->cb(a.v->user, a.ep, buf, (int)got);
+        }
         else {
             DWORD e = GetLastError();
             if (e != ERROR_SEM_TIMEOUT && e != 0) {
                 vti_log("vti: read ep %02x: error %lu\n", a.ep, e);
-                if (e == ERROR_BAD_COMMAND || e == ERROR_DEVICE_NOT_CONNECTED || e == ERROR_INVALID_HANDLE)
+                if (e == ERROR_BAD_COMMAND || e == ERROR_DEVICE_NOT_CONNECTED || e == ERROR_INVALID_HANDLE ||
+                    (e == ERROR_GEN_FAILURE && ++fails > 50)) { // removed, or stalled beyond recovery
+                    a.v->dead = 1;
                     break;
+                }
                 if (e == ERROR_GEN_FAILURE) // stalled pipe: clear the halt and keep reading
                     WinUsb_ResetPipe(f->usb, a.ep);
                 Sleep(10);
@@ -166,4 +172,9 @@ int vti_control(vti *v, uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue
         return -1;
     }
     return (int)done;
+}
+
+int vti_is_dead(vti *v)
+{
+    return v->dead != 0;
 }

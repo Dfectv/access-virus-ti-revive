@@ -13,7 +13,7 @@ struct vti {
     libusb_device_handle *h;
     vti_rx_cb cb;
     void *user;
-    volatile int stop;
+    volatile int stop, dead;
     pthread_t rd[2];
     uint8_t rd_ep[2];
 };
@@ -35,8 +35,10 @@ static void *reader(void *p)
             v->cb(v->user, ep, buf, got);
         else if (r != LIBUSB_ERROR_TIMEOUT && r != 0) {
             vti_log("vti: read ep %02x: %s\n", ep, libusb_error_name(r));
-            if (r == LIBUSB_ERROR_NO_DEVICE)
+            if (r == LIBUSB_ERROR_NO_DEVICE) {
+                v->dead = 1;
                 break;
+            }
         }
     }
     return NULL;
@@ -123,4 +125,9 @@ int vti_control(vti *v, uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue
         vti_log("vti: control %02x/%02x wIndex %04x: %s\n", bmRequestType, bRequest, wIndex,
                 libusb_error_name(r));
     return r < 0 ? -1 : r;
+}
+
+int vti_is_dead(vti *v)
+{
+    return v->dead != 0;
 }

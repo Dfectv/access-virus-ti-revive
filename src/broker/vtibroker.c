@@ -23,10 +23,18 @@ static CRITICAL_SECTION g_cs_log, g_cs_dev, g_cs_clients;
 static vti *g_dev;
 static volatile LONG g_dev_failed; // set by the RX path on fatal device errors
 
+#define QUEUE_BYTES (256 * 1024)
+
+// Messages to a client go through a byte queue drained by the client's own sender thread, so a slow or
+// stuck client can never block the device readers (they must keep EP 0x85/0x86 drained, E042).
 typedef struct {
     HANDLE pipe;
-    CRITICAL_SECTION wr; // serializes writes to this client
+    CRITICAL_SECTION q; // protects queue
+    HANDLE q_event;     // set when data is queued or the client dies
+    uint8_t *queue;
+    uint32_t q_head, q_len;
     volatile LONG alive;
+    HANDLE sender;
 } client;
 static client *g_clients[MAX_CLIENTS];
 
@@ -52,26 +60,55 @@ static void blog(const char *fmt, ...)
     LeaveCriticalSection(&g_cs_log);
 }
 
+// Queue one message (header + a + b). On overflow the client is dropped instead of blocking the caller.
 static int send_msg(client *c, uint16_t type, const void *a, int alen, const void *b, int blen)
 {
-    if (!c->alive)
+    if (!c->alive || alen + blen > VTIMSG_MAX)
         return -1;
-    uint8_t buf[sizeof(vtimsg) + VTIMSG_MAX];
-    if (alen + blen > VTIMSG_MAX)
-        return -1;
-    vtimsg *h = (vtimsg *)buf;
-    h->type = type;
-    h->len = (uint16_t)(alen + blen);
-    if (alen)
-        memcpy(buf + sizeof *h, a, alen);
-    if (blen)
-        memcpy(buf + sizeof *h + alen, b, blen);
-    EnterCriticalSection(&c->wr);
-    int r = vtipipe_write(c->pipe, buf, sizeof *h + alen + blen);
-    LeaveCriticalSection(&c->wr);
-    if (r)
+    vtimsg h = {type, (uint16_t)(alen + blen)};
+    uint32_t total = sizeof h + alen + blen;
+    EnterCriticalSection(&c->q);
+    int ok = c->q_len + total <= QUEUE_BYTES;
+    if (ok) {
+        const uint8_t *parts[3] = {(const uint8_t *)&h, a, b};
+        uint32_t lens[3] = {sizeof h, (uint32_t)alen, (uint32_t)blen};
+        for (int p = 0; p < 3; p++)
+            for (uint32_t i = 0; i < lens[p]; i++)
+                c->queue[(c->q_head + c->q_len++) % QUEUE_BYTES] = parts[p][i];
+    } else {
         c->alive = 0;
-    return r;
+    }
+    LeaveCriticalSection(&c->q);
+    SetEvent(c->q_event);
+    if (!ok)
+        blog("client queue overflow: dropping client");
+    return ok ? 0 : -1;
+}
+
+static DWORD WINAPI sender_thread(LPVOID arg)
+{
+    client *c = arg;
+    uint8_t chunk[8192];
+    while (c->alive) {
+        WaitForSingleObject(c->q_event, 500);
+        for (;;) {
+            EnterCriticalSection(&c->q);
+            uint32_t n = c->q_len < sizeof chunk ? c->q_len : sizeof chunk;
+            for (uint32_t i = 0; i < n; i++)
+                chunk[i] = c->queue[(c->q_head + i) % QUEUE_BYTES];
+            c->q_head = (c->q_head + n) % QUEUE_BYTES;
+            c->q_len -= n;
+            LeaveCriticalSection(&c->q);
+            if (!n)
+                break;
+            if (vtipipe_write(c->pipe, chunk, n)) {
+                c->alive = 0;
+                break;
+            }
+        }
+    }
+    CancelIoEx(c->pipe, NULL); // wakes the client thread's pending read
+    return 0;
 }
 
 static void broadcast(uint16_t type, const void *a, int alen, const void *b, int blen)
@@ -99,8 +136,6 @@ static void on_vti_log(const char *fmt, ...)
     vsnprintf(buf, sizeof buf, fmt, ap);
     va_end(ap);
     blog("vticore: %s", buf);
-    if (strstr(buf, "error 22") || strstr(buf, "error 1167") || strstr(buf, "error 6\n")) // gone / bad handle
-        g_dev_failed = 1;
 }
 
 // Device thread: open the device when present, reopen after failures (unplug, wedged pipes).
@@ -109,7 +144,7 @@ static DWORD WINAPI device_thread(LPVOID unused)
     (void)unused;
     for (;;) {
         EnterCriticalSection(&g_cs_dev);
-        if (g_dev && g_dev_failed) {
+        if (g_dev && (g_dev_failed || vti_is_dead(g_dev))) {
             blog("device failed: closing");
             vti_close(g_dev);
             g_dev = NULL;
@@ -188,11 +223,14 @@ static DWORD WINAPI client_thread(LPVOID arg)
             g_clients[i] = NULL;
     LeaveCriticalSection(&g_cs_clients);
     c->alive = 0;
-    EnterCriticalSection(&c->wr); // no broadcast is writing to this pipe any more
-    LeaveCriticalSection(&c->wr);
+    SetEvent(c->q_event);
+    WaitForSingleObject(c->sender, INFINITE); // removed from g_clients above: no new messages can arrive
+    CloseHandle(c->sender);
     DisconnectNamedPipe(c->pipe);
     CloseHandle(c->pipe);
-    DeleteCriticalSection(&c->wr);
+    CloseHandle(c->q_event);
+    DeleteCriticalSection(&c->q);
+    free(c->queue);
     free(c);
     return 0;
 }
@@ -243,7 +281,9 @@ int main(int argc, char **argv)
         client *c = calloc(1, sizeof *c);
         c->pipe = p;
         c->alive = 1;
-        InitializeCriticalSection(&c->wr);
+        c->queue = malloc(QUEUE_BYTES);
+        c->q_event = CreateEventA(NULL, FALSE, FALSE, NULL);
+        InitializeCriticalSection(&c->q);
         int slot = -1;
         EnterCriticalSection(&g_cs_clients);
         for (int i = 0; i < MAX_CLIENTS && slot < 0; i++)
@@ -256,10 +296,13 @@ int main(int argc, char **argv)
             blog("too many clients");
             DisconnectNamedPipe(p);
             CloseHandle(p);
-            DeleteCriticalSection(&c->wr);
+            CloseHandle(c->q_event);
+            DeleteCriticalSection(&c->q);
+            free(c->queue);
             free(c);
             continue;
         }
+        c->sender = CreateThread(NULL, 0, sender_thread, c, 0, NULL);
         CloseHandle(CreateThread(NULL, 0, client_thread, c, 0, NULL));
     }
 }

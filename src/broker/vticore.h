@@ -24,6 +24,9 @@ typedef void (*vti_rx_cb)(void *user, uint8_t ep, const uint8_t *data, int len);
 vti *vti_open(vti_rx_cb cb, void *user);
 void vti_close(vti *v);
 
+// 1 once a reader hit a fatal error (device removed, handle invalid): close and reopen.
+int vti_is_dead(vti *v);
+
 // Interrupt OUT of raw bytes, split into wMaxPacketSize chunks. Returns 0 on success.
 int vti_write(vti *v, uint8_t ep, const uint8_t *data, int len);
 
