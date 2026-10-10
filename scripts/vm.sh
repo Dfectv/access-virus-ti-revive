@@ -11,7 +11,7 @@ case "${1:-}" in
   attach) virsh attach-device "$VM" ~/virus-ti-re/scripts/virus.xml --live ;;
   detach) virsh detach-device "$VM" ~/virus-ti-re/scripts/virus.xml --live ;;
   ssh)    shift; ssh -i "$KEY" -o StrictHostKeyChecking=accept-new "$GUSER@$(vmip)" "$@" ;;
-  pull)   scp -i "$KEY" -r "$GUSER@$(vmip):$2" "$3" ;;
-  push)   scp -i "$KEY" -r "$2" "$GUSER@$(vmip):$3" ;;
+  pull)   scp -i "$KEY" -o "User=\"$GUSER\"" -r "$(vmip):$2" "$3" ;;   # -o User: scp rejects spaces in user@host
+  push)   scp -i "$KEY" -o "User=\"$GUSER\"" -r "$2" "$(vmip):$3" ;;
   *) echo "usage: vm.sh start|stop|snap N|revert N|attach|detach|ssh CMD|pull R L|push L R"; exit 1 ;;
 esac
