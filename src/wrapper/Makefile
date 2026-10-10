@@ -10,11 +10,12 @@ $(OUT)/vtiemu.dll: vtiemu.c replay_table.h ../broker/vticore_winusb.c ../broker/
 	$(CC) $(CFLAGS) -shared -o $@ vtiemu.c ../broker/vticore_winusb.c ../broker/vticore_midi.c \
 		-lwinusb -lsetupapi -lshlwapi -static -lpthread
 
-# Wrapper VST3 (single-file VST3 module, like the original): emulation linked in, no DllMain from vtiemu.c
-$(OUT)/VirusTI_WinUSB.vst3: vtiwrap.c vtiemu.c replay_table.h ../broker/vticore_winusb.c ../broker/vticore_midi.c ../broker/vticore.h
+# Wrapper VST3 (single-file VST3 module, like the original): emulation linked in (no DllMain from vtiemu.c),
+# device access through vtibroker.exe (vticore_pipe.c, M3)
+$(OUT)/VirusTI_WinUSB.vst3: vtiwrap.c vtiemu.c replay_table.h ../broker/vticore_pipe.c ../broker/vticore_midi.c ../broker/vticore.h ../broker/vtiproto.h
 	mkdir -p $(OUT)
-	$(CC) $(CFLAGS) -DVTIEMU_NO_DLLMAIN -shared -o $@ vtiwrap.c vtiemu.c ../broker/vticore_winusb.c \
-		../broker/vticore_midi.c -lwinusb -lsetupapi -lshlwapi -lshell32 -lole32 -luuid -static -lpthread
+	$(CC) $(CFLAGS) -DVTIEMU_NO_DLLMAIN -shared -o $@ vtiwrap.c vtiemu.c ../broker/vticore_pipe.c \
+		../broker/vticore_midi.c -lsetupapi -lshlwapi -lshell32 -lole32 -luuid -static -lpthread
 
 clean:
 	rm -f $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3

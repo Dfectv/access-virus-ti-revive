@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-10 ~21:20. M2 reached (E044): "Virus TI (WinUSB)" wrapper VST3 works in Ableton without injection. Inbox usbaudio works for Virus audio in/out (E045, C9 confirmed); sound on Virus phones with part output "Out 1" (E046). Next: M3 broker._ VM now runs WinUSB instead of the Access driver (E038); broker core works on Linux/libusb and Windows/WinUSB._ Final goal: user-mode Win11 driver + MSI (see findings/design.md). IOCTL semantics decoded (E034/E035, spec §11.1)._
+_Last updated: 2026-10-10 ~21:45. M3 broker written (src/broker/vtibroker.c, vticore_pipe.c, vtiproto.h), not yet tested. M2 reached (E044): "Virus TI (WinUSB)" wrapper VST3 works in Ableton without injection. Inbox usbaudio works for Virus audio in/out (E045, C9 confirmed); sound on Virus phones with part output "Out 1" (E046). Next: M3 broker._ VM now runs WinUSB instead of the Access driver (E038); broker core works on Linux/libusb and Windows/WinUSB._ Final goal: user-mode Win11 driver + MSI (see findings/design.md). IOCTL semantics decoded (E034/E035, spec §11.1)._
 
 ## State
 - Workspace ~/virus-ti-re; git tracks findings/ and scripts/ only. work/ = untracked working copies (Access binaries: never commit/redistribute).
@@ -23,6 +23,11 @@ _Last updated: 2026-10-10 ~21:20. M2 reached (E044): "Virus TI (WinUSB)" wrapper
 ## Broker core (src/broker)
 - vticore.c/h: libusb open/claim MI_03+MI_04, handshake, interrupt read threads, USB-MIDI SysEx pack/unpack. vtiprobe = hardware test (make -C src/broker; run work/build/linux/vtiprobe with the Virus detached from the VM). Passed on the host (E037).
 - Host test prerequisites: scripts/99-virus-ti.rules installed (done); after `vm.sh detach` run `sudo udevadm trigger --action=change --sysname-match=1-9` in a real terminal (libvirt resets the node to root:root) and close the virt-manager console (its SPICE USB redirection grabs the device).
+
+## Broker M3 (src/broker)
+- vtibroker.exe: owns WinUSB (vticore_winusb), drains IN permanently, handshake per device open, reopen loop, named pipe \\.\pipe\vtibroker (vtiproto.h framing), fans out RX to all clients; log %TEMP%\vtibroker.log, -v = per message.
+- vticore_pipe.c: same vticore.h API over the pipe; the wrapper VST3 now links this (needs the broker running). vtiprobe-pipe.exe = probe through the broker.
+- Known risk: broadcast does blocking WriteFile to client pipes from the device reader thread; a stuck client could stall draining (TODO: per-client queue).
 
 ## Emulation M1 (src/wrapper)
 - vtiemu.dll: injected like the tracer (vtiinject.exe "<Ableton exe>" C:\vti\vtiemu.dll BEFORE loading the plugin). Redirects SetupDi(Access GUID) -> WinUSB MI_04 GUID, virtual handles for CreateFile on that path, emulates IOCTLs (pipe + RX ring, vendor requests recipient->device, replay table), logs to %TEMP%\vtiemu-<pid>.log.

@@ -3,7 +3,7 @@ CFLAGS = -O2 -Wall -Wextra
 OUT = ../../work/build
 SRC_MIDI = vticore_midi.c
 
-all: $(OUT)/linux/vtiprobe $(OUT)/vtiprobe.exe $(OUT)/vtisend.exe $(OUT)/vtiflash.exe
+all: $(OUT)/linux/vtiprobe $(OUT)/vtiprobe.exe $(OUT)/vtisend.exe $(OUT)/vtiflash.exe $(OUT)/vtibroker.exe $(OUT)/vtiprobe-pipe.exe
 
 $(OUT)/linux/vtiprobe: vtiprobe.c vticore.c $(SRC_MIDI) vticore.h
 	mkdir -p $(OUT)/linux
@@ -22,5 +22,14 @@ $(OUT)/vtiflash.exe: vtiflash.c vticore_winusb.c $(SRC_MIDI) vticore.h
 	mkdir -p $(OUT)
 	x86_64-w64-mingw32-gcc $(CFLAGS) -o $@ vtiflash.c vticore_winusb.c $(SRC_MIDI) -lwinusb -lsetupapi -static -lpthread
 
+# Broker (owns WinUSB) and a probe that goes through the broker instead of WinUSB
+$(OUT)/vtibroker.exe: vtibroker.c vticore_winusb.c $(SRC_MIDI) vticore.h vtiproto.h
+	mkdir -p $(OUT)
+	x86_64-w64-mingw32-gcc $(CFLAGS) -o $@ vtibroker.c vticore_winusb.c $(SRC_MIDI) -lwinusb -lsetupapi -static -lpthread
+
+$(OUT)/vtiprobe-pipe.exe: vtiprobe.c vticore_pipe.c $(SRC_MIDI) vticore.h vtiproto.h
+	mkdir -p $(OUT)
+	x86_64-w64-mingw32-gcc $(CFLAGS) -o $@ vtiprobe.c vticore_pipe.c $(SRC_MIDI) -static -lpthread
+
 clean:
-	rm -f $(OUT)/linux/vtiprobe $(OUT)/vtiprobe.exe $(OUT)/vtisend.exe
+	rm -f $(OUT)/linux/vtiprobe $(OUT)/vtiprobe.exe $(OUT)/vtisend.exe $(OUT)/vtibroker.exe $(OUT)/vtiprobe-pipe.exe
