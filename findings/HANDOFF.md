@@ -37,5 +37,5 @@ _Last updated: 2026-10-10 ~17:05, Phase 0.3/2 captures done: handshake, framing,
 ## Next step
 1. Open from E033: what triggered the dumps at t=6.2/27.9; meaning of 74/39/14/6E and F5 xx yy; check usbdecode.py SysEx reassembly (dump lengths vary 524-560).
 2. Test C7 "needs": does the synth behave differently without F5/F8 (needs a host-side sender; Linux amidi to hw:Virus with snd-usb-audio is one option).
-3. Phase 2.2: decode IOCTL semantics. Decompile the VirusUSB_X64.dll wrappers around each call site (spec.md §11), then the VirusUSB.sys IRP_MJ_DEVICE_CONTROL dispatch (switch on code-0x220000), to find which IOCTLs submit bulk URBs on EP 0x05/0x06 (MIDI/SysEx path).
-3. Tip: objdump -d -M intel + scanning for `mov edx,imm` before `call [IAT]` is much faster than per-function decompile for listing call-site constants.
+3. Phase 2.2: decode IOCTL semantics. Decompile the VirusUSB_X64.dll wrappers around each call site (spec.md §11), then the VirusUSB.sys IRP_MJ_DEVICE_CONTROL dispatch (switch on code-0x220000), to find which IOCTLs submit interrupt URBs on EP 0x05/0x06 (MIDI/SysEx path).
+4. Tip: objdump -d -M intel + scanning for `mov edx,imm` before `call [IAT]` is much faster than per-function decompile for listing call-site constants.
