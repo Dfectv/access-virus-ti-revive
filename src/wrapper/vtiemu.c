@@ -480,8 +480,12 @@ static void patch_process(HMODULE self)
     if (snap == INVALID_HANDLE_VALUE)
         return;
     MODULEENTRY32W me = {.dwSize = sizeof me};
+    wchar_t windir[MAX_PATH];
+    UINT wl = GetWindowsDirectoryW(windir, MAX_PATH);
     for (BOOL ok = Module32FirstW(snap, &me); ok; ok = Module32NextW(snap, &me)) {
-        if (me.hModule == self)
+        // Never patch system modules: kernel32's LoadLibrary* are stubs that call through their own IAT, so
+        // hooking them there makes our hook call itself (first test crashed with a stack overflow).
+        if (me.hModule == self || !_wcsnicmp(me.szExePath, windir, wl))
             continue;
         int access = StrStrIW(me.szModule, L"Virus TI") || StrStrIW(me.szModule, L"Virus Control");
         patch_module(me.hModule, access);
@@ -502,7 +506,10 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID unused)
         GetTempPathA(sizeof tmp, tmp);
         snprintf(path, sizeof path, "%svtiemu-%lu.log", tmp, GetCurrentProcessId());
         g_log = CreateFileA(path, FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS, 0, NULL);
-        HMODULE k32 = GetModuleHandleA("kernel32.dll");
+        // Real functions from kernelbase (kernel32 exports are forwarders/stubs on Win10+), fall back to kernel32.
+        HMODULE k32 = GetModuleHandleA("kernelbase.dll");
+        if (!k32)
+            k32 = GetModuleHandleA("kernel32.dll");
         real_CreateFileA = (void *)GetProcAddress(k32, "CreateFileA");
         real_CreateFileW = (void *)GetProcAddress(k32, "CreateFileW");
         real_DeviceIoControl = (void *)GetProcAddress(k32, "DeviceIoControl");
