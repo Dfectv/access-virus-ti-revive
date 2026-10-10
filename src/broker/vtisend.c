@@ -45,6 +45,7 @@ int main(int argc, char **argv)
 {
     int cable = 2, wait_ms = 1500;
     t0 = now();
+    setvbuf(stdout, NULL, _IONBF, 0); // unbuffered: output survives a hang or kill
     vti *v = vti_open(on_rx, NULL);
     if (!v)
         return 1;

@@ -34,6 +34,7 @@ static void read_block(vti *v, uint8_t out_rt, uint8_t in_rt, uint32_t addr)
 
 int main(void)
 {
+    setvbuf(stdout, NULL, _IONBF, 0); // unbuffered: output survives a hang or kill
     vti *v = vti_open(on_rx, NULL);
     if (!v)
         return 1;

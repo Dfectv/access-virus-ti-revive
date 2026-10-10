@@ -1,5 +1,16 @@
 // vticore_midi.c - USB-MIDI SysEx packing shared by the libusb and WinUSB backends (see vticore.h)
 #include "vticore.h"
+#include <stdarg.h>
+#include <stdio.h>
+
+static void log_stderr(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+}
+void (*vti_log)(const char *fmt, ...) = log_stderr;
 
 int vti_pack_sysex(uint8_t cable, const uint8_t *msg, int len, uint8_t *out, int outsz)
 {

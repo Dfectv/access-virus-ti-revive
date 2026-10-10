@@ -13,6 +13,9 @@
 
 typedef struct vti vti;
 
+// Diagnostics sink (default: stderr). Embedders without a console (vtiemu inside a DAW) redirect it.
+extern void (*vti_log)(const char *fmt, ...);
+
 // Called from a reader thread for every completed IN transfer (raw bytes = USB-MIDI 4-byte packets).
 typedef void (*vti_rx_cb)(void *user, uint8_t ep, const uint8_t *data, int len);
 

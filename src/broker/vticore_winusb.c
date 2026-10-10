@@ -40,10 +40,19 @@ static int open_iface(const GUID *g, iface *out)
         if (SetupDiGetDeviceInterfaceDetailW(di, &id, d, need, NULL, NULL)) {
             out->file = CreateFileW(d->DevicePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
                                     NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
-            if (out->file != INVALID_HANDLE_VALUE && WinUsb_Initialize(out->file, &out->usb))
+            if (out->file != INVALID_HANDLE_VALUE && WinUsb_Initialize(out->file, &out->usb)) {
                 ok = 0;
+                // Writes must never block forever (a stuck device hung the DAW, E042): 1 s on both OUT pipes.
+                ULONG t = 1000;
+                WinUsb_SetPipePolicy(out->usb, VTI_EP_MI03_OUT, PIPE_TRANSFER_TIMEOUT, sizeof t, &t);
+                WinUsb_SetPipePolicy(out->usb, VTI_EP_MI04_OUT, PIPE_TRANSFER_TIMEOUT, sizeof t, &t);
+                // Clear halts left by aborted transfers of a previous client (reads failed with error 31).
+                static const uint8_t eps[] = {VTI_EP_MI03_OUT, VTI_EP_MI03_IN, VTI_EP_MI04_OUT, VTI_EP_MI04_IN};
+                for (size_t i = 0; i < sizeof eps; i++)
+                    WinUsb_ResetPipe(out->usb, eps[i]);
+            }
             else
-                fprintf(stderr, "vti: open %ls failed: %lu\n", d->DevicePath, GetLastError());
+                vti_log("vti: open %ls failed: %lu\n", d->DevicePath, GetLastError());
         }
         free(d);
     }
@@ -76,9 +85,12 @@ static DWORD WINAPI reader(LPVOID p)
         else {
             DWORD e = GetLastError();
             if (e != ERROR_SEM_TIMEOUT && e != 0) {
-                fprintf(stderr, "vti: read ep %02x: error %lu\n", a.ep, e);
+                vti_log("vti: read ep %02x: error %lu\n", a.ep, e);
                 if (e == ERROR_BAD_COMMAND || e == ERROR_DEVICE_NOT_CONNECTED || e == ERROR_INVALID_HANDLE)
                     break;
+                if (e == ERROR_GEN_FAILURE) // stalled pipe: clear the halt and keep reading
+                    WinUsb_ResetPipe(f->usb, a.ep);
+                Sleep(10);
             }
         }
     }
@@ -91,20 +103,22 @@ vti *vti_open(vti_rx_cb cb, void *user)
     v->cb = cb;
     v->user = user;
     if (open_iface(&GUID_MI03, &v->mi[0]) || open_iface(&GUID_MI04, &v->mi[1])) {
-        fprintf(stderr, "vti: Virus TI WinUSB interfaces not found (is vti_winusb.inf installed?)\n");
+        vti_log("vti: Virus TI WinUSB interfaces not found (is vti_winusb.inf installed?)\n");
         vti_close(v);
         return NULL;
     }
-    if (vti_write(v, VTI_EP_MI03_OUT, HANDSHAKE, sizeof HANDSHAKE)) {
-        vti_close(v);
-        return NULL;
-    }
+    // Readers first: if nobody drains EP 0x85/0x86, the device stops accepting OUT data, including the
+    // handshake (E042).
     uint8_t eps[2] = {VTI_EP_MI03_IN, VTI_EP_MI04_IN};
     for (int i = 0; i < 2; i++) {
         rd_arg *a = malloc(sizeof *a);
         a->v = v;
         a->ep = eps[i];
         v->rd[i] = CreateThread(NULL, 0, reader, a, 0, NULL);
+    }
+    if (vti_write(v, VTI_EP_MI03_OUT, HANDSHAKE, sizeof HANDSHAKE)) {
+        vti_close(v);
+        return NULL;
     }
     return v;
 }
@@ -134,7 +148,7 @@ int vti_write(vti *v, uint8_t ep, const uint8_t *data, int len)
     ULONG done = 0;
     // WinUSB splits into wMaxPacketSize packets itself.
     if (!WinUsb_WritePipe(f->usb, ep, (PUCHAR)data, (ULONG)len, &done, NULL) || (int)done != len) {
-        fprintf(stderr, "vti: write ep %02x: error %lu\n", ep, GetLastError());
+        vti_log("vti: write ep %02x: error %lu\n", ep, GetLastError());
         return -1;
     }
     return 0;
@@ -147,7 +161,7 @@ int vti_control(vti *v, uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue
     ULONG done = 0;
     // Issued through the MI_04 handle; WinUSB may rewrite wIndex for interface-recipient requests (E040).
     if (!WinUsb_ControlTransfer(v->mi[1].usb, sp, data, len, &done, NULL)) {
-        fprintf(stderr, "vti: control %02x/%02x wIndex %04x: error %lu\n", bmRequestType, bRequest, wIndex,
+        vti_log("vti: control %02x/%02x wIndex %04x: error %lu\n", bmRequestType, bRequest, wIndex,
                 GetLastError());
         return -1;
     }

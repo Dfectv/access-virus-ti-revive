@@ -40,6 +40,7 @@ _Status: architecture accepted 2026-10-10. Decisions: (1) MIDI/plugin first, aud
 3. **Minimum Windows version** (Windows MIDI Services availability).
 
 ## Risks / open
+- Device wedges if IN endpoints are not drained or transfers are aborted (E042): the broker must read EP 0x85/0x86 continuously, time out every write, and port-cycle the device (IOCTL_USB_HUB_CYCLE_PORT / devnode restart, admin) if all pipes fail.
 - 0x220008 (vendor request pass-through): translate recipient interface -> device, else WinUSB rewrites wIndex (E040).
 - 0x220408/0x220410 are standard hub IOCTLs on the root hub (E036): pass through, no emulation.
 - The hook must be installed synchronously when Virus Control.dll loads (it opens the device during load, E036): the wrapper loads it itself and patches before calling its entry points.

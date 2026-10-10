@@ -34,7 +34,7 @@ static void *reader(void *p)
         if (r == 0 && got > 0)
             v->cb(v->user, ep, buf, got);
         else if (r != LIBUSB_ERROR_TIMEOUT && r != 0) {
-            fprintf(stderr, "vti: read ep %02x: %s\n", ep, libusb_error_name(r));
+            vti_log("vti: read ep %02x: %s\n", ep, libusb_error_name(r));
             if (r == LIBUSB_ERROR_NO_DEVICE)
                 break;
         }
@@ -49,23 +49,22 @@ vti *vti_open(vti_rx_cb cb, void *user)
     v->user = user;
     int r = libusb_init(&v->ctx);
     if (r) {
-        fprintf(stderr, "vti: libusb_init: %s\n", libusb_error_name(r));
+        vti_log("vti: libusb_init: %s\n", libusb_error_name(r));
         free(v);
         return NULL;
     }
     v->h = libusb_open_device_with_vid_pid(v->ctx, VTI_VID, VTI_PID);
     if (!v->h) {
-        fprintf(stderr, "vti: Virus TI %04x:%04x not found or no access\n", VTI_VID, VTI_PID);
+        vti_log("vti: Virus TI %04x:%04x not found or no access\n", VTI_VID, VTI_PID);
         goto fail;
     }
     libusb_set_auto_detach_kernel_driver(v->h, 1);
     for (int i = 3; i <= 4; i++)
         if ((r = libusb_claim_interface(v->h, i))) {
-            fprintf(stderr, "vti: claim interface %d: %s\n", i, libusb_error_name(r));
+            vti_log("vti: claim interface %d: %s\n", i, libusb_error_name(r));
             goto fail;
         }
-    if (vti_write(v, VTI_EP_MI03_OUT, HANDSHAKE, sizeof HANDSHAKE))
-        goto fail;
+    // Readers first: if nobody drains EP 0x85/0x86, the device stops accepting OUT data (E042).
     v->rd_ep[0] = VTI_EP_MI03_IN;
     v->rd_ep[1] = VTI_EP_MI04_IN;
     for (int i = 0; i < 2; i++) {
@@ -73,6 +72,10 @@ vti *vti_open(vti_rx_cb cb, void *user)
         a->v = v;
         a->i = i;
         pthread_create(&v->rd[i], NULL, reader, a);
+    }
+    if (vti_write(v, VTI_EP_MI03_OUT, HANDSHAKE, sizeof HANDSHAKE)) {
+        vti_close(v);
+        return NULL;
     }
     return v;
 fail:
@@ -104,7 +107,7 @@ int vti_write(vti *v, uint8_t ep, const uint8_t *data, int len)
         int n = len - off < max ? len - off : max, done = 0;
         int r = libusb_interrupt_transfer(v->h, ep, (uint8_t *)data + off, n, &done, 1000);
         if (r) {
-            fprintf(stderr, "vti: write ep %02x: %s\n", ep, libusb_error_name(r));
+            vti_log("vti: write ep %02x: %s\n", ep, libusb_error_name(r));
             return -1;
         }
         off += done;
@@ -117,7 +120,7 @@ int vti_control(vti *v, uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue
 {
     int r = libusb_control_transfer(v->h, bmRequestType, bRequest, wValue, wIndex, data, len, 1000);
     if (r < 0)
-        fprintf(stderr, "vti: control %02x/%02x wIndex %04x: %s\n", bmRequestType, bRequest, wIndex,
+        vti_log("vti: control %02x/%02x wIndex %04x: %s\n", bmRequestType, bRequest, wIndex,
                 libusb_error_name(r));
     return r < 0 ? -1 : r;
 }

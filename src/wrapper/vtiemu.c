@@ -46,6 +46,17 @@ static void vlog(const char *fmt, ...)
     LeaveCriticalSection(&g_cs);
 }
 
+static void vlog_vti(const char *fmt, ...) // vticore diagnostics into our log (they end with \n)
+{
+    char buf[512];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, sizeof buf, fmt, ap);
+    va_end(ap);
+    buf[strcspn(buf, "\n")] = 0;
+    vlog("vticore: %s", buf);
+}
+
 // ---------------------------------------------------------------------------------------------- device
 // RX ring shared with the plugin (spec §11.2, E041): struct ring + HANDLE event at +0x8010.
 typedef struct {
@@ -538,6 +549,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID unused)
         char exe[MAX_PATH];
         GetModuleFileNameA(NULL, exe, sizeof exe);
         vlog("vtiemu attached to pid %lu %s", GetCurrentProcessId(), exe);
+        vti_log = vlog_vti;
         patch_process(inst);
     }
     return TRUE;
