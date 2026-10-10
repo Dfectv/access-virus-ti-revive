@@ -11,7 +11,9 @@ case "${1:-}" in
   attach) virsh attach-device "$VM" ~/virus-ti-re/scripts/virus.xml --live ;;
   detach) virsh detach-device "$VM" ~/virus-ti-re/scripts/virus.xml --live ;;
   ssh)    shift; ssh -i "$KEY" -o StrictHostKeyChecking=accept-new "$GUSER@$(vmip)" "$@" ;;
+  ps)     shift; ENC=$(printf '%s' "\$ProgressPreference='SilentlyContinue'; $*" | iconv -t UTF-16LE | base64 -w0)   # PowerShell without quoting pain
+          ssh -i "$KEY" -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR "$GUSER@$(vmip)" "powershell -NoProfile -NonInteractive -EncodedCommand $ENC" ;;
   pull)   scp -i "$KEY" -o "User=\"$GUSER\"" -r "$(vmip):$2" "$3" ;;   # -o User: scp rejects spaces in user@host
   push)   scp -i "$KEY" -o "User=\"$GUSER\"" -r "$2" "$(vmip):$3" ;;
-  *) echo "usage: vm.sh start|stop|snap N|revert N|attach|detach|ssh CMD|pull R L|push L R"; exit 1 ;;
+  *) echo "usage: vm.sh start|stop|snap N|revert N|attach|detach|ssh CMD|ps PSCODE|pull R L|push L R"; exit 1 ;;
 esac
