@@ -26,9 +26,10 @@ Header `F0 00 20 33 01 10` (Access, product 01, device 0x10). Observed commands 
 | 73 pp ii vv | both | Global parameter (ii 0x54 = Sync Information Event) |
 | 74 .. / 39 nn / 14 nn | host / host / device | unknown (bank info?) |
 | 6E pp ii vv | host | parameter page C? |
+Preset switch (E033): plugin -> Bank Select + Program Change; hardware -> device reports `72 00 21 pp`. Either way the host then writes its cached 524-byte Single Dump `10 00 00 ...` to the edit buffer (cable 3), followed by CC 113 / Poly Pressure A0 / 6E on cable 2.
 Plugin sync: 73 x29, 72 00..0F, 10 00 x16, 39 01..04, then 30 bb pp for every program of each RAM bank (~1 s per program in the VM).
 ## 7. Keepalive / clock / TI-mode requirements
-Host sends Active Sensing FE (cable 2) ~every 0.3 s, and F5 xx yy (cable 5) + F8 clock (cable 2) periodically (E025). Plugin requires a host audio buffer of 64/128/256/512 samples or it reports "communication problems" (E031).
+Host sends Active Sensing FE (cable 2) every ~0.31 s, F5 xx yy (cable 5) every ~0.74 s, and F8 clock (cable 2) every ~2.0 s, independently (E025). Plugin requires a host audio buffer of 64/128/256/512 samples or it reports "communication problems" (E031).
 ## 8. Audio configuration steps (MI_00..02)
 ## 9. State machine
 ## 10. Open questions

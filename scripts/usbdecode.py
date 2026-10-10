@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""usbdecode.py CAPTURE.pcapng ADDR - decode non-iso Virus TI traffic from a usbmon capture.
+"""usbdecode.py CAPTURE.pcapng ADDR [--events] - decode non-iso Virus TI traffic from a usbmon capture.
 
 Pairs URB submit/complete by urb_id, prints one line per transfer:
   time  EP  dir  status  [setup]  payload
 and, for interrupt EPs 0x05/0x85/0x06/0x86, splits payloads into 4-byte USB-MIDI
 event packets (cable<<4 | CIN) and reassembles SysEx per (EP, cable).
+--events prints one line per decoded MIDI event (time ep event) instead of one per
+transfer, so grep filters act on single events: several events often share one transfer.
 Run with: python3 -I scripts/usbdecode.py captures/X.pcapng 17
 """
 import subprocess, sys, os
@@ -30,6 +32,7 @@ def rows(path, addr):
 
 def main():
     path, addr = sys.argv[1], sys.argv[2]
+    events = "--events" in sys.argv[3:]
     pending, sysex = {}, {}
     for r in rows(path, addr):
         if r["usb.urb_type"] == "'S'":
@@ -62,7 +65,11 @@ def main():
                         midi.append(f"c{cab} SYSEX {sysex.pop(key).hex(' ')}")
                 else:
                     midi.append(f"c{cab} cin{cin:x} {ev.hex(' ')}")
-        print(line + ("  | " + " ; ".join(midi) if midi else ""))
+        if events:
+            for m in midi:
+                print(f"{float(r['frame.time_relative']):10.6f} ep={ep:<5} {m}")
+        else:
+            print(line + ("  | " + " ; ".join(midi) if midi else ""))
 
 
 if __name__ == "__main__":
