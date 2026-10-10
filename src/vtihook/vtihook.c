@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <stdint.h>
 
 #define MAX_DUMP 512 // bytes per buffer dump; larger buffers are truncated (the full size is logged)
 
@@ -122,6 +123,44 @@ static HANDLE WINAPI hook_CreateFileW(LPCWSTR name, DWORD acc, DWORD share, LPSE
     return h;
 }
 
+// AudioSM monitor (M4): after 0x220030 starts streaming into a user buffer of 0x810D0 bytes, sample its
+// header and the samples around the write position every 100 ms for 60 s (layout: findings E051).
+static volatile uint8_t *g_asm;
+
+static DWORD WINAPI asm_monitor(LPVOID p)
+{
+    volatile uint8_t *b = p;
+    for (int i = 0; i < 600 && g_asm == p; i++) {
+        volatile uint32_t *u = (volatile uint32_t *)b;
+        uint32_t nch = u[0x80000 / 4], w8 = u[0x80008 / 4], wc = u[0x8000c / 4], w10 = u[0x80010 / 4];
+        vlog("ASM nch=%u maxf=%u 08=%u 0c=%u 10=%u 1028=%u 102c=%u 1030=%u 10b0=%u 10b4=%u 10b8=%u 10bc=%u 10c8=%llx",
+             nch, u[0x80004 / 4], w8, wc, w10, u[0x81028 / 4], u[0x8102c / 4], u[0x81030 / 4], u[0x810b0 / 4],
+             u[0x810b4 / 4], u[0x810b8 / 4], u[0x810bc / 4], *(volatile unsigned long long *)(b + 0x810c8));
+        if (i % 10 == 0) { // every second: the three sub-structs and 4 frames of samples behind each counter
+            for (int s = 0; s < 3; s++) {
+                char line[200];
+                int k = 0;
+                for (int j = 0; j < 10; j++)
+                    k += sprintf(line + k, "%08x ", u[(0x81038 + s * 0x28) / 4 + j]);
+                vlog("ASM sub%d: %s", s, line);
+            }
+            uint32_t pos[3] = {w8, wc, w10};
+            for (int c = 0; c < 3; c++) {
+                if (!nch || nch > 32)
+                    break;
+                char line[400];
+                int k = 0;
+                uint32_t f = pos[c] % (0x20000 / nch);
+                for (int j = 0; j < 4 * (int)nch && j < 16; j++)
+                    k += sprintf(line + k, "%08x ", u[((f + 0x20000 / nch - 4) % (0x20000 / nch)) * nch + j]);
+                vlog("ASM samples@%s(%u): %s", c == 0 ? "08" : c == 1 ? "0c" : "10", pos[c], line);
+            }
+        }
+        Sleep(100);
+    }
+    return 0;
+}
+
 static BOOL WINAPI hook_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD insz, LPVOID out, DWORD outsz,
                                         LPDWORD ret, LPOVERLAPPED ov)
 {
@@ -144,6 +183,17 @@ static BOOL WINAPI hook_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD i
     }
     BOOL ok = real_DeviceIoControl(h, code, in, insz, out, outsz, ret, ov);
     DWORD e = GetLastError();
+    if (ok && code == 0x220030 && out && outsz >= 16) { // stream start/stop: {u8 start, pad, void *buffer}
+        uint8_t start = *(uint8_t *)out;
+        void *buf = *(void **)((uint8_t *)out + 8);
+        vlog("  stream %s buffer=%p", start ? "START" : "STOP", buf);
+        if (start && buf) {
+            g_asm = buf;
+            CloseHandle(CreateThread(NULL, 0, asm_monitor, buf, 0, NULL));
+        } else {
+            g_asm = NULL;
+        }
+    }
     vlog("  -> ok=%d ret=%lu err=%lu", ok, *ret, ok ? 0 : e);
     if (ok && code == 0x220088 && out && outsz >= 0x8020) // raw pipe open: log the ring header only
         dump("hdr", (char *)out + 0x8000, 0x20);
