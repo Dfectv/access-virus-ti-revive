@@ -30,6 +30,7 @@ _Last updated: 2026-10-10 ~21:45. M3 broker works (E047); wrapper via broker wor
 - In the VM the broker runs from scheduled task "vtibroker" (ONLOGON, interactive, also started with `schtasks /Run /TN vtibroker`); exe at C:\vti\vtibroker.exe. Stop with Stop-Process before replacing the exe.
 - Broker clients get per-client send queues (256 KB, overflow drops the client) and sender threads; vti_is_dead() triggers close/reopen. Port cycle (admin) still TODO for the MSI (elevated helper).
 - vtiemu reconnects transparently (dev_get) after broker restart / unplug.
+- Control Center (VM): scheduled task "vticc" runs C:\vti\start-cc.cmd (= scripts/vm-start-cc.cmd: vtilaunch + vtiemu-pipe.dll); start with `schtasks /Run /TN vticc`.
 - Control Center: `C:\vti\vtilaunch.exe "C:\Program Files\Access Music\Virus TI\Common\Virus Control Center.exe"` (suspended start + APC LoadLibraryW of vtiemu-pipe.dll). Do NOT run an OS/firmware update through the emulation before vendor OUT requests are verified.
 
 ## Emulation M1 (src/wrapper)
