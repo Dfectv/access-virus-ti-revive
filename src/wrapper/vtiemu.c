@@ -373,6 +373,8 @@ static BOOL WINAPI hook_CloseHandle(HANDLE h)
 
 static void patch_module(HMODULE m, int all);
 
+static void patch_access_modules(void);
+
 static void after_load(HMODULE m)
 {
     if (!m)
@@ -381,7 +383,9 @@ static void after_load(HMODULE m)
     GetModuleFileNameA(m, path, sizeof path);
     if (StrStrIA(path, "Virus Control") || StrStrIA(path, "Virus TI")) {
         vlog("loaded %s", path);
-        patch_module(m, 1);
+        // Virus TI.vst3 loads Virus Control.dll inside its own DllMain, i.e. before this hook could patch the
+        // loader (2nd test: plugin said "device not connected"), so look for all Access modules now.
+        patch_access_modules();
     }
 }
 
@@ -470,6 +474,19 @@ static void patch_module(HMODULE m, int all)
         GetModuleFileNameA(m, path, sizeof path);
         vlog("patched %d imports in %s", patched, path);
     }
+}
+
+// Fully patch every Access module currently loaded (idempotent).
+static void patch_access_modules(void)
+{
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
+    if (snap == INVALID_HANDLE_VALUE)
+        return;
+    MODULEENTRY32W me = {.dwSize = sizeof me};
+    for (BOOL ok = Module32FirstW(snap, &me); ok; ok = Module32NextW(snap, &me))
+        if (StrStrIW(me.szModule, L"Virus TI") || StrStrIW(me.szModule, L"Virus Control"))
+            patch_module(me.hModule, 1);
+    CloseHandle(snap);
 }
 
 // Patch the loader imports of every module already in the process (so the host's load of Virus TI.vst3 is
