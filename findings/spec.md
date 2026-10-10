@@ -99,3 +99,14 @@ plugin RX buffer (0x8020 B): struct ring (size 0x8000) | +0x8010 HANDLE event | 
 ```
 Producer (driver/emulation): n = len & ~3; if (size - used >= n) write at wr (wrap), used += n; SetEvent(event) after every IN transfer.
 Consumer (plugin): reads at rd, used -= n.
+
+### 11.3 Plugin audio (AudioSM shared memory, E051)
+0x220030 {u8 start; u8 pad[7]; void *buf} on the \IO_SINGLE_INSTANCE handle: start=1 maps buf (0x810D0 B):
+```
++0x00000  int32 samples[0x20000] (interleaved, nCh per frame)
++0x80000  u32 nChannels   +0x80004 u32 maxFrames (0x20000/nCh)   +0x80008/+0x8000C/+0x80010 u32 positions
++0x81030  u32 (dev+0xA830)  +0x810B0 = that/4   +0x81038/+0x81060/+0x81088 3 x 0x28-byte sub-structs
++0x810B4  u32 1   +0x810B8 u32 switch threshold (frames)   +0x810BC u32 read pos (init 0xFFFFFFFF)   +0x810C8 u64 QPC of first switch
+```
+Buffer switch when frames available since +0x810BC >= +0x810B8: user APC (routine from 0x2200E4) or SetEvent (routine 0, "threaded").
+Field meanings to be confirmed by the vtihook AudioSM monitor on the original driver.
