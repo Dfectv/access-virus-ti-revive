@@ -1,6 +1,16 @@
 # HANDOFF
 
-_Last updated: 2026-10-10 ~21:45. M3 broker works (E047); wrapper via broker works in Ableton, 2nd instance refused by the plugin itself (E048); unplug/replug recovery works (E049). Control Center works via vtilaunch (E050, topology hooks). M3 done. Windows MIDI ports deferred (user: not needed for now). M4 in progress: AudioSM static layout (E051, spec §11.3); vtihook has an AudioSM monitor; VM is currently REVERTED to pre-winusb (Access driver) for the audio trace; return with `vm.sh revert m3-done` then detach/attach (host snd-usb-audio grabs the device after a revert). E052: plugin AudioSM ring stays empty while Virus audio flows over USB -> audio path goes via the ASIO driver; waiting for user check of plugin-track meter. M2 reached (E044): "Virus TI (WinUSB)" wrapper VST3 works in Ableton without injection. Inbox usbaudio works for Virus audio in/out (E045, C9 confirmed); sound on Virus phones with part output "Out 1" (E046). Next: M3 broker._ VM now runs WinUSB instead of the Access driver (E038); broker core works on Linux/libusb and Windows/WinUSB._ Final goal: user-mode Win11 driver + MSI (see findings/design.md). IOCTL semantics decoded (E034/E035, spec §11.1)._
+_Last updated: 2026-10-10 ~22:50 (session paused for usage limit). M1-M3 done; M4 (plugin USB audio) in analysis. VM is on the ORIGINAL-driver snapshot right now (see RESUME HERE)._
+
+
+## RESUME HERE (2026-10-11)
+State at pause:
+- VM `win10` was reverted to snapshot **pre-winusb** (Access driver, 17:20 state) for the M4 audio analysis. Our working WinUSB setup (broker task, wrapper VST3, vtilaunch, vticc task) is saved in snapshot **m3-done** (18:34). Return: `scripts/vm.sh revert m3-done`, then `scripts/vm.sh detach && scripts/vm.sh attach` (after a revert the host snd-usb-audio grabs the Virus; check `1-9:1.*` drivers = usbfs).
+- Ableton (pid 7180, original "Virus TI" plugin, Ableton audio = Windows default driver, looped MIDI clip on the plugin track) has vtihook.dll + vtihook-b.dll injected. Logs: `%TEMP%\vtihook-7180.log` (pull with vm.sh pull). These are gone if Ableton/VM restarted: then start Ableton, inject `C:\vti\vtihook-b.dll` with vtiinject before loading the plugin.
+- Open question (E053): the plugin outputs the Virus audio, but its AudioSM ring always reads empty from outside. Next step: with vtihook-b injected, make the plugin restart its stream (Preferences -> Audio: change buffer size and back, or reload the plugin), keep the clip looping, then `grep "BS #\|interposed" vtihook-7180.log`. If blocks_with_signal > 0: the ring IS the source (consumer clears it) -> M4 = emulate AudioSM (fill the ring from WASAPI capture of the inbox "Virus TI" device, advance +0x81028, SetEvent every +0x810B8 frames). If still 0: look for another source (decompile the Virus Control.dll reader of +0x81028/+0x810BC; CreateFileMappingA wrapper at 0x180031f70).
+- Known AudioSM facts: E051 (layout), E052 (live: nCh 2, 44100 at +0x81030, 256 at +0x810B8, frame counter +0x81028, read pos +0x810BC, threaded event registration), spec §11.3.
+- Plan after M4: M5 Win11 verification, M6 final MSI (user order). Windows MIDI ports deferred.
+- Tools: src/vtihook (vtihook tracer with AudioSM monitor + buffer-switch interposer, vtiinject, vtipeek: `vtipeek <pid> <buf> -N` scans, `0` race mode), scripts/usbdecode.py (`--events`), capture.sh.
 
 ## State
 - Workspace ~/virus-ti-re; git tracks findings/ and scripts/ only. work/ = untracked working copies (Access binaries: never commit/redistribute).

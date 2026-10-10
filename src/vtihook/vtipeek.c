@@ -23,6 +23,42 @@ int main(int argc, char **argv)
         return 1;
     }
     setvbuf(stdout, NULL, _IONBF, 0);
+    if (count == 0) { // race mode: tight loop over the 256 frames behind the write position for ~10 s; the
+                      // plugin consumes (and apparently clears) each block right after the buffer switch (E053)
+        uint32_t hdr[2] = {0};
+        SIZE_T got;
+        ReadProcessMemory(p, (void *)(base + 0x80000), hdr, sizeof hdr, &got);
+        uint32_t nch = hdr[0], maxf = hdr[1], hits = 0, reads = 0;
+        int32_t blk[256 * 2];
+        DWORD t0 = GetTickCount();
+        while (GetTickCount() - t0 < 10000 && nch == 2) {
+            uint32_t wr = 0;
+            ReadProcessMemory(p, (void *)(base + 0x81028), &wr, 4, &got);
+            uint32_t f = (wr + maxf - 256) % maxf;
+            if (f + 256 > maxf)
+                f = 0;
+            ReadProcessMemory(p, (void *)(base + (uintptr_t)f * 8), blk, sizeof blk, &got);
+            reads++;
+            int nz = 0;
+            for (int k = 0; k < 512; k++)
+                if (blk[k])
+                    nz++;
+            if (nz && hits++ < 6) {
+                printf("hit wr=%u frame %u nonzero=%d:", wr, f, nz);
+                for (int k = 0; k < 512 && k < 16; k++)
+                    printf(" %08x", (uint32_t)blk[k]);
+                int first = 0;
+                while (first < 512 && !blk[first])
+                    first++;
+                printf(" | first nz at %d:", first);
+                for (int k = first; k < first + 8 && k < 512; k++)
+                    printf(" %08x", (uint32_t)blk[k]);
+                printf("\n");
+            }
+        }
+        printf("race: %u reads, %u hits\n", reads, hits);
+        return 0;
+    }
     if (count < 0) { // scan mode: whole ring, -count times, report non-zero samples per channel
         static int32_t ring[0x20000];
         for (int i = 0; i < -count; i++) {

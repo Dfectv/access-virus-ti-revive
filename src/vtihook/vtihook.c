@@ -161,6 +161,56 @@ static DWORD WINAPI asm_monitor(LPVOID p)
     return 0;
 }
 
+// Buffer-switch interposer (M4, E053): the plugin registers {routine 0, thread, event} via 0x2200E4 and its
+// priority-31 thread consumes each block right after the event, so outside readers never see the data. We
+// hand the driver our own event; on each switch our thread snapshots the new frames of the AudioSM ring and
+// then signals the plugin's event.
+static HANDLE g_bs_plugin_event, g_bs_our_event;
+
+static DWORD WINAPI bs_thread(LPVOID unused)
+{
+    (void)unused;
+    uint32_t last = 0xffffffff, switches = 0, nz_blocks = 0;
+    int32_t mn = 0, mx = 0;
+    for (;;) {
+        if (WaitForSingleObject(g_bs_our_event, 2000) != WAIT_OBJECT_0)
+            continue;
+        volatile uint8_t *b = g_asm;
+        if (b) {
+            volatile uint32_t *u = (volatile uint32_t *)b;
+            uint32_t nch = u[0x80000 / 4], maxf = u[0x80004 / 4], wr = u[0x81028 / 4];
+            if (nch && nch <= 32 && maxf && last != 0xffffffff && wr - last < maxf) {
+                int nz = 0;
+                for (uint32_t f = last; f != wr; f++)
+                    for (uint32_t c = 0; c < nch; c++) {
+                        int32_t v = (int32_t)u[(f % maxf) * nch + c];
+                        if (v) {
+                            nz++;
+                            if (v < mn) mn = v;
+                            if (v > mx) mx = v;
+                        }
+                    }
+                if (nz)
+                    nz_blocks++;
+                if (switches % 200 == 0 || (nz && nz_blocks <= 5)) {
+                    char line[300];
+                    int k = 0;
+                    uint32_t f0 = last % maxf;
+                    for (uint32_t j = 0; j < 8 * nch && j < 16; j++)
+                        k += sprintf(line + k, "%08x ", u[(f0 * nch + j) % (maxf * nch)]);
+                    vlog("BS #%u frames %u..%u (%u) nonzero=%d blocks_with_signal=%u range[%08x..%08x] first: %s",
+                         switches, last, wr, wr - last, nz, nz_blocks, (uint32_t)mn, (uint32_t)mx, line);
+                }
+            }
+            last = wr;
+        }
+        switches++;
+        if (g_bs_plugin_event)
+            SetEvent(g_bs_plugin_event);
+    }
+    return 0;
+}
+
 static BOOL WINAPI hook_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD insz, LPVOID out, DWORD outsz,
                                         LPDWORD ret, LPOVERLAPPED ov)
 {
@@ -180,6 +230,18 @@ static BOOL WINAPI hook_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD i
     case 0x220024: case 0x220030: case 0x220064: case 0x2200b0: case 0x2200e4: case 0x2200e8:
         dump("ub ", out, outsz);
         break;
+    }
+    if (code == 0x2200e4 && out && outsz >= 24) { // {routine, thread, event}: interpose the threaded variant
+        uint64_t *r = out;
+        if (r[0] == 0 && r[1] && r[2]) {
+            if (!g_bs_our_event) {
+                g_bs_our_event = CreateEventA(NULL, FALSE, FALSE, NULL);
+                CloseHandle(CreateThread(NULL, 0, bs_thread, NULL, 0, NULL));
+            }
+            g_bs_plugin_event = (HANDLE)(uintptr_t)r[2];
+            vlog("  buffer switch interposed: plugin event %p -> ours %p", g_bs_plugin_event, g_bs_our_event);
+            r[2] = (uint64_t)(uintptr_t)g_bs_our_event;
+        }
     }
     BOOL ok = real_DeviceIoControl(h, code, in, insz, out, outsz, ret, ov);
     DWORD e = GetLastError();
