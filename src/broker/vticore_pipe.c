@@ -3,6 +3,7 @@
 // instances and Control Center can share the device (findings/design.md, M3).
 #include "vticore.h"
 #include "vtiproto.h"
+#include "vtipipe_io.h"
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,18 +25,6 @@ struct vti {
     uint16_t ctl_len;
 };
 
-static int read_full(HANDLE p, void *buf, DWORD n)
-{
-    DWORD got = 0;
-    while (got < n) {
-        DWORD r = 0;
-        if (!ReadFile(p, (uint8_t *)buf + got, n - got, &r, NULL) || !r)
-            return -1;
-        got += r;
-    }
-    return 0;
-}
-
 static int send_msg(vti *v, uint16_t type, const void *a, int alen, const void *b, int blen)
 {
     uint8_t buf[sizeof(vtimsg) + VTIMSG_MAX];
@@ -47,11 +36,10 @@ static int send_msg(vti *v, uint16_t type, const void *a, int alen, const void *
     memcpy(buf + sizeof *h, a, alen);
     if (blen)
         memcpy(buf + sizeof *h + alen, b, blen);
-    DWORD w = 0, total = sizeof *h + alen + blen;
     EnterCriticalSection(&v->wr);
-    BOOL ok = WriteFile(v->pipe, buf, total, &w, NULL);
+    int r = vtipipe_write(v->pipe, buf, sizeof *h + alen + blen);
     LeaveCriticalSection(&v->wr);
-    return ok && w == total ? 0 : -1;
+    return r;
 }
 
 static DWORD WINAPI reader(LPVOID arg)
@@ -60,7 +48,7 @@ static DWORD WINAPI reader(LPVOID arg)
     uint8_t buf[VTIMSG_MAX];
     while (!v->stop) {
         vtimsg h;
-        if (read_full(v->pipe, &h, sizeof h) || h.len > VTIMSG_MAX || read_full(v->pipe, buf, h.len)) {
+        if (vtipipe_read(v->pipe, &h, sizeof h) || h.len > VTIMSG_MAX || vtipipe_read(v->pipe, buf, h.len)) {
             if (!v->stop)
                 vti_log("vti: broker connection lost\n");
             v->connected = 0;
@@ -94,7 +82,8 @@ vti *vti_open(vti_rx_cb cb, void *user)
 {
     HANDLE p = INVALID_HANDLE_VALUE;
     for (int i = 0; i < 20 && p == INVALID_HANDLE_VALUE; i++) { // the broker may be busy accepting another client
-        p = CreateFileA(VTI_PIPE_NAME, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+        p = CreateFileA(VTI_PIPE_NAME, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED,
+                        NULL);
         if (p == INVALID_HANDLE_VALUE) {
             if (GetLastError() != ERROR_PIPE_BUSY)
                 break;

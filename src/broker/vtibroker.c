@@ -9,6 +9,7 @@
 // usage: vtibroker.exe [-v]      (-v: log every message; log file %TEMP%\vtibroker.log)
 #include "vticore.h"
 #include "vtiproto.h"
+#include "vtipipe_io.h"
 #include <windows.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -65,15 +66,12 @@ static int send_msg(client *c, uint16_t type, const void *a, int alen, const voi
         memcpy(buf + sizeof *h, a, alen);
     if (blen)
         memcpy(buf + sizeof *h + alen, b, blen);
-    DWORD w = 0, total = sizeof *h + alen + blen;
     EnterCriticalSection(&c->wr);
-    BOOL ok = WriteFile(c->pipe, buf, total, &w, NULL);
+    int r = vtipipe_write(c->pipe, buf, sizeof *h + alen + blen);
     LeaveCriticalSection(&c->wr);
-    if (!ok || w != total) {
+    if (r)
         c->alive = 0;
-        return -1;
-    }
-    return 0;
+    return r;
 }
 
 static void broadcast(uint16_t type, const void *a, int alen, const void *b, int blen)
@@ -133,18 +131,6 @@ static DWORD WINAPI device_thread(LPVOID unused)
     return 0;
 }
 
-static int read_full(HANDLE p, void *buf, DWORD n)
-{
-    DWORD got = 0;
-    while (got < n) {
-        DWORD r = 0;
-        if (!ReadFile(p, (uint8_t *)buf + got, n - got, &r, NULL) || !r)
-            return -1;
-        got += r;
-    }
-    return 0;
-}
-
 static DWORD WINAPI client_thread(LPVOID arg)
 {
     client *c = arg;
@@ -158,7 +144,7 @@ static DWORD WINAPI client_thread(LPVOID arg)
     }
     for (;;) {
         vtimsg h;
-        if (read_full(c->pipe, &h, sizeof h) || h.len > VTIMSG_MAX || read_full(c->pipe, buf, h.len))
+        if (vtipipe_read(c->pipe, &h, sizeof h) || h.len > VTIMSG_MAX || vtipipe_read(c->pipe, buf, h.len))
             break;
         switch (h.type) {
         case VTIMSG_HELLO:
@@ -233,14 +219,24 @@ int main(int argc, char **argv)
     blog("vtibroker starting (protocol %d)", VTI_PROTO_VERSION);
     CloseHandle(CreateThread(NULL, 0, device_thread, NULL, 0, NULL));
     for (;;) {
-        HANDLE p = CreateNamedPipeA(VTI_PIPE_NAME, PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
-                                    PIPE_UNLIMITED_INSTANCES, 65536, 65536, 0, NULL);
+        HANDLE p = CreateNamedPipeA(VTI_PIPE_NAME, PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+                                    PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, PIPE_UNLIMITED_INSTANCES, 65536,
+                                    65536, 0, NULL);
         if (p == INVALID_HANDLE_VALUE) {
             blog("CreateNamedPipe failed: %lu", GetLastError());
             Sleep(1000);
             continue;
         }
-        if (!ConnectNamedPipe(p, NULL) && GetLastError() != ERROR_PIPE_CONNECTED) {
+        OVERLAPPED ov = {0};
+        ov.hEvent = CreateEventA(NULL, TRUE, FALSE, NULL);
+        BOOL connected = ConnectNamedPipe(p, &ov);
+        DWORD e = GetLastError(), dummy;
+        if (!connected && e == ERROR_IO_PENDING)
+            connected = GetOverlappedResult(p, &ov, &dummy, TRUE);
+        else if (!connected && e == ERROR_PIPE_CONNECTED)
+            connected = TRUE;
+        CloseHandle(ov.hEvent);
+        if (!connected) {
             CloseHandle(p);
             continue;
         }
