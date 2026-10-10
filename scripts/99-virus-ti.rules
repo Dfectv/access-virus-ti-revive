@@ -1,0 +1,3 @@
+# Access Virus TI (133e:0815): let the plugdev group open the device via libusb for host-side broker tests.
+# Install: sudo cp scripts/99-virus-ti.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="133e", ATTR{idProduct}=="0815", MODE="0660", GROUP="plugdev"

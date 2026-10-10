@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-10 ~18:15. Final goal: user-mode Win11 driver + MSI (see findings/design.md). IOCTL semantics decoded (E034/E035, spec §11.1)._
+_Last updated: 2026-10-10 ~18:45. Broker core works on the host (E037). Final goal: user-mode Win11 driver + MSI (see findings/design.md). IOCTL semantics decoded (E034/E035, spec §11.1)._
 
 ## State
 - Workspace ~/virus-ti-re; git tracks findings/ and scripts/ only. work/ = untracked working copies (Access binaries: never commit/redistribute).
@@ -19,6 +19,10 @@ _Last updated: 2026-10-10 ~18:15. Final goal: user-mode Win11 driver + MSI (see 
 - MSI UpdateFirmware CA runs on install: never run/repair the MSI with the synth attached. (E003)
 
 - Wire protocol (spec.md §2-7): handshake 4E 73 52 01 on EP 0x05 at device start; USB-MIDI packets on interrupt EPs; plugin syncs RAM banks via SysEx 30/10 and pushes cached Single Dumps on every preset switch (E033).
+
+## Broker core (src/broker)
+- vticore.c/h: libusb open/claim MI_03+MI_04, handshake, interrupt read threads, USB-MIDI SysEx pack/unpack. vtiprobe = hardware test (make -C src/broker; run work/build/linux/vtiprobe with the Virus detached from the VM). Passed on the host (E037).
+- Host test prerequisites: scripts/99-virus-ti.rules installed (done); after `vm.sh detach` run `sudo udevadm trigger --action=change --sysname-match=1-9` in a real terminal (libvirt resets the node to root:root) and close the virt-manager console (its SPICE USB redirection grabs the device).
 
 ## Working procedure (VM)
 - Never physically replug the Virus during a session: host snd-usb-audio grabs it first (host also uses USB audio: mainboard + Sennheiser mic, so don't unload it).

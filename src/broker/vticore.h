@@ -1,0 +1,38 @@
+// vticore.h - user-mode access to the Access Virus TI over libusb (WinUSB backend on Windows).
+// Protocol: findings/spec.md (handshake §3, USB-MIDI framing §4/§5, SysEx §6).
+#pragma once
+#include <stddef.h>
+#include <stdint.h>
+
+#define VTI_VID 0x133e
+#define VTI_PID 0x0815
+#define VTI_EP_MI03_OUT 0x05 // handshake, identity request
+#define VTI_EP_MI03_IN 0x85  // handshake reply, hardware CCs
+#define VTI_EP_MI04_OUT 0x06 // plugin channel: host -> device (cables 2, 3, 5)
+#define VTI_EP_MI04_IN 0x86  // plugin channel: device -> host (cables 2, 3)
+
+typedef struct vti vti;
+
+// Called from a reader thread for every completed IN transfer (raw bytes = USB-MIDI 4-byte packets).
+typedef void (*vti_rx_cb)(void *user, uint8_t ep, const uint8_t *data, int len);
+
+// Open the first Virus TI, claim MI_03 and MI_04 (detaching kernel drivers), send the handshake and
+// start the IN readers. Returns NULL on failure (message on stderr).
+vti *vti_open(vti_rx_cb cb, void *user);
+void vti_close(vti *v);
+
+// Interrupt OUT of raw bytes, split into wMaxPacketSize chunks. Returns 0 on success.
+int vti_write(vti *v, uint8_t ep, const uint8_t *data, int len);
+
+// Pack a complete SysEx message (F0 ... F7) into USB-MIDI packets for `cable`. Returns bytes written to
+// out (a multiple of 4), or -1 if out is too small.
+int vti_pack_sysex(uint8_t cable, const uint8_t *msg, int len, uint8_t *out, int outsz);
+
+// Feed USB-MIDI packets; calls `done` for each complete SysEx per cable and `ev` for other events.
+typedef struct {
+    uint8_t buf[16][1024];
+    int len[16];
+} vti_unpacker;
+typedef void (*vti_sysex_cb)(void *user, uint8_t cable, const uint8_t *msg, int len);
+typedef void (*vti_event_cb)(void *user, uint8_t cable, const uint8_t *ev, int len);
+void vti_unpack(vti_unpacker *u, const uint8_t *data, int len, vti_sysex_cb done, vti_event_cb ev, void *user);
