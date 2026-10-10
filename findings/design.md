@@ -49,7 +49,7 @@ _Status: M1 reached 2026-10-10 (E043): plugin works via injected emulation on Wi
 
 ## Milestones
 - M1 (done, E043): IOCTL emulation in-process (injected) on WinUSB; plugin connects, syncs, preset switching.
-- M2: wrapper VST3 that loads the original plugin and installs the emulation itself (no injector).
+- M2 (done, E044): wrapper VST3 that loads the original plugin and installs the emulation itself (no injector).
 - M3: vtibroker (per-user background process): owns WinUSB, drains IN endpoints permanently, port-cycle recovery, serves plugin instances + Control Center over named pipes; Windows MIDI ports.
 - M4: MSI (WiX): INF + cert/catalog generation custom action, broker autostart, wrapper VST3; uninstall restores.
 - M5: verify on Windows 11 (CI policy, HVCI, Windows MIDI Services); audio decision.
