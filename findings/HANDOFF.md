@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-10 ~20:45. vtiemu fixes after first Ableton tests (E042); device recovered by USB reset._ VM now runs WinUSB instead of the Access driver (E038); broker core works on Linux/libusb and Windows/WinUSB._ Final goal: user-mode Win11 driver + MSI (see findings/design.md). IOCTL semantics decoded (E034/E035, spec §11.1)._
+_Last updated: 2026-10-10 ~21:00. MILESTONE M1 (E043): plugin works in Ableton via vtiemu-f.dll on WinUSB. Next: M2 wrapper VST3 (design.md Milestones)._ VM now runs WinUSB instead of the Access driver (E038); broker core works on Linux/libusb and Windows/WinUSB._ Final goal: user-mode Win11 driver + MSI (see findings/design.md). IOCTL semantics decoded (E034/E035, spec §11.1)._
 
 ## State
 - Workspace ~/virus-ti-re; git tracks findings/ and scripts/ only. work/ = untracked working copies (Access binaries: never commit/redistribute).

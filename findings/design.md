@@ -1,7 +1,7 @@
 # Design: user-mode Virus TI driver for Windows 11 (draft)
 
 _Goal (user, 2026-10-10): a user-level driver for the Virus TI, packaged in a new MSI that works on Windows 11._
-_Status: architecture accepted 2026-10-10. Decisions: (1) MIDI/plugin first, audio later; (2) wrapper VST3 with in-memory IAT patching is OK; (3) Windows version still open._
+_Status: M1 reached 2026-10-10 (E043): plugin works via injected emulation on WinUSB (Win10 VM). Architecture accepted 2026-10-10. Decisions: (1) MIDI/plugin first, audio later; (2) wrapper VST3 with in-memory IAT patching is OK; (3) Windows version still open._
 
 ## Constraints
 - No custom kernel driver: the original VirusUSB.sys is blocked by Win11 Code Integrity (C8). Only Microsoft-signed inbox kernel drivers (WinUSB, usbaudio, usbccgp) may be used.
@@ -46,3 +46,10 @@ _Status: architecture accepted 2026-10-10. Decisions: (1) MIDI/plugin first, aud
 - The hook must be installed synchronously when Virus Control.dll loads (it opens the device during load, E036): the wrapper loads it itself and patches before calling its entry points.
 - Generic PtIOCTL (0x220010) and config blocks (0x22000C, 0x220064/68, 0x2200D0/D4) contents: needed to emulate what the plugin reads at start-up; capture real values from the VM (log DeviceIoControl in/out buffers) before emulating.
 - Interrupt IN throughput with WinUSB on bare metal (E032 was VM-limited).
+
+## Milestones
+- M1 (done, E043): IOCTL emulation in-process (injected) on WinUSB; plugin connects, syncs, preset switching.
+- M2: wrapper VST3 that loads the original plugin and installs the emulation itself (no injector).
+- M3: vtibroker (per-user background process): owns WinUSB, drains IN endpoints permanently, port-cycle recovery, serves plugin instances + Control Center over named pipes; Windows MIDI ports.
+- M4: MSI (WiX): INF + cert/catalog generation custom action, broker autostart, wrapper VST3; uninstall restores.
+- M5: verify on Windows 11 (CI policy, HVCI, Windows MIDI Services); audio decision.
