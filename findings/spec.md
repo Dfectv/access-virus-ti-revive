@@ -91,3 +91,11 @@ Buffers: METHOD_BUFFERED; "out" = OutputBufferLength checked by the driver; UB =
 | 0x2200D0 / 0x2200D4 | 0x104 | read / per-client query | ASIO / VC |
 | 0x2200E4 / 0x2200E8 | 0x18 (UB) | REGISTER_APC_BS / _Notify (ASIO buffer switch) | ASIO, VC |
 | 0x220408 / 0x220410 | 0x4C / 30 | NOT VirusUSB: IOCTL_USB_GET_NODE_INFORMATION / _GET_DESCRIPTOR_FROM_NODE_CONNECTION on the USB root hub (E036) | ASIO, VC |
+
+### 11.2 Raw pipe ring (E041)
+```
+struct ring { uint32_t wr, rd, used, size; uint8_t data[size]; };   // data at +0x10
+plugin RX buffer (0x8020 B): struct ring (size 0x8000) | +0x8010 HANDLE event | +0x8018 u32 closing
+```
+Producer (driver/emulation): n = len & ~3; if (size - used >= n) write at wr (wrap), used += n; SetEvent(event) after every IN transfer.
+Consumer (plugin): reads at rd, used -= n.
