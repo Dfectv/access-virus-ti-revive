@@ -35,7 +35,7 @@ _Status: M1 reached 2026-10-10 (E043): plugin works via injected emulation on Wi
 5. **MSI**: WiX 4; installs broker (autostart), wrapper plugin, INF/catalog (pnputil), cert; uninstall restores.
 
 ## DECIDE
-1. **Audio path**: (a) Windows inbox usbaudio for MI_00..02 (least work; DAW uses WASAPI or FlexASIO; plugin-integrated audio streaming (APC IOCTLs 0x2200E4/E8) not supported), or (b) our own user-mode ASIO + WinUSB isochronous (full plugin integration, much more work, needs the iso frame format decoded). Test first: does Win11 inbox usbaudio drive MI_00..02 (claim C9)?
+1. **Audio path**: (a) Windows inbox usbaudio for MI_00..02 (least work; DAW uses WASAPI or FlexASIO; plugin-integrated audio streaming (APC IOCTLs 0x2200E4/E8) not supported), or (b) our own user-mode ASIO + WinUSB isochronous (full plugin integration, much more work, needs the iso frame format decoded). Test first: does Win11 inbox usbaudio drive MI_00..02 (claim C9)? -> Win10 VM: yes, playback + recording (E045); Win11 still to verify.
 2. **Plugin hooking** via wrapper VST3 that patches Virus Control.dll in memory (no files changed on disk). OK?
 3. **Minimum Windows version** (Windows MIDI Services availability).
 
