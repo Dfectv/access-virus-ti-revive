@@ -15,7 +15,7 @@ DEV=/dev/usbmon$BUS
 printf 'name=%s\nstart=%s\nbus=%s\naddr=%s\nfilter=usb.bus_id == %s && usb.device_address == %s\n' \
   "$NAME" "$(date -Is)" "$BUS" "$ADDR" "$BUS" "$ADDR" > "$OUT/$NAME.meta"
 # Who owns the interfaces on the host? For VM captures they must be "usbfs" (claimed by QEMU), not snd-usb-audio.
-SYS=$(for d in /sys/bus/usb/devices/*; do [ "$(cat $d/busnum 2>/dev/null)" = "$BUS" ] && [ "$(cat $d/devnum 2>/dev/null)" = "$ADDR" ] && echo $d; done)
+SYS=$(for d in /sys/bus/usb/devices/*; do [ "$(cat $d/busnum 2>/dev/null)" = "$BUS" ] && [ "$(cat $d/devnum 2>/dev/null)" = "$ADDR" ] && echo $d; done; true)
 DRV=$(for i in "$SYS":1.*; do printf '%s=%s ' "${i##*:}" "$(basename "$(readlink "$i/driver")" 2>/dev/null)"; done)
 echo "host_ifdrivers=$DRV" >> "$OUT/$NAME.meta"
 grep -q snd-usb-audio <<<"$DRV" && echo "WARNING: host snd-usb-audio owns the Virus ($DRV) - VM passthrough is NOT live" >&2
