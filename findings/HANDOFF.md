@@ -28,7 +28,9 @@ _Last updated: 2026-10-10 ~21:45. M3 broker works (E047); wrapper via broker wor
 - vtibroker.exe: owns WinUSB (vticore_winusb), drains IN permanently, handshake per device open, reopen loop, named pipe \\.\pipe\vtibroker (vtiproto.h framing), fans out RX to all clients; log %TEMP%\vtibroker.log, -v = per message.
 - vticore_pipe.c: same vticore.h API over the pipe; the wrapper VST3 now links this (needs the broker running). vtiprobe-pipe.exe = probe through the broker.
 - In the VM the broker runs from scheduled task "vtibroker" (ONLOGON, interactive, also started with `schtasks /Run /TN vtibroker`); exe at C:\vti\vtibroker.exe. Stop with Stop-Process before replacing the exe.
-- Known risk: broadcast does blocking WriteFile to client pipes from the device reader thread; a stuck client could stall draining (TODO: per-client queue).
+- Broker clients get per-client send queues (256 KB, overflow drops the client) and sender threads; vti_is_dead() triggers close/reopen. Port cycle (admin) still TODO for the MSI (elevated helper).
+- vtiemu reconnects transparently (dev_get) after broker restart / unplug.
+- Control Center: `C:\vti\vtilaunch.exe "C:\Program Files\Access Music\Virus TI\Common\Virus Control Center.exe"` (suspended start + APC LoadLibraryW of vtiemu-pipe.dll). Do NOT run an OS/firmware update through the emulation before vendor OUT requests are verified.
 
 ## Emulation M1 (src/wrapper)
 - vtiemu.dll: injected like the tracer (vtiinject.exe "<Ableton exe>" C:\vti\vtiemu.dll BEFORE loading the plugin). Redirects SetupDi(Access GUID) -> WinUSB MI_04 GUID, virtual handles for CreateFile on that path, emulates IOCTLs (pipe + RX ring, vendor requests recipient->device, replay table), logs to %TEMP%\vtiemu-<pid>.log.

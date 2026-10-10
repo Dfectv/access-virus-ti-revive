@@ -3,7 +3,7 @@ CC = x86_64-w64-mingw32-gcc
 CFLAGS = -O2 -Wall -Wextra
 OUT = ../../work/build
 
-all: $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3
+all: $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3 $(OUT)/vtiemu-pipe.dll $(OUT)/vtilaunch.exe
 
 $(OUT)/vtiemu.dll: vtiemu.c replay_table.h ../broker/vticore_winusb.c ../broker/vticore_midi.c ../broker/vticore.h
 	mkdir -p $(OUT)
@@ -17,5 +17,15 @@ $(OUT)/VirusTI_WinUSB.vst3: vtiwrap.c vtiemu.c replay_table.h ../broker/vticore_
 	$(CC) $(CFLAGS) -DVTIEMU_NO_DLLMAIN -shared -o $@ vtiwrap.c vtiemu.c ../broker/vticore_pipe.c \
 		../broker/vticore_midi.c -lsetupapi -lshlwapi -lshell32 -lole32 -luuid -static -lpthread
 
+# Emulation DLL on the broker (pipe backend) for programs started via vtilaunch (Virus Control Center)
+$(OUT)/vtiemu-pipe.dll: vtiemu.c replay_table.h ../broker/vticore_pipe.c ../broker/vticore_midi.c ../broker/vticore.h ../broker/vtiproto.h
+	mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -shared -o $@ vtiemu.c ../broker/vticore_pipe.c ../broker/vticore_midi.c \
+		-lsetupapi -lshlwapi -static -lpthread
+
+$(OUT)/vtilaunch.exe: vtilaunch.c
+	mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -municode -o $@ vtilaunch.c -static
+
 clean:
-	rm -f $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3
+	rm -f $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3 $(OUT)/vtiemu-pipe.dll $(OUT)/vtilaunch.exe
