@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-10 ~19:10. VM now runs WinUSB instead of the Access driver (E038); broker core works on Linux/libusb and Windows/WinUSB._ Final goal: user-mode Win11 driver + MSI (see findings/design.md). IOCTL semantics decoded (E034/E035, spec §11.1)._
+_Last updated: 2026-10-10 ~19:40. Flash read via WinUSB solved (E040). VM now runs WinUSB instead of the Access driver (E038); broker core works on Linux/libusb and Windows/WinUSB._ Final goal: user-mode Win11 driver + MSI (see findings/design.md). IOCTL semantics decoded (E034/E035, spec §11.1)._
 
 ## State
 - Workspace ~/virus-ti-re; git tracks findings/ and scripts/ only. work/ = untracked working copies (Access binaries: never commit/redistribute).
@@ -27,7 +27,7 @@ _Last updated: 2026-10-10 ~19:10. VM now runs WinUSB instead of the Access drive
 ## VM driver state (IMPORTANT)
 - Since E038 the VM has NO Access driver: usbccgp + WinUSB on MI_03/MI_04 (src/inf/vti_winusb.inf), usbaudio on MI_00. The original plugin cannot work in this state until our emulation exists.
 - Back to the Access driver: `vm.sh revert pre-winusb` (live snapshot 2026-10-10 17:20, Access driver + Ableton setup). Other snapshots: clean, suite-ready, lab-ready, claude-starts.
-- Windows build: make -C src/broker -> work/build/vtiprobe.exe, vtisend.exe (WinUSB backend vticore_winusb.c). vtisend sends SysEx hex strings and prints all RX (copied to VM C:\vti\).
+- Windows build: make -C src/broker -> work/build/vtiprobe.exe, vtisend.exe (WinUSB backend vticore_winusb.c). vtisend sends SysEx hex strings and prints all RX; vtiflash repeats the flash read (copied to VM C:\vti\).
 - Synth global 0x3A is back at 1 (dumps on cable 1) after the E039 test.
 
 ## Working procedure (VM)

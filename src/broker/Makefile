@@ -3,7 +3,7 @@ CFLAGS = -O2 -Wall -Wextra
 OUT = ../../work/build
 SRC_MIDI = vticore_midi.c
 
-all: $(OUT)/linux/vtiprobe $(OUT)/vtiprobe.exe $(OUT)/vtisend.exe
+all: $(OUT)/linux/vtiprobe $(OUT)/vtiprobe.exe $(OUT)/vtisend.exe $(OUT)/vtiflash.exe
 
 $(OUT)/linux/vtiprobe: vtiprobe.c vticore.c $(SRC_MIDI) vticore.h
 	mkdir -p $(OUT)/linux
@@ -17,6 +17,10 @@ $(OUT)/vtiprobe.exe: vtiprobe.c vticore_winusb.c $(SRC_MIDI) vticore.h
 $(OUT)/vtisend.exe: vtisend.c vticore_winusb.c $(SRC_MIDI) vticore.h
 	mkdir -p $(OUT)
 	x86_64-w64-mingw32-gcc $(CFLAGS) -o $@ vtisend.c vticore_winusb.c $(SRC_MIDI) -lwinusb -lsetupapi -static -lpthread
+
+$(OUT)/vtiflash.exe: vtiflash.c vticore_winusb.c $(SRC_MIDI) vticore.h
+	mkdir -p $(OUT)
+	x86_64-w64-mingw32-gcc $(CFLAGS) -o $@ vtiflash.c vticore_winusb.c $(SRC_MIDI) -lwinusb -lsetupapi -static -lpthread
 
 clean:
 	rm -f $(OUT)/linux/vtiprobe $(OUT)/vtiprobe.exe $(OUT)/vtisend.exe

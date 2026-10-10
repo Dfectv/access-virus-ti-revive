@@ -6,8 +6,9 @@ Status: EMPTY. Fill only with evidence-backed content (cite evidence IDs).
 ## 2. Enumeration and initialization (control requests, alt settings)
 ### 2.1 Vendor memory read (on plugin open, E026)
 - OUT bmRequestType 0x41, bRequest 1, wIndex 0x12, 3 data bytes = address (big-endian, e.g. FF7FA0, 800000).
-- Poll IN 0xC1 / 0x81 / wIndex 1 (1 byte status, ~12 ms) until ready; read IN 0xC1 / 0x81 / wIndex 0x30 (16 bytes).
-- Contents: "FLSH200801010000" "01" header, "1.7.00" at 0x800040. IN wIndex 0x22 stalls.
+- Poll IN 0xC1 / 0x81 / wIndex 1 (1 byte status = progress counter 00..10, 0x10 = ready, ~12 ms per poll, 100-250 ms per block); read IN 0xC1 / 0x81 / wIndex 0x30 (16 bytes).
+- Contents: "FLSH200801010000" at FF7FC0, "01" at FF7FD0, "1.7.00" at 0x800030. IN wIndex 0x22 stalls.
+- Through WinUSB use recipient device (0x40 / 0xC0): WinUSB rewrites wIndex of interface-recipient requests (E040).
 ## 3. Handshake / enable sequence
 - After SET_CONFIGURATION the driver sends raw `4E 73 52 01` (not USB-MIDI) as an interrupt OUT on EP 0x05 (E022, E028, E030). Linux snd-usb-audio sends the same bytes.
 - Device answers on EP 0x85 cable 1: `F0 00 20 33 01 10 73 40 40 00 F7` (E022).

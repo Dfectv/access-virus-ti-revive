@@ -111,3 +111,13 @@ int vti_write(vti *v, uint8_t ep, const uint8_t *data, int len)
     }
     return 0;
 }
+
+int vti_control(vti *v, uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue, uint16_t wIndex, uint8_t *data,
+                uint16_t len)
+{
+    int r = libusb_control_transfer(v->h, bmRequestType, bRequest, wValue, wIndex, data, len, 1000);
+    if (r < 0)
+        fprintf(stderr, "vti: control %02x/%02x wIndex %04x: %s\n", bmRequestType, bRequest, wIndex,
+                libusb_error_name(r));
+    return r < 0 ? -1 : r;
+}

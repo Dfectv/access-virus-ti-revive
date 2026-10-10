@@ -139,3 +139,17 @@ int vti_write(vti *v, uint8_t ep, const uint8_t *data, int len)
     }
     return 0;
 }
+
+int vti_control(vti *v, uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue, uint16_t wIndex, uint8_t *data,
+                uint16_t len)
+{
+    WINUSB_SETUP_PACKET sp = {bmRequestType, bRequest, wValue, wIndex, len};
+    ULONG done = 0;
+    // Issued through the MI_04 handle; WinUSB may rewrite wIndex for interface-recipient requests (E040).
+    if (!WinUsb_ControlTransfer(v->mi[1].usb, sp, data, len, &done, NULL)) {
+        fprintf(stderr, "vti: control %02x/%02x wIndex %04x: error %lu\n", bmRequestType, bRequest, wIndex,
+                GetLastError());
+        return -1;
+    }
+    return (int)done;
+}
