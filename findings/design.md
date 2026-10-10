@@ -1,7 +1,7 @@
 # Design: user-mode Virus TI driver for Windows 11 (draft)
 
 _Goal (user, 2026-10-10): a user-level driver for the Virus TI, packaged in a new MSI that works on Windows 11._
-_Status: M1 reached 2026-10-10 (E043): plugin works via injected emulation on WinUSB (Win10 VM). Architecture accepted 2026-10-10. Decisions: (1) MIDI/plugin first, audio later; (2) wrapper VST3 with in-memory IAT patching is OK; (3) Windows version still open._
+_Status: M1 (E043) and M2 (E044) reached 2026-10-10; working on M3 broker. Order: M3 broker, M4 plugin USB audio, M5 Win11, M6 MSI. Architecture accepted 2026-10-10. Decisions: (1) MIDI/plugin first, audio later; (2) wrapper VST3 with in-memory IAT patching is OK; (3) Windows version still open._
 
 ## Constraints
 - No custom kernel driver: the original VirusUSB.sys is blocked by Win11 Code Integrity (C8). Only Microsoft-signed inbox kernel drivers (WinUSB, usbaudio, usbccgp) may be used.
@@ -51,5 +51,6 @@ _Status: M1 reached 2026-10-10 (E043): plugin works via injected emulation on Wi
 - M1 (done, E043): IOCTL emulation in-process (injected) on WinUSB; plugin connects, syncs, preset switching.
 - M2 (done, E044): wrapper VST3 that loads the original plugin and installs the emulation itself (no injector).
 - M3: vtibroker (per-user background process): owns WinUSB, drains IN endpoints permanently, port-cycle recovery, serves plugin instances + Control Center over named pipes; Windows MIDI ports.
-- M4: MSI (WiX): INF + cert/catalog generation custom action, broker autostart, wrapper VST3; uninstall restores.
-- M5: verify on Windows 11 (CI policy, HVCI, Windows MIDI Services); audio decision.
+- M4: plugin-integrated USB audio (the plugin's own audio streaming: ASIO/APC IOCTLs 0x2200B0-BC/E4/E8, iso EP 0x01/0x82) (user order 2026-10-10).
+- M5: verify on Windows 11 (CI policy, HVCI, Windows MIDI Services).
+- M6: final MSI (WiX): INF + cert/catalog generation custom action, broker autostart, wrapper VST3; uninstall restores.
