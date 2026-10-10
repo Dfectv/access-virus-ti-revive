@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-10 ~19:40. Flash read via WinUSB solved (E040). VM now runs WinUSB instead of the Access driver (E038); broker core works on Linux/libusb and Windows/WinUSB._ Final goal: user-mode Win11 driver + MSI (see findings/design.md). IOCTL semantics decoded (E034/E035, spec §11.1)._
+_Last updated: 2026-10-10 ~20:10. First IOCTL emulation (src/wrapper/vtiemu.dll) built, not yet tested. VM now runs WinUSB instead of the Access driver (E038); broker core works on Linux/libusb and Windows/WinUSB._ Final goal: user-mode Win11 driver + MSI (see findings/design.md). IOCTL semantics decoded (E034/E035, spec §11.1)._
 
 ## State
 - Workspace ~/virus-ti-re; git tracks findings/ and scripts/ only. work/ = untracked working copies (Access binaries: never commit/redistribute).
@@ -23,6 +23,11 @@ _Last updated: 2026-10-10 ~19:40. Flash read via WinUSB solved (E040). VM now ru
 ## Broker core (src/broker)
 - vticore.c/h: libusb open/claim MI_03+MI_04, handshake, interrupt read threads, USB-MIDI SysEx pack/unpack. vtiprobe = hardware test (make -C src/broker; run work/build/linux/vtiprobe with the Virus detached from the VM). Passed on the host (E037).
 - Host test prerequisites: scripts/99-virus-ti.rules installed (done); after `vm.sh detach` run `sudo udevadm trigger --action=change --sysname-match=1-9` in a real terminal (libvirt resets the node to root:root) and close the virt-manager console (its SPICE USB redirection grabs the device).
+
+## Emulation M1 (src/wrapper)
+- vtiemu.dll: injected like the tracer (vtiinject.exe "<Ableton exe>" C:\vti\vtiemu.dll BEFORE loading the plugin). Redirects SetupDi(Access GUID) -> WinUSB MI_04 GUID, virtual handles for CreateFile on that path, emulates IOCTLs (pipe + RX ring, vendor requests recipient->device, replay table), logs to %TEMP%\vtiemu-<pid>.log.
+- replay_table.h is generated: python3 -I scripts/gen_replay.py captures/trace/vtihook-1896.log src/wrapper/replay_table.h
+- Next: test in Ableton (audio device must NOT be the Virus ASIO driver, it has no device now); then wrapper VST3; then broker for multi-client + MIDI ports.
 
 ## VM driver state (IMPORTANT)
 - Since E038 the VM has NO Access driver: usbccgp + WinUSB on MI_03/MI_04 (src/inf/vti_winusb.inf), usbaudio on MI_00. The original plugin cannot work in this state until our emulation exists.
