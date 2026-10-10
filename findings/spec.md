@@ -88,4 +88,4 @@ Buffers: METHOD_BUFFERED; "out" = OutputBufferLength checked by the driver; UB =
 | 0x2200B0..0x2200BC | 4/4/4/8 | per-client ASIO params | ASIO, VC |
 | 0x2200D0 / 0x2200D4 | 0x104 | read / per-client query | ASIO / VC |
 | 0x2200E4 / 0x2200E8 | 0x18 (UB) | REGISTER_APC_BS / _Notify (ASIO buffer switch) | ASIO, VC |
-| 0x220408 / 0x220410 | 0x4C | rejected by 2.9.66 (newer-driver probe?) | ASIO, VC |
+| 0x220408 / 0x220410 | 0x4C / 30 | NOT VirusUSB: IOCTL_USB_GET_NODE_INFORMATION / _GET_DESCRIPTOR_FROM_NODE_CONNECTION on the USB root hub (E036) | ASIO, VC |

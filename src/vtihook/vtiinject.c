@@ -54,6 +54,6 @@ int wmain(int argc, wchar_t **argv)
     DWORD rc = 0;
     GetExitCodeThread(t, &rc);
     VirtualFreeEx(p, mem, 0, MEM_RELEASE);
-    wprintf(L"injected %ls into pid %lu (LoadLibraryW -> %s)\n", full, pid, rc ? L"ok" : L"FAILED");
+    wprintf(L"injected %ls into pid %lu (LoadLibraryW -> %ls)\n", full, pid, rc ? L"ok" : L"FAILED");
     return rc ? 0 : 1;
 }

@@ -132,8 +132,16 @@ static BOOL WINAPI hook_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD i
         ret = &got;
     vlog("IOCTL %08lx h=%p in=%p/%lu out=%p/%lu ov=%p", code, h, in, insz, out, outsz, ov);
     dump("in ", in, insz);
-    if (code == 0x220084) // raw pipe write: data travels in the output buffer (Irp->UserBuffer)
+    // These codes pass their input in the output buffer (the driver reads Irp->UserBuffer), so dump it before the call
+    // too. 0x220084 = raw pipe write; 0x220088 is skipped (32 KB ring, only its header matters).
+    switch (code) {
+    case 0x220084:
         dump("tx ", out, outsz);
+        break;
+    case 0x220024: case 0x220030: case 0x220064: case 0x2200b0: case 0x2200e4: case 0x2200e8:
+        dump("ub ", out, outsz);
+        break;
+    }
     BOOL ok = real_DeviceIoControl(h, code, in, insz, out, outsz, ret, ov);
     DWORD e = GetLastError();
     vlog("  -> ok=%d ret=%lu err=%lu", ok, *ret, ok ? 0 : e);
