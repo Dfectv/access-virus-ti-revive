@@ -122,7 +122,7 @@ static int dev_acquire(void)
     EnterCriticalSection(&g_dev_cs);
     if (!g_dev) {
         g_dev = vti_open(on_rx, NULL);
-        vlog("WinUSB open -> %p", (void *)g_dev);
+        vlog("device open -> %p", (void *)g_dev);
     }
     int ok = g_dev != NULL;
     if (ok)
@@ -131,14 +131,37 @@ static int dev_acquire(void)
     return ok;
 }
 
+// Reconnect transparently if the device/broker connection died (broker restart, unplug + replug).
+// Called before every device access; the plugin's RX ring and event stay as they are.
+static vti *dev_get(void)
+{
+    EnterCriticalSection(&g_dev_cs);
+    if (g_dev_refs > 0 && (!g_dev || vti_is_dead(g_dev))) {
+        static DWORD last_try;
+        DWORD now = GetTickCount();
+        if (now - last_try > 1000) { // at most one attempt per second
+            last_try = now;
+            vlog("device connection lost: reconnecting");
+            if (g_dev)
+                vti_close(g_dev);
+            g_dev = vti_open(on_rx, NULL);
+            vlog("reconnect -> %p", (void *)g_dev);
+        }
+    }
+    vti *v = g_dev;
+    LeaveCriticalSection(&g_dev_cs);
+    return v;
+}
+
 static void dev_release(void)
 {
     EnterCriticalSection(&g_dev_cs);
-    if (g_dev && --g_dev_refs == 0) {
+    if (g_dev_refs > 0 && --g_dev_refs == 0) {
         g_ring = NULL;
-        vti_close(g_dev);
+        if (g_dev)
+            vti_close(g_dev);
         g_dev = NULL;
-        vlog("WinUSB closed");
+        vlog("device closed");
     }
     LeaveCriticalSection(&g_dev_cs);
 }
@@ -215,7 +238,8 @@ static BOOL vendor_request(void *in, DWORD insz, void *out, DWORD outsz, LPDWORD
     uint8_t rt_dev = (rt & ~0x1f) | 0x00;
     if (!(rt & 0x80))
         memcpy(buf, s + 8, n);
-    int r = vti_control(g_dev, rt_dev, req, wv, wi, buf, n);
+    vti *dev = dev_get();
+    int r = dev ? vti_control(dev, rt_dev, req, wv, wi, buf, n) : -1;
     if (rt & 0x80) {
         memcpy(out, s, 8 < outsz ? 8 : outsz);
         if (r > 0 && outsz > 8)
@@ -270,7 +294,8 @@ static BOOL emulate(HANDLE h, DWORD code, void *in, DWORD insz, void *out, DWORD
         return TRUE;
     case 0x220084: // raw pipe WRITE: USB-MIDI packets in the output buffer (Irp->UserBuffer)
         *ret = 0;
-        if (out && outsz && vti_write(g_dev, VTI_EP_MI04_OUT, out, (int)outsz)) {
+        vti *dev = dev_get();
+        if (out && outsz && (!dev || vti_write(dev, VTI_EP_MI04_OUT, out, (int)outsz))) {
             SetLastError(ERROR_GEN_FAILURE);
             return FALSE;
         }
