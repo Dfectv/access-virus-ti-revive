@@ -39,7 +39,8 @@ _Last updated: 2026-10-10 ~17:40. Final goal: user-mode Win11 driver + MSI (see 
 - Architecture proposal + open user decisions: findings/design.md (DECIDE 1-3).
 
 ## Next step
-0. Waiting on user for design.md DECIDE 1-3. Meanwhile: runtime-log Virus Control.dll DeviceIoControl in/out buffers in the VM (API hook or ProcMon-like tracer) to capture real values of 0x22000C/0x220010/0x220014/0x220064-68/0x2200D0-D4 for emulation; test claim C9 (inbox usbaudio on MI_00..02) on Win11.
+0. IOCTL tracer built: src/vtihook (make -C src/vtihook -> work/build/vtihook.dll + vtiinject.exe, copied to VM C:\vti\). Use: start Ableton, then `vm.sh ps 'C:\vti\vtiinject.exe "Ableton Live 11 Suite.exe" C:\vti\vtihook.dll'` BEFORE loading the plugin; log = %TEMP%\vtihook-<pid>.log (pull with vm.sh pull). Ask the user before injecting into a running DAW (crash risk).
+   User decided: MIDI/plugin first, audio later; wrapper VST3 OK (design.md). Then: runtime-log Virus Control.dll DeviceIoControl in/out buffers in the VM (API hook or ProcMon-like tracer) to capture real values of 0x22000C/0x220010/0x220014/0x220064-68/0x2200D0-D4 for emulation; test claim C9 (inbox usbaudio on MI_00..02) on Win11.
 1. Open: meaning of 74/39/14/6E, the post-dump CC 113 / Poly Pressure A0 messages, and F5 xx yy. Use usbdecode.py --events for any counting/filtering (several events share one transfer).
 2. Test C7 "needs": does the synth behave differently without F5/F8 (needs a host-side sender; Linux amidi to hw:Virus with snd-usb-audio is one option).
 3. (done) Phase 2.2 IOCTL semantics, see E034/E035. Remaining: confirm raw pipe = EP 0x06/0x86 at runtime; 0x220408/410 meaning.

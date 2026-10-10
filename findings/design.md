@@ -1,7 +1,7 @@
 # Design: user-mode Virus TI driver for Windows 11 (draft)
 
 _Goal (user, 2026-10-10): a user-level driver for the Virus TI, packaged in a new MSI that works on Windows 11._
-_Status: architecture proposal; decisions marked **DECIDE** need the user._
+_Status: architecture accepted 2026-10-10. Decisions: (1) MIDI/plugin first, audio later; (2) wrapper VST3 with in-memory IAT patching is OK; (3) Windows version still open._
 
 ## Constraints
 - No custom kernel driver: the original VirusUSB.sys is blocked by Win11 Code Integrity (C8). Only Microsoft-signed inbox kernel drivers (WinUSB, usbaudio, usbccgp) may be used.
