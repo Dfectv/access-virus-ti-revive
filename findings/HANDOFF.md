@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-10, Phase 2.1 started (GUID + IOCTL list done); blockers cleared_
+_Last updated: 2026-10-10 ~17:05, Phase 0.3/2 captures done: handshake, framing, knobs, sync, preset switching decoded (E020-E033, spec.md §2-7)_
 
 ## State
 - Workspace ~/virus-ti-re; git tracks findings/ and scripts/ only. work/ = untracked working copies (Access binaries: never commit/redistribute).
@@ -18,6 +18,14 @@ _Last updated: 2026-10-10, Phase 2.1 started (GUID + IOCTL list done); blockers 
 - Static (c) evidence: interface GUID {8002DBFF-C173-4BFF-80BE-6815D7E13071}, shared by VirusUSB.sys and all clients; 22 METHOD_BUFFERED IOCTLs, identical set in VirusUSB_X64.dll / Virus Control.dll / Control Center (E017-E019, spec.md §11). Still missing: what each IOCTL does, and a runtime check.
 - MSI UpdateFirmware CA runs on install: never run/repair the MSI with the synth attached. (E003)
 
+- Wire protocol (spec.md §2-7): handshake 4E 73 52 01 on EP 0x05 at device start; USB-MIDI packets on interrupt EPs; plugin syncs RAM banks via SysEx 30/10 and pushes cached Single Dumps on every preset switch (E033).
+
+## Working procedure (VM)
+- Never physically replug the Virus during a session: host snd-usb-audio grabs it first (host also uses USB audio: mainboard + Sennheiser mic, so don't unload it).
+- To reset the link: close the DAW, `vm.sh detach && vm.sh attach`, then in the guest remove the stale USB\VID_133E&PID_0815 devnode (the one that stays "present" from before), `pnputil /scan-devices`, remove the one left in Error. Exactly one Virus TI USB must be present. AbletonAudioCpl can block pnputil; retry.
+- DAW: Ableton Live 11, ASIO "Virus TI", buffer 64/128/256/512 (Waveform at an odd buffer size gave "not synced").
+- usbdecode.py CAPTURE ADDR decodes non-iso traffic; capture.sh resolves the current device address itself.
+
 ## Blockers
 - (cleared) usbmon loaded; JDK 21 + Ghidra via REA work (open_binary needs provider_id="ghidra"); passthrough now live (1-9:1.* bound to usbfs, E015 resolved).
 - Snapshot `lab-ready` does not exist (there is `claude-starts`); confirm which name to use.
@@ -27,6 +35,7 @@ _Last updated: 2026-10-10, Phase 2.1 started (GUID + IOCTL list done); blockers 
 - User's "inbox driver handles playback": true only without VirusUSB.sys? (claims C9)
 
 ## Next step
-1. Phase 0.3 knob test again, now that passthrough is live (user turns Cutoff; capture.sh on usbmon1, device 17).
-2. Phase 2.2: decode IOCTL semantics. Decompile the VirusUSB_X64.dll wrappers around each call site (spec.md §11), then the VirusUSB.sys IRP_MJ_DEVICE_CONTROL dispatch (switch on code-0x220000), to find which IOCTLs submit bulk URBs on EP 0x05/0x06 (MIDI/SysEx path).
+1. Open from E033: what triggered the dumps at t=6.2/27.9; meaning of 74/39/14/6E and F5 xx yy; check usbdecode.py SysEx reassembly (dump lengths vary 524-560).
+2. Test C7 "needs": does the synth behave differently without F5/F8 (needs a host-side sender; Linux amidi to hw:Virus with snd-usb-audio is one option).
+3. Phase 2.2: decode IOCTL semantics. Decompile the VirusUSB_X64.dll wrappers around each call site (spec.md §11), then the VirusUSB.sys IRP_MJ_DEVICE_CONTROL dispatch (switch on code-0x220000), to find which IOCTLs submit bulk URBs on EP 0x05/0x06 (MIDI/SysEx path).
 3. Tip: objdump -d -M intel + scanning for `mov edx,imm` before `call [IAT]` is much faster than per-function decompile for listing call-site constants.

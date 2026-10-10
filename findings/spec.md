@@ -4,11 +4,31 @@ Status: EMPTY. Fill only with evidence-backed content (cite evidence IDs).
 
 ## 1. Device and interfaces
 ## 2. Enumeration and initialization (control requests, alt settings)
+### 2.1 Vendor memory read (on plugin open, E026)
+- OUT bmRequestType 0x41, bRequest 1, wIndex 0x12, 3 data bytes = address (big-endian, e.g. FF7FA0, 800000).
+- Poll IN 0xC1 / 0x81 / wIndex 1 (1 byte status, ~12 ms) until ready; read IN 0xC1 / 0x81 / wIndex 0x30 (16 bytes).
+- Contents: "FLSH200801010000" "01" header, "1.7.00" at 0x800040. IN wIndex 0x22 stalls.
 ## 3. Handshake / enable sequence
+- After SET_CONFIGURATION the driver sends raw `4E 73 52 01` (not USB-MIDI) as an interrupt OUT on EP 0x05 (E022, E028, E030). Linux snd-usb-audio sends the same bytes.
+- Device answers on EP 0x85 cable 1: `F0 00 20 33 01 10 73 40 40 00 F7` (E022).
+- When the plugin opens: Identity Request `F0 7E 7F 06 01 F7` on EP 0x05 (cables 0 and 1), then a vendor control flash read (§2.1), then the SysEx sync (§6).
 ## 4. MI_03 (EP 0x05 / 0x85) framing
+Standard USB-MIDI 4-byte event packets (cable<<4 | CIN), interrupt EPs, bInterval 1. EP 0x05 OUT carries the handshake and the Identity Request; EP 0x85 IN cable 1 carries the handshake reply and hardware-knob CCs (E023, E024).
 ## 5. MI_04 (EP 0x06 / 0x86) framing
+Same packet format. Host->device on EP 0x06: cable 2 (CC, Program Change, SysEx requests, FE, F8), cable 3 (Single Dumps to edit buffer), cable 5 (F5 xx yy). Device->host on EP 0x86: cable 2 (parameter reports, e.g. 72 00 21 pp), cable 3 (dumps, 74 reports). Device streams one 4-byte packet per IN transfer (E032).
 ## 6. SysEx (F0 00 20 33 ...) transport and chunking
+Header `F0 00 20 33 01 10` (Access, product 01, device 0x10). Observed commands (E027, E031, E033):
+| Cmd | Dir | Meaning (inferred) |
+|-----|-----|--------------------|
+| 10 bb pp ... | both | Single Dump (bb 00 = edit buffer) |
+| 30 bb pp | host | Single Dump Request (bank, program) |
+| 72 pp ii vv | both | Multi/part parameter (ii 0x21 = program) |
+| 73 pp ii vv | both | Global parameter (ii 0x54 = Sync Information Event) |
+| 74 .. / 39 nn / 14 nn | host / host / device | unknown (bank info?) |
+| 6E pp ii vv | host | parameter page C? |
+Plugin sync: 73 x29, 72 00..0F, 10 00 x16, 39 01..04, then 30 bb pp for every program of each RAM bank (~1 s per program in the VM).
 ## 7. Keepalive / clock / TI-mode requirements
+Host sends Active Sensing FE (cable 2) ~every 0.3 s, and F5 xx yy (cable 5) + F8 clock (cable 2) periodically (E025). Plugin requires a host audio buffer of 64/128/256/512 samples or it reports "communication problems" (E031).
 ## 8. Audio configuration steps (MI_00..02)
 ## 9. State machine
 ## 10. Open questions

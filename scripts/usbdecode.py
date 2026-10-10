@@ -22,7 +22,8 @@ def rows(path, addr):
     cmd = [ts, path, "-Y", f"usb.device_address == {addr} && usb.transfer_type != 0x00", "-T", "fields"]
     for f in FIELDS:
         cmd += ["-e", f]
-    out = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout
+    # no check=True: tshark exits non-zero on a truncated (still-being-written) capture but still prints the frames
+    out = subprocess.run(cmd, capture_output=True, text=True).stdout
     for line in out.splitlines():
         yield dict(zip(FIELDS, line.split("\t")))
 
