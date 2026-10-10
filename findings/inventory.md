@@ -18,7 +18,7 @@ Signer for all PEs: Kemper GmbH, VeriSign Class 3 Code Signing 2010 CA (G5 root)
 | Virus Control.dll | .../Common (x64) | a622f9a23696f961 | x64 | 2017-09-29 | 5.1.7.00 Kemper GmbH | SETUPAPI, WINMM(time only), WS2_32, CreateFile, DeviceIoControl, LoadLibrary | 3 | plug-in core (13.98 MB) |
 | Virus Control.dll (x86) | Program Files (x86)/.../Common | 3e844c3576ed74ea | x86 | - | - | not inventoried yet | - | 32-bit plug-in core |
 | Virus Control Center.exe | .../Common (x64) | 32db1460b4375545 | x64 | 2017-09-28 | 5.1.7.00 | SETUPAPI, WINMM(time), CreateFile, DeviceIoControl | 0 | standalone host |
-| Virus TI.vst3 = VSTPlugins/Virus TI(.Snow).dll | Common Files/VST3, VSTPlugins | 0cd8d04ea22bc4ef | x64 | 2017-09-28 | 5.1.7.00 | no SETUPAPI/DeviceIoControl | 5 | loader stub (168 KB) |
+| Virus TI.vst3 = VSTPlugins/Virus TI(.Snow).dll | Common Files/VST3, VSTPlugins | 0cd8d04ea22bc4ef | x64 | 2017-09-28 | 5.1.7.00 | CreateFile, LoadLibraryA/W; no SETUPAPI, no DeviceIoControl | 5 | loader stub (168 KB), presumably loads Virus Control.dll |
 | Virus TI.dpm (= x86 Virus TI Snow.dll) | Digidesign/DAE/Plug-Ins | 0a05b16f023b6217 | x86 | 2017-09-28 | 5.1.7.00 | - | 37 | RTAS stub |
 | InstallAssist.exe | Program Files (x86)/.../Common | 75dc066ee305cc75 | x86 | 2017-09-28 | - | GUI only | 0 | installer helper UI |
 | FirmwareUpdater.exe | Program Files (x86)/.../Common | 42fb5d8a85da2176 | x86 | 2017-09-28 | 5.1.7.00 | SETUPAPI, DeviceIoControl… | 0 | DO NOT RUN |
