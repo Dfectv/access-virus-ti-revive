@@ -31,7 +31,7 @@ _Status: M1 (E043) and M2 (E044) reached 2026-10-10; working on M3 broker. Order
 1. **Binding**: INF that binds WinUSB to USB\VID_133E&PID_0815&MI_03 and &MI_04 (composite via inbox usbccgp). Catalog signed with a self-signed cert the MSI installs into LocalMachine Root + TrustedPublisher (Zadig/libwdi approach; known to work on Win11 for WinUSB). Must be verified on the user's Win11 (Secure Boot, HVCI).
 2. **vtibroker.exe**: single owner of the WinUSB handles (WinUSB allows one open per interface). Implements the raw-pipe ring semantics of E035 for clients.
 3. **vtiwrap.vst3 / launcher for Control Center**: loads the original module, patches its import table so the device calls go to our emulation; everything else is forwarded unchanged.
-4. **MIDI ports for DAWs**: Windows MIDI Services (in-box on current Win11) virtual endpoints, so any DAW sees "Virus TI MIDI" / "Virus TI Synth" without a kernel driver.
+4. **MIDI ports for DAWs**: Windows MIDI Services (in-box on current Win11) virtual endpoints, so any DAW sees "Virus TI MIDI" / "Virus TI Synth" without a kernel driver. DEFERRED (user 2026-10-10: not needed for now; since E038 these ports do not exist, MI_03 is WinUSB).
 5. **MSI**: WiX 4; installs broker (autostart), wrapper plugin, INF/catalog (pnputil), cert; uninstall restores.
 
 ## DECIDE
@@ -51,7 +51,7 @@ _Status: M1 (E043) and M2 (E044) reached 2026-10-10; working on M3 broker. Order
 ## Milestones
 - M1 (done, E043): IOCTL emulation in-process (injected) on WinUSB; plugin connects, syncs, preset switching.
 - M2 (done, E044): wrapper VST3 that loads the original plugin and installs the emulation itself (no injector).
-- M3: vtibroker (per-user background process): owns WinUSB, drains IN endpoints permanently, port-cycle recovery, serves plugin instances + Control Center over named pipes; Windows MIDI ports.
+- M3 (done, E047-E050): vtibroker owns WinUSB, drains IN permanently, reconnects; serves plugin + Control Center (vtilaunch). Open: port-cycle recovery (needs elevated helper, M6); Windows MIDI ports deferred.
 - M4: plugin-integrated USB audio (the plugin's own audio streaming: ASIO/APC IOCTLs 0x2200B0-BC/E4/E8, iso EP 0x01/0x82) (user order 2026-10-10).
 - M5: verify on Windows 11 (CI policy, HVCI, Windows MIDI Services).
 - M6: final MSI (WiX): INF + cert/catalog generation custom action, broker autostart, wrapper VST3; uninstall restores.
