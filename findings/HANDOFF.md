@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-10 ~18:45. Broker core works on the host (E037). Final goal: user-mode Win11 driver + MSI (see findings/design.md). IOCTL semantics decoded (E034/E035, spec §11.1)._
+_Last updated: 2026-10-10 ~19:10. VM now runs WinUSB instead of the Access driver (E038); broker core works on Linux/libusb and Windows/WinUSB._ Final goal: user-mode Win11 driver + MSI (see findings/design.md). IOCTL semantics decoded (E034/E035, spec §11.1)._
 
 ## State
 - Workspace ~/virus-ti-re; git tracks findings/ and scripts/ only. work/ = untracked working copies (Access binaries: never commit/redistribute).
@@ -24,6 +24,11 @@ _Last updated: 2026-10-10 ~18:45. Broker core works on the host (E037). Final go
 - vticore.c/h: libusb open/claim MI_03+MI_04, handshake, interrupt read threads, USB-MIDI SysEx pack/unpack. vtiprobe = hardware test (make -C src/broker; run work/build/linux/vtiprobe with the Virus detached from the VM). Passed on the host (E037).
 - Host test prerequisites: scripts/99-virus-ti.rules installed (done); after `vm.sh detach` run `sudo udevadm trigger --action=change --sysname-match=1-9` in a real terminal (libvirt resets the node to root:root) and close the virt-manager console (its SPICE USB redirection grabs the device).
 
+## VM driver state (IMPORTANT)
+- Since E038 the VM has NO Access driver: usbccgp + WinUSB on MI_03/MI_04 (src/inf/vti_winusb.inf), usbaudio on MI_00. The original plugin cannot work in this state until our emulation exists.
+- Back to the Access driver: `vm.sh revert pre-winusb` (live snapshot 2026-10-10 17:20, Access driver + Ableton setup). Other snapshots: clean, suite-ready, lab-ready, claude-starts.
+- Windows build: make -C src/broker -> work/build/vtiprobe.exe (WinUSB backend vticore_winusb.c).
+
 ## Working procedure (VM)
 - Never physically replug the Virus during a session: host snd-usb-audio grabs it first (host also uses USB audio: mainboard + Sennheiser mic, so don't unload it).
 - To reset the link: close the DAW, `vm.sh detach && vm.sh attach`, then in the guest remove the stale USB\VID_133E&PID_0815 devnode (the one that stays "present" from before), `pnputil /scan-devices`, remove the one left in Error. Exactly one Virus TI USB must be present. AbletonAudioCpl can block pnputil; retry.
@@ -32,7 +37,7 @@ _Last updated: 2026-10-10 ~18:45. Broker core works on the host (E037). Final go
 
 ## Blockers
 - (cleared) usbmon loaded; JDK 21 + Ghidra via REA work (open_binary needs provider_id="ghidra"); passthrough now live (1-9:1.* bound to usbfs, E015 resolved).
-- Snapshot `lab-ready` does not exist (there is `claude-starts`); confirm which name to use.
+- (resolved) snapshots exist: clean, suite-ready, lab-ready, claude-starts, pre-winusb.
 
 ## Open questions
 - Key: (c) looks likely; confirm which device interface GUID/IOCTLs Virus Control.dll uses, and whether it uses MI_04 for Remote/editor traffic and MI_03 only for the Windows MIDI ports.
