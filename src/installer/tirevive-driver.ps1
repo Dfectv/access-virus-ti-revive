@@ -52,7 +52,9 @@ if ($Action -eq 'install') {
     if ($out -match '(oem\d+\.inf)') { Set-ItemProperty $reg DriverPackage $Matches[1] }
     pnputil /scan-devices | Out-Null
     Remove-Item $stage -Recurse -Force
+    & (Join-Path $here 'tirevive-shortcuts.ps1') install # if the Access software is already installed
 } else {
+    & (Join-Path $here 'tirevive-shortcuts.ps1') uninstall
     $p = Get-ItemProperty $reg -ErrorAction SilentlyContinue
     Get-Process vtibroker -ErrorAction SilentlyContinue | Stop-Process -Force
     # driver package(s): the recorded one plus any vti_winusb.inf package found in the driver store

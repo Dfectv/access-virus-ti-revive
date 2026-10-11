@@ -60,23 +60,12 @@ for ($i = 0; $i -lt 60; $i++) {
     if ($p.ExitCode -ne 1618) { break }
     Start-Sleep 2
 }
-# The Access MSI creates its own "Virus Control Center" shortcuts, which start it WITHOUT the TI Revive bridge
-# ("no Virus found", E061). Point them at our launcher instead (needs admin for the all-users Start menu: done
-# through an elevated PowerShell, one UAC prompt).
+# Access' own Control Center shortcuts start it without the bridge: replace them (tirevive-shortcuts.ps1, admin,
+# one UAC prompt).
 if ($p.ExitCode -in 0, 3010) {
-    $launcher = Join-Path $PSScriptRoot 'vtilaunch.exe'
-    $retarget = @"
-`$ws = New-Object -ComObject WScript.Shell
-Get-ChildItem "`$env:ProgramData\Microsoft\Windows\Start Menu\Programs", "`$env:PUBLIC\Desktop" -Recurse -Filter '*Control Center*.lnk' -ErrorAction SilentlyContinue |
-  Where-Object { `$_.FullName -notmatch 'TI Revive' } | ForEach-Object {
-    `$l = `$ws.CreateShortcut(`$_.FullName)
-    if (`$l.TargetPath -match 'Virus Control Center\.exe$') {
-        `$l.Arguments = '"' + `$l.TargetPath + '"'; `$l.TargetPath = '$launcher'; `$l.WorkingDirectory = '$PSScriptRoot'; `$l.Save()
-    }
-}
-"@
-    $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($retarget))
-    Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList "-NoProfile -EncodedCommand $enc" -ErrorAction SilentlyContinue
+    $sc = Join-Path $PSScriptRoot 'tirevive-shortcuts.ps1'
+    Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue `
+        -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$sc`" install"
 }
 switch ($p.ExitCode) {
     0 { Say 'The Access Virus TI software is installed (without its old drivers). Use the plug-in "Virus TI (TI Revive)" in your DAW.' }

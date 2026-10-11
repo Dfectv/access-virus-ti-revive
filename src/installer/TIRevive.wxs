@@ -35,6 +35,7 @@
       <Component><File Source="$(var.Src)\inf\vti_winusb.inf" /></Component>
       <Component><File Id="driverps1" Source="$(var.Src)\installer\tirevive-driver.ps1" /></Component>
       <Component><File Id="accessps1" Source="$(var.Src)\installer\tirevive-access.ps1" /></Component>
+      <Component><File Id="shortcutsps1" Source="$(var.Src)\installer\tirevive-shortcuts.ps1" /></Component>
       <Component><File Source="$(var.Src)\installer\notice.rtf" /></Component>
     </ComponentGroup>
     <ComponentGroup Id="Plugin" Directory="VST3FOLDER">
