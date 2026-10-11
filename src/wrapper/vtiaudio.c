@@ -10,6 +10,7 @@
 //   - after every packet it consumes the plugin's output ring (+0x810BC = +0x81028) and signals the plugin's
 //     buffer-switch event (the driver did this in its isochronous completion).
 // If no Virus recording endpoint exists, a 5 ms timer provides the clock with silence.
+// A second thread keeps the Virus playback endpoint streaming (silence), as the driver did (E072).
 #include <windows.h>
 #include <initguid.h>
 #include <mmdeviceapi.h>
@@ -30,7 +31,7 @@ static uint8_t *g_in;               // input region B (spec §11.4)
 static volatile uint8_t *g_out_sm;  // plugin's output AudioSM (0x220030 buffer)
 static volatile HANDLE g_bs_event;  // plugin's buffer-switch event (0x2200E4, threaded)
 static volatile LONG g_running;
-static HANDLE g_thread;
+static HANDLE g_thread, g_render_thread;
 
 #define S(p) ((p) + 8) // AudioSM struct inside the input region
 #define U32(p, off) (*(volatile uint32_t *)((p) + (off)))
@@ -96,16 +97,17 @@ static const CLSID CLSID_MMDevEnum = {0xBCDE0395, 0xE52F, 0x467C, {0x8E, 0x3D, 0
 static const IID IID_MMDevEnum = {0xA95664D2, 0x9614, 0x4F35, {0xA7, 0x46, 0xDE, 0x8D, 0xB6, 0x36, 0x17, 0xE6}};
 static const IID IID_AudioClient = {0x1CB9AD4C, 0xDBFA, 0x4C32, {0xB1, 0x78, 0xC2, 0xF5, 0x68, 0xA7, 0x03, 0xB2}};
 static const IID IID_AudioCapture = {0xC8ADBD64, 0xE71E, 0x48A0, {0xA4, 0xDE, 0x18, 0x5C, 0x39, 0x5C, 0xD3, 0x17}};
+static const IID IID_AudioRender = {0xF294ACFC, 0x3146, 0x4483, {0xA7, 0xBF, 0xAD, 0xDC, 0xA7, 0xC2, 0x60, 0xE2}};
 
-// First active capture endpoint whose friendly name contains "Virus TI".
-static IMMDevice *find_virus_capture(void)
+// First active endpoint of the given direction (eCapture / eRender) whose friendly name contains "Virus TI".
+static IMMDevice *find_virus(EDataFlow flow)
 {
     IMMDeviceEnumerator *en = NULL;
     IMMDeviceCollection *col = NULL;
     IMMDevice *found = NULL;
     if (FAILED(CoCreateInstance(&CLSID_MMDevEnum, NULL, CLSCTX_ALL, &IID_MMDevEnum, (void **)&en)))
         return NULL;
-    if (SUCCEEDED(en->lpVtbl->EnumAudioEndpoints(en, eCapture, DEVICE_STATE_ACTIVE, &col))) {
+    if (SUCCEEDED(en->lpVtbl->EnumAudioEndpoints(en, flow, DEVICE_STATE_ACTIVE, &col))) {
         UINT n = 0;
         col->lpVtbl->GetCount(col, &n);
         for (UINT i = 0; i < n && !found; i++) {
@@ -120,7 +122,7 @@ static IMMDevice *find_virus_capture(void)
                     wcsstr(v.pwszVal, L"Virus TI")) {
                     char name[256];
                     WideCharToMultiByte(CP_UTF8, 0, v.pwszVal, -1, name, sizeof name, NULL, NULL);
-                    vtiemu_log("audio: capture endpoint \"%s\"", name);
+                    vtiemu_log("audio: %s endpoint \"%s\"", flow == eRender ? "render" : "capture", name);
                     found = d;
                     d = NULL;
                 }
@@ -148,7 +150,7 @@ static DWORD WINAPI capture_thread(LPVOID unused)
 {
     (void)unused;
     CoInitializeEx(NULL, COINIT_MULTITHREADED);
-    IMMDevice *dev = find_virus_capture();
+    IMMDevice *dev = find_virus(eCapture);
     IAudioClient *ac = NULL;
     IAudioCaptureClient *cc = NULL;
     HANDLE ev = CreateEventA(NULL, FALSE, FALSE, NULL);
@@ -253,10 +255,93 @@ static DWORD WINAPI capture_thread(LPVOID unused)
     return 0;
 }
 
+// The Access driver streams audio TO the Virus (iso EP 0x01) all the time, alongside the input stream; without
+// it the synth reports "Sync Information Event" (global 0x54 = 1) ~10x per second and the plug-in shows "A sync
+// error occurred" on play (findings E072). So keep the "Virus TI" render endpoint running in exclusive mode at
+// 44.1 kHz (the device rate the capture side set). Silence for now: audio to the Virus is not supported yet.
+// No shared-mode fallback: that would run the endpoint at the shared-mode rate (48 kHz) instead.
+static DWORD WINAPI render_thread(LPVOID unused)
+{
+    (void)unused;
+    CoInitializeEx(NULL, COINIT_MULTITHREADED);
+    IMMDevice *dev = find_virus(eRender);
+    IAudioClient *ac = NULL;
+    IAudioRenderClient *rc = NULL;
+    HANDLE ev = CreateEventA(NULL, FALSE, FALSE, NULL);
+    WAVEFORMATEXTENSIBLE fx = {0};
+    WAVEFORMATEX *mix = NULL;
+    HRESULT hr = E_FAIL;
+    REFERENCE_TIME def = 0, min = 0;
+    UINT32 frames = 0;
+    if (dev && SUCCEEDED(hr = dev->lpVtbl->Activate(dev, &IID_AudioClient, CLSCTX_ALL, NULL, (void **)&ac)) &&
+        SUCCEEDED(hr = ac->lpVtbl->GetMixFormat(ac, &mix))) {
+        WORD ch = mix->nChannels ? mix->nChannels : 2;
+        fx.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+        fx.Format.nChannels = ch;
+        fx.Format.nSamplesPerSec = RATE;
+        fx.Format.wBitsPerSample = 16;
+        fx.Format.nBlockAlign = (WORD)(2 * ch);
+        fx.Format.nAvgBytesPerSec = RATE * 2 * ch;
+        fx.Format.cbSize = sizeof fx - sizeof fx.Format;
+        fx.Samples.wValidBitsPerSample = 16;
+        fx.dwChannelMask = mix->wFormatTag == WAVE_FORMAT_EXTENSIBLE ? ((WAVEFORMATEXTENSIBLE *)mix)->dwChannelMask : 0;
+        fx.SubFormat = (GUID){0x00000001, 0x0000, 0x0010, {0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71}}; // PCM
+        CoTaskMemFree(mix);
+        ac->lpVtbl->GetDevicePeriod(ac, &def, &min);
+        hr = ac->lpVtbl->Initialize(ac, AUDCLNT_SHAREMODE_EXCLUSIVE, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, def, def,
+                                    &fx.Format, NULL);
+        if (hr == AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED) { // retry with the aligned buffer size
+            ac->lpVtbl->GetBufferSize(ac, &frames);
+            ac->lpVtbl->Release(ac);
+            ac = NULL;
+            def = (REFERENCE_TIME)(10000.0 * 1000 / RATE * frames + 0.5);
+            if (SUCCEEDED(hr = dev->lpVtbl->Activate(dev, &IID_AudioClient, CLSCTX_ALL, NULL, (void **)&ac)))
+                hr = ac->lpVtbl->Initialize(ac, AUDCLNT_SHAREMODE_EXCLUSIVE, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, def,
+                                            def, &fx.Format, NULL);
+        }
+    }
+    if (SUCCEEDED(hr))
+        hr = ac->lpVtbl->SetEventHandle(ac, ev);
+    if (SUCCEEDED(hr))
+        hr = ac->lpVtbl->GetBufferSize(ac, &frames);
+    if (SUCCEEDED(hr))
+        hr = ac->lpVtbl->GetService(ac, &IID_AudioRender, (void **)&rc);
+    BYTE *data;
+    if (SUCCEEDED(hr) && SUCCEEDED(hr = rc->lpVtbl->GetBuffer(rc, frames, &data))) // pre-fill before Start
+        hr = rc->lpVtbl->ReleaseBuffer(rc, frames, AUDCLNT_BUFFERFLAGS_SILENT);
+    if (SUCCEEDED(hr))
+        hr = ac->lpVtbl->Start(ac);
+    if (FAILED(hr)) {
+        vtiemu_log("audio: no Virus TI render stream (hr=0x%08lx, endpoint %s): the synth may report sync errors",
+                   (unsigned long)hr, dev ? "found" : "missing");
+    } else {
+        vtiemu_log("audio: rendering silence to the Virus TI endpoint (exclusive 44.1 kHz %u ch, period %.2f ms)",
+                   fx.Format.nChannels, def / 10000.0);
+        while (g_running) {
+            if (WaitForSingleObject(ev, 200) != WAIT_OBJECT_0)
+                continue;
+            if (SUCCEEDED(rc->lpVtbl->GetBuffer(rc, frames, &data))) // exclusive event mode: one whole buffer each
+                rc->lpVtbl->ReleaseBuffer(rc, frames, AUDCLNT_BUFFERFLAGS_SILENT);
+        }
+        ac->lpVtbl->Stop(ac);
+    }
+    if (rc)
+        rc->lpVtbl->Release(rc);
+    if (ac)
+        ac->lpVtbl->Release(ac);
+    if (dev)
+        dev->lpVtbl->Release(dev);
+    CloseHandle(ev);
+    CoUninitialize();
+    return 0;
+}
+
 static void ensure_running(void)
 {
-    if (!InterlockedExchange(&g_running, 1))
+    if (!InterlockedExchange(&g_running, 1)) {
         g_thread = CreateThread(NULL, 0, capture_thread, NULL, 0, NULL);
+        g_render_thread = CreateThread(NULL, 0, render_thread, NULL, 0, NULL);
+    }
 }
 
 // IOCTL 0x220010: map the input region (allocated once per process).
