@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 export LIBVIRT_DEFAULT_URI=qemu:///system
+[ -f ~/.config/tirevive/vm.env ] && . ~/.config/tirevive/vm.env   # local, untracked: VTI_VM_USER=...
 VM=${VM:-win10}; KEY=~/.ssh/vm_re   # VM=win11 scripts/vm.sh ... drives the Windows 11 test VM
 case "$VM" in win11) GUSER=vti ;; *) GUSER="${VTI_VM_USER:?set VTI_VM_USER to the Windows user of the VM}" ;; esac
 vmip() { virsh domifaddr "$VM" --source lease | awk '/192\.168\.122\./{print $4}' | cut -d/ -f1 | head -1; }
