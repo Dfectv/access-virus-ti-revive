@@ -14,17 +14,22 @@ Copy-Item $Msi $copy -Force
 $skip = 'ConnectDevicesDialog', 'PrepareDriverInstall', 'InstallDrivers', 'FinishDriverInstall', 'InstallRunOnceEntry',
         'ApplyOptimization', 'UpdateFirmware'
 $installer = New-Object -ComObject WindowsInstaller.Installer
-$db = $installer.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $installer, @($copy, 1)) # 1 = transact
+# explicit [string]/[int]: PowerShell otherwise passes wrapped objects (DISP_E_TYPEMISMATCH)
+$db = $installer.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $installer, @([string]$copy, [int]1)) # 1 = transact
 foreach ($table in 'InstallExecuteSequence', 'InstallUISequence') {
     foreach ($a in $skip) {
         $sql = "UPDATE ``$table`` SET ``Condition`` = '0' WHERE ``Action`` = '$a'"
-        $view = $db.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $db, @($sql))
+        $view = $db.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $db, @([string]$sql))
         $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null) | Out-Null
         $view.GetType().InvokeMember('Close', 'InvokeMethod', $null, $view, $null) | Out-Null
+        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($view) | Out-Null
     }
 }
 $db.GetType().InvokeMember('Commit', 'InvokeMethod', $null, $db, $null) | Out-Null
 [System.Runtime.InteropServices.Marshal]::ReleaseComObject($db) | Out-Null
+[System.Runtime.InteropServices.Marshal]::ReleaseComObject($installer) | Out-Null
+# all COM handles must be gone, else the patched MSI stays open and msiexec fails with 1619
+$db = $null; $installer = $null; [GC]::Collect(); [GC]::WaitForPendingFinalizers()
 "patched copy: $copy (custom actions disabled: $($skip -join ', '))"
 
 $log = Join-Path $work 'install.log'

@@ -20,7 +20,7 @@ vm push "originals/Virus TI Software Suite 5.1.7.00 64-bit.msi" 'C:/vti/VirusTI-
 for f in src/inf/vti_winusb.inf scripts/vm-winusb-install.ps1; do vm push "$f" 'C:/vti/winusb/'; done
 
 echo "== Access software (no drivers, no firmware updater)"
-vm ps '& C:\vti\install-access-nodrivers.ps1 -Msi C:\vti\VirusTI-5.1.7-x64.msi 2>&1 | Out-String -Width 200'
+vm ps 'powershell -ExecutionPolicy Bypass -File C:\vti\install-access-nodrivers.ps1 -Msi C:\vti\VirusTI-5.1.7-x64.msi 2>&1 | Out-String -Width 200'
 echo "== WinUSB INF"
 vm ps 'powershell -ExecutionPolicy Bypass -File C:\vti\winusb\vm-winusb-install.ps1 2>&1 | Out-String -Width 200'
 echo "== broker task, wrapper, Control Center task"
