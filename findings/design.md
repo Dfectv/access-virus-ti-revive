@@ -52,6 +52,6 @@ _Status: M1 (E043) and M2 (E044) reached 2026-10-10; working on M3 broker. Order
 - M1 (done, E043): IOCTL emulation in-process (injected) on WinUSB; plugin connects, syncs, preset switching.
 - M2 (done, E044): wrapper VST3 that loads the original plugin and installs the emulation itself (no injector).
 - M3 (done, E047-E050): vtibroker owns WinUSB, drains IN permanently, reconnects; serves plugin + Control Center (vtilaunch). Open: port-cycle recovery (needs elevated helper, M6); Windows MIDI ports deferred.
-- M4: plugin-integrated USB audio (the plugin's own audio streaming: ASIO/APC IOCTLs 0x2200B0-BC/E4/E8, iso EP 0x01/0x82) (user order 2026-10-10).
+- M4: plugin-integrated USB audio (user order 2026-10-10). Plan (E054/E055): emulate 0x220010 with an own input AudioSM region; fill it from WASAPI capture of the inbox "Virus TI" endpoint (int16<<16, ch0/1, 44.1 kHz); act as the clock: periodically advance the plugin's output-ring read pos (+0x810BC = +0x81028) and SetEvent the threaded buffer-switch event from 0x2200E4. Output towards the Virus (USB input) not needed with "2 Outs/No Input".
 - M5: verify on Windows 11 (CI policy, HVCI, Windows MIDI Services).
 - M6: final MSI (WiX): INF + cert/catalog generation custom action, broker autostart, wrapper VST3; uninstall restores.

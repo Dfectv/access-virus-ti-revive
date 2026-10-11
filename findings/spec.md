@@ -110,3 +110,13 @@ Consumer (plugin): reads at rd, used -= n.
 ```
 Buffer switch when frames available since +0x810BC >= +0x810B8: user APC (routine from 0x2200E4) or SetEvent (routine 0, "threaded").
 Field meanings to be confirmed by the vtihook AudioSM monitor on the original driver.
+
+### 11.4 Plugin audio input (driver-mapped AudioSM, E055)
+IOCTL 0x220010 -> {u32 0x18, u32 1, u32 1, u32 0x810C0, u64 B}. B is a 0x810C0-byte region mapped into the caller:
+```
+B+0       u64 0x001FFDD8 (magic = IOCTL 0x22004C value)
+S = B+8   AudioSM: int32 samples[0x20000] (int16 << 16), nCh at S+0x80000 (6), maxFrames S+0x80004 (0x5555),
+          write counter S+0x81028 (u32, driver), sample rate S+0x81030 (44100), S+0x810B0 = rate/4, S+0x810B4 = 1
+B+0x81020 u64 owner instance, B+0x81028 u64 exclusive flag (0 = every plugin instance outputs the audio)
+```
+The plugin keeps its own read position; its audio thread is clocked by the threaded buffer-switch event (0x2200E4).
