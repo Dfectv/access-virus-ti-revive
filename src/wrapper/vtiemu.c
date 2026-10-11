@@ -30,6 +30,7 @@ static LARGE_INTEGER g_freq, g_t0;
 void *vtiaudio_input_region(void);           // vtiaudio.c (M4)
 void vtiaudio_output_ring(int start, void *buf);
 void vtiaudio_buffer_switch(const uint64_t reg[3]);
+void vtiaudio_f5(uint32_t ts14);
 void vtiemu_log(const char *fmt, ...);
 
 static void vlog(const char *fmt, ...)
@@ -121,11 +122,16 @@ static void ring_write(ring *r, const uint8_t *p, uint32_t n)
     }
 }
 
+volatile LONG g_sync_reports; // device "Sync Information Event" (global 0x54 = 1, E072), read by vtiaudio.c
+
 static void on_rx(void *user, uint8_t ep, const uint8_t *data, int len)
 {
     (void)user;
     if (ep != VTI_EP_MI04_IN) // MI_03 (cable 1) belongs to the Windows MIDI ports, not the plugin pipe
         return;
+    for (int i = 0; i + 3 < len; i += 4) // F0 00 20 | 33 01 10 | 73 00 54 | 01 F7: one aligned packet "73 00 54"
+        if ((data[i] & 0x0F) == 4 && data[i + 1] == 0x73 && data[i + 2] == 0x00 && data[i + 3] == 0x54)
+            InterlockedIncrement(&g_sync_reports);
     ring *r = g_ring;
     if (r) {
         ring_write(r, data, (uint32_t)len);
@@ -310,6 +316,11 @@ static BOOL emulate(HANDLE h, DWORD code, void *in, DWORD insz, void *out, DWORD
         return TRUE;
     case 0x220084: // raw pipe WRITE: USB-MIDI packets in the output buffer (Irp->UserBuffer)
         *ret = 0;
+        for (DWORD i = 0; out && i + 3 < outsz; i += 4) { // plugin timestamps "F5 lo hi" (diagnostics, vtiaudio.c)
+            const uint8_t *k = (const uint8_t *)out + i;
+            if ((k[0] & 0x0F) == 3 && k[1] == 0xF5)
+                vtiaudio_f5(k[2] | k[3] << 7);
+        }
         vti *dev = dev_get();
         if (out && outsz && (!dev || vti_write(dev, VTI_EP_MI04_OUT, out, (int)outsz))) {
             SetLastError(ERROR_GEN_FAILURE);

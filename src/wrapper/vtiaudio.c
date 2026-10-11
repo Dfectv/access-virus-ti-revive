@@ -92,6 +92,39 @@ static void push_frames(const int16_t *pcm, uint32_t ch, uint32_t n)
     }
 }
 
+// Diagnostics (E074): the synth's sync reports, the offset of the plugin's F5 timestamps (14-bit sample time) to our
+// input frame counter (= synth position as the plugin sees it), and the output ring counters, logged every 10 s.
+extern volatile LONG g_sync_reports; // vtiemu.c
+static volatile LONG g_f5_min = 0x7FFFFFFF, g_f5_max = -0x7FFFFFFF, g_f5_n;
+
+void vtiaudio_f5(uint32_t ts14)
+{
+    if (!g_in)
+        return;
+    int32_t d = (int32_t)((ts14 - U32(S(g_in), 0x81028)) & 0x3FFF);
+    if (d >= 0x2000)
+        d -= 0x4000;
+    if (d < g_f5_min)
+        g_f5_min = d;
+    if (d > g_f5_max)
+        g_f5_max = d;
+    g_f5_n++;
+}
+
+static void diag(void)
+{
+    static LONG last_reports;
+    LONG r = g_sync_reports;
+    volatile uint8_t *o = g_out_sm;
+    vtiemu_log("diag: in %u, sync reports +%ld (total %ld), F5 n %ld offset %ld..%ld, out wr %u rd %u thr %u",
+               U32(S(g_in), 0x81028), r - last_reports, r, g_f5_n, g_f5_n ? g_f5_min : 0, g_f5_n ? g_f5_max : 0,
+               o ? U32(o, 0x81028) : 0, o ? U32(o, 0x810BC) : 0, o ? U32(o, 0x810B8) : 0);
+    last_reports = r;
+    g_f5_min = 0x7FFFFFFF;
+    g_f5_max = -0x7FFFFFFF;
+    g_f5_n = 0;
+}
+
 // GUIDs spelled out: mingw headers declare but do not always define them.
 static const CLSID CLSID_MMDevEnum = {0xBCDE0395, 0xE52F, 0x467C, {0x8E, 0x3D, 0xC4, 0x57, 0x92, 0x91, 0x69, 0x2E}};
 static const IID IID_MMDevEnum = {0xA95664D2, 0x9614, 0x4F35, {0xA7, 0x46, 0xDE, 0x8D, 0xB6, 0x36, 0x17, 0xE6}};
@@ -239,8 +272,11 @@ static DWORD WINAPI capture_thread(LPVOID unused)
                 total += n;
                 cc->lpVtbl->ReleaseBuffer(cc, n);
             }
-            if (total && total % (RATE * 30) < 512) // a sign of life every ~30 s
-                vtiemu_log("audio: %llu frames captured", (unsigned long long)total);
+            static uint64_t next_diag = RATE * 10;
+            if (total >= next_diag) { // every 10 s of device time
+                diag();
+                next_diag += RATE * 10;
+            }
         }
         ac->lpVtbl->Stop(ac);
     }
