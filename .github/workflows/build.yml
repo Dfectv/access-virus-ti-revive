@@ -30,6 +30,7 @@ jobs:
             work/build/vtibroker.exe
             work/build/vtilaunch.exe
             work/build/vtiemu-pipe.dll
+            work/build/TIRevive_ASIO.dll
             work/build/VirusTI_WinUSB.vst3
             work/build/vtiprobe.exe
             work/build/vtiprobe-pipe.exe

@@ -5,14 +5,20 @@
 // accepting OUT data when nobody drains EP 0x85/0x86. The broker keeps the device open and drained
 // permanently, sends the handshake once per device arrival, reconnects after unplug/errors, and
 // fans received data out to every connected client.
+// Audio (protocol 2): the broker also owns the USB audio function (MI_00) while an audio client is registered
+// and streams it on WinUSB (vtiusbaudio.c) into the shared input ring of vtiaudioshm.h, signalling every audio
+// client's event per block, like VirusUSB.sys filled each client's mapped AudioSM.
 //
 // usage: vtibroker.exe [-v]      (-v: log every message; log file %TEMP%\vtibroker.log)
 #include "vticore.h"
 #include "vtiproto.h"
 #include "vtipipe_io.h"
+#include "vtiaudioshm.h"
+#include "../wrapper/vtiusbaudio.h"
 #include <windows.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define MAX_CLIENTS 16
@@ -39,6 +45,17 @@ typedef struct {
 } client;
 static client *g_clients[MAX_CLIENTS];
 
+// ------------------------------------------------------------------------------------------------- audio
+static vti_audio_shm *g_shm;
+static CRITICAL_SECTION g_cs_audio;     // g_audio list (short holds; also taken by the audio callback)
+static CRITICAL_SECTION g_cs_audio_ctl; // stream start/stop (never held by the audio callback)
+static struct {
+    client *c;
+    HANDLE ev;
+} g_audio[MAX_CLIENTS];
+static HANDLE g_audio_thread;
+static volatile LONG g_audio_running, g_audio_blocks;
+
 static void blog(const char *fmt, ...)
 {
     char buf[1024];
@@ -62,6 +79,179 @@ static void blog(const char *fmt, ...)
 }
 
 // Queue one message (header + a + b). On overflow the client is dropped instead of blocking the caller.
+// Called by vua_run's streaming thread for every completed IN read (~441 frames per 10 ms).
+static void audio_in(const int16_t *pcm, uint32_t frames, void *user)
+{
+    (void)user;
+    int64_t w = g_shm->in_frames;
+    for (uint32_t i = 0; i < frames; i++)
+        memcpy(&g_shm->in[((w + i) & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_IN_CH], pcm + i * VTI_AUDIO_IN_CH,
+               VTI_AUDIO_IN_CH * sizeof(int16_t));
+    LARGE_INTEGER q;
+    QueryPerformanceCounter(&q);
+    g_shm->in_qpc = q.QuadPart;
+    InterlockedExchange64((volatile LONG64 *)&g_shm->in_frames, w + frames); // publishes the data written above
+    InterlockedIncrement(&g_audio_blocks);
+    EnterCriticalSection(&g_cs_audio);
+    for (int i = 0; i < MAX_CLIENTS; i++)
+        if (g_audio[i].ev)
+            SetEvent(g_audio[i].ev);
+    LeaveCriticalSection(&g_cs_audio);
+}
+
+// OUT packet source (vua_set_out): frames the writing client (ASIO driver) appended to the output ring. Playback
+// starts once OUT_PREFILL frames are buffered (so one late delivery does not underrun); if the client got ahead by
+// more than OUT_MAX (e.g. after a stall), the oldest frames are dropped to bound the latency. Silence otherwise.
+#define OUT_PREFILL 512
+#define OUT_MAX 2048
+static int g_out_playing;
+static uint64_t g_out_underruns, g_out_dropped, g_out_frames;
+
+static void audio_out(int16_t *dst, uint32_t frames, void *user)
+{
+    (void)user;
+    int64_t w = *(volatile int64_t *)&g_shm->out_write, r = g_shm->out_read;
+    int64_t avail = w - r;
+    if (avail < 0 || avail > VTI_AUDIO_RING) { // writer restarted or far ahead: resynchronise
+        r = w;
+        avail = 0;
+        g_out_playing = 0;
+    }
+    if (!g_out_playing && avail >= OUT_PREFILL)
+        g_out_playing = 1;
+    if (g_out_playing && avail > OUT_MAX) {
+        g_out_dropped += (uint64_t)(avail - OUT_PREFILL);
+        r = w - OUT_PREFILL;
+        avail = OUT_PREFILL;
+    }
+    uint32_t n = 0;
+    if (g_out_playing) {
+        n = avail < frames ? (uint32_t)avail : frames;
+        for (uint32_t i = 0; i < n; i++)
+            memcpy(dst + i * VTI_AUDIO_OUT_CH, &g_shm->out[((r + i) & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_OUT_CH],
+                   VTI_AUDIO_OUT_CH * sizeof(int16_t));
+        if (n < frames) { // ran dry: refill before playing again
+            g_out_underruns++;
+            g_out_playing = 0;
+        }
+    }
+    memset(dst + n * VTI_AUDIO_OUT_CH, 0, (frames - n) * VTI_AUDIO_OUT_CH * sizeof(int16_t));
+    g_shm->out_read = r + n;
+    g_out_frames += n;
+}
+
+static DWORD WINAPI audio_thread(LPVOID unused)
+{
+    (void)unused;
+    g_shm->out_read = g_shm->out_write; // nothing stale from a previous stream
+    g_out_playing = 0;
+    vua_set_out(audio_out, NULL);
+    int r = vua_run(&g_audio_running, audio_in, NULL, blog);
+    g_shm->streaming = 0;
+    if (g_out_frames)
+        blog("audio out: %llu frames played, %llu underruns, %llu frames dropped", (unsigned long long)g_out_frames,
+             (unsigned long long)g_out_underruns, (unsigned long long)g_out_dropped);
+    g_out_frames = g_out_underruns = g_out_dropped = 0;
+    return (DWORD)r;
+}
+
+static int audio_clients(void)
+{
+    int n = 0;
+    EnterCriticalSection(&g_cs_audio);
+    for (int i = 0; i < MAX_CLIENTS; i++)
+        n += g_audio[i].ev != NULL;
+    LeaveCriticalSection(&g_cs_audio);
+    return n;
+}
+
+// Start the stream if needed (g_cs_audio_ctl held): 1 = streaming, 0 = no WinUSB audio function, -1 = error.
+static int audio_start(void)
+{
+    if (g_audio_thread) {
+        DWORD code;
+        if (GetExitCodeThread(g_audio_thread, &code) && code == STILL_ACTIVE)
+            return 1;
+        CloseHandle(g_audio_thread);
+        g_audio_thread = NULL;
+    }
+    g_audio_running = 1;
+    g_audio_blocks = 0;
+    g_audio_thread = CreateThread(NULL, 0, audio_thread, NULL, 0, NULL);
+    for (int i = 0; i < 300; i++) { // the first block arrives ~0.1-0.5 s after the alternate setting
+        if (g_audio_blocks) {
+            g_shm->streaming = 1;
+            blog("audio: streaming for %d client(s)", audio_clients());
+            return 1;
+        }
+        if (WaitForSingleObject(g_audio_thread, 10) == WAIT_OBJECT_0)
+            break;
+    }
+    DWORD code = 1;
+    g_audio_running = 0;
+    WaitForSingleObject(g_audio_thread, 3000);
+    GetExitCodeThread(g_audio_thread, &code);
+    CloseHandle(g_audio_thread);
+    g_audio_thread = NULL;
+    blog("audio: stream did not start (%d)", (int)code);
+    return (int)code == -1 ? 0 : -1;
+}
+
+static void audio_stop_if_unused(void)
+{
+    if (g_audio_thread && !audio_clients()) {
+        g_audio_running = 0;
+        WaitForSingleObject(g_audio_thread, 3000);
+        CloseHandle(g_audio_thread);
+        g_audio_thread = NULL;
+        blog("audio: stopped (no audio clients)");
+    }
+}
+
+// Register (ev != NULL) or unregister (ev == NULL) client c.
+static void audio_set(client *c, HANDLE ev)
+{
+    EnterCriticalSection(&g_cs_audio);
+    for (int i = 0; i < MAX_CLIENTS; i++)
+        if (g_audio[i].c == c) {
+            CloseHandle(g_audio[i].ev);
+            g_audio[i].c = NULL;
+            g_audio[i].ev = NULL;
+        }
+    for (int i = 0; ev && i < MAX_CLIENTS; i++)
+        if (!g_audio[i].ev) {
+            g_audio[i].c = c;
+            g_audio[i].ev = ev;
+            ev = NULL;
+        }
+    LeaveCriticalSection(&g_cs_audio);
+    if (ev)
+        CloseHandle(ev); // list full
+}
+
+static int32_t audio_request(client *c, uint32_t on, const char *name)
+{
+    EnterCriticalSection(&g_cs_audio_ctl);
+    int32_t r = 1;
+    if (on) {
+        HANDLE ev = OpenEventA(EVENT_MODIFY_STATE, FALSE, name);
+        if (!ev) {
+            blog("audio: client event \"%s\" not found (%lu)", name, GetLastError());
+            r = -1;
+        } else {
+            audio_set(c, ev);
+            r = audio_start();
+            if (r != 1)
+                audio_set(c, NULL);
+        }
+    } else {
+        audio_set(c, NULL);
+    }
+    audio_stop_if_unused();
+    LeaveCriticalSection(&g_cs_audio_ctl);
+    return r;
+}
+
 static int send_msg(client *c, uint16_t type, const void *a, int alen, const void *b, int blen)
 {
     if (!c->alive || alen + blen > VTIMSG_MAX)
@@ -247,11 +437,20 @@ static DWORD WINAPI client_thread(LPVOID arg)
                 send_msg(c, VTIMSG_CONTROL_REPLY, hdr, 8, data, (s[0] & 0x80) && r > 0 ? r : 0);
             }
             break;
+        case VTIMSG_AUDIO:
+            if (h.len >= 4) {
+                buf[h.len < VTIMSG_MAX ? h.len : VTIMSG_MAX - 1] = 0;
+                int32_t r = audio_request(c, *(uint32_t *)buf, h.len > 4 ? (const char *)buf + 4 : "");
+                blog("client audio %s -> %d", *(uint32_t *)buf ? "on" : "off", r);
+                send_msg(c, VTIMSG_AUDIO_REPLY, &r, 4, NULL, 0);
+            }
+            break;
         default:
             blog("client: unknown message %u", h.type);
         }
     }
     blog("client disconnected");
+    audio_request(c, 0, NULL);
     EnterCriticalSection(&g_cs_clients);
     for (int i = 0; i < MAX_CLIENTS; i++)
         if (g_clients[i] == c)
@@ -279,6 +478,8 @@ int main(int argc, char **argv)
     InitializeCriticalSection(&g_cs_log);
     InitializeCriticalSection(&g_cs_dev);
     InitializeCriticalSection(&g_cs_clients);
+    InitializeCriticalSection(&g_cs_audio);
+    InitializeCriticalSection(&g_cs_audio_ctl);
     char path[MAX_PATH + 32], tmp[MAX_PATH];
     GetTempPathA(sizeof tmp, tmp);
     snprintf(path, sizeof path, "%svtibroker.log", tmp);
@@ -292,6 +493,19 @@ int main(int argc, char **argv)
     }
     (void)mtx;
     vti_log = on_vti_log;
+    HANDLE map = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(vti_audio_shm),
+                                    VTI_AUDIO_SHM_NAME);
+    g_shm = map ? MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(vti_audio_shm)) : NULL;
+    if (!g_shm) {
+        blog("audio shared memory failed (%lu)", GetLastError());
+        return 1;
+    }
+    g_shm->magic = VTI_AUDIO_MAGIC;
+    g_shm->version = VTI_AUDIO_VERSION;
+    g_shm->rate = VUA_RATE;
+    g_shm->in_ch = VTI_AUDIO_IN_CH;
+    g_shm->out_ch = VTI_AUDIO_OUT_CH;
+    g_shm->ring_frames = VTI_AUDIO_RING;
     blog("vtibroker starting (protocol %d)", VTI_PROTO_VERSION);
     CloseHandle(CreateThread(NULL, 0, device_thread, NULL, 0, NULL));
     for (;;) {

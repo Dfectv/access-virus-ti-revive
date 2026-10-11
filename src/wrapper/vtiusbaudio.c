@@ -132,7 +132,16 @@ static void close_dev(dev *d)
     VirtualFree(d->outbuf, 0, MEM_RELEASE);
 }
 
-// Queue one OUT packet of `frames` frames (silence for now: audio to the Virus is not supported yet).
+static vua_out_fn g_out;
+static void *g_out_user;
+
+void vua_set_out(vua_out_fn fn, void *user)
+{
+    g_out_user = user;
+    g_out = fn;
+}
+
+// Queue one OUT packet of `frames` frames: audio from the vua_set_out source, or silence.
 static int send_out(dev *d, unsigned frames)
 {
     unsigned s = d->wnext;
@@ -143,7 +152,11 @@ static int send_out(dev *d, unsigned frames)
         d->wbusy[s] = 0;
     }
     ULONG len = frames * OUT_CH * 2;
-    memset(d->outbuf + s * OUT_PKT, 0, len);
+    vua_out_fn out = g_out;
+    if (out)
+        out((int16_t *)(d->outbuf + s * OUT_PKT), frames, g_out_user);
+    else
+        memset(d->outbuf + s * OUT_PKT, 0, len);
     ResetEvent(d->wov[s].hEvent);
     if (!WinUsb_WriteIsochPipeAsap(d->bout, s * OUT_PKT, len, d->out_running ? TRUE : FALSE, &d->wov[s]) &&
         GetLastError() != ERROR_IO_PENDING) {
@@ -245,7 +258,7 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
     LOG("usbaudio: streaming 44.1 kHz on WinUSB (IN EP 0x82 %d ch, OUT EP 0x01 %d ch, frame pattern mirrored)",
         IN_CH, OUT_CH);
     static int16_t pcm[NP * (IN_PKT / 2)];
-    uint64_t total = 0, errs = 0, gaps = 0, hist[3] = {0};
+    uint64_t total = 0, errs = 0, gaps = 0, hist[3] = {0}, next_log = VUA_RATE * 60;
     int cur = 0;
     rc = 0;
     while (*running) {
@@ -305,7 +318,6 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
             break;
         }
         cur = (cur + 1) % NR;
-        static uint64_t next_log = VUA_RATE * 60;
         if (total >= next_log) {
             LOG("usbaudio: %llu frames, packets 43/44/45: %llu/%llu/%llu, errors %llu, stalled %llu ms",
                 (unsigned long long)total, (unsigned long long)hist[0], (unsigned long long)hist[1],

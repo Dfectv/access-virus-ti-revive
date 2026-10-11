@@ -1,5 +1,5 @@
 # build.ps1 - build "TI Revive.msi" with WiX 5.
-#   -Bin     folder with vtibroker.exe, vtilaunch.exe, vtiemu-pipe.dll, VirusTI_WinUSB.vst3
+#   -Bin     folder with vtibroker.exe, vtilaunch.exe, vtiemu-pipe.dll, VirusTI_WinUSB.vst3, TIRevive_ASIO.dll
 #   -Src     repository src\ folder (inf\, installer\)
 #   -Out     output folder
 #   -Version MSI ProductVersion (major.minor.build)

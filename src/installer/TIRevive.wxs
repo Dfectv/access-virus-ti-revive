@@ -32,6 +32,20 @@
       </Component>
       <Component><File Source="$(var.Bin)\vtilaunch.exe" /></Component>
       <Component><File Source="$(var.Bin)\vtiemu-pipe.dll" /></Component>
+      <!-- ASIO driver "Virus TI (TI Revive)": wraps the user's original Access ASIO driver (vtiasio.c) -->
+      <Component>
+        <File Id="tireviveasio" Source="$(var.Bin)\TIRevive_ASIO.dll" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{6FD63640-1E0A-4EE0-9158-732A1077C8B5}" Type="string"
+                       Value="Virus TI (TI Revive)" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{6FD63640-1E0A-4EE0-9158-732A1077C8B5}\InprocServer32"
+                       Type="string" Value="[#tireviveasio]" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{6FD63640-1E0A-4EE0-9158-732A1077C8B5}\InprocServer32"
+                       Name="ThreadingModel" Type="string" Value="Apartment" />
+        <RegistryValue Root="HKLM" Key="Software\ASIO\Virus TI (TI Revive)" Name="CLSID" Type="string"
+                       Value="{6FD63640-1E0A-4EE0-9158-732A1077C8B5}" />
+        <RegistryValue Root="HKLM" Key="Software\ASIO\Virus TI (TI Revive)" Name="Description" Type="string"
+                       Value="Virus TI (TI Revive)" />
+      </Component>
       <Component><File Source="$(var.Src)\inf\vti_winusb.inf" /></Component>
       <Component><File Id="driverps1" Source="$(var.Src)\installer\tirevive-driver.ps1" /></Component>
       <Component><File Id="accessps1" Source="$(var.Src)\installer\tirevive-access.ps1" /></Component>

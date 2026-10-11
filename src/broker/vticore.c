@@ -127,6 +127,14 @@ int vti_control(vti *v, uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue
     return r < 0 ? -1 : r;
 }
 
+int vti_audio(vti *v, int on, const char *event_name) // broker audio exists only behind vtibroker (vticore_pipe.c)
+{
+    (void)v;
+    (void)on;
+    (void)event_name;
+    return -1;
+}
+
 int vti_is_dead(vti *v)
 {
     return v->dead != 0;

@@ -11,7 +11,9 @@
 //     buffer-switch event (the driver did this in its isochronous completion).
 // If no Virus recording endpoint exists, a 5 ms timer provides the clock with silence.
 // A second thread keeps the Virus playback endpoint streaming (silence), as the driver did (E072).
-// Preferred over all of this: vtiusbaudio.c streams the USB audio endpoints directly on WinUSB (E075).
+// Preferred over all of this: the broker streams the USB audio endpoints on WinUSB (vtiusbaudio.c, E075) into a
+// shared ring (vtiaudioshm.h) that this process follows; with an older broker the plug-in process streams them
+// itself (same code).
 #include <windows.h>
 #include <initguid.h>
 #include <mmdeviceapi.h>
@@ -21,6 +23,9 @@
 #include <string.h>
 #include <wchar.h>
 #include "vtiusbaudio.h"
+#include "../broker/vticore.h"
+#include "../broker/vtiaudioshm.h"
+#include <stdio.h>
 
 void vtiemu_log(const char *fmt, ...); // vtiemu.c
 
@@ -54,6 +59,47 @@ static void init_region(uint8_t *b)
 // Append n frames of `ch` interleaved int16 channels (or silence if pcm == NULL) in device channel order and
 // run the clock for the plugin. The Virus sends 6 channels (USB1-3 L/R); the plugin's "USB1" is device channel
 // pair 2/3 (E056), so all channels are copied 1:1 like the driver did.
+#ifdef VTIAUDIO_FORWARD_OUTPUT
+// ASIO build (vtiasio.c): what the original ASIO driver wrote into its output AudioSM since the last delivery goes
+// to the broker's output ring (vtiaudioshm.h) and from there to the synth. The plug-in's output ring (side chain,
+// "2 Outs / No Input") is not forwarded.
+static vti_audio_shm *g_out_shm; // writable view, set by broker_audio()
+
+static int16_t to16(int32_t s24)
+{
+    int32_t v = s24 >> 8;
+    return (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
+}
+
+static void forward_output(volatile uint8_t *o)
+{
+    static uint32_t pos;
+    static int valid;
+    vti_audio_shm *shm = g_out_shm;
+    uint32_t ch = U32(o, 0x80000), maxf = U32(o, 0x80004), wr = U32(o, 0x81028);
+    if (!shm || !ch || ch > 32 || !maxf)
+        return;
+    uint32_t n = wr - pos;
+    if (!valid || n > maxf) { // first sight or out of step: start at the writer
+        pos = wr;
+        valid = 1;
+        return;
+    }
+    const int32_t *ring = (const int32_t *)o;
+    int64_t w = shm->out_write;
+    for (uint32_t i = 0; i < n; i++) {
+        const int32_t *f = ring + ((pos + i) % maxf) * ch;
+        int16_t *d = &shm->out[((w + i) & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_OUT_CH];
+        // the ASIO driver stores 24-bit samples in its output AudioSM (int32 >> 8; a -12 dBFS test tone arrived 256x
+        // too quiet with >> 16, E083); the input direction is int16 << 16
+        d[0] = to16(f[0]);
+        d[1] = to16(ch > 1 ? f[1] : f[0]);
+    }
+    InterlockedExchange64((volatile LONG64 *)&shm->out_write, w + n); // publishes the frames written above
+    pos = wr;
+}
+#endif
+
 static void push_frames(const int16_t *pcm, uint32_t ch, uint32_t n)
 {
     uint8_t *s = S(g_in);
@@ -75,6 +121,10 @@ static void push_frames(const int16_t *pcm, uint32_t ch, uint32_t n)
     thr = 0;
 #endif
     if (!thr || thr > 0x8000) { // no output ring (yet): one switch per packet
+#ifdef VTIAUDIO_FORWARD_OUTPUT
+        if (o)
+            forward_output(o);
+#endif
         if (o)
             U32(o, 0x810BC) = U32(o, 0x81028);
         if (ev)
@@ -215,12 +265,99 @@ static void usb_in(const int16_t *pcm, uint32_t frames, void *user)
     }
 }
 
+vti *vtiemu_dev(void); // vtiemu.c: the broker connection (reconnects / starts the broker if needed)
+
+// Follow the broker's shared input ring (vtiaudioshm.h). Returns 1 after a normal stop, 0 if the broker has no
+// WinUSB audio function, -1 if broker audio is not available (no broker connection, broker older than protocol 2).
+static int broker_audio(void)
+{
+    char name[64];
+    snprintf(name, sizeof name, "Local\\vtiaudio_%lu_%lu", GetCurrentProcessId(), GetTickCount());
+    HANDLE ev = CreateEventA(NULL, FALSE, FALSE, name);
+    vti *v = vtiemu_dev();
+    int r = v && ev ? vti_audio(v, 1, name) : -1;
+#ifdef VTIAUDIO_FORWARD_OUTPUT
+    DWORD access = FILE_MAP_READ | FILE_MAP_WRITE; // the ASIO copy also writes the output ring
+#else
+    DWORD access = FILE_MAP_READ;
+#endif
+    HANDLE map = r == 1 ? OpenFileMappingA(access, FALSE, VTI_AUDIO_SHM_NAME) : NULL;
+    const vti_audio_shm *shm = map ? MapViewOfFile(map, access, 0, 0, sizeof(vti_audio_shm)) : NULL;
+    if (!shm || shm->magic != VTI_AUDIO_MAGIC || shm->version != VTI_AUDIO_VERSION ||
+        shm->ring_frames != VTI_AUDIO_RING || shm->in_ch != IN_CHANNELS) {
+        vtiemu_log("audio: no broker audio (%d)", r);
+        if (r == 1)
+            vti_audio(v, 0, NULL);
+        if (shm)
+            UnmapViewOfFile(shm);
+        if (map)
+            CloseHandle(map);
+        if (ev)
+            CloseHandle(ev);
+        return r == 0 ? 0 : -1;
+    }
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+#ifdef VTIAUDIO_FORWARD_OUTPUT
+    g_out_shm = (vti_audio_shm *)shm;
+#endif
+    vtiemu_log("audio: following the broker's WinUSB stream (shared ring, %u ch)", shm->in_ch);
+    static int16_t buf[4096 * IN_CHANNELS];
+    int64_t pos = shm->in_frames;
+    int idle = 0;
+    while (g_running) {
+        DWORD w = WaitForSingleObject(ev, 200);
+        // plain aligned 64-bit read (atomic on x64); no interlocked op: the mapping is read-only (lock cmpxchg
+        // writes and faults there). The broker publishes in_frames after the data, x64 keeps the load order.
+        int64_t wr = *(volatile const int64_t *)&shm->in_frames;
+        if (wr == pos) {
+            if (w == WAIT_TIMEOUT && ++idle >= 5) { // 1 s without audio: broker restarted or stream stopped
+                idle = 0;
+                v = vtiemu_dev();
+                int rr = v ? vti_audio(v, 1, name) : -1;
+                vtiemu_log("audio: broker stream stalled, re-registered (%d)", rr);
+                pos = shm->in_frames;
+            }
+            continue;
+        }
+        idle = 0;
+        int64_t avail = wr - pos;
+        if (avail < 0 || avail > VTI_AUDIO_RING - 4096) { // fell behind by most of the ring (or the ring restarted)
+            vtiemu_log("audio: broker ring overrun (%lld frames), resynchronising", (long long)avail);
+            pos = wr - 441;
+            avail = 441;
+        }
+        while (avail > 0) { // one contiguous block per delivery (small blocks upset the plugin's clock, E077)
+            uint32_t k = avail > 4096 ? 4096 : (uint32_t)avail;
+            for (uint32_t i = 0; i < k; i++)
+                memcpy(buf + i * IN_CHANNELS, &shm->in[((pos + i) & (VTI_AUDIO_RING - 1)) * IN_CHANNELS],
+                       IN_CHANNELS * sizeof(int16_t));
+            usb_in(buf, k, NULL);
+            pos += k;
+            avail -= k;
+        }
+    }
+#ifdef VTIAUDIO_FORWARD_OUTPUT
+    g_out_shm = NULL;
+#endif
+    v = vtiemu_dev();
+    if (v)
+        vti_audio(v, 0, NULL);
+    UnmapViewOfFile(shm);
+    CloseHandle(map);
+    CloseHandle(ev);
+    return 1;
+}
+
 static DWORD WINAPI capture_thread(LPVOID unused)
 {
     (void)unused;
-    // Preferred: stream the Virus audio ourselves on WinUSB like VirusUSB.sys (frame counter = the synth's real
-    // frames, OUT pattern mirrored; E075). Falls through to WASAPI when the audio function is not on WinUSB.
-    if (vua_run(&g_running, usb_in, NULL, vtiemu_log) >= 0)
+    // Preferred: the broker streams the Virus audio on WinUSB like VirusUSB.sys (frame counter = the synth's real
+    // frames, OUT pattern mirrored; E075) and this process follows its shared ring. With an older broker, stream
+    // it here directly. Falls through to WASAPI when the audio function is not on WinUSB.
+    int b = broker_audio();
+    if (b > 0)
+        return 0;
+    if (b < 0 && vua_run(&g_running, usb_in, NULL, vtiemu_log) >= 0)
         return 0;
     vtiemu_log("audio: no WinUSB audio function (MI_00): using Windows audio (WASAPI)");
     g_render_thread = CreateThread(NULL, 0, render_thread, NULL, 0, NULL);

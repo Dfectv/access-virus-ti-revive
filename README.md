@@ -61,7 +61,8 @@ answered by a user-mode emulation (`src/wrapper/vtiemu.c`):
 
 **Audio through the plug-in.** The old driver mapped a shared ring buffer ("AudioSM") into the
 plug-in's process and filled it with the Virus' six USB audio channels. TI Revive allocates that buffer
-itself and streams the Virus' isochronous audio endpoints directly on WinUSB, the way the old driver did:
+itself; the broker streams the Virus' isochronous audio endpoints directly on WinUSB, the way the old driver did,
+and shares the samples with the plug-in (and the ASIO driver) through shared memory:
 44.1 kHz, every received packet's frame count is mirrored on the stream towards the synth, so the synth's
 clock is the master and the plug-in's sample counter is exactly the number of frames the synth produced
 (its MIDI timestamps then never drift against the synth). Reads are scheduled on USB frame numbers, so
@@ -69,6 +70,12 @@ even a stalled PC keeps the counter exact (the gap is filled with silence). The 
 buffer in the driver's format and the plug-in's audio thread is clocked with the same buffer-switch event.
 If the audio function is not on WinUSB, TI Revive falls back to the Windows "Virus TI" recording device
 (WASAPI, exclusive 44.1 kHz).
+
+**ASIO sound card.** Like the Access ASIO driver, TI Revive offers the Virus as an ASIO device,
+**"Virus TI (TI Revive)"**: a small COM wrapper (`TIRevive_ASIO.dll`) loads your original Access ASIO driver
+(`VirusUSB_X64.dll`) and answers its driver calls with the same emulation as the plug-in. Its 2 inputs are the
+Virus analog inputs, its 2 outputs play through the Virus outputs, 44.1 kHz, 256 samples - exactly the
+original's channels and buffer. Plug-in and ASIO driver run at the same time and follow the same synth clock.
 
 **The broker.** WinUSB allows one owner per interface, and the Virus stops accepting data when nobody
 reads its input endpoints. `vtibroker.exe` therefore owns the device while it is in use, sends the
@@ -109,10 +116,13 @@ shortcuts). The Access software is uninstalled separately.
 - **Audio buffer size** must be 64, 128, 256 or 512 samples, otherwise the plug-in reports
   "communication problems" (original behaviour).
 - **Hearing the Virus**: with a part output set to *USB*, the audio comes through the plug-in track.
-  The plug-in sets the synth to "2 Outs / No Input"; audio *to* the Virus over USB is not supported yet.
-- **The Virus is no Windows sound card any more**: its audio function runs on WinUSB and is streamed by the
-  plug-in itself (as with the old Access driver), so "Line (Virus TI)" / "Speakers (Virus TI)" no longer
-  appear in Windows. You hear the Virus through the plug-in track. When you update from TI Revive 0.2.x,
+- **Virus as sound card**: choose the ASIO device **"Virus TI (TI Revive)"** (not the Access "Virus USB ASIO
+  driver" entry) to play your DAW through the Virus outputs and record its analog inputs; buffer 256 samples.
+  Keep the Virus "USB Audio mode" (Patch Utility -> Config) at **2 outs / no input**: that is the sound card
+  mode ("3 outs / 1 input" disables it).
+- **No Windows (WDM) sound card**: the Virus audio function runs on WinUSB and is streamed by TI Revive itself
+  (as with the old Access driver), so "Line (Virus TI)" / "Speakers (Virus TI)" no longer appear in Windows;
+  use the ASIO device in your DAW. You hear the Virus through the plug-in track. When you update from TI Revive 0.2.x,
   unplug and replug the Virus (or restart Windows) once after installing, so the new driver binding applies.
 - **"A sync error occurred. Press Stop and Play to clear."** can appear once right after the first Play;
   Stop and Play clears it.
@@ -131,7 +141,8 @@ shortcuts). The Access software is uninstalled separately.
 | Windows 11 (Secure Boot + TPM, VM) | done |
 | MSI installer (GitHub Actions build) | tested on a clean Windows 11 VM: install, plug-in + audio, Control Center, uninstall |
 | Real Win11 hardware with memory integrity (HVCI) on: long session without sync errors or drift (0.3.0) | done |
-| Latency measurements, audio to the Virus | open |
+| ASIO sound card "Virus TI (TI Revive)" (2 in / 2 out, wraps the Access ASIO driver), audio to the Virus | done: clean on a real PC (0.3.91 test build) |
+| Latency measurements | open |
 
 ## Building
 
