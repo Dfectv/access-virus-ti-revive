@@ -31,6 +31,8 @@ static const GUID GUID_MI00 = {0x9B879656, 0x91A6, 0x4D84, {0x9C, 0x75, 0x1F, 0x
 #define NR 8            // IN reads in flight (80 ms)
 #define NW 64           // OUT packet slots
 #define OUT_LEAD 12     // OUT packets queued before the first IN packet arrives (ms)
+#define FN_MARGIN 8     // a read is scheduled at least this many USB frames (ms) ahead of the current frame
+#define GAP_MAX 5000    // largest gap (ms) filled with silence after a stall
 
 typedef struct {
     HANDLE file;
@@ -43,6 +45,8 @@ typedef struct {
     unsigned wnext;      // next OUT slot
     int out_running;     // OUT stream started (ContinueStream valid)
     unsigned pattern;    // nominal 44/45 pattern position for the lead-in
+    ULONG next_fn;       // USB frame number of the next IN read
+    ULONG gap[NR];       // USB frames skipped before read i (it was rescheduled after a stall)
 } dev;
 
 static vua_log_fn g_log;
@@ -153,21 +157,57 @@ static int send_out(dev *d, unsigned frames)
     return 0;
 }
 
-static int submit_read(dev *d, int i, BOOL cont)
+// Reads are scheduled on explicit USB frame numbers (1 frame = 1 ms = 1 packet at full speed), so the stream
+// position is always known: if the thread stalled and the next frame is already too close or past, the read is
+// moved to now + FN_MARGIN and the skipped frames are recorded in gap[i]; they are filled with silence of the
+// nominal length when read i completes, so the plugin's frame counter stays equal to the synth's (E078).
+static int submit_read(dev *d, int i)
 {
+    ULONG now = 0;
+    LARGE_INTEGER ts;
+    if (!WinUsb_GetCurrentFrameNumber(d->h2, &now, &ts)) {
+        LOG("usbaudio: GetCurrentFrameNumber failed (error %lu)", GetLastError());
+        return -1;
+    }
+    d->gap[i] = 0;
+    if ((LONG)(d->next_fn - now) < FN_MARGIN) {
+        ULONG start = now + FN_MARGIN;
+        d->gap[i] = start - d->next_fn;
+        d->next_fn = start;
+    }
+    ULONG fn = d->next_fn;
     ResetEvent(d->rov[i].hEvent);
-    if (!WinUsb_ReadIsochPipeAsap(d->bin, i * NP * IN_PKT, NP * IN_PKT, cont, NP, d->desc[i], &d->rov[i]) &&
+    if (!WinUsb_ReadIsochPipe(d->bin, i * NP * IN_PKT, NP * IN_PKT, &fn, NP, d->desc[i], &d->rov[i]) &&
         GetLastError() != ERROR_IO_PENDING) {
         LOG("usbaudio: IN read failed (error %lu)", GetLastError());
         return -1;
     }
+    d->next_fn += NP;
     return 0;
+}
+
+// Deliver `packets` USB frames of silence with the nominal pattern (the driver's repair).
+static uint32_t fill_silence(dev *d, int16_t *pcm, ULONG packets, vua_in_fn in, void *user)
+{
+    uint32_t total = 0;
+    while (packets) {
+        ULONG k = packets < NP ? packets : NP;
+        uint32_t frames = 0;
+        for (ULONG j = 0; j < k; j++)
+            frames += d->pattern++ % 10 ? 44 : 45;
+        memset(pcm, 0, frames * IN_CH * 2);
+        in(pcm, frames, user);
+        total += frames;
+        packets -= k;
+    }
+    return total;
 }
 
 int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
 {
     g_log = log;
     dev d = {0};
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL); // the driver completes at DPC level
     if (open_dev(&d))
         return -1; // no WinUSB audio function: caller falls back to WASAPI
     int rc = 1;
@@ -195,13 +235,17 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
     // OUT lead-in with the nominal 44.1 kHz pattern (44 x 9, 45; the driver's InitFramePattern), then mirror.
     for (int i = 0; i < OUT_LEAD; i++, d.pattern++)
         send_out(&d, d.pattern % 10 ? 44 : 45);
+    ULONG now = 0;
+    LARGE_INTEGER ts;
+    WinUsb_GetCurrentFrameNumber(d.h2, &now, &ts);
+    d.next_fn = now + FN_MARGIN;
     for (int i = 0; i < NR; i++)
-        if (submit_read(&d, i, i > 0))
+        if (submit_read(&d, i))
             goto out;
     LOG("usbaudio: streaming 44.1 kHz on WinUSB (IN EP 0x82 %d ch, OUT EP 0x01 %d ch, frame pattern mirrored)",
         IN_CH, OUT_CH);
     static int16_t pcm[NP * (IN_PKT / 2)];
-    uint64_t total = 0, errs = 0, hist[3] = {0};
+    uint64_t total = 0, errs = 0, gaps = 0, hist[3] = {0};
     int cur = 0;
     rc = 0;
     while (*running) {
@@ -210,6 +254,13 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
             continue;
         BOOL ok = GetOverlappedResult(d.file, &d.rov[cur], &n, FALSE);
         uint32_t frames = 0;
+        if (d.gap[cur]) { // frames skipped before this read (stall): they passed on the wire, count them
+            ULONG g = d.gap[cur] < GAP_MAX ? d.gap[cur] : GAP_MAX;
+            gaps += d.gap[cur];
+            if (gaps <= 2000)
+                LOG("usbaudio: stream stalled, %lu ms filled with silence", d.gap[cur]);
+            total += fill_silence(&d, pcm, g, in, user);
+        }
         if (ok) {
             // Packet offsets: relative to this read's part of the registered buffer (WinUSB docs). Logged once.
             uint8_t *base = d.inbuf + cur * NP * IN_PKT;
@@ -241,30 +292,24 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
             total += frames;
             in(pcm, frames, user);
         } else {
-            // Read lost (e.g. late resubmit): keep the clock running with the nominal pattern in silence, like the
-            // driver's repair, so the plugin's frame counter has no gap.
+            // Read lost: its NP frames passed on the wire, keep the clock running with silence of nominal length.
             errs++;
             if (errs <= 20)
                 LOG("usbaudio: IN read %d failed (error %lu), repaired with silence", cur, GetLastError());
-            for (int k = 0; k < NP; k++) {
-                unsigned f = d.pattern++ % 10 ? 44 : 45;
-                memset(pcm + frames * IN_CH, 0, f * IN_CH * 2);
-                frames += f;
-                send_out(&d, f);
-            }
-            total += frames;
-            in(pcm, frames, user);
+            for (unsigned k = 0; k < NP; k++)
+                send_out(&d, (d.pattern + k) % 10 ? 44 : 45); // the same counts fill_silence uses
+            total += fill_silence(&d, pcm, NP, in, user);
         }
-        if (submit_read(&d, cur, ok)) {
+        if (submit_read(&d, cur)) {
             rc = 1;
             break;
         }
         cur = (cur + 1) % NR;
         static uint64_t next_log = VUA_RATE * 60;
         if (total >= next_log) {
-            LOG("usbaudio: %llu frames, packets 43/44/45: %llu/%llu/%llu, errors %llu", (unsigned long long)total,
-                (unsigned long long)hist[0], (unsigned long long)hist[1], (unsigned long long)hist[2],
-                (unsigned long long)errs);
+            LOG("usbaudio: %llu frames, packets 43/44/45: %llu/%llu/%llu, errors %llu, stalled %llu ms",
+                (unsigned long long)total, (unsigned long long)hist[0], (unsigned long long)hist[1],
+                (unsigned long long)hist[2], (unsigned long long)errs, (unsigned long long)gaps);
             next_log += VUA_RATE * 60;
         }
     }
