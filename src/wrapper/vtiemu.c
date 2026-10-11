@@ -234,11 +234,35 @@ static BOOL reply(void *out, DWORD outsz, LPDWORD ret, const void *data, DWORD l
 
 static int g_single; // ASIO wrapper copy (vtiasio.c): patch only the one module given to vtiemu_init_module
 
+// ASIO "performance mode" (= buffer size: 1 = 128, 2 = 192, 3 = 256, 4 = 512 samples), property 0xd (get) / 0xe
+// (set) of 0x2200d0, chosen in the original ASIO driver's control panel (E086). The kernel driver kept it; here it
+// is stored per user so it survives a DAW restart.
+#define PERF_KEY "Software\\TI Revive\\VirusUSB\\Parameters" // = the redirected driver service key (hook_RegOpenKeyA)
+static uint32_t perf_mode_get(void)
+{
+    DWORD v = 3, sz = sizeof v;
+    if (RegGetValueA(HKEY_CURRENT_USER, PERF_KEY, "PerformanceMode", RRF_RT_REG_DWORD, NULL, &v, &sz) || v < 1 || v > 4)
+        v = 3;
+    return v;
+}
+static void perf_mode_set(uint32_t v)
+{
+    if (v >= 1 && v <= 4)
+        RegSetKeyValueA(HKEY_CURRENT_USER, PERF_KEY, "PerformanceMode", REG_DWORD, &v, sizeof v);
+}
+
 static BOOL replay(DWORD code, void *in, void *out, DWORD outsz, LPDWORD ret)
 {
     int32_t sel = -1;
     if (code == 0x2200d0 || code == 0x2200d4) // property get/set: first DWORD selects the property
         sel = (int32_t) * (uint32_t *)(in ? in : out);
+    if (code == 0x2200d0 && (sel == 0xd || sel == 0xe)) {
+        if (sel == 0xe && in)
+            perf_mode_set(((uint32_t *)in)[1]);
+        uint32_t r[2] = {(uint32_t)sel, perf_mode_get()};
+        vlog("  performance mode %s -> %u", sel == 0xe ? "set" : "get", r[1]);
+        return reply(out, outsz, ret, r, sizeof r, outsz);
+    }
     for (size_t i = 0; i < sizeof REPLAY / sizeof *REPLAY; i++)
         if (REPLAY[i].code == code && REPLAY[i].sel == sel)
             return reply(out, outsz, ret, REPLAY[i].data, REPLAY[i].len, REPLAY[i].ret);
@@ -572,6 +596,40 @@ static HMODULE WINAPI hook_LoadLibraryExW(LPCWSTR n, HANDLE f, DWORD fl)
     return m;
 }
 
+// The original ASIO driver keeps its settings (PerformanceMode = buffer size) in the old kernel driver's service
+// key HKLM\System\CurrentControlSet\Services\VIRUSUSB\..., which does not exist without the Access driver and is
+// not writable for a DAW. In the ASIO copy that key is redirected to HKCU\Software\TI Revive\VirusUSB\... (E086).
+#define SVC_KEY "System\\CurrentControlSet\\SERVICES\\VIRUSUSB"
+static int redirect_key(HKEY root, LPCSTR sub, char *to, size_t cap)
+{
+    size_t n = strlen(SVC_KEY);
+    if (!g_single || root != HKEY_LOCAL_MACHINE || !sub || _strnicmp(sub, SVC_KEY, n))
+        return 0;
+    snprintf(to, cap, "Software\\TI Revive\\VirusUSB%s", sub + n);
+    return 1;
+}
+static LSTATUS WINAPI hook_RegOpenKeyA(HKEY root, LPCSTR sub, PHKEY out)
+{
+    char to[512];
+    if (redirect_key(root, sub, to, sizeof to))
+        return RegCreateKeyA(HKEY_CURRENT_USER, to, out); // create: the panel opens before it writes
+    return RegOpenKeyA(root, sub, out);
+}
+static LSTATUS WINAPI hook_RegOpenKeyExA(HKEY root, LPCSTR sub, DWORD opt, REGSAM sam, PHKEY out)
+{
+    char to[512];
+    if (redirect_key(root, sub, to, sizeof to))
+        return RegCreateKeyExA(HKEY_CURRENT_USER, to, 0, NULL, 0, sam, NULL, out, NULL);
+    return RegOpenKeyExA(root, sub, opt, sam, out);
+}
+static LSTATUS WINAPI hook_RegCreateKeyA(HKEY root, LPCSTR sub, PHKEY out)
+{
+    char to[512];
+    if (redirect_key(root, sub, to, sizeof to))
+        return RegCreateKeyA(HKEY_CURRENT_USER, to, out);
+    return RegCreateKeyA(root, sub, out);
+}
+
 static const struct {
     const char *dll, *fn;
     void *hook;
@@ -588,6 +646,9 @@ static const struct {
     {"kernel32.dll", "LoadLibraryExA", hook_LoadLibraryExA, 1},
     {"kernel32.dll", "LoadLibraryExW", hook_LoadLibraryExW, 1},
     {"kernel32.dll", "GetProcAddress", hook_GetProcAddress, 0},
+    {"advapi32.dll", "RegOpenKeyA", hook_RegOpenKeyA, 0},
+    {"advapi32.dll", "RegOpenKeyExA", hook_RegOpenKeyExA, 0},
+    {"advapi32.dll", "RegCreateKeyA", hook_RegCreateKeyA, 0},
 };
 
 static int dll_matches(const char *imp, const char *want)
