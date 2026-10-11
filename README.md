@@ -30,18 +30,20 @@ accepts — so the synth, the plug-in and the user's existing Access software ke
 
 ```
  DAW ── Virus TI (TI Revive).vst3 ── loads the user's original "Virus TI.vst3" / Virus Control.dll
-                │  in-memory import hooks: SetupDi*/CreateFile/DeviceIoControl/CM_* are answered by
-                │  an emulation of the old driver's interface (31 IOCTLs, shared audio memory)
-                ▼  named pipe \\.\pipe\vtibroker
- vtibroker.exe (per-user background process, started at logon)
-   owns the USB device, keeps it drained, re-connects after unplug, serves plug-in + Control Center
-                ▼  WinUSB (Microsoft, inbox)                 Windows USB Audio (Microsoft, inbox)
- Virus TI   MIDI/remote interfaces MI_03 + MI_04              audio interfaces MI_00..02
+          │  in-memory import hooks: SetupDi*/CreateFile/DeviceIoControl/CM_* are answered by
+          │  an emulation of the old driver's interface (31 IOCTLs, shared audio memory)
+          │
+          ├── MIDI/remote: named pipe \\.\pipe\vtibroker
+          │      vtibroker.exe (per-user background process, started at logon): owns the MIDI interfaces,
+          │      keeps them drained, re-connects after unplug, serves plug-in + Control Center
+          │        ▼  WinUSB (Microsoft, inbox)  ──  Virus TI MI_03 + MI_04
+          │
+          └── audio: isochronous streams, directly from the plug-in process
+                   ▼  WinUSB (Microsoft, inbox)  ──  Virus TI audio function MI_00 (interfaces 0..2)
 ```
 
 **Driver binding.** An INF-only driver package assigns Windows' built-in **WinUSB** driver to the
-Virus TI's two vendor-specific (MIDI/remote) interfaces. The audio interfaces are left to Windows'
-built-in **USB Audio** class driver, which handles the Virus fine. Because the package contains no
+Virus TI's two vendor-specific (MIDI/remote) interfaces and to its audio function. Because the package contains no
 binaries, it only needs a signed catalog: the installer creates a certificate on your computer, signs
 the catalog, trusts the certificate's public part and **deletes its private key** right away, so it
 cannot sign anything else. Uninstall removes package and certificate again.
@@ -59,8 +61,14 @@ answered by a user-mode emulation (`src/wrapper/vtiemu.c`):
 
 **Audio through the plug-in.** The old driver mapped a shared ring buffer ("AudioSM") into the
 plug-in's process and filled it with the Virus' six USB audio channels. TI Revive allocates that buffer
-itself, captures the Virus from the Windows "Virus TI" recording device with WASAPI, writes the
-samples in the driver's format and clocks the plug-in's audio thread with the same buffer-switch event.
+itself and streams the Virus' isochronous audio endpoints directly on WinUSB, the way the old driver did:
+44.1 kHz, every received packet's frame count is mirrored on the stream towards the synth, so the synth's
+clock is the master and the plug-in's sample counter is exactly the number of frames the synth produced
+(its MIDI timestamps then never drift against the synth). Reads are scheduled on USB frame numbers, so
+even a stalled PC keeps the counter exact (the gap is filled with silence). The samples go into the
+buffer in the driver's format and the plug-in's audio thread is clocked with the same buffer-switch event.
+If the audio function is not on WinUSB, TI Revive falls back to the Windows "Virus TI" recording device
+(WASAPI, exclusive 44.1 kHz).
 
 **The broker.** WinUSB allows one owner per interface, and the Virus stops accepting data when nobody
 reads its input endpoints. `vtibroker.exe` therefore owns the device permanently, sends the
@@ -101,12 +109,12 @@ shortcuts). The Access software is uninstalled separately.
   "communication problems" (original behaviour).
 - **Hearing the Virus**: with a part output set to *USB*, the audio comes through the plug-in track.
   The plug-in sets the synth to "2 Outs / No Input"; audio *to* the Virus over USB is not supported yet.
-- **The Virus USB audio is opened exclusively** at 44.1 kHz by the plug-in, in both directions, so the synth's
-  sample clock matches the plug-in's MIDI timestamps (Windows' own driver would run it at 48 kHz and notes would
-  drift) and the synth gets the continuous audio stream it syncs to (silence for now; without it the plug-in
-  shows "A sync error occurred"). Do not select "Line (Virus TI)" or "Speakers (Virus TI)" as an audio device
-  in your DAW or in Windows. If another program holds the input, TI Revive falls back to shared mode (works,
-  but timing is not sample-exact).
+- **The Virus is no Windows sound card any more**: its audio function runs on WinUSB and is streamed by the
+  plug-in itself (as with the old Access driver), so "Line (Virus TI)" / "Speakers (Virus TI)" no longer
+  appear in Windows. You hear the Virus through the plug-in track. When you update from TI Revive 0.2.x,
+  unplug and replug the Virus (or restart Windows) once after installing, so the new driver binding applies.
+- **"A sync error occurred. Press Stop and Play to clear."** can appear once right after the first Play;
+  Stop and Play clears it.
 - **Bank sync** takes about one second per preset — the synth itself sends dumps at that speed.
 - **Windows MIDI ports** ("Virus TI MIDI"/"Virus TI Synth") of the old driver are not provided.
 - Do not run firmware/OS updates of the Virus through TI Revive; that path is not verified.

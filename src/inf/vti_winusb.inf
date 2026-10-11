@@ -1,6 +1,7 @@
-; vti_winusb.inf - bind the inbox, Microsoft-signed WinUSB driver to the Virus TI MIDI interfaces.
-; MI_03 (EP 0x05/0x85) and MI_04 (EP 0x06/0x86), see findings/spec.md. The audio interfaces MI_00..02 are
-; left to Windows (audio comes later, findings/design.md). No kernel code of our own is installed.
+; vti_winusb.inf - bind the inbox, Microsoft-signed WinUSB driver to the Virus TI interfaces:
+; MI_03 (EP 0x05/0x85) and MI_04 (EP 0x06/0x86) for MIDI, see findings/spec.md, and the USB audio function
+; MI_00 (interfaces 0..2, EP 0x01 OUT / 0x82 IN), streamed by the plug-in itself like the Access driver did
+; (src/wrapper/vtiusbaudio.c, findings E075). No kernel code of our own is installed.
 ; The catalog (vti_winusb.cat) is generated and signed at install time (scripts/vm-winusb-install.ps1).
 
 [Version]
@@ -9,7 +10,7 @@ Class       = USBDevice
 ClassGuid   = {88BAE032-5A81-49f0-BC3D-A4FF138216D6}
 Provider    = %ProviderName%
 CatalogFile = vti_winusb.cat
-DriverVer   = 10/10/2026,1.0.0.1
+DriverVer   = 10/11/2026,1.0.1.0
 PnpLockdown = 1
 
 [Manufacturer]
@@ -18,6 +19,7 @@ PnpLockdown = 1
 [VTI.NTamd64]
 %MI03.Desc% = MI03_Install, USB\VID_133E&PID_0815&MI_03
 %MI04.Desc% = MI04_Install, USB\VID_133E&PID_0815&MI_04
+%MI00.Desc% = MI00_Install, USB\VID_133E&PID_0815&MI_00
 
 [MI03_Install]
 Include = winusb.inf
@@ -47,7 +49,22 @@ AddReg = MI04_AddReg
 [MI04_AddReg]
 HKR,,DeviceInterfaceGUIDs,0x10000,"{5B45FAF8-316B-4B94-AABF-FF442A85C5E7}"
 
+[MI00_Install]
+Include = winusb.inf
+Needs   = WINUSB.NT
+
+[MI00_Install.Services]
+Include = winusb.inf
+Needs   = WINUSB.NT.Services
+
+[MI00_Install.HW]
+AddReg = MI00_AddReg
+
+[MI00_AddReg]
+HKR,,DeviceInterfaceGUIDs,0x10000,"{9B879656-91A6-4D84-9C75-1FAC19EA625B}"
+
 [Strings]
 ProviderName = "virus-ti-re (local)"
 MI03.Desc    = "Virus TI MIDI (WinUSB, MI_03)"
 MI04.Desc    = "Virus TI Remote (WinUSB, MI_04)"
+MI00.Desc    = "Virus TI Audio (WinUSB, MI_00)"
