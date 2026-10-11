@@ -1,4 +1,4 @@
-// vtiwrap.c - "Virus TI (WinUSB)" VST3: loads the user's installed Access "Virus TI.vst3" with the IOCTL
+// vtiwrap.c - "Virus TI (TI Revive)" VST3: loads the user's installed Access "Virus TI.vst3" with the IOCTL
 // emulation (vtiemu.c) in place, so the original plugin talks to the Virus TI over WinUSB (findings/design.md,
 // milestone M2). No Access files are modified or shipped.
 //
@@ -60,7 +60,7 @@ struct factory {
 };
 
 #define CID_XOR 0x5a // applied to byte 15 of every class ID
-static const char SUFFIX[] = " (WinUSB)";
+static const char SUFFIX[] = " (TI Revive)";
 
 typedef struct {
     factory base;   // our object, IPluginFactory3 layout

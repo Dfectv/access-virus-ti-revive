@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TIRevive.wxs - MSI for "TI Revive" (milestone M6, findings/design.md). Build: src/installer/build.ps1 (WiX 5).
+  Per-machine install of our files only; the user's Access MSI is installed afterwards by tirevive-access.ps1
+  (exit dialog checkbox / Start menu), because Windows forbids nested MSI installs.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="TI Revive" Manufacturer="TI Revive" Version="0.1.0" UpgradeCode="248B1670-6464-4F0A-965F-9CA56380C1AD"
+           Scope="perMachine" Compressed="yes" Language="1033">
+    <SummaryInformation Description="TI Revive - Total Integration for Access Virus TI on Windows 11" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of TI Revive is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Property Id="ARPCOMMENTS" Value="Total Integration for Access Virus TI on Windows 11 (WinUSB bridge)" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="TI Revive" />
+    </StandardDirectory>
+    <StandardDirectory Id="CommonFiles64Folder">
+      <Directory Id="VST3FOLDER" Name="VST3" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="MENUFOLDER" Name="TI Revive" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="Core" Directory="INSTALLFOLDER">
+      <Component>
+        <File Id="vtibroker" Source="$(var.Bin)\vtibroker.exe" KeyPath="yes" />
+        <!-- the broker owns the device for the logged-on user; started at every logon -->
+        <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="TI Revive Broker"
+                       Type="string" Value="&quot;[INSTALLFOLDER]vtibroker.exe&quot;" />
+      </Component>
+      <Component><File Source="$(var.Bin)\vtilaunch.exe" /></Component>
+      <Component><File Source="$(var.Bin)\vtiemu-pipe.dll" /></Component>
+      <Component><File Source="$(var.Src)\inf\vti_winusb.inf" /></Component>
+      <Component><File Id="driverps1" Source="$(var.Src)\installer\tirevive-driver.ps1" /></Component>
+      <Component><File Id="accessps1" Source="$(var.Src)\installer\tirevive-access.ps1" /></Component>
+      <Component><File Source="$(var.Src)\installer\notice.rtf" /></Component>
+    </ComponentGroup>
+    <ComponentGroup Id="Plugin" Directory="VST3FOLDER">
+      <Component><File Source="$(var.Bin)\VirusTI_WinUSB.vst3" Name="Virus TI (TI Revive).vst3" /></Component>
+    </ComponentGroup>
+    <ComponentGroup Id="Menu" Directory="MENUFOLDER">
+      <Component Id="MenuShortcuts" Guid="7C1D3F2E-1B5A-4C8E-9A2D-3E4F5A6B7C8D">
+        <Shortcut Id="ccShortcut" Name="Virus Control Center (TI Revive)" Target="[INSTALLFOLDER]vtilaunch.exe"
+                  Arguments="&quot;[ProgramFiles64Folder]Access Music\Virus TI\Common\Virus Control Center.exe&quot;"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <Shortcut Id="accessShortcut" Name="Install Access Virus TI software" Target="[System64Folder]WindowsPowerShell\v1.0\powershell.exe"
+                  Arguments="-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;[INSTALLFOLDER]tirevive-access.ps1&quot;"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RemoveFolder Id="RemoveMenuFolder" On="uninstall" />
+        <RegistryValue Root="HKLM" Key="Software\TI Revive\Installer" Name="MenuShortcuts" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Main" Title="TI Revive" Level="1">
+      <ComponentGroupRef Id="Core" />
+      <ComponentGroupRef Id="Plugin" />
+      <ComponentGroupRef Id="Menu" />
+    </Feature>
+
+    <!-- driver package + trusted cert (deferred, SYSTEM), and the reverse on uninstall -->
+    <SetProperty Id="CA_DriverInstall" Sequence="execute" Before="CA_DriverInstall"
+                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]tirevive-driver.ps1&quot; install" />
+    <CustomAction Id="CA_DriverInstall" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64" Execute="deferred" Impersonate="no" Return="check" />
+    <SetProperty Id="CA_DriverUninstall" Sequence="execute" Before="CA_DriverUninstall"
+                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]tirevive-driver.ps1&quot; uninstall" />
+    <CustomAction Id="CA_DriverUninstall" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64" Execute="deferred" Impersonate="no" Return="ignore" />
+    <InstallExecuteSequence>
+      <Custom Action="CA_DriverInstall" After="InstallFiles" Condition="NOT REMOVE" />
+      <Custom Action="CA_DriverUninstall" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+
+    <!-- exit dialog: install the user's Access software now (as the user; msiexec elevates itself) -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Install the Access Virus TI software now (recommended)" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <CustomAction Id="CA_LaunchAccess" Directory="INSTALLFOLDER" Return="asyncNoWait" Impersonate="yes"
+                  ExeCommand="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;[INSTALLFOLDER]tirevive-access.ps1&quot; -FromMsi &quot;[OriginalDatabase]&quot;" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.Src)\installer\notice.rtf" />
+    <UI>
+      <ui:WixUI Id="WixUI_Minimal" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="CA_LaunchAccess"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
+    </UI>
+  </Package>
+</Wix>
