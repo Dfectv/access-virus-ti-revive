@@ -101,17 +101,35 @@ static HRESULT STDMETHODCALLTYPE obj_qi(IUnknown *This, REFIID riid, void **ppv)
     return g_orig_qi(This, IsEqualIID(riid, &CLSID_TIREVIVE_ASIO) ? &CLSID_ACCESS_ASIO : riid, ppv);
 }
 
+// IASIO::canSampleRate (vtable slot 12): the original decides from a list of Ploytec VID/PIDs the Virus is not on
+// and then from descriptor tables it parses out of the replayed configuration (E084), answering ASE_NoClock even for
+// 44100, so Ableton reported "device not available". The stream runs at 44.1 kHz only: answer exactly that.
+#define ASE_OK 0
+#define ASE_NOCLOCK (-995)
+static long can_sample_rate(void *self, double rate)
+{
+    (void)self;
+    return rate == 44100.0 ? ASE_OK : ASE_NOCLOCK;
+}
+
+static void set_slot(void **vt, int i, void *fn, void **orig)
+{
+    DWORD old;
+    if (vt[i] != fn && VirtualProtect(&vt[i], sizeof(void *), PAGE_READWRITE, &old)) {
+        if (orig)
+            *orig = vt[i];
+        vt[i] = fn;
+        VirtualProtect(&vt[i], sizeof(void *), old, &old);
+    }
+}
+
 static void hook_object_qi(IUnknown *obj)
 {
     void **vt = *(void ***)obj;
     if (vt[0] == (void *)obj_qi)
         return;
-    DWORD old;
-    if (VirtualProtect(&vt[0], sizeof(void *), PAGE_READWRITE, &old)) {
-        g_orig_qi = (qi_fn)vt[0];
-        vt[0] = (void *)obj_qi;
-        VirtualProtect(&vt[0], sizeof(void *), old, &old);
-    }
+    set_slot(vt, 0, (void *)obj_qi, (void **)&g_orig_qi);
+    set_slot(vt, 12, (void *)can_sample_rate, NULL);
 }
 
 static HRESULT STDMETHODCALLTYPE f_create(IClassFactory *This, IUnknown *outer, REFIID riid, void **ppv)

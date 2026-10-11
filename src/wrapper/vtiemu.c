@@ -232,6 +232,8 @@ static BOOL reply(void *out, DWORD outsz, LPDWORD ret, const void *data, DWORD l
     return TRUE;
 }
 
+static int g_single; // ASIO wrapper copy (vtiasio.c): patch only the one module given to vtiemu_init_module
+
 static BOOL replay(DWORD code, void *in, void *out, DWORD outsz, LPDWORD ret)
 {
     int32_t sel = -1;
@@ -530,7 +532,6 @@ static void patch_module(HMODULE m, int all);
 
 static void patch_access_modules(void);
 
-static int g_single; // ASIO wrapper copy (vtiasio.c): patch only the one module given to vtiemu_init_module
 
 static void after_load(HMODULE m)
 {
