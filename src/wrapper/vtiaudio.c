@@ -183,10 +183,36 @@ static void silence_clock(void)
 
 static DWORD WINAPI render_thread(LPVOID unused);
 
+// Callback timing of the USB path (diag): largest gap between two deliveries and frames per delivery.
+static double g_gap_max;
+static uint32_t g_calls, g_fmax;
+
 static void usb_in(const int16_t *pcm, uint32_t frames, void *user)
 {
     (void)user;
+    static LARGE_INTEGER f, last;
+    static uint64_t total, next_diag = RATE * 10;
+    LARGE_INTEGER t;
+    if (!f.QuadPart)
+        QueryPerformanceFrequency(&f);
+    QueryPerformanceCounter(&t);
+    if (last.QuadPart) {
+        double gap = (double)(t.QuadPart - last.QuadPart) * 1000.0 / f.QuadPart;
+        if (gap > g_gap_max)
+            g_gap_max = gap;
+    }
+    last = t;
+    g_calls++;
+    if (frames > g_fmax)
+        g_fmax = frames;
     push_frames(pcm, IN_CHANNELS, frames);
+    if ((total += frames) >= next_diag) {
+        vtiemu_log("diag: usb %u calls, max gap %.1f ms, max %u frames/call", g_calls, g_gap_max, g_fmax);
+        g_gap_max = 0;
+        g_calls = g_fmax = 0;
+        diag();
+        next_diag += RATE * 10;
+    }
 }
 
 static DWORD WINAPI capture_thread(LPVOID unused)

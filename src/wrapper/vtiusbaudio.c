@@ -27,8 +27,8 @@ static const GUID GUID_MI00 = {0x9B879656, 0x91A6, 0x4D84, {0x9C, 0x75, 0x1F, 0x
 #define OUT_CH 2
 #define IN_PKT 592      // wMaxPacketSize EP 0x82
 #define OUT_PKT 200     // wMaxPacketSize EP 0x01
-#define NP 4            // packets (ms) per IN read
-#define NR 8            // IN reads in flight (32 ms)
+#define NP 10           // packets (ms) per IN read = per plugin delivery (as WASAPI's 10 ms period; 4 ms was too short, E077)
+#define NR 8            // IN reads in flight (80 ms)
 #define NW 64           // OUT packet slots
 #define OUT_LEAD 12     // OUT packets queued before the first IN packet arrives (ms)
 
@@ -211,6 +211,14 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
         BOOL ok = GetOverlappedResult(d.file, &d.rov[cur], &n, FALSE);
         uint32_t frames = 0;
         if (ok) {
+            // Packet offsets: relative to this read's part of the registered buffer (WinUSB docs). Logged once.
+            uint8_t *base = d.inbuf + cur * NP * IN_PKT;
+            static int shown;
+            if (cur == 1 && !shown++)
+                LOG("usbaudio: read 1 packet offsets %lu %lu %lu (read size %d)", d.desc[1][0].Offset,
+                    d.desc[1][1].Offset, d.desc[1][NP - 1].Offset, NP * IN_PKT);
+            if (d.desc[cur][0].Offset >= (ULONG)(cur * NP * IN_PKT) && cur)
+                base = d.inbuf; // offsets turned out to be absolute
             for (int k = 0; k < NP; k++) {
                 USBD_ISO_PACKET_DESCRIPTOR *p = &d.desc[cur][k];
                 uint32_t f = p->Status == 0 ? p->Length / (IN_CH * 2) : 0;
@@ -223,7 +231,7 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
                     f = nominal;
                     memset(pcm + frames * IN_CH, 0, f * IN_CH * 2);
                 } else {
-                    memcpy(pcm + frames * IN_CH, d.inbuf + p->Offset, f * IN_CH * 2);
+                    memcpy(pcm + frames * IN_CH, base + p->Offset, f * IN_CH * 2);
                     if (f <= 45)
                         hist[f - 43]++;
                 }
@@ -233,8 +241,19 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
             total += frames;
             in(pcm, frames, user);
         } else {
+            // Read lost (e.g. late resubmit): keep the clock running with the nominal pattern in silence, like the
+            // driver's repair, so the plugin's frame counter has no gap.
             errs++;
-            LOG("usbaudio: IN read %d failed (error %lu), restarting the stream", cur, GetLastError());
+            if (errs <= 20)
+                LOG("usbaudio: IN read %d failed (error %lu), repaired with silence", cur, GetLastError());
+            for (int k = 0; k < NP; k++) {
+                unsigned f = d.pattern++ % 10 ? 44 : 45;
+                memset(pcm + frames * IN_CH, 0, f * IN_CH * 2);
+                frames += f;
+                send_out(&d, f);
+            }
+            total += frames;
+            in(pcm, frames, user);
         }
         if (submit_read(&d, cur, ok)) {
             rc = 1;
