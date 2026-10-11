@@ -1,13 +1,15 @@
 // vtiasiohost.c - minimal ASIO host to test an ASIO driver without a DAW: loads it by CLSID, prints its name,
 // channels, latencies, buffer sizes and sample rate, creates buffers for every channel, runs N seconds and reports
 // buffer switches per second, sample position progress and the input peak per channel.
-// usage: vtiasiohost [seconds] [{CLSID}]   (default: Virus TI (TI Revive))
+// usage: vtiasiohost [seconds] [{CLSID}|-] [tone]   (default driver: Virus TI (TI Revive); tone: 440 Hz on the
+// outputs at -12 dBFS instead of silence)
 // The IASIO interface is declared here from the ASIO ABI (COM-style vtable, x64 calling convention).
 #include <windows.h>
 #include <objbase.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 
 typedef long ASIOBool;
 typedef long ASIOError;
@@ -58,6 +60,8 @@ static ASIOChannelInfo g_ci[MAXCH];
 static long g_nbuf, g_size;
 static volatile LONG g_switches;
 static double g_peak[MAXCH];
+static int g_tone;
+static double g_phase;
 
 static double sample_abs(ASIOSampleType t, const void *buf, long i)
 {
@@ -75,9 +79,17 @@ static void cb_switch(long index, ASIOBool direct)
 {
     (void)direct;
     InterlockedIncrement(&g_switches);
+    static long last_index = -1;
+    if (last_index >= 0 && g_tone)
+        g_phase = fmod(g_phase + 2 * 3.14159265358979 * 440.0 * g_size / 44100.0, 2 * 3.14159265358979);
+    last_index = index;
     for (long c = 0; c < g_nbuf; c++) {
         if (!g_bi[c].isInput) {
             memset(g_bi[c].buffers[index], 0, (size_t)g_size * 4); // silence (4 bytes covers every type)
+            if (g_tone && g_ci[c].type == 18) // Int32LSB
+                for (long i = 0; i < g_size; i++)
+                    ((int *)g_bi[c].buffers[index])[i] =
+                        (int)(0.25 * 2147483647.0 * sin(g_phase + 2 * 3.14159265358979 * 440.0 * i / 44100.0));
             continue;
         }
         for (long i = 0; i < g_size; i++) {
@@ -101,7 +113,9 @@ int main(int argc, char **argv)
 {
     int secs = argc > 1 ? atoi(argv[1]) : 5;
     CLSID clsid = {0x6fd63640, 0x1e0a, 0x4ee0, {0x91, 0x58, 0x73, 0x2a, 0x10, 0x77, 0xc8, 0xb5}};
-    if (argc > 2) {
+    for (int i = 2; i < argc; i++)
+        g_tone |= !strcmp(argv[i], "tone");
+    if (argc > 2 && argv[2][0] == '{') {
         wchar_t w[64];
         MultiByteToWideChar(CP_ACP, 0, argv[2], -1, w, 64);
         CLSIDFromString(w, &clsid);

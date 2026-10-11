@@ -26,7 +26,7 @@ $(OUT)/vtiemu-pipe.dll: vtiemu.c vtiaudio.c vtiusbaudio.c vtiusbaudio.h replay_t
 # ASIO driver "Virus TI (TI Revive)": wraps the original VirusUSB_X64.dll with its own emulation copy (vtiasio.c)
 $(OUT)/TIRevive_ASIO.dll: vtiasio.c vtiemu.c vtiaudio.c vtiusbaudio.c vtiusbaudio.h replay_table.h ../broker/vticore_pipe.c ../broker/vticore_midi.c ../broker/vticore.h ../broker/vtiproto.h ../broker/vtiaudioshm.h
 	mkdir -p $(OUT)
-	$(CC) $(CFLAGS) -DVTIEMU_NO_DLLMAIN -DVTIEMU_LOG_PREFIX='"vtiasio"' -shared -o $@ vtiasio.c vtiemu.c vtiaudio.c \
+	$(CC) $(CFLAGS) -DVTIEMU_NO_DLLMAIN -DVTIEMU_LOG_PREFIX='"vtiasio"' -DVTIAUDIO_FORWARD_OUTPUT -shared -o $@ vtiasio.c vtiemu.c vtiaudio.c \
 		vtiusbaudio.c ../broker/vticore_pipe.c ../broker/vticore_midi.c -lwinusb -lsetupapi -lshlwapi -lole32 -luuid \
 		-ladvapi32 -static -lpthread
 

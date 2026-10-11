@@ -132,7 +132,16 @@ static void close_dev(dev *d)
     VirtualFree(d->outbuf, 0, MEM_RELEASE);
 }
 
-// Queue one OUT packet of `frames` frames (silence for now: audio to the Virus is not supported yet).
+static vua_out_fn g_out;
+static void *g_out_user;
+
+void vua_set_out(vua_out_fn fn, void *user)
+{
+    g_out_user = user;
+    g_out = fn;
+}
+
+// Queue one OUT packet of `frames` frames: audio from the vua_set_out source, or silence.
 static int send_out(dev *d, unsigned frames)
 {
     unsigned s = d->wnext;
@@ -143,7 +152,11 @@ static int send_out(dev *d, unsigned frames)
         d->wbusy[s] = 0;
     }
     ULONG len = frames * OUT_CH * 2;
-    memset(d->outbuf + s * OUT_PKT, 0, len);
+    vua_out_fn out = g_out;
+    if (out)
+        out((int16_t *)(d->outbuf + s * OUT_PKT), frames, g_out_user);
+    else
+        memset(d->outbuf + s * OUT_PKT, 0, len);
     ResetEvent(d->wov[s].hEvent);
     if (!WinUsb_WriteIsochPipeAsap(d->bout, s * OUT_PKT, len, d->out_running ? TRUE : FALSE, &d->wov[s]) &&
         GetLastError() != ERROR_IO_PENDING) {

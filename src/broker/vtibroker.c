@@ -18,6 +18,7 @@
 #include <windows.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define MAX_CLIENTS 16
@@ -98,11 +99,59 @@ static void audio_in(const int16_t *pcm, uint32_t frames, void *user)
     LeaveCriticalSection(&g_cs_audio);
 }
 
+// OUT packet source (vua_set_out): frames the writing client (ASIO driver) appended to the output ring. Playback
+// starts once OUT_PREFILL frames are buffered (so one late delivery does not underrun); if the client got ahead by
+// more than OUT_MAX (e.g. after a stall), the oldest frames are dropped to bound the latency. Silence otherwise.
+#define OUT_PREFILL 512
+#define OUT_MAX 2048
+static int g_out_playing;
+static uint64_t g_out_underruns, g_out_dropped, g_out_frames;
+
+static void audio_out(int16_t *dst, uint32_t frames, void *user)
+{
+    (void)user;
+    int64_t w = *(volatile int64_t *)&g_shm->out_write, r = g_shm->out_read;
+    int64_t avail = w - r;
+    if (avail < 0 || avail > VTI_AUDIO_RING) { // writer restarted or far ahead: resynchronise
+        r = w;
+        avail = 0;
+        g_out_playing = 0;
+    }
+    if (!g_out_playing && avail >= OUT_PREFILL)
+        g_out_playing = 1;
+    if (g_out_playing && avail > OUT_MAX) {
+        g_out_dropped += (uint64_t)(avail - OUT_PREFILL);
+        r = w - OUT_PREFILL;
+        avail = OUT_PREFILL;
+    }
+    uint32_t n = 0;
+    if (g_out_playing) {
+        n = avail < frames ? (uint32_t)avail : frames;
+        for (uint32_t i = 0; i < n; i++)
+            memcpy(dst + i * VTI_AUDIO_OUT_CH, &g_shm->out[((r + i) & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_OUT_CH],
+                   VTI_AUDIO_OUT_CH * sizeof(int16_t));
+        if (n < frames) { // ran dry: refill before playing again
+            g_out_underruns++;
+            g_out_playing = 0;
+        }
+    }
+    memset(dst + n * VTI_AUDIO_OUT_CH, 0, (frames - n) * VTI_AUDIO_OUT_CH * sizeof(int16_t));
+    g_shm->out_read = r + n;
+    g_out_frames += n;
+}
+
 static DWORD WINAPI audio_thread(LPVOID unused)
 {
     (void)unused;
+    g_shm->out_read = g_shm->out_write; // nothing stale from a previous stream
+    g_out_playing = 0;
+    vua_set_out(audio_out, NULL);
     int r = vua_run(&g_audio_running, audio_in, NULL, blog);
     g_shm->streaming = 0;
+    if (g_out_frames)
+        blog("audio out: %llu frames played, %llu underruns, %llu frames dropped", (unsigned long long)g_out_frames,
+             (unsigned long long)g_out_underruns, (unsigned long long)g_out_dropped);
+    g_out_frames = g_out_underruns = g_out_dropped = 0;
     return (DWORD)r;
 }
 
