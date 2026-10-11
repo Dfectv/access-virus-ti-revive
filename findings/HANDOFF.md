@@ -18,7 +18,8 @@ _Last updated: 2026-10-11 ~06:30. M1-M5 done (Win11 VM: plugin + audio in REAPER
 - Open for M6: build + test 0.1.1 (install, function, uninstall), user-facing README.
 
 ## CI / GitHub (2026-10-11)
-- Repo: github.com/derpsn/access-virus-ti-revive (branch main; local `main` tracks origin/main; deploy key ~/.ssh/tirevive_deploy via `git config core.sshCommand`).
+- Repo: github.com/derpsn/access-virus-ti-revive (branch main; local `main` tracks origin/main over HTTPS; `gh` CLI logged in as derpsn: `gh run list`, `gh run view`, `gh run download`).
+- CI green (runs 38114933616, 38115222099); actions: checkout@v7, upload-artifact@v7, download-artifact@v8.
 - .github/workflows/build.yml: ubuntu (mingw-w64) builds binaries -> windows-2022 builds the MSI with WiX 5.0.2 (version: tag vX.Y.Z or 0.1.<run>) -> artifact TI-Revive-msi; tag push -> GitHub Release with the MSI.
 - MIT license, README.md at the root.
 
