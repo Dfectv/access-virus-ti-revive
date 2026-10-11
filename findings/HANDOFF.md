@@ -18,6 +18,7 @@ _Last updated: 2026-10-11 ~08:10. FIRST RELEASE v0.2.0 (pre-release) published: 
 - E065/E066: 0.1.5 (CI build) passes on Win11: install over existing Access, both CC shortcuts -> vtilaunch, Ableton plugin + audio, CC OK; 0.1.1 uninstall clean. Ableton Live 11 Suite installed in the win11 test VM. Released as v0.2.0 (tag push -> CI release job, 0.x = pre-release).
 
 ## CI / GitHub (2026-10-11)
+- Since 2026-10-11 (after v0.2.2): the workflow runs ONLY on pushed version tags `vX.Y.Z` (no branch/PR/manual builds). Release = `git tag -a vX.Y.Z -m ... && git push origin vX.Y.Z`; check with `gh run list`.
 - Repo: github.com/derpsn/access-virus-ti-revive (branch main; local `main` tracks origin/main over HTTPS; `gh` CLI logged in as derpsn: `gh run list`, `gh run view`, `gh run download`).
 - CI green (runs 38114933616, 38115222099); actions: checkout@v7, upload-artifact@v7, download-artifact@v8.
 - .github/workflows/build.yml: ubuntu (mingw-w64) builds binaries -> windows-2022 builds the MSI with WiX 5.0.2 (version: tag vX.Y.Z or 0.1.<run>) -> artifact TI-Revive-msi; tag push -> GitHub Release with the MSI.
