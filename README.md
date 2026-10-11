@@ -89,7 +89,8 @@ driver code).
 
 ## Installation
 
-Requirements: Windows 10/11 x64, an Access Virus TI on USB, your own **Access "Virus TI Software Suite"
+Requirements: Windows 11 x64 (TI Revive also runs on Windows 10, but there the original Access drivers still
+work and are the simpler choice), an Access Virus TI on USB, your own **Access "Virus TI Software Suite"
 64-bit installer** (`.msi`, e.g. 5.1.7), a VST3 host.
 
 1. Do **not** install the Access software on its own first (it would try to install the blocked driver
@@ -108,7 +109,8 @@ shortcuts). The Access software is uninstalled separately.
 
 ## Good to know
 
-- **Tested with** Ableton Live 11 on Windows 10 and Windows 11 (Secure Boot, TPM 2.0). REAPER loads and
+- **Tested with** Ableton Live 11 on Windows 11 (real PC with memory integrity on, and a Secure Boot + TPM 2.0 VM)
+  and on Windows 10. REAPER loads and
   connects the plug-in; make sure the track is record-armed with a MIDI input and monitoring on.
 
 - **One plug-in instance per synth.** Virus Control is designed that way (it controls all 16 parts);
