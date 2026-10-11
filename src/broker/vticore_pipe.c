@@ -26,6 +26,8 @@ struct vti {
     int32_t ctl_result;
     uint8_t *ctl_buf;
     uint16_t ctl_len;
+    HANDLE audio_done; // VTIMSG_AUDIO_REPLY
+    volatile int32_t audio_result;
 };
 
 static int send_msg(vti *v, uint16_t type, const void *a, int alen, const void *b, int blen)
@@ -56,6 +58,7 @@ static DWORD WINAPI reader(LPVOID arg)
                 vti_log("vti: broker connection lost\n");
             v->connected = 0;
             SetEvent(v->ctl_done);
+            SetEvent(v->audio_done);
             break;
         }
         switch (h.type) {
@@ -71,6 +74,10 @@ static DWORD WINAPI reader(LPVOID arg)
                     memcpy(v->ctl_buf, buf + 8, n);
                 SetEvent(v->ctl_done);
             }
+            break;
+        case VTIMSG_AUDIO_REPLY:
+            v->audio_result = h.len >= 4 ? *(int32_t *)buf : -1;
+            SetEvent(v->audio_done);
             break;
         case VTIMSG_STATE:
             v->connected = h.len >= 4 && *(uint32_t *)buf;
@@ -173,6 +180,7 @@ vti *vti_open(vti_rx_cb cb, void *user)
     InitializeCriticalSection(&v->wr);
     InitializeCriticalSection(&v->ctl_cs);
     v->ctl_done = CreateEventA(NULL, FALSE, FALSE, NULL);
+    v->audio_done = CreateEventA(NULL, FALSE, FALSE, NULL);
     uint32_t ver = VTI_PROTO_VERSION;
     send_msg(v, VTIMSG_HELLO, &ver, 4, NULL, 0);
     v->rd = CreateThread(NULL, 0, reader, v, 0, NULL);
@@ -199,6 +207,7 @@ void vti_close(vti *v)
         CloseHandle(v->rd);
     }
     CloseHandle(v->ctl_done);
+    CloseHandle(v->audio_done);
     DeleteCriticalSection(&v->wr);
     DeleteCriticalSection(&v->ctl_cs);
     free(v);
@@ -239,6 +248,21 @@ int vti_control(vti *v, uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue
         WaitForSingleObject(v->ctl_done, 3000) == WAIT_OBJECT_0)
         r = v->ctl_result;
     v->ctl_buf = NULL;
+    LeaveCriticalSection(&v->ctl_cs);
+    return r;
+}
+
+int vti_audio(vti *v, int on, const char *event_name)
+{
+    uint32_t o = on ? 1 : 0;
+    int n = on && event_name ? (int)strlen(event_name) + 1 : 0;
+    EnterCriticalSection(&v->ctl_cs);
+    v->audio_result = -1;
+    ResetEvent(v->audio_done);
+    int r = -1;
+    // starting the stream takes up to ~1 s (alternate settings, sample rate); an old broker never answers
+    if (!send_msg(v, VTIMSG_AUDIO, &o, 4, event_name, n) && WaitForSingleObject(v->audio_done, 4000) == WAIT_OBJECT_0)
+        r = v->audio_result;
     LeaveCriticalSection(&v->ctl_cs);
     return r;
 }

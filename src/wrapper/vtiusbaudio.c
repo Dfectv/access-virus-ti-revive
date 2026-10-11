@@ -245,7 +245,7 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
     LOG("usbaudio: streaming 44.1 kHz on WinUSB (IN EP 0x82 %d ch, OUT EP 0x01 %d ch, frame pattern mirrored)",
         IN_CH, OUT_CH);
     static int16_t pcm[NP * (IN_PKT / 2)];
-    uint64_t total = 0, errs = 0, gaps = 0, hist[3] = {0};
+    uint64_t total = 0, errs = 0, gaps = 0, hist[3] = {0}, next_log = VUA_RATE * 60;
     int cur = 0;
     rc = 0;
     while (*running) {
@@ -305,7 +305,6 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
             break;
         }
         cur = (cur + 1) % NR;
-        static uint64_t next_log = VUA_RATE * 60;
         if (total >= next_log) {
             LOG("usbaudio: %llu frames, packets 43/44/45: %llu/%llu/%llu, errors %llu, stalled %llu ms",
                 (unsigned long long)total, (unsigned long long)hist[0], (unsigned long long)hist[1],

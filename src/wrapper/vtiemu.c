@@ -175,6 +175,12 @@ static vti *dev_get(void)
     return v;
 }
 
+// For vtiaudio.c (broker audio registration): the current broker connection, NULL if none.
+vti *vtiemu_dev(void)
+{
+    return dev_get();
+}
+
 static void dev_release(void)
 {
     EnterCriticalSection(&g_dev_cs);

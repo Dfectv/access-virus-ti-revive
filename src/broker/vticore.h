@@ -34,6 +34,11 @@ int vti_write(vti *v, uint8_t ep, const uint8_t *data, int len);
 int vti_control(vti *v, uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue, uint16_t wIndex, uint8_t *data,
                 uint16_t len);
 
+// Broker audio (vticore_pipe.c only, protocol 2): register (on = 1) the named auto-reset event `event_name`
+// to be signalled for every block appended to the shared input ring (vtiaudioshm.h), or unregister (on = 0).
+// Returns 1 = streaming, 0 = no WinUSB audio function, -1 = not supported (older broker, direct backends).
+int vti_audio(vti *v, int on, const char *event_name);
+
 // Pack a complete SysEx message (F0 ... F7) into USB-MIDI packets for `cable`. Returns bytes written to
 // out (a multiple of 4), or -1 if out is too small.
 int vti_pack_sysex(uint8_t cable, const uint8_t *msg, int len, uint8_t *out, int outsz);
