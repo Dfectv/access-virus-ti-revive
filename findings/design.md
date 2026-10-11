@@ -1,7 +1,7 @@
 # Design: user-mode Virus TI driver for Windows 11 (draft)
 
 _Goal (user, 2026-10-10): a user-level driver for the Virus TI, packaged in a new MSI that works on Windows 11._
-_Status: M1-M3 reached 2026-10-10, M4 (plugin USB audio) reached 2026-10-11 (E057); next M5 Win11. Order: M3 broker, M4 plugin USB audio, M5 Win11, M6 MSI. Architecture accepted 2026-10-10. Decisions: (1) MIDI/plugin first, audio later; (2) wrapper VST3 with in-memory IAT patching is OK; (3) Windows version still open._
+_Status: M1-M5 reached (M5 2026-10-11, E059). Next: M6 final MSI._
 
 ## Constraints
 - No custom kernel driver: the original VirusUSB.sys is blocked by Win11 Code Integrity (C8). Only Microsoft-signed inbox kernel drivers (WinUSB, usbaudio, usbccgp) may be used.
@@ -53,5 +53,5 @@ _Status: M1-M3 reached 2026-10-10, M4 (plugin USB audio) reached 2026-10-11 (E05
 - M2 (done, E044): wrapper VST3 that loads the original plugin and installs the emulation itself (no injector).
 - M3 (done, E047-E050): vtibroker owns WinUSB, drains IN permanently, reconnects; serves plugin + Control Center (vtilaunch). Open: port-cycle recovery (needs elevated helper, M6); Windows MIDI ports deferred.
 - M4 (done, E057): plugin-integrated USB audio (user order 2026-10-10). Open: latency/drift (WASAPI 48k->44.1k resampling, clock from capture packets), project sample rate != 44.1k, audio towards the Virus (USB input, "3 Outs/1 Input"). Plan (E054/E055): emulate 0x220010 with an own input AudioSM region; fill it from WASAPI capture of the inbox "Virus TI" endpoint (int16<<16, ch0/1, 44.1 kHz); act as the clock: periodically advance the plugin's output-ring read pos (+0x810BC = +0x81028) and SetEvent the threaded buffer-switch event from 0x2200E4. Output towards the Virus (USB input) not needed with "2 Outs/No Input".
-- M5: verify on Windows 11 (CI policy, HVCI, Windows MIDI Services).
+- M5 (done, E058/E059): Windows 11 Pro 26300 VM with Secure Boot + TPM: WinUSB package accepted, plugin incl. audio in REAPER, Control Center OK. Open: VBS/HVCI enabled (VM lacks nested virt), real Win11 hardware.
 - M6: final MSI (WiX): INF + cert/catalog generation custom action, broker autostart, wrapper VST3; uninstall restores.

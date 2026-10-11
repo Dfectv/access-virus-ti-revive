@@ -1,9 +1,9 @@
 # HANDOFF
 
-_Last updated: 2026-10-11 ~06:00 (VM time is snapshot-relative). M1-M4 done: plugin incl. USB audio works without the Access driver (E057). Next: M5 Windows 11, then M6 MSI._
+_Last updated: 2026-10-11 ~06:30. M1-M5 done (Win11 VM: plugin + audio in REAPER, Control Center OK, E059). Next: M6 final MSI._
 
 
-## M5 Windows 11 VM (core works 2026-10-11, E058)
+## M5 Windows 11 VM (done 2026-10-11, E058/E059)
 - VM "win11": scripts/win11/create-vm.sh (q35, UEFI Secure Boot with MS keys, TPM 2.0 swtpm, 4 vCPU, 8 GB, SATA 80 GB win11.qcow2, e1000e). Unattended install from pool volumes win11-install.iso (Windows11_Client_x64_de-de_26300_9457.iso from the Ventoy stick) + win11-unattend.iso (make-unattend-iso.sh: autounattend.xml = Windows 11 Pro via public generic key (not activated), local account vti/vti, autologon, setup-ssh.ps1 -> OpenSSH + ~/.ssh/vm_re.pub). Control: `VM=win11 scripts/vm.sh ps ...`.
 - Deployed via scripts/win11/deploy-m5.sh (Access MSI without drivers/firmware, WinUSB INF, broker + vticc tasks, wrapper, Reaper 7.82). Disk backup of the fresh OS: pool volume win11-base.qcow2 (internal snapshots impossible: raw UEFI nvram).
 - Currently the Virus is attached to **win11** (detached from win10).
