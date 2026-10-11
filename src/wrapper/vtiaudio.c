@@ -253,7 +253,9 @@ static int broker_audio(void)
     int idle = 0;
     while (g_running) {
         DWORD w = WaitForSingleObject(ev, 200);
-        int64_t wr = InterlockedCompareExchange64((volatile LONG64 *)&shm->in_frames, 0, 0);
+        // plain aligned 64-bit read (atomic on x64); no interlocked op: the mapping is read-only (lock cmpxchg
+        // writes and faults there). The broker publishes in_frames after the data, x64 keeps the load order.
+        int64_t wr = *(volatile const int64_t *)&shm->in_frames;
         if (wr == pos) {
             if (w == WAIT_TIMEOUT && ++idle >= 5) { // 1 s without audio: broker restarted or stream stopped
                 idle = 0;
