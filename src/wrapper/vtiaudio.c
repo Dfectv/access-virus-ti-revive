@@ -68,6 +68,9 @@ static void push_frames(const int16_t *pcm, uint32_t ch, uint32_t n)
     volatile uint8_t *o = g_out_sm;
     HANDLE ev = g_bs_event;
     uint32_t thr = o ? U32(o, 0x810B8) : 0;
+#ifndef VTIAUDIO_BS_PER_BUFFER // fix1 experiment (E069): per-buffer switching + trigger time made timing worse
+    thr = 0;
+#endif
     if (!thr || thr > 0x8000) { // no output ring (yet): one switch per packet
         if (o)
             U32(o, 0x810BC) = U32(o, 0x81028);
