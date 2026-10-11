@@ -123,7 +123,8 @@ shortcuts). The Access software is uninstalled separately.
 - **No Windows (WDM) sound card**: the Virus audio function runs on WinUSB and is streamed by TI Revive itself
   (as with the old Access driver), so "Line (Virus TI)" / "Speakers (Virus TI)" no longer appear in Windows;
   use the ASIO device in your DAW. You hear the Virus through the plug-in track. When you update from TI Revive 0.2.x,
-  unplug and replug the Virus (or restart Windows) once after installing, so the new driver binding applies.
+  the audio part of the Virus switches to WinUSB automatically; if the Virus audio does not work afterwards,
+  unplug and replug the Virus once.
 - **"A sync error occurred. Press Stop and Play to clear."** can appear once right after the first Play;
   Stop and Play clears it.
 - **Bank sync** takes about one second per preset — the synth itself sends dumps at that speed.
