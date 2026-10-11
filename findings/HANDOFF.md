@@ -9,6 +9,11 @@ _Last updated: 2026-10-11 ~06:30. M1-M5 done (Win11 VM: plugin + audio in REAPER
 - Currently the Virus is attached to **win11** (detached from win10).
 - The Virus can only be passed to one VM at a time: virsh detach-device win10 scripts/virus.xml, attach to win11 (and back).
 
+## M6 TI Revive MSI (2026-10-11)
+- Sources: src/installer (TIRevive.wxs, tirevive-driver.ps1, tirevive-access.ps1, notice.rtf, build.ps1). Build: scripts/win11/build-msi.sh (needs the win11 VM running with the BUILD disk: .NET 8 in C:\build\dotnet, WiX 5.0.2 in C:\build\wix + UI/Util extensions) -> work/release/TI Revive.msi.
+- Disks (pool default): win11-base.qcow2 = fresh OS + SSH; win11-build.qcow2 = build machine (WiX/.NET, old manual deploy); win11.qcow2 = currently the clean MSI test machine (base + TI Revive.msi + Reaper). Swap = VM off, vol-delete win11.qcow2, vol-clone <src> win11.qcow2.
+- E060: clean install test passed (driver, cert, broker, plugin files, Access via helper); Virus attached to win11 now.
+
 ## RESUME HERE (2026-10-11)
 State at pause:
 - VM `win10` was reverted to snapshot **pre-winusb** (Access driver, 17:20 state) for the M4 audio analysis. Our working WinUSB setup (broker task, wrapper VST3, vtilaunch, vticc task) is saved in snapshot **m3-done** (18:34). Return: `scripts/vm.sh revert m3-done`, then `scripts/vm.sh detach && scripts/vm.sh attach` (after a revert the host snd-usb-audio grabs the Virus; check `1-9:1.*` drivers = usbfs).

@@ -36,12 +36,13 @@ if ($Action -eq 'install') {
     Copy-Item (Join-Path $here 'vti_winusb.inf') $stage
     $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=TI Revive local driver package' `
         -CertStoreLocation Cert:\LocalMachine\My -NotAfter (Get-Date).AddYears(20) -KeyExportPolicy NonExportable
-    New-FileCatalog -Path $stage -CatalogFilePath (Join-Path $stage 'vti_winusb.cat') -CatalogVersion 2.0 | Out-Null
-    $sig = Set-AuthenticodeSignature -FilePath (Join-Path $stage 'vti_winusb.cat') -Certificate $cert -HashAlgorithm SHA256
-    "catalog signature: $($sig.Status)"
+    # trust the public part first, so the signature status below is "Valid" (not "UnknownError")
     $pub = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(, $cert.Export('Cert'))
     Trust-Store 'Root' $pub
     Trust-Store 'TrustedPublisher' $pub
+    New-FileCatalog -Path $stage -CatalogFilePath (Join-Path $stage 'vti_winusb.cat') -CatalogVersion 2.0 | Out-Null
+    $sig = Set-AuthenticodeSignature -FilePath (Join-Path $stage 'vti_winusb.cat') -Certificate $cert -HashAlgorithm SHA256
+    "catalog signature: $($sig.Status)"
     Remove-Item "Cert:\LocalMachine\My\$($cert.Thumbprint)" -DeleteKey # private key gone: signs nothing else
     Set-ItemProperty $reg CertThumbprint $cert.Thumbprint
     $out = pnputil /add-driver (Join-Path $stage 'vti_winusb.inf') /install | Out-String
