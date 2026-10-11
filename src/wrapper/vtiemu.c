@@ -27,6 +27,11 @@ static HANDLE g_log = INVALID_HANDLE_VALUE;
 static CRITICAL_SECTION g_cs;
 static LARGE_INTEGER g_freq, g_t0;
 
+void *vtiaudio_input_region(void);           // vtiaudio.c (M4)
+void vtiaudio_output_ring(int start, void *buf);
+void vtiaudio_buffer_switch(const uint64_t reg[3]);
+void vtiemu_log(const char *fmt, ...);
+
 static void vlog(const char *fmt, ...)
 {
     char buf[1024];
@@ -45,6 +50,16 @@ static void vlog(const char *fmt, ...)
     EnterCriticalSection(&g_cs);
     WriteFile(g_log, buf, n, &w, NULL);
     LeaveCriticalSection(&g_cs);
+}
+
+void vtiemu_log(const char *fmt, ...)
+{
+    char buf[512];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, sizeof buf, fmt, ap);
+    va_end(ap);
+    vlog("%s", buf);
 }
 
 static void vlog_vti(const char *fmt, ...) // vticore diagnostics into our log (they end with \n)
@@ -305,11 +320,25 @@ static BOOL emulate(HANDLE h, DWORD code, void *in, DWORD insz, void *out, DWORD
         uint32_t st[2] = {0, 0x8000};
         return reply(out, outsz, ret, st, sizeof st, 8);
     }
+    case 0x220010: { // map the driver's input AudioSM: {0x18, 1, 1, size, address} (E055, vtiaudio.c)
+        void *region = vtiaudio_input_region();
+        uint8_t r[24] = {0x18, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0xc0, 0x10, 0x08, 0};
+        memcpy(r + 16, &region, 8);
+        return reply(out, outsz, ret, r, sizeof r, 24);
+    }
+    case 0x220030: // plugin output stream start/stop: {u8 start, pad, void *buf} in the output buffer
+        if (out && outsz >= 16)
+            vtiaudio_output_ring(*(uint8_t *)out, *(void **)((uint8_t *)out + 8));
+        *ret = 0;
+        return TRUE;
+    case 0x2200e4: // buffer-switch registration {routine, thread, event}
+        if (out && outsz >= 24)
+            vtiaudio_buffer_switch(out);
+        *ret = 0;
+        return TRUE;
     case 0x2200ac: // flush TX ring
-    case 0x2200b0: // per-client ASIO parameters / APC registration: accepted, audio is not emulated yet
-    case 0x2200e4:
-    case 0x2200e8:
-    case 0x220030:
+    case 0x2200b0: // per-client stream id
+    case 0x2200e8: // notify registration (not used by the plugin's audio path)
     case 0x220024:
     case 0x220064:
     case 0x2200ec:

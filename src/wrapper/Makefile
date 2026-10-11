@@ -5,23 +5,23 @@ OUT = ../../work/build
 
 all: $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3 $(OUT)/vtiemu-pipe.dll $(OUT)/vtilaunch.exe
 
-$(OUT)/vtiemu.dll: vtiemu.c replay_table.h ../broker/vticore_winusb.c ../broker/vticore_midi.c ../broker/vticore.h
+$(OUT)/vtiemu.dll: vtiemu.c vtiaudio.c replay_table.h ../broker/vticore_winusb.c ../broker/vticore_midi.c ../broker/vticore.h
 	mkdir -p $(OUT)
-	$(CC) $(CFLAGS) -shared -o $@ vtiemu.c ../broker/vticore_winusb.c ../broker/vticore_midi.c \
-		-lwinusb -lsetupapi -lshlwapi -static -lpthread
+	$(CC) $(CFLAGS) -shared -o $@ vtiemu.c vtiaudio.c ../broker/vticore_winusb.c ../broker/vticore_midi.c \
+		-lwinusb -lsetupapi -lshlwapi -lole32 -luuid -static -lpthread
 
 # Wrapper VST3 (single-file VST3 module, like the original): emulation linked in (no DllMain from vtiemu.c),
 # device access through vtibroker.exe (vticore_pipe.c, M3)
-$(OUT)/VirusTI_WinUSB.vst3: vtiwrap.c vtiemu.c replay_table.h ../broker/vticore_pipe.c ../broker/vticore_midi.c ../broker/vticore.h ../broker/vtiproto.h
+$(OUT)/VirusTI_WinUSB.vst3: vtiwrap.c vtiemu.c vtiaudio.c replay_table.h ../broker/vticore_pipe.c ../broker/vticore_midi.c ../broker/vticore.h ../broker/vtiproto.h
 	mkdir -p $(OUT)
-	$(CC) $(CFLAGS) -DVTIEMU_NO_DLLMAIN -shared -o $@ vtiwrap.c vtiemu.c ../broker/vticore_pipe.c \
+	$(CC) $(CFLAGS) -DVTIEMU_NO_DLLMAIN -shared -o $@ vtiwrap.c vtiemu.c vtiaudio.c ../broker/vticore_pipe.c \
 		../broker/vticore_midi.c -lsetupapi -lshlwapi -lshell32 -lole32 -luuid -static -lpthread
 
 # Emulation DLL on the broker (pipe backend) for programs started via vtilaunch (Virus Control Center)
-$(OUT)/vtiemu-pipe.dll: vtiemu.c replay_table.h ../broker/vticore_pipe.c ../broker/vticore_midi.c ../broker/vticore.h ../broker/vtiproto.h
+$(OUT)/vtiemu-pipe.dll: vtiemu.c vtiaudio.c replay_table.h ../broker/vticore_pipe.c ../broker/vticore_midi.c ../broker/vticore.h ../broker/vtiproto.h
 	mkdir -p $(OUT)
-	$(CC) $(CFLAGS) -shared -o $@ vtiemu.c ../broker/vticore_pipe.c ../broker/vticore_midi.c \
-		-lsetupapi -lshlwapi -static -lpthread
+	$(CC) $(CFLAGS) -shared -o $@ vtiemu.c vtiaudio.c ../broker/vticore_pipe.c ../broker/vticore_midi.c \
+		-lsetupapi -lshlwapi -lole32 -luuid -static -lpthread
 
 $(OUT)/vtilaunch.exe: vtilaunch.c
 	mkdir -p $(OUT)
