@@ -12,7 +12,7 @@ for f in work/build/vtibroker.exe work/build/vtilaunch.exe work/build/vtiemu-pip
   scripts/vm.sh push "$f" "$R/bin/"
 done
 scripts/vm.sh push src/inf/vti_winusb.inf "$R/src/inf/"
-for f in src/installer/*; do scripts/vm.sh push "$f" "$R/src/installer/"; done
+scripts/vm.sh push src/installer "$R/src/" 
 scripts/vm.sh ps 'powershell -ExecutionPolicy Bypass -File C:\build\tirevive\src\installer\build.ps1 2>&1 | Out-String -Width 200'
 mkdir -p work/release
 scripts/vm.sh pull "$R/out/TI Revive.msi" work/release/
