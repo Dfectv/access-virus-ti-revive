@@ -5,8 +5,8 @@
 // "threaded" variant). Without the Access driver the audio interfaces are driven by Windows' inbox USB audio
 // class driver (E045), so here:
 //   - 0x220010 returns a region we allocate with the driver's layout,
-//   - a capture thread reads the "Virus TI" recording endpoint with WASAPI (shared mode, Windows converts to
-//     44.1 kHz / 16-bit / stereo) and writes the frames as int16 << 16 into channels 0/1, advancing the counter,
+//   - a capture thread reads the "Virus TI" recording endpoint with WASAPI (shared mode, all endpoint channels,
+//     Windows converts to 44.1 kHz / 16-bit) and writes them as int16 << 16 in device order, advancing the counter,
 //   - after every packet it consumes the plugin's output ring (+0x810BC = +0x81028) and signals the plugin's
 //     buffer-switch event (the driver did this in its isochronous completion).
 // If no Virus recording endpoint exists, a 5 ms timer provides the clock with silence.
@@ -48,17 +48,18 @@ static void init_region(uint8_t *b)
     // B+0x81020 owner = 0 and B+0x81028 exclusive = 0: every plugin instance outputs the audio
 }
 
-// Append n frames (stereo int16, or silence if pcm == NULL) and run the clock for the plugin.
-static void push_frames(const int16_t *pcm, uint32_t n)
+// Append n frames of `ch` interleaved int16 channels (or silence if pcm == NULL) in device channel order and
+// run the clock for the plugin. The Virus sends 6 channels (USB1-3 L/R); the plugin's "USB1" is device channel
+// pair 2/3 (E056), so all channels are copied 1:1 like the driver did.
+static void push_frames(const int16_t *pcm, uint32_t ch, uint32_t n)
 {
     uint8_t *s = S(g_in);
     uint32_t maxf = U32(s, 0x80004), wr = U32(s, 0x81028);
     int32_t *ring = (int32_t *)s;
     for (uint32_t i = 0; i < n; i++) {
         int32_t *f = ring + ((wr + i) % maxf) * IN_CHANNELS;
-        f[0] = pcm ? (int32_t)pcm[2 * i] << 16 : 0;
-        f[1] = pcm ? (int32_t)pcm[2 * i + 1] << 16 : 0;
-        f[2] = f[3] = f[4] = f[5] = 0;
+        for (uint32_t c = 0; c < IN_CHANNELS; c++)
+            f[c] = pcm && c < ch ? (int32_t)pcm[ch * i + c] << 16 : 0;
     }
     U32(s, 0x81028) = wr + n;
     volatile uint8_t *o = g_out_sm;
@@ -116,9 +117,8 @@ static IMMDevice *find_virus_capture(void)
 
 static void silence_clock(void)
 {
-    int16_t zero[2 * 221] = {0};
     while (g_running) { // ~5 ms periods
-        push_frames(zero, 221);
+        push_frames(NULL, 0, 221);
         Sleep(5);
     }
 }
@@ -131,13 +131,35 @@ static DWORD WINAPI capture_thread(LPVOID unused)
     IAudioClient *ac = NULL;
     IAudioCaptureClient *cc = NULL;
     HANDLE ev = CreateEventA(NULL, FALSE, FALSE, NULL);
-    WAVEFORMATEX fmt = {WAVE_FORMAT_PCM, 2, RATE, RATE * 4, 4, 16, 0};
+    // Same channel count and mask as the endpoint (so Windows does not remix), 16-bit PCM at 44.1 kHz
+    // (Windows resamples from the device rate, 48 kHz with the inbox driver, E056).
+    WAVEFORMATEXTENSIBLE fx = {0};
+    WAVEFORMATEX *fmt = &fx.Format, *mix = NULL;
     HRESULT hr = E_FAIL;
-    if (dev && SUCCEEDED(hr = dev->lpVtbl->Activate(dev, &IID_AudioClient, CLSCTX_ALL, NULL, (void **)&ac)))
+    uint32_t ch = 2;
+    if (dev && SUCCEEDED(hr = dev->lpVtbl->Activate(dev, &IID_AudioClient, CLSCTX_ALL, NULL, (void **)&ac)) &&
+        SUCCEEDED(hr = ac->lpVtbl->GetMixFormat(ac, &mix))) {
+        ch = mix->nChannels ? mix->nChannels : 2;
+        DWORD mask = mix->wFormatTag == WAVE_FORMAT_EXTENSIBLE ? ((WAVEFORMATEXTENSIBLE *)mix)->dwChannelMask : 0;
+        vtiemu_log("audio: endpoint mix format %u ch, %lu Hz, %u bit, mask 0x%lx", ch, (unsigned long)mix->nSamplesPerSec,
+                   mix->wBitsPerSample, (unsigned long)mask);
+        CoTaskMemFree(mix);
+        fx.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+        fx.Format.nChannels = (WORD)ch;
+        fx.Format.nSamplesPerSec = RATE;
+        fx.Format.wBitsPerSample = 16;
+        fx.Format.nBlockAlign = (WORD)(2 * ch);
+        fx.Format.nAvgBytesPerSec = RATE * 2 * ch;
+        fx.Format.cbSize = sizeof fx - sizeof fx.Format;
+        fx.Samples.wValidBitsPerSample = 16;
+        fx.dwChannelMask = mask;
+        fx.SubFormat = (GUID){0x00000001, 0x0000, 0x0010, {0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71}}; // PCM
+    }
+    if (SUCCEEDED(hr))
         hr = ac->lpVtbl->Initialize(ac, AUDCLNT_SHAREMODE_SHARED,
                                     AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM |
                                         AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
-                                    100000 /* 10 ms */, 0, &fmt, NULL);
+                                    100000 /* 10 ms */, 0, fmt, NULL);
     if (SUCCEEDED(hr))
         hr = ac->lpVtbl->SetEventHandle(ac, ev);
     if (SUCCEEDED(hr))
@@ -149,7 +171,7 @@ static DWORD WINAPI capture_thread(LPVOID unused)
                    dev ? "found" : "missing");
         silence_clock();
     } else {
-        vtiemu_log("audio: capturing 44.1 kHz 16-bit stereo from the Virus TI endpoint");
+        vtiemu_log("audio: capturing 44.1 kHz 16-bit %u ch from the Virus TI endpoint", ch);
         uint64_t total = 0;
         while (g_running) {
             if (WaitForSingleObject(ev, 200) != WAIT_OBJECT_0)
@@ -158,7 +180,7 @@ static DWORD WINAPI capture_thread(LPVOID unused)
             UINT32 n;
             DWORD flags;
             while (SUCCEEDED(cc->lpVtbl->GetBuffer(cc, &data, &n, &flags, NULL, NULL)) && n) {
-                push_frames((flags & AUDCLNT_BUFFERFLAGS_SILENT) ? NULL : (const int16_t *)data, n);
+                push_frames((flags & AUDCLNT_BUFFERFLAGS_SILENT) ? NULL : (const int16_t *)data, ch, n);
                 total += n;
                 cc->lpVtbl->ReleaseBuffer(cc, n);
             }
