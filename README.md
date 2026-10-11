@@ -134,8 +134,9 @@ make -C src/vtihook     # research tools: IOCTL tracer, injector
 ```
 
 The MSI is built with WiX 5 on Windows (`src/installer/build.ps1`). GitHub Actions
-(`.github/workflows/build.yml`) does both steps on every push: the MSI is attached to each run as the
-artifact **TI-Revive-msi**, and pushing a tag `vX.Y.Z` publishes a **Release** with `TI-Revive-X.Y.Z.msi`.
+(`.github/workflows/build.yml`) does both steps, but only when a version tag `vX.Y.Z` is pushed
+(`git tag -a v0.2.3 -m ... && git push origin v0.2.3`): it then publishes a **Release** with `TI-Revive-X.Y.Z.msi`.
+Branch pushes and pull requests do not build.
 `scripts/win11/build-msi.sh` does the same round trip through a local Windows 11 build VM.
 
 ## Repository layout

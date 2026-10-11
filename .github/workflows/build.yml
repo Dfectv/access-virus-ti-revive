@@ -1,14 +1,12 @@
 # Build TI Revive: cross-compile the Windows binaries on Linux (mingw-w64), build the MSI with WiX 5 on Windows.
-# Every run uploads "TI-Revive-msi" as a downloadable artifact. Pushing a tag v<major>.<minor>.<build> (e.g. v0.1.2)
-# additionally creates a GitHub Release with the MSI attached; the MSI version is taken from the tag.
+# Runs ONLY when a version tag v<major>.<minor>.<build> (e.g. v0.2.3) is pushed: no builds on branch pushes, pull
+# requests or by hand. Each run uploads "TI-Revive-msi" as an artifact and creates a GitHub Release with the MSI
+# attached; the MSI version is taken from the tag.
 name: build
 
 on:
   push:
-    branches: [main]
-    tags: ['v*']
-  pull_request:
-  workflow_dispatch:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
 
 permissions:
   contents: read
@@ -54,8 +52,8 @@ jobs:
         id: ver
         shell: pwsh
         run: |
-          # tag v1.2.3 -> 1.2.3; other builds: 0.1.<run number> (MSI versions must be numeric)
-          if ($env:GITHUB_REF -match '^refs/tags/v(\d+\.\d+\.\d+)$') { $v = $Matches[1] } else { $v = "0.1.$env:GITHUB_RUN_NUMBER" }
+          # tag v1.2.3 -> 1.2.3 (MSI versions must be numeric)
+          if ($env:GITHUB_REF -match '^refs/tags/v(\d+\.\d+\.\d+)$') { $v = $Matches[1] } else { throw "not a version tag: $env:GITHUB_REF" }
           "version=$v" >> $env:GITHUB_OUTPUT
           "MSI version $v"
       - name: Install WiX 5
