@@ -14,7 +14,8 @@ _Last updated: 2026-10-11 ~06:30. M1-M5 done (Win11 VM: plugin + audio in REAPER
 - Disks (pool default): win11-base.qcow2 = fresh OS + SSH; win11-build.qcow2 = build machine (WiX/.NET, old manual deploy); win11.qcow2 = currently the clean MSI test machine (base + TI Revive.msi + Reaper). Swap = VM off, vol-delete win11.qcow2, vol-clone <src> win11.qcow2.
 - E060: clean install test passed (driver, cert, broker, plugin files, Access via helper); E061: plugin audible in REAPER; Control Center via the Access shortcut runs without the bridge ("no device") -> 0.1.1 retargets those shortcuts. Virus attached to win11 now.
 - Do NOT use virt-manager's USB redirection for the Virus while it is passed through (E061): it re-enumerates the device and leaves the hostdev stale -> virsh detach/attach.
-- Open for M6: uninstall test, rebuild 0.1.1 with the signing-order log fix, user-facing README.
+- E063: 0.1.0 uninstall left driver package + cert (registry wipe bug) -> fixed; leftovers in the test VM cleaned. 0.1.1 = signing-order log fix + Access shortcut retarget + uninstall fix (version bumped in TIRevive.wxs).
+- Open for M6: build + test 0.1.1 (install, function, uninstall), user-facing README.
 
 ## RESUME HERE (2026-10-11)
 State at pause:

@@ -12,7 +12,9 @@ $logDir = Join-Path $env:ProgramData 'TI Revive'
 New-Item -ItemType Directory -Force $logDir | Out-Null
 Start-Transcript -Path (Join-Path $logDir 'driver.log') -Append | Out-Null
 $reg = 'HKLM:\SOFTWARE\TI Revive'
-New-Item -Path $reg -Force | Out-Null
+# NOT New-Item -Force on every run: on an existing key it recreates it empty, which wiped DriverPackage /
+# CertThumbprint before uninstall could read them (0.1.0 left the driver package and cert behind, E063)
+if ($Action -eq 'install' -and -not (Test-Path $reg)) { New-Item -Path $reg | Out-Null }
 
 function Trust-Store([string]$name, $cert, [switch]$Remove) {
     $s = New-Object System.Security.Cryptography.X509Certificates.X509Store($name, 'LocalMachine')
@@ -53,11 +55,23 @@ if ($Action -eq 'install') {
 } else {
     $p = Get-ItemProperty $reg -ErrorAction SilentlyContinue
     Get-Process vtibroker -ErrorAction SilentlyContinue | Stop-Process -Force
-    if ($p.DriverPackage) { pnputil /delete-driver $p.DriverPackage /uninstall /force | Out-String }
-    if ($p.CertThumbprint) {
-        Trust-Store 'Root' $p.CertThumbprint -Remove
-        Trust-Store 'TrustedPublisher' $p.CertThumbprint -Remove
+    # driver package(s): the recorded one plus any vti_winusb.inf package found in the driver store
+    $pkgs = @($p.DriverPackage) + @(((pnputil /enum-drivers | Out-String) -split "(\r?\n){2,}") |
+        Where-Object { $_ -match '(?i)vti_winusb\.inf' -and $_ -match '(oem\d+\.inf)' } | ForEach-Object { $Matches[1] })
+    foreach ($pkg in ($pkgs | Where-Object { $_ } | Select-Object -Unique)) {
+        "removing driver package $pkg"
+        pnputil /delete-driver $pkg /uninstall /force | Out-String
     }
+    # certificates: the recorded thumbprint plus any "TI Revive local driver package" cert
+    foreach ($store in 'Root', 'TrustedPublisher') {
+        $thumbs = @($p.CertThumbprint) + @(Get-ChildItem "Cert:\LocalMachine\$store" |
+            Where-Object Subject -eq 'CN=TI Revive local driver package' | ForEach-Object Thumbprint)
+        foreach ($t in ($thumbs | Where-Object { $_ } | Select-Object -Unique)) {
+            "removing certificate $t from $store"
+            Trust-Store $store $t -Remove
+        }
+    }
+    pnputil /scan-devices | Out-Null
     Remove-Item $reg -Recurse -Force -ErrorAction SilentlyContinue
 }
 Stop-Transcript | Out-Null
