@@ -17,6 +17,11 @@ _Last updated: 2026-10-11 ~06:30. M1-M5 done (Win11 VM: plugin + audio in REAPER
 - E063: 0.1.0 uninstall left driver package + cert (registry wipe bug) -> fixed; leftovers in the test VM cleaned. 0.1.1 = signing-order log fix + Access shortcut retarget + uninstall fix (version bumped in TIRevive.wxs).
 - Open for M6: build + test 0.1.1 (install, function, uninstall), user-facing README.
 
+## CI / GitHub (2026-10-11)
+- Repo: github.com/derpsn/access-virus-ti-revive (branch main; local `main` tracks origin/main; deploy key ~/.ssh/tirevive_deploy via `git config core.sshCommand`).
+- .github/workflows/build.yml: ubuntu (mingw-w64) builds binaries -> windows-2022 builds the MSI with WiX 5.0.2 (version: tag vX.Y.Z or 0.1.<run>) -> artifact TI-Revive-msi; tag push -> GitHub Release with the MSI.
+- MIT license, README.md at the root.
+
 ## RESUME HERE (2026-10-11)
 State at pause:
 - VM `win10` was reverted to snapshot **pre-winusb** (Access driver, 17:20 state) for the M4 audio analysis. Our working WinUSB setup (broker task, wrapper VST3, vtilaunch, vticc task) is saved in snapshot **m3-done** (18:34). Return: `scripts/vm.sh revert m3-done`, then `scripts/vm.sh detach && scripts/vm.sh attach` (after a revert the host snd-usb-audio grabs the Virus; check `1-9:1.*` drivers = usbfs).

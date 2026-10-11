@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  TIRevive.wxs - MSI for "TI Revive" (milestone M6, findings/design.md). Build: src/installer/build.ps1 (WiX 5).
+  TIRevive.wxs - MSI for "TI Revive" (milestone M6, findings/design.md). Build: src/installer/build.ps1 (WiX 5) or .github/workflows/build.yml.
   Per-machine install of our files only; the user's Access MSI is installed afterwards by tirevive-access.ps1
   (exit dialog checkbox / Start menu), because Windows forbids nested MSI installs.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-  <Package Name="TI Revive" Manufacturer="TI Revive" Version="0.1.1" UpgradeCode="248B1670-6464-4F0A-965F-9CA56380C1AD"
+  <Package Name="TI Revive" Manufacturer="TI Revive" Version="$(var.Version)" UpgradeCode="248B1670-6464-4F0A-965F-9CA56380C1AD"
            Scope="perMachine" Compressed="yes" Language="1033">
     <SummaryInformation Description="TI Revive - Total Integration for Access Virus TI on Windows 11" />
     <MajorUpgrade DowngradeErrorMessage="A newer version of TI Revive is already installed." />

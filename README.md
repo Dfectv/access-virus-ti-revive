@@ -123,8 +123,10 @@ make -C src/wrapper     # VirusTI_WinUSB.vst3 (wrapper), vtiemu-pipe.dll, vtilau
 make -C src/vtihook     # research tools: IOCTL tracer, injector
 ```
 
-The MSI is built with WiX 5 on Windows (`src/installer/build.ps1`); `scripts/win11/build-msi.sh` does
-the whole round trip through a Windows 11 build VM.
+The MSI is built with WiX 5 on Windows (`src/installer/build.ps1`). GitHub Actions
+(`.github/workflows/build.yml`) does both steps on every push: the MSI is attached to each run as the
+artifact **TI-Revive-msi**, and pushing a tag `vX.Y.Z` publishes a **Release** with `TI-Revive-X.Y.Z.msi`.
+`scripts/win11/build-msi.sh` does the same round trip through a local Windows 11 build VM.
 
 ## Repository layout
 
