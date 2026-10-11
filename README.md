@@ -101,10 +101,12 @@ shortcuts). The Access software is uninstalled separately.
   "communication problems" (original behaviour).
 - **Hearing the Virus**: with a part output set to *USB*, the audio comes through the plug-in track.
   The plug-in sets the synth to "2 Outs / No Input"; audio *to* the Virus over USB is not supported yet.
-- **The Virus USB audio is opened exclusively** at 44.1 kHz by the plug-in, so the synth's sample clock matches
-  the plug-in's MIDI timestamps (Windows' own driver would run it at 48 kHz and notes would drift). Do not
-  select "Virus TI" as your DAW's audio device. If another program holds the device, TI Revive falls back
-  to shared mode (works, but timing is not sample-exact).
+- **The Virus USB audio is opened exclusively** at 44.1 kHz by the plug-in, in both directions, so the synth's
+  sample clock matches the plug-in's MIDI timestamps (Windows' own driver would run it at 48 kHz and notes would
+  drift) and the synth gets the continuous audio stream it syncs to (silence for now; without it the plug-in
+  shows "A sync error occurred"). Do not select "Line (Virus TI)" or "Speakers (Virus TI)" as an audio device
+  in your DAW or in Windows. If another program holds the input, TI Revive falls back to shared mode (works,
+  but timing is not sample-exact).
 - **Bank sync** takes about one second per preset — the synth itself sends dumps at that speed.
 - **Windows MIDI ports** ("Virus TI MIDI"/"Virus TI Synth") of the old driver are not provided.
 - Do not run firmware/OS updates of the Virus through TI Revive; that path is not verified.
