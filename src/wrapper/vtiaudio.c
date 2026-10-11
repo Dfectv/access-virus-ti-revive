@@ -11,6 +11,7 @@
 //     buffer-switch event (the driver did this in its isochronous completion).
 // If no Virus recording endpoint exists, a 5 ms timer provides the clock with silence.
 // A second thread keeps the Virus playback endpoint streaming (silence), as the driver did (E072).
+// Preferred over all of this: vtiusbaudio.c streams the USB audio endpoints directly on WinUSB (E075).
 #include <windows.h>
 #include <initguid.h>
 #include <mmdeviceapi.h>
@@ -19,6 +20,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <wchar.h>
+#include "vtiusbaudio.h"
 
 void vtiemu_log(const char *fmt, ...); // vtiemu.c
 
@@ -179,9 +181,23 @@ static void silence_clock(void)
     }
 }
 
+static DWORD WINAPI render_thread(LPVOID unused);
+
+static void usb_in(const int16_t *pcm, uint32_t frames, void *user)
+{
+    (void)user;
+    push_frames(pcm, IN_CHANNELS, frames);
+}
+
 static DWORD WINAPI capture_thread(LPVOID unused)
 {
     (void)unused;
+    // Preferred: stream the Virus audio ourselves on WinUSB like VirusUSB.sys (frame counter = the synth's real
+    // frames, OUT pattern mirrored; E075). Falls through to WASAPI when the audio function is not on WinUSB.
+    if (vua_run(&g_running, usb_in, NULL, vtiemu_log) >= 0)
+        return 0;
+    vtiemu_log("audio: no WinUSB audio function (MI_00): using Windows audio (WASAPI)");
+    g_render_thread = CreateThread(NULL, 0, render_thread, NULL, 0, NULL);
     CoInitializeEx(NULL, COINIT_MULTITHREADED);
     IMMDevice *dev = find_virus(eCapture);
     IAudioClient *ac = NULL;
@@ -375,8 +391,7 @@ static DWORD WINAPI render_thread(LPVOID unused)
 static void ensure_running(void)
 {
     if (!InterlockedExchange(&g_running, 1)) {
-        g_thread = CreateThread(NULL, 0, capture_thread, NULL, 0, NULL);
-        g_render_thread = CreateThread(NULL, 0, render_thread, NULL, 0, NULL);
+        g_thread = CreateThread(NULL, 0, capture_thread, NULL, 0, NULL); // starts render_thread for WASAPI
     }
 }
 
