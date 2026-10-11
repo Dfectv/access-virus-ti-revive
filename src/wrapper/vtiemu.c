@@ -362,6 +362,17 @@ static BOOL emulate(HANDLE h, DWORD code, void *in, DWORD insz, void *out, DWORD
     case 0x2200f0:
         *ret = 0;
         return TRUE;
+    // Status queries of the original ASIO driver (VirusUSB_X64.dll, findings E082): answered with zeros =
+    // 0x220068 "no stream active" (0xF04-byte status block), 0x220070 flag, 0x2200b4 "no other client with this
+    // stream id", 0x2200bc {status 0 = OK, flag 0}. Zero-filled because the caller reads uninitialised locals.
+    case 0x220068:
+    case 0x220070:
+    case 0x2200b4:
+    case 0x2200bc:
+        if (out && outsz)
+            memset(out, 0, outsz);
+        *ret = outsz;
+        return TRUE;
     default:
         return replay(code, in, out, outsz, ret);
     }
@@ -519,9 +530,11 @@ static void patch_module(HMODULE m, int all);
 
 static void patch_access_modules(void);
 
+static int g_single; // ASIO wrapper copy (vtiasio.c): patch only the one module given to vtiemu_init_module
+
 static void after_load(HMODULE m)
 {
-    if (!m)
+    if (!m || g_single)
         return;
     char path[MAX_PATH];
     GetModuleFileNameA(m, path, sizeof path);
@@ -657,7 +670,11 @@ static void patch_process(HMODULE self)
 
 // Set up logging and the hooks. self = this module (never patched). Called from DllMain when injected
 // (vtiemu.dll) or from the wrapper VST3 before it loads the original plugin (vtiwrap.c).
-void vtiemu_init(HMODULE self)
+#ifndef VTIEMU_LOG_PREFIX
+#define VTIEMU_LOG_PREFIX "vtiemu" // the ASIO wrapper uses its own log (two emulation copies in one DAW process)
+#endif
+
+static void init_common(void)
 {
     static LONG once;
     if (InterlockedExchange(&once, 1))
@@ -669,7 +686,7 @@ void vtiemu_init(HMODULE self)
         QueryPerformanceCounter(&g_t0);
         char path[MAX_PATH + 32], tmp[MAX_PATH];
         GetTempPathA(sizeof tmp, tmp);
-        snprintf(path, sizeof path, "%svtiemu-%lu.log", tmp, GetCurrentProcessId());
+        snprintf(path, sizeof path, "%s" VTIEMU_LOG_PREFIX "-%lu.log", tmp, GetCurrentProcessId());
         g_log = CreateFileA(path, FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS, 0, NULL);
         // Real functions from kernelbase (kernel32 exports are forwarders/stubs on Win10+), fall back to kernel32.
         HMODULE k32 = GetModuleHandleA("kernelbase.dll");
@@ -688,8 +705,32 @@ void vtiemu_init(HMODULE self)
         GetModuleFileNameA(NULL, exe, sizeof exe);
         vlog("vtiemu attached to pid %lu %s", GetCurrentProcessId(), exe);
         vti_log = vlog_vti;
-        patch_process(self);
     }
+}
+
+void vtiemu_init(HMODULE self)
+{
+    static LONG once;
+    if (InterlockedExchange(&once, 1))
+        return;
+    init_common();
+    patch_process(self);
+}
+
+// ASIO wrapper: log + real function pointers without patching anything (vtiemu_log is usable afterwards).
+void vtiemu_init_log(void)
+{
+    g_single = 1;
+    init_common();
+}
+
+// ASIO wrapper: emulate the driver for exactly one module (the original VirusUSB_X64.dll), nothing else in the
+// process (the plug-in's own emulation copy handles Virus TI.vst3 / Virus Control.dll).
+void vtiemu_init_module(HMODULE target)
+{
+    g_single = 1;
+    init_common();
+    patch_module(target, 1);
 }
 
 // Fully patch Access modules loaded by the caller (the wrapper calls this right after loading the plugin).

@@ -3,7 +3,7 @@ CC = x86_64-w64-mingw32-gcc
 CFLAGS = -O2 -Wall -Wextra
 OUT = ../../work/build
 
-all: $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3 $(OUT)/vtiemu-pipe.dll $(OUT)/vtilaunch.exe $(OUT)/vtiisotest.exe
+all: $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3 $(OUT)/vtiemu-pipe.dll $(OUT)/vtilaunch.exe $(OUT)/vtiisotest.exe $(OUT)/TIRevive_ASIO.dll $(OUT)/vtiasiohost.exe
 
 $(OUT)/vtiemu.dll: vtiemu.c vtiaudio.c vtiusbaudio.c vtiusbaudio.h replay_table.h ../broker/vticore_winusb.c ../broker/vticore_midi.c ../broker/vticore.h
 	mkdir -p $(OUT)
@@ -23,6 +23,18 @@ $(OUT)/vtiemu-pipe.dll: vtiemu.c vtiaudio.c vtiusbaudio.c vtiusbaudio.h replay_t
 	$(CC) $(CFLAGS) -shared -o $@ vtiemu.c vtiaudio.c vtiusbaudio.c ../broker/vticore_pipe.c ../broker/vticore_midi.c \
 		-lwinusb -lsetupapi -lshlwapi -lole32 -luuid -static -lpthread
 
+# ASIO driver "Virus TI (TI Revive)": wraps the original VirusUSB_X64.dll with its own emulation copy (vtiasio.c)
+$(OUT)/TIRevive_ASIO.dll: vtiasio.c vtiemu.c vtiaudio.c vtiusbaudio.c vtiusbaudio.h replay_table.h ../broker/vticore_pipe.c ../broker/vticore_midi.c ../broker/vticore.h ../broker/vtiproto.h ../broker/vtiaudioshm.h
+	mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -DVTIEMU_NO_DLLMAIN -DVTIEMU_LOG_PREFIX='"vtiasio"' -shared -o $@ vtiasio.c vtiemu.c vtiaudio.c \
+		vtiusbaudio.c ../broker/vticore_pipe.c ../broker/vticore_midi.c -lwinusb -lsetupapi -lshlwapi -lole32 -luuid \
+		-ladvapi32 -static -lpthread
+
+# Minimal ASIO host for testing an ASIO driver without a DAW: vtiasiohost [seconds] [{CLSID}]
+$(OUT)/vtiasiohost.exe: vtiasiohost.c
+	mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -o $@ vtiasiohost.c -lole32 -luuid -static
+
 $(OUT)/vtilaunch.exe: vtilaunch.c
 	mkdir -p $(OUT)
 	$(CC) $(CFLAGS) -municode -o $@ vtilaunch.c -static
@@ -33,4 +45,4 @@ $(OUT)/vtiisotest.exe: vtiisotest.c vtiusbaudio.c vtiusbaudio.h
 	$(CC) $(CFLAGS) -o $@ vtiisotest.c vtiusbaudio.c -lwinusb -lsetupapi -static
 
 clean:
-	rm -f $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3 $(OUT)/vtiemu-pipe.dll $(OUT)/vtilaunch.exe $(OUT)/vtiisotest.exe
+	rm -f $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3 $(OUT)/vtiemu-pipe.dll $(OUT)/vtilaunch.exe $(OUT)/vtiisotest.exe $(OUT)/TIRevive_ASIO.dll
