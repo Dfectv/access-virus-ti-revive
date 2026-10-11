@@ -1,7 +1,7 @@
 # Design: user-mode Virus TI driver for Windows 11 (draft)
 
 _Goal (user, 2026-10-10): a user-level driver for the Virus TI, packaged in a new MSI that works on Windows 11._
-_Status: M1-M5 reached (M5 2026-10-11, E059). Next: M6 final MSI._
+_Status: M1-M6 reached; first public beta v0.2.0 released 2026-10-11 (GitHub Release, CI-built MSI)._
 
 ## Constraints
 - No custom kernel driver: the original VirusUSB.sys is blocked by Win11 Code Integrity (C8). Only Microsoft-signed inbox kernel drivers (WinUSB, usbaudio, usbccgp) may be used.

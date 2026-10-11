@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-11 ~06:30. M1-M5 done (Win11 VM: plugin + audio in REAPER, Control Center OK, E059). Next: M6 final MSI "TI Revive" (design.md M6 decisions)._
+_Last updated: 2026-10-11 ~08:10. FIRST RELEASE v0.2.0 (pre-release) published: https://github.com/derpsn/access-virus-ti-revive/releases/tag/v0.2.0. Next (open): real Win11 hardware + HVCI test, REAPER MIDI input check, audio to the Virus, Windows MIDI ports, latency/drift, USB port-cycle recovery._
 
 
 ## M5 Windows 11 VM (done 2026-10-11, E058/E059)
@@ -15,7 +15,7 @@ _Last updated: 2026-10-11 ~06:30. M1-M5 done (Win11 VM: plugin + audio in REAPER
 - E060: clean install test passed (driver, cert, broker, plugin files, Access via helper); E061: plugin audible in REAPER; Control Center via the Access shortcut runs without the bridge ("no device") -> 0.1.1 retargets those shortcuts. Virus attached to win11 now.
 - Do NOT use virt-manager's USB redirection for the Virus while it is passed through (E061): it re-enumerates the device and leaves the hostdev stale -> virsh detach/attach.
 - E063: 0.1.0 uninstall left driver package + cert (registry wipe bug) -> fixed; leftovers in the test VM cleaned. 0.1.1 = signing-order log fix + Access shortcut retarget + uninstall fix (version bumped in TIRevive.wxs).
-- E065/E066: 0.1.5 (CI build) passes on Win11: install over existing Access, both CC shortcuts -> vtilaunch, Ableton plugin + audio, CC OK; 0.1.1 uninstall clean. Ableton Live 11 Suite installed in the win11 test VM. Next: release tag (user decides version).
+- E065/E066: 0.1.5 (CI build) passes on Win11: install over existing Access, both CC shortcuts -> vtilaunch, Ableton plugin + audio, CC OK; 0.1.1 uninstall clean. Ableton Live 11 Suite installed in the win11 test VM. Released as v0.2.0 (tag push -> CI release job, 0.x = pre-release).
 
 ## CI / GitHub (2026-10-11)
 - Repo: github.com/derpsn/access-virus-ti-revive (branch main; local `main` tracks origin/main over HTTPS; `gh` CLI logged in as derpsn: `gh run list`, `gh run view`, `gh run download`).
