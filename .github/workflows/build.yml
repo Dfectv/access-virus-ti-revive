@@ -94,6 +94,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" out/TI-Revive-*.msi \
-            --repo "$GITHUB_REPOSITORY" --title "TI Revive ${GITHUB_REF_NAME#v}" \
-            --notes "Installer for Windows 10/11 x64. Requires your own Access \"Virus TI Software Suite\" 64-bit MSI next to it (see README)."
+          v="${GITHUB_REF_NAME#v}"
+          pre=""; case "$v" in 0.*) pre="--prerelease" ;; esac   # 0.x = beta
+          cat > notes.md <<EOF_NOTES
+          **TI Revive $v** - Total Integration for the Access Virus TI on Windows 10/11 x64, without the old kernel driver.
+
+          - Download \`TI-Revive-$v.msi\` and put your own Access "Virus TI Software Suite" 64-bit \`.msi\` next to it.
+          - Run the TI Revive MSI (not code-signed: SmartScreen -> More info -> Run anyway) and keep
+            "Install the Access Virus TI software now" checked on the last page.
+          - In your DAW use the plug-in **"Virus TI (TI Revive)"**.
+
+          Not affiliated with Access Music or Kemper. Contains no Access software. See the
+          [README](https://github.com/$GITHUB_REPOSITORY#readme) for how it works, limitations and uninstall.
+          EOF_NOTES
+          gh release create "$GITHUB_REF_NAME" out/TI-Revive-*.msi $pre \
+            --repo "$GITHUB_REPOSITORY" --title "TI Revive $v" --notes-file notes.md
