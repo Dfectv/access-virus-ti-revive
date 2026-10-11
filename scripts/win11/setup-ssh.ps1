@@ -13,8 +13,10 @@ if ($cap.State -ne 'Installed') {
 }
 Set-Service sshd -StartupType Automatic
 Start-Service sshd
-if (-not (Get-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue)) {
-    New-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -DisplayName 'OpenSSH Server (sshd)' -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 | Out-Null
+# The capability's own rule only covers the Private profile; a fresh VM network is Public (first install: port 22
+# dropped). Always add a rule for every profile.
+if (-not (Get-NetFirewallRule -Name 'sshd-any' -ErrorAction SilentlyContinue)) {
+    New-NetFirewallRule -Name 'sshd-any' -DisplayName 'OpenSSH (any profile)' -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 -Profile Any | Out-Null
 }
 # vti is an administrator: sshd reads administrators_authorized_keys, which must only be writable by SYSTEM/Admins
 $keys = 'C:\ProgramData\ssh\administrators_authorized_keys'
