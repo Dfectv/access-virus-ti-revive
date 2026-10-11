@@ -58,8 +58,9 @@ def read_wav(path):
 
 
 def onsets(x, rate, hold_ms=40.0):
-    """Onsets = upward crossings of a threshold on a 1 ms RMS envelope, with a hold-off."""
-    win = max(1, rate // 1000)
+    """Onsets = upward crossings of a threshold on a 5 ms RMS envelope (longer than one waveform period at C3,
+    so oscillator ripple does not retrigger), with a hold-off."""
+    win = max(1, rate // 200)
     env = []
     for i in range(0, len(x) - win, win):
         s = sum(v * v for v in x[i:i + win]) / win
@@ -68,7 +69,7 @@ def onsets(x, rate, hold_ms=40.0):
     if peak <= 0:
         return []
     thr = peak * 0.2
-    res, hold, armed = [], int(hold_ms), True
+    res, hold, armed = [], max(1, int(hold_ms / 5)), True
     i = 0
     while i < len(env):
         if armed and env[i] >= thr:
@@ -130,6 +131,8 @@ def main():
     print(f"drift               {drift_ppm:+9.0f} ppm  ({drift_ppm * 60 / 1e3:+.1f} ms per minute)")
     print(f"jitter (std dev)    {sd * 1000:9.2f} ms   max |dev| {max(abs(r) for r in res) * 1000:.2f} ms")
     print(f"missing / extra     {missing} / {extra}")
+    iv = sorted(b - a for a, b in zip(on, on[1:]))
+    print(f"median interval     {iv[len(iv) // 2] * 1000:9.2f} ms  (expected {period * 1000:.2f})")
 
 
 if __name__ == "__main__":
