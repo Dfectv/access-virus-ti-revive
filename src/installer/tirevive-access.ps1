@@ -11,7 +11,7 @@ function Say([string]$text, [string]$icon = 'Information') {
     [System.Windows.Forms.MessageBox]::Show($text, $title, 'OK', $icon) | Out-Null
 }
 
-# start the broker for this session if it is not running yet (normally started at logon)
+# start the broker for this session if it is not running yet (it is started on demand and exits when idle)
 $broker = Join-Path $PSScriptRoot 'vtibroker.exe'
 if (-not (Get-Process vtibroker -ErrorAction SilentlyContinue) -and (Test-Path $broker)) {
     Start-Process $broker -WindowStyle Hidden

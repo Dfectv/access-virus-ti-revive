@@ -1,6 +1,8 @@
 // vticore_pipe.c - client backend of vticore.h that talks to vtibroker.exe over \\.\pipe\vtibroker
 // (vtiproto.h) instead of opening WinUSB itself. Used by the wrapper VST3 (vtiemu) so several plugin
 // instances and Control Center can share the device (findings/design.md, M3).
+// The broker is not started at logon: the first client that finds no pipe starts it, and the broker exits
+// by itself when no client has been connected for a while (vtibroker.c, IDLE_EXIT_MS).
 #include "vticore.h"
 #include "vtiproto.h"
 #include "vtipipe_io.h"
@@ -8,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 
 struct vti {
     HANDLE pipe;
@@ -78,16 +81,85 @@ static DWORD WINAPI reader(LPVOID arg)
     return 0;
 }
 
+// vtibroker.exe: $VTI_BROKER, else InstallDir from HKLM\SOFTWARE\TI Revive (written by the MSI), else next to
+// this module (vtiemu-pipe.dll / vtilaunch.exe live in the install folder), else %ProgramW6432%\TI Revive.
+static int broker_path(wchar_t *path, DWORD cap)
+{
+    DWORD n = GetEnvironmentVariableW(L"VTI_BROKER", path, cap);
+    if (n && n < cap && GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES)
+        return 1;
+    wchar_t dir[MAX_PATH];
+    DWORD sz = sizeof dir;
+    if (!RegGetValueW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\TI Revive", L"InstallDir", RRF_RT_REG_SZ | RRF_SUBKEY_WOW6464KEY,
+                      NULL, dir, &sz)) {
+        _snwprintf(path, cap, L"%ls%lsvtibroker.exe", dir, dir[0] && dir[wcslen(dir) - 1] == L'\\' ? L"" : L"\\");
+        if (GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES)
+            return 1;
+    }
+    HMODULE self = NULL;
+    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           (LPCWSTR)(void *)broker_path, &self) &&
+        GetModuleFileNameW(self, path, cap)) {
+        wchar_t *slash = wcsrchr(path, L'\\');
+        if (slash && (size_t)(slash + 1 - path) + 14 < cap) {
+            wcscpy(slash + 1, L"vtibroker.exe");
+            if (GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES)
+                return 1;
+        }
+    }
+    n = GetEnvironmentVariableW(L"ProgramW6432", dir, MAX_PATH);
+    if (n && n < MAX_PATH) {
+        _snwprintf(path, cap, L"%ls\\TI Revive\\vtibroker.exe", dir);
+        if (GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES)
+            return 1;
+    }
+    return 0;
+}
+
+// Start the broker detached from the caller (a DAW may run plug-ins in a job object that is killed with it).
+static int start_broker(void)
+{
+    wchar_t path[MAX_PATH + 32];
+    if (!broker_path(path, MAX_PATH + 32)) {
+        vti_log("vti: vtibroker.exe not found (TI Revive not installed?)\n");
+        return 0;
+    }
+    wchar_t cmd[MAX_PATH + 40];
+    _snwprintf(cmd, MAX_PATH + 40, L"\"%ls\"", path);
+    STARTUPINFOW si = {.cb = sizeof si};
+    PROCESS_INFORMATION pi;
+    DWORD flags = DETACHED_PROCESS | CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP;
+    if (!CreateProcessW(path, cmd, NULL, NULL, FALSE, flags | CREATE_BREAKAWAY_FROM_JOB, NULL, NULL, &si, &pi) &&
+        !CreateProcessW(path, cmd, NULL, NULL, FALSE, flags, NULL, NULL, &si, &pi)) {
+        vti_log("vti: starting vtibroker failed (error %lu)\n", GetLastError());
+        return 0;
+    }
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    vti_log("vti: started vtibroker on demand\n");
+    return 1;
+}
+
 vti *vti_open(vti_rx_cb cb, void *user)
 {
     HANDLE p = INVALID_HANDLE_VALUE;
-    for (int i = 0; i < 20 && p == INVALID_HANDLE_VALUE; i++) { // the broker may be busy accepting another client
+    int started = 0;
+    for (int i = 0; i < 40 && p == INVALID_HANDLE_VALUE; i++) { // the broker may be busy accepting another client
         p = CreateFileA(VTI_PIPE_NAME, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED,
                         NULL);
         if (p == INVALID_HANDLE_VALUE) {
-            if (GetLastError() != ERROR_PIPE_BUSY)
+            DWORD e = GetLastError();
+            if (e == ERROR_PIPE_BUSY) {
+                WaitNamedPipeA(VTI_PIPE_NAME, 100);
+            } else if (e == ERROR_FILE_NOT_FOUND && !started) {
+                if (!(started = start_broker()))
+                    break;
+                Sleep(100);
+            } else if (e == ERROR_FILE_NOT_FOUND) {
+                Sleep(100); // broker starting up: up to 4 s
+            } else {
                 break;
-            WaitNamedPipeA(VTI_PIPE_NAME, 100);
+            }
         }
     }
     if (p == INVALID_HANDLE_VALUE) {
@@ -104,7 +176,8 @@ vti *vti_open(vti_rx_cb cb, void *user)
     uint32_t ver = VTI_PROTO_VERSION;
     send_msg(v, VTIMSG_HELLO, &ver, 4, NULL, 0);
     v->rd = CreateThread(NULL, 0, reader, v, 0, NULL);
-    for (int i = 0; i < 50 && !v->connected; i++) // wait for the STATE message (sent right after connect)
+    // wait for STATE "connected" (sent right after connect; a freshly started broker opens the device first)
+    for (int i = 0; i < (started ? 500 : 50) && !v->connected; i++)
         Sleep(10);
     if (!v->connected) {
         vti_log("vti: broker has no device\n");

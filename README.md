@@ -34,7 +34,7 @@ accepts — so the synth, the plug-in and the user's existing Access software ke
           │  an emulation of the old driver's interface (31 IOCTLs, shared audio memory)
           │
           ├── MIDI/remote: named pipe \\.\pipe\vtibroker
-          │      vtibroker.exe (per-user background process, started at logon): owns the MIDI interfaces,
+          │      vtibroker.exe (per-user background process, started on demand, exits when idle): owns the MIDI interfaces,
           │      keeps them drained, re-connects after unplug, serves plug-in + Control Center
           │        ▼  WinUSB (Microsoft, inbox)  ──  Virus TI MI_03 + MI_04
           │
@@ -71,9 +71,10 @@ If the audio function is not on WinUSB, TI Revive falls back to the Windows "Vir
 (WASAPI, exclusive 44.1 kHz).
 
 **The broker.** WinUSB allows one owner per interface, and the Virus stops accepting data when nobody
-reads its input endpoints. `vtibroker.exe` therefore owns the device permanently, sends the
+reads its input endpoints. `vtibroker.exe` therefore owns the device while it is in use, sends the
 initialisation handshake, keeps both IN endpoints drained, re-opens the device after unplug or
-errors, and multiplexes it for the plug-in and Control Center.
+errors, and multiplexes it for the plug-in and Control Center. It is not started at logon: the plug-in or
+Control Center starts it when they need the Virus, and it exits 30 seconds after the last of them has gone.
 
 The full protocol description is in [`findings/spec.md`](findings/spec.md); every statement there is
 backed by an entry in [`findings/evidence.md`](findings/evidence.md) (captures, traces, decompiled
