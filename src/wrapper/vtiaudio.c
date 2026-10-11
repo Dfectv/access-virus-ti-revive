@@ -62,12 +62,33 @@ static void push_frames(const int16_t *pcm, uint32_t ch, uint32_t n)
             f[c] = pcm && c < ch ? (int32_t)pcm[ch * i + c] << 16 : 0;
     }
     U32(s, 0x81028) = wr + n;
+    // Buffer switch like VirusUSB.sys (FUN_f1025370, E051): once per +0x810B8 frames of device time (the plugin's
+    // buffer size: 64..2048), not once per capture packet; the first one stamps +0x810C8 with the QPC time
+    // ("mTriggerTime", which the plugin's AudioSM code checks).
     volatile uint8_t *o = g_out_sm;
-    if (o) // the device "consumed" whatever the plugin produced towards it
-        U32(o, 0x810BC) = U32(o, 0x81028);
     HANDLE ev = g_bs_event;
-    if (ev)
-        SetEvent(ev);
+    uint32_t thr = o ? U32(o, 0x810B8) : 0;
+#ifndef VTIAUDIO_BS_PER_BUFFER // fix1 experiment (E069): per-buffer switching + trigger time made timing worse
+    thr = 0;
+#endif
+    if (!thr || thr > 0x8000) { // no output ring (yet): one switch per packet
+        if (o)
+            U32(o, 0x810BC) = U32(o, 0x81028);
+        if (ev)
+            SetEvent(ev);
+        return;
+    }
+    static uint32_t since;
+    for (since += n; since >= thr; since -= thr) {
+        U32(o, 0x810BC) = U32(o, 0x81028); // the device "consumed" what the plugin produced towards it
+        if (!*(volatile uint64_t *)(o + 0x810C8)) {
+            LARGE_INTEGER q;
+            QueryPerformanceCounter(&q);
+            *(volatile uint64_t *)(o + 0x810C8) = (uint64_t)q.QuadPart;
+        }
+        if (ev)
+            SetEvent(ev);
+    }
 }
 
 // GUIDs spelled out: mingw headers declare but do not always define them.
@@ -155,7 +176,39 @@ static DWORD WINAPI capture_thread(LPVOID unused)
         fx.dwChannelMask = mask;
         fx.SubFormat = (GUID){0x00000001, 0x0000, 0x0010, {0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71}}; // PCM
     }
-    if (SUCCEEDED(hr))
+    // Exclusive mode first: the device itself then runs at 44.1 kHz like with the Access driver (the inbox driver
+    // picks 48 kHz in shared mode, and the 48k->44.1k conversion plus the 48 kHz device clock made tempo sync and
+    // audio timing drift, E067); no resampling and a short, device-clocked period. Shared mode is the fallback.
+    int exclusive = 0;
+    if (SUCCEEDED(hr) && ac->lpVtbl->IsFormatSupported(ac, AUDCLNT_SHAREMODE_EXCLUSIVE, fmt, NULL) == S_OK) {
+        REFERENCE_TIME def = 0, min = 0;
+        ac->lpVtbl->GetDevicePeriod(ac, &def, &min);
+        HRESULT ex = ac->lpVtbl->Initialize(ac, AUDCLNT_SHAREMODE_EXCLUSIVE, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, def,
+                                            def, fmt, NULL);
+        if (ex == AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED) { // retry with the aligned buffer size
+            UINT32 frames = 0;
+            ac->lpVtbl->GetBufferSize(ac, &frames);
+            ac->lpVtbl->Release(ac);
+            ac = NULL;
+            def = (REFERENCE_TIME)(10000.0 * 1000 / RATE * frames + 0.5);
+            if (SUCCEEDED(dev->lpVtbl->Activate(dev, &IID_AudioClient, CLSCTX_ALL, NULL, (void **)&ac)))
+                ex = ac->lpVtbl->Initialize(ac, AUDCLNT_SHAREMODE_EXCLUSIVE, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, def,
+                                            def, fmt, NULL);
+        }
+        if (SUCCEEDED(ex)) {
+            exclusive = 1;
+            vtiemu_log("audio: exclusive mode, period %.2f ms", def / 10000.0);
+        } else {
+            vtiemu_log("audio: exclusive mode failed (hr=0x%08lx): shared mode", (unsigned long)ex);
+            if (ac)
+                ac->lpVtbl->Release(ac);
+            ac = NULL;
+            hr = dev->lpVtbl->Activate(dev, &IID_AudioClient, CLSCTX_ALL, NULL, (void **)&ac);
+        }
+    } else if (SUCCEEDED(hr)) {
+        vtiemu_log("audio: 44.1 kHz %u ch not available in exclusive mode: shared mode (resampled)", ch);
+    }
+    if (SUCCEEDED(hr) && !exclusive)
         hr = ac->lpVtbl->Initialize(ac, AUDCLNT_SHAREMODE_SHARED,
                                     AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM |
                                         AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
@@ -171,7 +224,7 @@ static DWORD WINAPI capture_thread(LPVOID unused)
                    dev ? "found" : "missing");
         silence_clock();
     } else {
-        vtiemu_log("audio: capturing 44.1 kHz 16-bit %u ch from the Virus TI endpoint", ch);
+        vtiemu_log("audio: capturing 44.1 kHz 16-bit %u ch from the Virus TI endpoint (%s)", ch, exclusive ? "exclusive" : "shared");
         uint64_t total = 0;
         while (g_running) {
             if (WaitForSingleObject(ev, 200) != WAIT_OBJECT_0)
