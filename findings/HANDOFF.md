@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-11 ~06:30. M1-M5 done (Win11 VM: plugin + audio in REAPER, Control Center OK, E059). Next: M6 final MSI._
+_Last updated: 2026-10-11 ~06:30. M1-M5 done (Win11 VM: plugin + audio in REAPER, Control Center OK, E059). Next: M6 final MSI "TI Revive" (design.md M6 decisions)._
 
 
 ## M5 Windows 11 VM (done 2026-10-11, E058/E059)
