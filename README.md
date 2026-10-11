@@ -129,8 +129,8 @@ shortcuts). The Access software is uninstalled separately.
 | Plug-in-integrated USB audio | done |
 | Windows 11 (Secure Boot + TPM, VM) | done |
 | MSI installer (GitHub Actions build) | tested on a clean Windows 11 VM: install, plug-in + audio, Control Center, uninstall |
-| Real Win11 hardware: long session without sync errors or drift (0.3.0) | done |
-| Memory integrity (HVCI) check, latency measurements, audio to the Virus | open |
+| Real Win11 hardware with memory integrity (HVCI) on: long session without sync errors or drift (0.3.0) | done |
+| Latency measurements, audio to the Virus | open |
 
 ## Building
 
