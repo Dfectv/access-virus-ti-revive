@@ -80,7 +80,8 @@ Requirements: Windows 10/11 x64, an Access Virus TI on USB, your own **Access "V
    and run its firmware updater). If it is already installed, that is fine — TI Revive removes the
    old driver packages.
 2. Put `TI Revive.msi` and the Access `.msi` in the same folder (or in *Downloads*).
-3. Run `TI Revive.msi`. On the last page keep **"Install the Access Virus TI software now"** checked:
+3. Run `TI Revive.msi`. The MSI is not code-signed (a certificate costs money), so Windows SmartScreen
+   may show **"Windows protected your PC"**: click **More info → Run anyway**. On the last page keep **"Install the Access Virus TI software now"** checked:
    TI Revive installs your Access software **without its old drivers and without the firmware
    updater** (a local copy of the MSI with those steps disabled).
 4. Connect the Virus TI. In your DAW, rescan plug-ins and use **"Virus TI (TI Revive)"** (not the
@@ -90,6 +91,9 @@ Uninstall via *Settings → Apps → TI Revive* (removes driver package, certifi
 shortcuts). The Access software is uninstalled separately.
 
 ## Good to know
+
+- **Tested with** Ableton Live 11 on Windows 10 and Windows 11 (Secure Boot, TPM 2.0). REAPER loads and
+  connects the plug-in; make sure the track is record-armed with a MIDI input and monitoring on.
 
 - **One plug-in instance per synth.** Virus Control is designed that way (it controls all 16 parts);
   a second instance reports "no Virus TI connected". This is the original behaviour.
@@ -110,7 +114,7 @@ shortcuts). The Access software is uninstalled separately.
 | Broker: multi-client, unplug recovery, Control Center | done |
 | Plug-in-integrated USB audio | done |
 | Windows 11 (Secure Boot + TPM, VM) | done |
-| MSI installer | 0.1.x, tested on a clean Windows 11 VM |
+| MSI installer (GitHub Actions build) | tested on a clean Windows 11 VM: install, plug-in + audio, Control Center, uninstall |
 | Real Win11 hardware with memory integrity (HVCI), latency measurements, audio to the Virus | open |
 
 ## Building
