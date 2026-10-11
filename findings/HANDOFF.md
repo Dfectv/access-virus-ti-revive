@@ -27,6 +27,9 @@ _Last updated: 2026-10-11 ~08:10. FIRST RELEASE v0.2.0 (pre-release) published: 
 - E067: real Win11 PC: drift/desync with v0.2.0 (44.1 kHz project, buffer 2048). Fix candidate on branch `timing-fix` (exclusive 44.1k capture, buffer-switch per +0x810B8 frames, trigger QPC): work/build/vtiwrap-fix1.vst3. Baseline (= v0.2.0 wrapper) installed in the Win10 VM as VirusTI_WinUSB.vst3.
 - Measurement: Ableton in Win10 VM, 16th-note clip, plug-in output recorded to an audio track, `python3 -I scripts/timing_analysis.py rec.wav --bpm 120 --div 4`. Run baseline vs fix1 at buffer 2048 and 256.
 
+- E068-E070: baseline 115.99 ms per 16th (48k/44.1k clock mismatch), fix1 worse, **fix2 (exclusive 44.1k only) exact** (124.99 ms, 0 ppm, 0.19 ms jitter); fix2 installed in Win10 VM. User: "sounds much better".
+- Test preset: `scripts/make_test_patch.py <Access Rom A bank> "work/timing/TI Revive Test.mid"` (Init + percussive amp env: "TI Click", "TI Pluck"); copied to the VM's Documents\Access Music\Virus TI\Patches. Next: user re-checks by ear with it, then merge timing-fix -> main, README note (Ableton audio input must not be "Virus TI": exclusive mode), release v0.2.1, test on real Win11 PC.
+
 ## RESUME HERE (2026-10-11)
 State at pause:
 - VM `win10` was reverted to snapshot **pre-winusb** (Access driver, 17:20 state) for the M4 audio analysis. Our working WinUSB setup (broker task, wrapper VST3, vtilaunch, vticc task) is saved in snapshot **m3-done** (18:34). Return: `scripts/vm.sh revert m3-done`, then `scripts/vm.sh detach && scripts/vm.sh attach` (after a revert the host snd-usb-audio grabs the Virus; check `1-9:1.*` drivers = usbfs).
