@@ -16,6 +16,7 @@
 #include <string.h>
 
 #define MAX_CLIENTS 16
+#define IDLE_EXIT_MS 30000 // exit when no client has been connected for this long (started on demand, vticore_pipe.c)
 
 static HANDLE g_log = INVALID_HANDLE_VALUE;
 static int g_verbose;
@@ -139,10 +140,44 @@ static void on_vti_log(const char *fmt, ...)
 }
 
 // Device thread: open the device when present, reopen after failures (unplug, wedged pipes).
+static int g_stay; // -stay: never exit when idle (debugging, or started by hand)
+
+static int client_count_locked(void)
+{
+    int n = 0;
+    for (int i = 0; i < MAX_CLIENTS; i++)
+        n += g_clients[i] != NULL;
+    return n;
+}
+
+static int client_count(void)
+{
+    int n = 0;
+    EnterCriticalSection(&g_cs_clients);
+    for (int i = 0; i < MAX_CLIENTS; i++)
+        n += g_clients[i] != NULL;
+    LeaveCriticalSection(&g_cs_clients);
+    return n;
+}
+
 static DWORD WINAPI device_thread(LPVOID unused)
 {
     (void)unused;
+    DWORD last_busy = GetTickCount();
     for (;;) {
+        if (client_count())
+            last_busy = GetTickCount();
+        else if (!g_stay && GetTickCount() - last_busy > IDLE_EXIT_MS) {
+            EnterCriticalSection(&g_cs_clients); // no client may connect in between
+            if (!client_count_locked()) {
+                EnterCriticalSection(&g_cs_dev);
+                if (g_dev)
+                    vti_close(g_dev);
+                blog("no clients for %d s: exiting", IDLE_EXIT_MS / 1000);
+                ExitProcess(0);
+            }
+            LeaveCriticalSection(&g_cs_clients);
+        }
         EnterCriticalSection(&g_cs_dev);
         if (g_dev && (g_dev_failed || vti_is_dead(g_dev))) {
             blog("device failed: closing");
@@ -237,7 +272,10 @@ static DWORD WINAPI client_thread(LPVOID arg)
 
 int main(int argc, char **argv)
 {
-    g_verbose = argc > 1 && !strcmp(argv[1], "-v");
+    for (int i = 1; i < argc; i++) {
+        g_verbose |= !strcmp(argv[i], "-v");
+        g_stay |= !strcmp(argv[i], "-stay");
+    }
     InitializeCriticalSection(&g_cs_log);
     InitializeCriticalSection(&g_cs_dev);
     InitializeCriticalSection(&g_cs_clients);

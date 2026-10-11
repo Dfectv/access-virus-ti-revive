@@ -26,9 +26,9 @@
     <ComponentGroup Id="Core" Directory="INSTALLFOLDER">
       <Component>
         <File Id="vtibroker" Source="$(var.Bin)\vtibroker.exe" KeyPath="yes" />
-        <!-- the broker owns the device for the logged-on user; started at every logon -->
-        <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="TI Revive Broker"
-                       Type="string" Value="&quot;[INSTALLFOLDER]vtibroker.exe&quot;" />
+        <!-- the broker owns the device for the logged-on user; NOT started at logon: the plug-in / Control Center
+             start it on demand (found via InstallDir) and it exits when no client has been connected for 30 s -->
+        <RegistryValue Root="HKLM" Key="Software\TI Revive" Name="InstallDir" Type="string" Value="[INSTALLFOLDER]" />
       </Component>
       <Component><File Source="$(var.Bin)\vtilaunch.exe" /></Component>
       <Component><File Source="$(var.Bin)\vtiemu-pipe.dll" /></Component>
@@ -63,11 +63,16 @@
     <!-- driver package + trusted cert (deferred, SYSTEM), and the reverse on uninstall -->
     <SetProperty Id="CA_DriverInstall" Sequence="execute" Before="CA_DriverInstall"
                  Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]tirevive-driver.ps1&quot; install" />
+    <!-- stop a running broker (0.3.0 and older started it at logon) before Windows checks files in use -->
+    <SetProperty Id="WixQuietExec64CmdLine" Value="&quot;[System64Folder]taskkill.exe&quot; /F /IM vtibroker.exe"
+                 Before="CA_StopBroker" Sequence="execute" />
+    <CustomAction Id="CA_StopBroker" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64" Execute="immediate" Return="ignore" />
     <CustomAction Id="CA_DriverInstall" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64" Execute="deferred" Impersonate="no" Return="check" />
     <SetProperty Id="CA_DriverUninstall" Sequence="execute" Before="CA_DriverUninstall"
                  Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]tirevive-driver.ps1&quot; uninstall" />
     <CustomAction Id="CA_DriverUninstall" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64" Execute="deferred" Impersonate="no" Return="ignore" />
     <InstallExecuteSequence>
+      <Custom Action="CA_StopBroker" Before="InstallValidate" />
       <Custom Action="CA_DriverInstall" After="InstallFiles" Condition="NOT REMOVE" />
       <Custom Action="CA_DriverUninstall" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
     </InstallExecuteSequence>
