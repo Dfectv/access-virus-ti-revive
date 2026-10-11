@@ -3,6 +3,10 @@
 _Last updated: 2026-10-11 ~06:00 (VM time is snapshot-relative). M1-M4 done: plugin incl. USB audio works without the Access driver (E057). Next: M5 Windows 11, then M6 MSI._
 
 
+## M5 Windows 11 VM (in progress 2026-10-11)
+- VM "win11": scripts/win11/create-vm.sh (q35, UEFI Secure Boot with MS keys, TPM 2.0 swtpm, 4 vCPU, 8 GB, SATA 80 GB win11.qcow2, e1000e). Unattended install from pool volumes win11-install.iso (Windows11_Client_x64_de-de_26300_9457.iso from the Ventoy stick) + win11-unattend.iso (make-unattend-iso.sh: autounattend.xml = Windows 11 Pro via public generic key (not activated), local account vti/vti, autologon, setup-ssh.ps1 -> OpenSSH + ~/.ssh/vm_re.pub). Control: `VM=win11 scripts/vm.sh ps ...`.
+- The Virus can only be passed to one VM at a time: virsh detach-device win10 scripts/virus.xml, attach to win11 (and back).
+
 ## RESUME HERE (2026-10-11)
 State at pause:
 - VM `win10` was reverted to snapshot **pre-winusb** (Access driver, 17:20 state) for the M4 audio analysis. Our working WinUSB setup (broker task, wrapper VST3, vtilaunch, vticc task) is saved in snapshot **m3-done** (18:34). Return: `scripts/vm.sh revert m3-done`, then `scripts/vm.sh detach && scripts/vm.sh attach` (after a revert the host snd-usb-audio grabs the Virus; check `1-9:1.*` drivers = usbfs).
