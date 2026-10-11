@@ -8,7 +8,7 @@ make -C src/broker >/dev/null
 make -C src/wrapper >/dev/null
 R='C:/build/tirevive'
 scripts/vm.sh ps 'Remove-Item -Recurse -Force C:\build\tirevive -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Force C:\build\tirevive\bin, C:\build\tirevive\src\inf, C:\build\tirevive\src\installer | Out-Null' >/dev/null
-for f in work/build/vtibroker.exe work/build/vtilaunch.exe work/build/vtiemu-pipe.dll work/build/VirusTI_WinUSB.vst3; do
+for f in work/build/vtibroker.exe work/build/vtilaunch.exe work/build/vtiemu-pipe.dll work/build/VirusTI_WinUSB.vst3 work/build/TIRevive_ASIO.dll; do
   scripts/vm.sh push "$f" "$R/bin/"
 done
 scripts/vm.sh push src/inf/vti_winusb.inf "$R/src/inf/"
