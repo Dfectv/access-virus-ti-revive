@@ -12,7 +12,7 @@ _Last updated: 2026-10-11 ~06:30. M1-M5 done (Win11 VM: plugin + audio in REAPER
 ## M6 TI Revive MSI (2026-10-11)
 - Sources: src/installer (TIRevive.wxs, tirevive-driver.ps1, tirevive-access.ps1, notice.rtf, build.ps1). Build: scripts/win11/build-msi.sh (needs the win11 VM running with the BUILD disk: .NET 8 in C:\build\dotnet, WiX 5.0.2 in C:\build\wix + UI/Util extensions) -> work/release/TI Revive.msi.
 - Disks (pool default): win11-base.qcow2 = fresh OS + SSH; win11-build.qcow2 = build machine (WiX/.NET, old manual deploy); win11.qcow2 = currently the clean MSI test machine (base + TI Revive.msi + Reaper). Swap = VM off, vol-delete win11.qcow2, vol-clone <src> win11.qcow2.
-- E060: clean install test passed (driver, cert, broker, plugin files, Access via helper); E061: plugin audible in REAPER + Control Center finds the synth. Virus attached to win11 now.
+- E060: clean install test passed (driver, cert, broker, plugin files, Access via helper); E061: plugin audible in REAPER; Control Center via the Access shortcut runs without the bridge ("no device") -> 0.1.1 retargets those shortcuts. Virus attached to win11 now.
 - Do NOT use virt-manager's USB redirection for the Virus while it is passed through (E061): it re-enumerates the device and leaves the hostdev stale -> virsh detach/attach.
 - Open for M6: uninstall test, rebuild 0.1.1 with the signing-order log fix, user-facing README.
 
