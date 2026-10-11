@@ -28,7 +28,7 @@ _Last updated: 2026-10-11 ~08:10. FIRST RELEASE v0.2.0 (pre-release) published: 
 - Measurement: Ableton in Win10 VM, 16th-note clip, plug-in output recorded to an audio track, `python3 -I scripts/timing_analysis.py rec.wav --bpm 120 --div 4`. Run baseline vs fix1 at buffer 2048 and 256.
 
 - E068-E070: baseline 115.99 ms per 16th (48k/44.1k clock mismatch), fix1 worse, **fix2 (exclusive 44.1k only) exact** (124.99 ms, 0 ppm, 0.19 ms jitter); fix2 installed in Win10 VM. User: "sounds much better".
-- Test preset: `scripts/make_test_patch.py <Access Rom A bank> "work/timing/TI Revive Test.mid"` (Init + percussive amp env: "TI Click", "TI Pluck"); copied to the VM's Documents\Access Music\Virus TI\Patches. Next: user re-checks by ear with it, then merge timing-fix -> main, README note (Ableton audio input must not be "Virus TI": exclusive mode), release v0.2.1, test on real Win11 PC.
+- Test preset: `scripts/make_test_patch.py <Access Rom A bank> "work/timing/TI Revive Test.mid"` (Init + percussive amp env: "TI Click", "TI Pluck"); copied to the VM's Documents\Access Music\Virus TI\Patches. E071: re-check with it exact (-1 ppm, 0.27 ms jitter); timing-fix merged to main with README note (exclusive mode). Next: release v0.2.1 (tag), test on real Win11 PC (buffer 2048).
 
 ## RESUME HERE (2026-10-11)
 State at pause:
