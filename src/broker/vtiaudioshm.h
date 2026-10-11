@@ -1,4 +1,4 @@
-// vtiaudioshm.h - Virus audio shared between vtibroker.exe and its audio clients (plug-in, later ASIO driver).
+// vtiaudioshm.h - Virus audio shared between vtibroker.exe and its audio clients (plug-in, ASIO driver).
 //
 // The broker owns the USB audio function (MI_00) and streams it on WinUSB (vtiusbaudio.c, synth = clock master).
 // Every received block of frames is appended to the input ring below; `in_frames` is the total number of frames
