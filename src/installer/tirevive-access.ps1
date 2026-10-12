@@ -3,6 +3,8 @@
 # for next to the TI Revive MSI, in Downloads, or picked with a file dialog. A local copy is patched (driver and
 # firmware custom actions get the condition "0") and installed; nothing of Access is shipped with TI Revive.
 param([string]$Msi, [string]$SourceDir, [string]$FromMsi) # FromMsi: path of the TI Revive MSI ([OriginalDatabase])
+# from the setup.exe the folder ends with '\', which escapes the closing quote on the command line: C:\dir"
+if ($SourceDir) { $SourceDir = $SourceDir.Trim().Trim('"').TrimEnd('\') }
 if ($FromMsi -and -not $SourceDir) { $SourceDir = Split-Path -Parent $FromMsi }
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms

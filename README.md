@@ -9,7 +9,7 @@ current systems can no longer load. No kernel code of its own is installed.
 
 | | Windows 11 | macOS on Apple Silicon |
 |---|---|---|
-| **Download** ([Releases](https://github.com/derpsn/access-virus-ti-revive/releases)) | `TI-Revive-<version>.msi` | `TI-Revive-<version>-mac.zip` (since 0.5.0, beta) |
+| **Download** ([Releases](https://github.com/derpsn/access-virus-ti-revive/releases)) | `TI-Revive-<version>-setup.exe` (or the same as `.msi`) | `TI-Revive-<version>-mac.zip` (since 0.5.0, beta) |
 | **System** | Windows 11 x64 (also Windows 10) | M1 or newer, macOS 14.4 or newer, Rosetta 2 |
 | **You need** | your own Access "Virus TI Software Suite" 64-bit `.msi` | your own Access "Virus TI Software Suite" `.pkg` |
 | **In your DAW** | plug-in **"Virus TI (TI Revive)"** (VST3), ASIO device "Virus TI (TI Revive)" | plug-in **"Virus TI (TI Revive)"** (VST3 and Audio Unit); the DAW runs natively |
@@ -34,8 +34,10 @@ work and are the simpler choice), an Access Virus TI on USB, your own **Access "
 1. Do **not** install the Access software on its own first (it would try to install the blocked driver
    and run its firmware updater). If it is already installed, that is fine — TI Revive removes the
    old driver packages.
-2. Put `TI Revive.msi` and the Access `.msi` in the same folder (or in *Downloads*).
-3. Run `TI Revive.msi`. The MSI is not code-signed (a certificate costs money), so Windows SmartScreen
+2. Put `TI-Revive-<version>-setup.exe` and the Access `.msi` in the same folder (or in *Downloads*).
+   The `.msi` of the same release is the identical installer without the `setup.exe` wrapper; use either one
+   (if double-clicking an `.msi` does nothing on your PC, take the `setup.exe`).
+3. Run it. The installer is not code-signed (a certificate costs money), so Windows SmartScreen
    may show **"Windows protected your PC"**: click **More info → Run anyway**. On the last page keep
    **"Install the Access Virus TI software now"** checked: TI Revive installs your Access software **without its
    old drivers and without the firmware updater** (a local copy of the MSI with those steps disabled).
@@ -266,7 +268,7 @@ scripts/mac-build-bridge.sh <repo> --install    # development build into ~/Libra
 
 **Releases.** GitHub Actions (`.github/workflows/build.yml`) builds both, but only when a version tag `vX.Y.Z` is
 pushed (`git tag -a v0.5.0 -m ... && git push origin v0.5.0`): it then publishes a **Release** with
-`TI-Revive-X.Y.Z.msi` and `TI-Revive-X.Y.Z-mac.zip`. Branch pushes and pull requests do not build.
+`TI-Revive-X.Y.Z-setup.exe`, `TI-Revive-X.Y.Z.msi` and `TI-Revive-X.Y.Z-mac.zip`. Branch pushes and pull requests do not build.
 
 ## Repository layout
 

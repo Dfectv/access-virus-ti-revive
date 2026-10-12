@@ -13,7 +13,9 @@ for f in work/build/vtibroker.exe work/build/vtilaunch.exe work/build/vtiemu-pip
 done
 scripts/vm.sh push src/inf/vti_winusb.inf "$R/src/inf/"
 scripts/vm.sh push src/installer "$R/src/" 
-scripts/vm.sh ps 'powershell -ExecutionPolicy Bypass -File C:\build\tirevive\src\installer\build.ps1 2>&1 | Out-String -Width 200'
+V=${1:-0.1.1} # version (optional): build-msi.sh 0.6.4 -> also "TI Revive setup.exe" (needs WixToolset.BootstrapperApplications.wixext in the VM)
+scripts/vm.sh ps "powershell -ExecutionPolicy Bypass -File C:\\build\\tirevive\\src\\installer\\build.ps1 -Version $V -Bundle 2>&1 | Out-String -Width 200"
 mkdir -p work/release
 scripts/vm.sh pull "$R/out/TI Revive.msi" work/release/
+scripts/vm.sh pull "$R/out/TI Revive setup.exe" work/release/
 ls -la work/release/

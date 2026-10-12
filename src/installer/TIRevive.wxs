@@ -95,7 +95,9 @@
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Install the Access Virus TI software now (recommended)" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
     <CustomAction Id="CA_LaunchAccess" Directory="INSTALLFOLDER" Return="asyncNoWait" Impersonate="yes"
-                  ExeCommand="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;[INSTALLFOLDER]tirevive-access.ps1&quot; -FromMsi &quot;[OriginalDatabase]&quot;" />
+                  ExeCommand="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;[INSTALLFOLDER]tirevive-access.ps1&quot; -FromMsi &quot;[OriginalDatabase]&quot; -SourceDir &quot;[TIREVIVE_SOURCEDIR]&quot;" />
+    <!-- set by TI-Revive-setup.exe (TIReviveSetup.wxs): the folder of the setup.exe, where the Access .msi usually is -->
+    <Property Id="TIREVIVE_SOURCEDIR" Secure="yes" />
     <WixVariable Id="WixUILicenseRtf" Value="$(var.Src)\installer\notice.rtf" />
     <!-- own artwork (src/installer/art/make_art.py), no Access/Kemper material -->
     <WixVariable Id="WixUIBannerBmp" Value="$(var.Src)\installer\art\banner.bmp" />

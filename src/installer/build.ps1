@@ -5,7 +5,8 @@
 #   -Version MSI ProductVersion (major.minor.build)
 # Used by the GitHub workflow (.github/workflows/build.yml) and by scripts/win11/build-msi.sh (build VM, where
 # .NET and WiX live in C:\build\dotnet and C:\build\wix).
-param([string]$Root = 'C:\build\tirevive', [string]$Bin, [string]$Src, [string]$Out, [string]$Version = '0.1.1')
+param([string]$Root = 'C:\build\tirevive', [string]$Bin, [string]$Src, [string]$Out, [string]$Version = '0.1.1',
+      [switch]$Bundle) # -Bundle: also TI Revive setup.exe around the MSI (TIReviveSetup.wxs, needs WixToolset.BootstrapperApplications.wixext)
 $ErrorActionPreference = 'Stop'
 if (-not $Bin) { $Bin = Join-Path $Root 'bin' }
 if (-not $Src) { $Src = Join-Path $Root 'src' }
@@ -22,3 +23,10 @@ wix build (Join-Path $Src 'installer\TIRevive.wxs') -arch x64 `
     -o (Join-Path $Out 'TI Revive.msi')
 if ($LASTEXITCODE) { throw "wix build failed ($LASTEXITCODE)" }
 Get-Item (Join-Path $Out 'TI Revive.msi') | Select-Object Name, Length
+if ($Bundle) {
+    wix build (Join-Path $Src 'installer\TIReviveSetup.wxs') -arch x64 -ext WixToolset.BootstrapperApplications.wixext `
+        -d "Msi=$(Join-Path $Out 'TI Revive.msi')" -d "Version=$Version" `
+        -o (Join-Path $Out 'TI Revive setup.exe')
+    if ($LASTEXITCODE) { throw "wix build (bundle) failed ($LASTEXITCODE)" }
+    Get-Item (Join-Path $Out 'TI Revive setup.exe') | Select-Object Name, Length
+}

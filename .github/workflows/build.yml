@@ -65,18 +65,23 @@ jobs:
           dotnet tool install --global wix --version 5.0.2
           wix extension add -g WixToolset.UI.wixext/5.0.2
           wix extension add -g WixToolset.Util.wixext/5.0.2
+          wix extension add -g WixToolset.BootstrapperApplications.wixext/5.0.2
       - name: Build MSI
         shell: pwsh
         run: |
           $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
-          ./src/installer/build.ps1 -Bin "$PWD\bin" -Src "$PWD\src" -Out "$PWD\out" -Version "${{ steps.ver.outputs.version }}"
+          ./src/installer/build.ps1 -Bin "$PWD\bin" -Src "$PWD\src" -Out "$PWD\out" -Version "${{ steps.ver.outputs.version }}" -Bundle
       - name: Rename
         shell: pwsh
-        run: Rename-Item "out\TI Revive.msi" "TI-Revive-${{ steps.ver.outputs.version }}.msi"
+        run: |
+          Rename-Item "out\TI Revive.msi" "TI-Revive-${{ steps.ver.outputs.version }}.msi"
+          Rename-Item "out\TI Revive setup.exe" "TI-Revive-${{ steps.ver.outputs.version }}-setup.exe"
       - uses: actions/upload-artifact@v7
         with:
           name: TI-Revive-msi
-          path: out/TI-Revive-*.msi
+          path: |
+            out/TI-Revive-*.msi
+            out/TI-Revive-*-setup.exe
           if-no-files-found: error
 
   mac:
@@ -123,9 +128,10 @@ jobs:
           cat > notes.md <<EOF_NOTES
           **TI Revive $v** - Total Integration for the Access Virus TI without the old Access drivers.
 
-          **Windows 10/11 x64:** download \`TI-Revive-$v.msi\` and put your own Access "Virus TI Software Suite"
-          64-bit \`.msi\` next to it. Run the TI Revive MSI (not code-signed: SmartScreen -> More info -> Run anyway)
-          and keep "Install the Access Virus TI software now" checked on the last page.
+          **Windows 10/11 x64:** download \`TI-Revive-$v-setup.exe\` (or the same installer as \`TI-Revive-$v.msi\`)
+          and put your own Access "Virus TI Software Suite" 64-bit \`.msi\` next to it. Run it (not code-signed:
+          SmartScreen -> More info -> Run anyway) and keep "Install the Access Virus TI software now" checked on the
+          last page.
 
           **macOS on Apple Silicon (14.4+):** download \`TI-Revive-$v-mac.zip\`, run \`TI Revive.pkg\`
           (not signed: right-click > Open), then \`Install Access Virus TI software.command\` with your own
@@ -136,5 +142,5 @@ jobs:
           Not affiliated with Access Music or Kemper. Contains no Access software. See the
           [README](https://github.com/$GITHUB_REPOSITORY#readme) for how it works, limitations and uninstall.
           EOF_NOTES
-          gh release create "$GITHUB_REF_NAME" out/TI-Revive-*.msi out/TI-Revive-*-mac.zip $pre \
+          gh release create "$GITHUB_REF_NAME" out/TI-Revive-*-setup.exe out/TI-Revive-*.msi out/TI-Revive-*-mac.zip $pre \
             --repo "$GITHUB_REPOSITORY" --title "TI Revive $v" --notes-file notes.md

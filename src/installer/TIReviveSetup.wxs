@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TI-Revive-<version>-setup.exe: the same installer as TI Revive.msi, wrapped in a setup.exe (WiX Burn bundle) for
+  machines / users where opening an .msi directly does not work. WixInternalUIBootstrapperApplication shows the MSI's
+  own dialogs (licence, progress, "Install the Access Virus TI software now"); the bundle passes its own folder as
+  TIREVIVE_SOURCEDIR so the Access .msi next to the setup.exe is found (Burn runs the MSI from its package cache).
+  Built by build.ps1 -Bundle after the MSI.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
+  <Bundle Name="TI Revive" Manufacturer="TI Revive" Version="$(var.Version)" UpgradeCode="B785EEA0-32B6-4B72-BD0E-62ADA99417BA"
+          AboutUrl="https://github.com/derpsn/access-virus-ti-revive">
+    <BootstrapperApplication>
+      <bal:WixInternalUIBootstrapperApplication />
+    </BootstrapperApplication>
+    <Chain>
+      <MsiPackage SourceFile="$(var.Msi)" bal:PrimaryPackageType="default">
+        <MsiProperty Name="TIREVIVE_SOURCEDIR" Value="[WixBundleOriginalSourceFolder]" />
+      </MsiPackage>
+    </Chain>
+  </Bundle>
+</Wix>
