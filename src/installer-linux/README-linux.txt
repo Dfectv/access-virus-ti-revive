@@ -7,7 +7,12 @@ Access Virus TI plug-in (Windows version) runs through Wine + yabridge in your L
 
 You need
 - an Access Virus TI on USB (tested: TI2 Desktop)
-- Wine (e.g. "sudo apt install wine") and yabridge (https://github.com/robbert-vdh/yabridge)
+- Wine (e.g. "sudo apt install wine") and yabridge (https://github.com/robbert-vdh/yabridge).
+  IMPORTANT: with Wine 9.22 or newer (Ubuntu 26.04 ships Wine 10) the official yabridge 5.1.1 release shows the
+  plug-in window but ignores all mouse clicks (yabridge issue #382/#409). Use a newer yabridge build from the
+  project's "Automated builds" (GitHub Actions, master branch) or a release newer than 5.1.1.
+- For stable real-time audio, let your user use real-time priority (Ubuntu: sudo usermod -aG pipewire $USER, then
+  log out and in again) - otherwise yabridge warns about "low memory locking".
 - a Linux DAW that hosts VST3 plug-ins (REAPER, Bitwig Studio, Ardour, ...)
 - your own copy of the Access installer "Virus TI Software Suite 5.1.7.00 64-bit.msi" (not included)
 

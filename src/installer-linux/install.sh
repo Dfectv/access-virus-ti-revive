@@ -106,8 +106,11 @@ say "plug-in Virus TI (TI Revive)"
 install -m 0644 "$HERE/wine/VirusTI_TIRevive.vst3" "$VST3_DIR/Virus TI (TI Revive).vst3"
 if command -v yabridgectl >/dev/null 2>&1; then
     yabridgectl add "$VST3_DIR" >/dev/null 2>&1 || true
+    # only the TI Revive plug-in is usable; the original "Virus TI" alone finds no Virus
+    yabridgectl blacklist add "$VST3_DIR/Virus TI.vst3" >/dev/null 2>&1 || true
     yabridgectl sync
     echo "bridged with yabridge: rescan plug-ins in your DAW and load \"Virus TI (TI Revive)\" (VST3)"
+    echo "NOTE: with Wine 9.22+ the official yabridge 5.1.1 ignores mouse clicks in plug-in windows; use a newer build (README-linux.txt)"
 else
     cat <<EOT
 yabridge is not installed. It makes Windows plug-ins usable in Linux DAWs (REAPER, Bitwig, Ardour, ...):
