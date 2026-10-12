@@ -26,6 +26,11 @@ Install
    second, as with the original driver); later starts use the cache and play after a few seconds.
 
 Good to know
+- Audio system in your DAW: use ALSA or JACK (with PipeWire: the pipewire-jack package, PipeWire set to 44.1 kHz).
+  NOT PulseAudio: it hands the plug-in irregular block sizes, the Virus then reports timing errors, playback
+  sounds messy and notes can hang. Use a buffer size of 64, 128, 256 or 512 at 44.1 kHz.
+- Close your DAW normally (File -> Quit). The plug-in saves the synced Virus memory only then; if the DAW is
+  killed (e.g. Ctrl+C in a terminal), the next start syncs again (about 7 minutes).
 - While TI Revive uses the Virus, Linux cannot use it as a normal sound card; it is handed back automatically when
   the plug-in is closed (about 30 seconds later).
 - One program at a time uses the Virus; a second one shows "no Virus TI connected".

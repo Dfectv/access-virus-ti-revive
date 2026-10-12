@@ -93,6 +93,9 @@ builds* until a new release is out — a native VST3 host (REAPER, Bitwig, Ardou
 3. In your DAW, rescan plug-ins and use **"Virus TI (TI Revive)"**. The first start syncs the Virus' memory once
    (about 7 minutes); later starts play after a few seconds.
 
+In your DAW use **ALSA or JACK** (with PipeWire: `pipewire-jack`, 44.1 kHz), **not PulseAudio** — its irregular block
+sizes make the Virus report timing errors (messy sound, hanging notes) — and quit the DAW normally: the plug-in
+saves the synced Virus memory only on a clean exit (killing it, e.g. Ctrl+C in a terminal, means another sync).
 While TI Revive uses the Virus, it is not available as a Linux sound card; it is handed back about 30 seconds after
 the plug-in is closed. Uninstall with `./uninstall.sh`. Details: `README-linux.txt` in the package.
 
