@@ -253,8 +253,22 @@ struct MemoryStream : IBStream {
 static IPluginFactory *g_factory;
 static PClassInfo g_class;
 
+// The user's original Access VST3. "Install Access Virus TI software.command" moves the Access plug-ins out of the
+// DAWs' plug-in folders (they are Intel-only: a native DAW lists or blocklists them as unusable, E129) into TI
+// Revive's folder; older installs still have it in the standard place.
+static const char *original_path()
+{
+    static const char *paths[] = {"/Library/Application Support/TI Revive/Access plug-ins/VST3/Virus TI.vst3",
+                                  "/Library/Audio/Plug-Ins/VST3/Virus TI.vst3"};
+    for (const char *p : paths)
+        if (access(p, R_OK) == 0)
+            return p;
+    return paths[1];
+}
+
 static bool load_original(const char *path)
 {
+    hlog("original plug-in: %s", path);
     CFStringRef p = CFStringCreateWithCString(nullptr, path, kCFStringEncodingUTF8);
     CFURLRef url = CFURLCreateWithFileSystemPath(nullptr, p, kCFURLPOSIXPathStyle, true);
     CFBundleRef bundle = CFBundleCreate(nullptr, url);
@@ -802,7 +816,7 @@ static int serve(const char *sock_path, int daw_pid)
     for (int sg : {SIGTERM, SIGINT, SIGHUP, SIGSEGV, SIGBUS, SIGILL, SIGABRT, SIGTRAP})
         signal(sg, on_signal);
     signal(SIGPIPE, SIG_IGN);
-    if (!load_original("/Library/Audio/Plug-Ins/VST3/Virus TI.vst3"))
+    if (!load_original(original_path()))
         return 1;
     struct sockaddr_un sa = {};
     sa.sun_family = AF_UNIX;
@@ -944,7 +958,7 @@ extern const char *editor_text_command(HelperEditor *e, const char *sel);
 extern void editor_inspect_text(HelperEditor *e);
 static int editor_dump(const char *png)
 {
-    if (!load_original("/Library/Audio/Plug-Ins/VST3/Virus TI.vst3"))
+    if (!load_original(original_path()))
         return 1;
     tirb_create_reply r{};
     Instance *in = create_instance(-1, r);

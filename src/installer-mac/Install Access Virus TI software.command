@@ -36,7 +36,20 @@ done
 echo "Installing the Access plug-ins without drivers (your administrator password is needed) ..."
 sudo installer -pkg "$WORK/Core_components.pkg" -target /
 sudo installer -pkg "$WORK/Additional_items.pkg" -target /
+# The Access plug-ins are Intel-only: a native DAW would list (or blocklist) them as unusable "Virus TI". TI Revive
+# loads them itself, so move them out of the plug-in folders into TI Revive's folder ("Uninstall TI Revive.command"
+# moves them back).
+PRIV="/Library/Application Support/TI Revive/Access plug-ins"
+for f in "VST3/Virus TI.vst3" "VST/Virus TI.vst" "VST/Virus TI Snow.vst" "Components/Virus TI.component" \
+         "Components/VirusTI.component" "Components/Virus TI Snow.component"; do
+    if [ -e "/Library/Audio/Plug-Ins/$f" ]; then
+        sudo mkdir -p "$PRIV/$(dirname "$f")"
+        sudo rm -rf "$PRIV/$f"
+        sudo mv "/Library/Audio/Plug-Ins/$f" "$PRIV/$f"
+    fi
+done
 echo
-echo "Done. In your DAW use the plug-in \"Virus TI (TI Revive)\" (VST3)."
+echo "Done. In your DAW use the plug-in \"Virus TI (TI Revive)\" (VST3 or Audio Unit). The original Access plug-ins"
+echo "(Intel-only) were moved to $PRIV, so your DAW no longer lists them."
 echo "Allow your DAW to use the microphone (System Settings > Privacy & Security > Microphone): macOS gives"
 echo "the Virus' audio only to apps with that permission."
