@@ -99,6 +99,9 @@ usable Virus plug-in, and sets that use "Virus TI (TI Revive)" cannot load.
 **macOS**
 
 - **Microphone permission** for your DAW is required (see above); without it the plug-in stays silent.
+- **One program at a time** uses the Virus (as with the Access driver): a second DAW or GarageBand next to it shows
+  "no Virus TI connected" until the first one is closed. If the Virus ever stays silent although the plug-in is
+  connected, switch the Virus off and on once.
 - **VST3 and Audio Unit**: Logic Pro and GarageBand use the Audio Unit (*Audio Units → TI Revive → Virus TI (TI
   Revive)*; in GarageBand under *Smart Controls → Plug-ins*). Only Ableton Live (VST3) and GarageBand (AU) are
   tested so far; other hosts should work — reports welcome. Each DAW needs its own microphone permission.
