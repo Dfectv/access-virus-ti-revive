@@ -1,11 +1,14 @@
 # TI Revive broker (Linux): systemd starts vtibroker on the first connect of a plug-in (socket activation, like the
-# LaunchAgent / on-demand start on macOS and Windows); the broker exits by itself after 30 s without clients.
+# on-demand start on macOS and Windows); the broker exits by itself after 30 s without clients.
+# 1st socket: Unix socket (native clients); 2nd: 127.0.0.1 for the plug-in under Wine (token in
+# ~/.config/tirevive/broker.token, written by install.sh with the same port).
 [Unit]
 Description=TI Revive broker socket (Access Virus TI)
 
 [Socket]
 ListenStream=/tmp/vtibroker-%U.sock
 SocketMode=0600
+ListenStream=127.0.0.1:47615
 
 [Install]
 WantedBy=sockets.target

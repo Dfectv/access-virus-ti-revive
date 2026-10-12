@@ -1,0 +1,3 @@
+# TI Revive (Linux): the logged-in user may open the Access Virus TI (133e:0815) with libusb, so the TI Revive broker
+# can run without root. "uaccess" needs a rules file numbered below 73.
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="133e", ATTR{idProduct}=="0815", MODE="0660", TAG+="uaccess"
