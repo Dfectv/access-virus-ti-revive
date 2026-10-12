@@ -31,7 +31,7 @@ PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `ti
     bridge log names a missing Rosetta (EBADARCH). (b) DONE (E130, not released): originals moved to /Library/Application Support/TI Revive/Access plug-ins;
     verified in Cubase 15 with a local 0.7.2 test package; uninstall moves them back (tested on the Mac).
 6b. macOS universal bridge (E132, RELEASED in v0.7.3, release package verified universal): DAWs under Rosetta can load TI Revive; tested with an x86_64 test
-    host under Rosetta. Real test done (E133: Cubase 15 under Rosetta plays). Reddit Cubase 14 user: loads with 0.7.3 but 'not connected' - waiting for his /tmp/tirevive-*.log files.
+    host under Rosetta. Real test done (E133: Cubase 15 under Rosetta plays). Reddit Cubase 14 user: 'not connected' = LIBUSB_ERROR_ACCESS (E134): old Access drivers from a full install hold the Virus; told him to remove them + restart; install script now detects/disables them (not released). Waiting for his confirmation.
 7. macOS: Control Center replacement (Access app is 32-bit) - biggest item.
 
 Waiting: **Snow** (issue #3, bidmessmer) - the regular plug-in finds the Snow, the Snow plug-in does not; asked for

@@ -64,6 +64,13 @@ vti *vti_open(vti_rx_cb cb, void *user)
     for (int i = 3; i <= 4; i++)
         if ((r = libusb_claim_interface(v->h, i))) {
             vti_log("vti: claim interface %d: %s\n", i, libusb_error_name(r));
+#ifdef __APPLE__
+            static int hinted;
+            if (r == LIBUSB_ERROR_ACCESS && !hinted++) // E134
+                vti_log("vti: another driver holds the Virus - most likely the old Access drivers (Virus TI MIDI Driver.plugin"
+                        " in /Library/Audio/MIDI Drivers, de.access-music.virus_ti.* in /Library/Audio/Plug-Ins/HAL): run"
+                        " \"Install Access Virus TI software.command\" again or remove them, then restart the Mac\n");
+#endif
             goto fail;
         }
     // Readers first: if nobody drains EP 0x85/0x86, the device stops accepting OUT data (E042).
