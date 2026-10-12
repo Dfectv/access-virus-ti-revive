@@ -44,9 +44,14 @@
   the broker's shm ring (Out 1 = USB 1, Out 2 = USB 2, drift by frame drop/repeat). nativehost --notes --wav: init
   patch audible every second (peak ~0.09), ~170 ms latency for now.
 
+- R3: a new instance builds the original's default project from the user's plug-in binary (init patch upgraded by
+  a port of the original's format upgrader, MultiCtrl multi); non-part records byte-identical to the original's
+  default state, parts differ in 17 legacy bytes (same sound). Plays without any loaded state (nativehost).
+- Decompile findings: stamp rule + audio sync markers (protocol.md), patch format versions 1..12 (upgrade_single).
+
 ## Next
-- R2: start-up sequence of the original as a module (globals from GlobalInit, multi, part init, 74 01 7E poll?), edit
-  buffer (part) dumps 10 00 <part> both ways; the 74 01 7E poll and 6F per part from the decompile.
-- R3: exact F5 stamp rule (latency), a new instance's default state (the original's
-  -Init- parts: from the DLL or the Virus), parameter changes from the Virus (knobs on the device -> host), REAPER test
-  with a project saved with the original (VTI_NATIVE_DROPIN build), realtime-safe queue.
+- R3: device -> host (knobs on the Virus change parameters: decode incoming CC/poly pressure/SysEx with
+  remotedevice.xml, update the part dumps, notify the host), realtime-safe event queue, exact F5 stamps (R5 rule).
+- REAPER test with the user: "Virus TI (native)" instance (Linux VST3), and a project saved with the original
+  (VTI_NATIVE_DROPIN build) - needs the user at the PC.
+- R4 editor: editor.xml + PNGs from the user's installation (VSTGUI), the largest remaining part.
