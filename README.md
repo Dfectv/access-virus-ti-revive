@@ -115,6 +115,11 @@ Plugins' Virus Editor — take the same interfaces, and TI Revive then shows "Vi
 `claim interface 3: LIBUSB_ERROR_ACCESS`). Disable the other driver (macOS: System Settings → General → Login Items
 & Extensions → Driver Extensions, or its uninstaller) and restart.
 
+**Connected but silent?** The Virus decides per part where its sound goes (analog outputs or USB 1-3). If another
+editor or driver changed that, the plug-in shows the right setting but the Virus still sends to an analog output:
+in the plug-in, switch the part's output to "Out 1" and back to "USB 1" (this sends the setting to the Virus again).
+On macOS also check that your DAW may use the microphone (System Settings → Privacy & Security → Microphone).
+
 **Start playback slightly before the first note.** The plug-in sends notes to the Virus ahead of time to make up
 for the USB round trip; right at Play, notes in the first quarter second can come late or be skipped. This was the
 same with Access' own driver.
