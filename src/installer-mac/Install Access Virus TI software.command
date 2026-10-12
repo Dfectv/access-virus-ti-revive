@@ -6,6 +6,18 @@
 # Put the Access .pkg next to this script, or drop it onto the Terminal window when asked.
 set -euo pipefail
 cd "$(dirname "$0")"
+# The Access plug-ins are Intel-only; TI Revive runs them in a helper under Rosetta 2. The helper is started in the
+# background by your DAW, where macOS does not offer to install Rosetta - so check it here.
+if ! /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null; then
+    echo "Rosetta 2 is not installed. TI Revive needs it to run the (Intel-only) Access plug-in."
+    printf "Install Rosetta 2 now (Apple's software licence applies)? [Y/n] "
+    read -r ans
+    case "$ans" in
+    [nN]*) echo "Without Rosetta 2 the plug-in \"Virus TI (TI Revive)\" cannot load. Install it later with:"
+           echo "    softwareupdate --install-rosetta --agree-to-license" ;;
+    *) sudo /usr/sbin/softwareupdate --install-rosetta --agree-to-license ;;
+    esac
+fi
 PKG=$(ls -1 Virus\ TI\ Software\ Suite*.pkg 2>/dev/null | head -1 || true)
 if [ -z "$PKG" ]; then
     echo "Drag your Access 'Virus TI Software Suite ... .pkg' into this window and press Return:"

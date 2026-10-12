@@ -27,8 +27,8 @@ PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `ti
    released yet). Next: try Wine 11 + ntsync; otherwise document. This PC is back to the plain 0.7.1 release (plug-in, broker, units).
 6. macOS: Logic Pro test (AU), needs the user at the Mac.
 6a. ~~macOS + Cubase blocklist~~ - resolved (E129): Cubase 15 loads TI Revive fine; the blocklisted plug-in is the
-    original Intel "Virus TI.vst3". Ideas left: (a) Mac pkg checks for Rosetta (README wrongly says macOS offers it);
-    (b) hide the original from DAWs (move it out of /Library/Audio/Plug-Ins/VST3 and let the helper load it from a
+    original Intel "Virus TI.vst3". (a) DONE (not released): "Install Access Virus TI software.command" checks Rosetta and offers to install it,
+    bridge log names a missing Rosetta (EBADARCH). Idea left: (b) hide the original from DAWs (move it out of /Library/Audio/Plug-Ins/VST3 and let the helper load it from a
     private path) so nobody tries to use or reactivate it.
 7. macOS: Control Center replacement (Access app is 32-bit) - biggest item.
 

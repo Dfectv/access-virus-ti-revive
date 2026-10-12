@@ -92,7 +92,8 @@ static int helper_connect()
     posix_spawn_file_actions_destroy(&fa);
     posix_spawnattr_destroy(&at);
     if (e) {
-        blog("posix_spawn %s: %s", helper.c_str(), strerror(e));
+        blog("posix_spawn %s: %s%s", helper.c_str(), strerror(e),
+             e == EBADARCH ? " - Rosetta 2 is not installed (softwareupdate --install-rosetta --agree-to-license)" : "");
         return -1;
     }
     blog("helper started (pid %d): %s", (int)child, helper.c_str());

@@ -2,8 +2,8 @@ TI Revive for macOS (Apple Silicon) - Access Virus TI Total Integration without 
 =====================================================================================================
 
 Requirements
-- A Mac with Apple Silicon (M1 or newer), macOS 14.4 or newer, Rosetta 2 (macOS offers to install it when needed;
-  or in Terminal: softwareupdate --install-rosetta --agree-to-license)
+- A Mac with Apple Silicon (M1 or newer), macOS 14.4 or newer, Rosetta 2 ("Install Access Virus TI software.command"
+  checks it and offers to install it; or in Terminal: softwareupdate --install-rosetta --agree-to-license)
 - Your own Access "Virus TI Software Suite" installer (.pkg, e.g. 5.1.7.00). TI Revive contains no Access software.
 - A DAW that loads VST3 plug-ins natively (tested: Ableton Live 12). The DAW does NOT need to run under Rosetta.
 
