@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <dispatch/dispatch.h>
+#include <execinfo.h>
 #include <fcntl.h>
 #include <map>
 #include <mutex>
@@ -780,7 +781,13 @@ static void *conn_thread(void *arg)
     return nullptr;
 }
 
-static void on_exit_log() { hlog("process exit (atexit)"); }
+static void on_exit_log() // who calls exit()? (E106: something ends the helper right after the first input event)
+{
+    hlog("process exit (atexit), called from:");
+    void *frames[48];
+    int n = backtrace(frames, 48);
+    backtrace_symbols_fd(frames, n, 2);
+}
 static void on_signal(int sig)
 {
     char m[64];
@@ -836,8 +843,15 @@ static int serve(const char *sock_path, int daw_pid)
     }, (void *)(intptr_t)s);
     pthread_detach(t);
     hlog("serving %s for DAW pid %d", sock_path, daw_pid);
-    CFRunLoopRun(); // main thread: the plug-in's timers and every non-audio call
-    return 0;
+    // main thread: the plug-in's timers and every non-audio call. CFRunLoopRun() can return when AppKit stops the main
+    // run loop (seen right after the first replayed input event, E106: main() returned -> exit); the helper only ends
+    // through its own exits (DAW gone, last instance destroyed), so keep running.
+    for (;;) {
+        CFRunLoopRun();
+        static int returns;
+        if (returns++ < 5)
+            hlog("main run loop returned, continuing");
+    }
 }
 
 // ------------------------------------------------------------------------------- probe (diagnostics)
