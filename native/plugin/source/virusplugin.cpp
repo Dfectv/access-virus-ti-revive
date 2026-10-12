@@ -7,6 +7,7 @@
 #include "pluginterfaces/base/ustring.h"
 #include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -160,6 +161,37 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
         return kResultOk;
     }
     single_template_ = dev_.message("VirusTI_Singledump");
+    // a new instance's state like the original's: empty record, the fixed multi, 16 parts = the init patch,
+    // Output Control 2/3 globals, 14 controllers x 16 channels (formats.md)
+    auto multi = files->init_multi();
+    auto init = files->init_single();
+    if (multi.size() == 267 && init.size() == 524) {
+        RemoteDevice::upgrade_single(init);
+        default_.push_back({});
+        auto smulti = multi; // the original's state keeps the multi with bytes 25..40 and the checksum zeroed
+        std::fill(smulti.begin() + 25, smulti.begin() + 41, 0);
+        smulti[265] = 0;
+        default_.push_back(smulti);
+        for (int p = 0; p < 16; p++) {
+            auto d = init;
+            d[7] = 0, d[8] = (uint8_t)p;
+            unsigned a = 0;
+            for (int i = 5; i < 265; i++)
+                a += d[i];
+            d[265] = a & 0x7F;
+            for (int i = 265; i < 522; i++)
+                a += d[i];
+            d[522] = a & 0x7F;
+            default_.push_back(d);
+        }
+        for (int i = 0; i < 2; i++)
+            default_.push_back({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x2D, 0x02, 0xF7});
+        static const uint8_t ccs[14][2] = {{1, 0},  {2, 0},   {3, 0},  {4, 0},  {6, 0},  {7, 100}, {8, 64},
+                                           {9, 0},  {11, 127}, {12, 0}, {13, 0}, {14, 0}, {15, 0},   {16, 0}};
+        for (auto &cc : ccs)
+            for (int ch = 0; ch < 16; ch++)
+                default_.push_back({(uint8_t)(0xB0 | ch), cc[0], cc[1]});
+    }
     for (auto &e : autom) {
         char title[128], units[16];
         snprintf(title, sizeof title, "[%d] %s", e.part, automation_title(dev_, e).c_str());
@@ -186,7 +218,19 @@ tresult PLUGIN_API VirusPlugin::terminate()
     return SingleComponentEffect::terminate();
 }
 
-tresult PLUGIN_API VirusPlugin::setActive(TBool state) { return SingleComponentEffect::setActive(state); }
+tresult PLUGIN_API VirusPlugin::setActive(TBool state)
+{
+    if (state && !state_loaded_ && !default_.empty()) { // new instance: the original's default project
+        {
+            std::lock_guard<std::mutex> lk(state_mu_);
+            state_ = default_;
+        }
+        state_loaded_ = true;
+        apply_state_to_params();
+        send_state();
+    }
+    return SingleComponentEffect::setActive(state);
+}
 
 tresult PLUGIN_API VirusPlugin::setupProcessing(ProcessSetup &setup)
 {
@@ -322,6 +366,7 @@ tresult PLUGIN_API VirusPlugin::setState(IBStream *state)
         std::lock_guard<std::mutex> lk(state_mu_);
         state_ = std::move(recs);
     }
+    state_loaded_ = true;
     apply_state_to_params();
     send_state();
     return kResultOk;
@@ -332,9 +377,7 @@ tresult PLUGIN_API VirusPlugin::getState(IBStream *state)
     std::vector<uint8_t> d;
     {
         std::lock_guard<std::mutex> lk(state_mu_);
-        if (state_.empty())
-            return kResultOk; // TODO(R3): a new instance's default state (the original's -Init- parts)
-        d = build_container(state_);
+        d = build_container(state_.empty() ? default_ : state_);
     }
     int32 done = 0;
     return state->write(d.data(), (int32)d.size(), &done);

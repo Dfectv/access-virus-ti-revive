@@ -67,3 +67,8 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   (first test). The original's stamps run 400-1000 frames behind the ring's newest frame in a 512-frame sawtooth (its
   block grid) - R5: derive the exact rule from 0x1800a8420 for sample-accurate timing.
 - SysEx dumps are accepted at about MIDI speed (16 part dumps ~2.7 s), events queue behind them.
+- Stamp rule (decompile, R5 to-do): stamp = device time (virtual +0x60 of the audio object) - anchor (+0xa40) +
+  sampleOffset * (device rate / host rate) [0x1800a8420]; the anchor is set in 0x1800a8900 when an INCOMING AUDIO
+  SAMPLE is out of range (|s| > 0x300000 in 24 bit): the Virus marks sync points inside its audio stream and the
+  plug-in anchors its time stamps to the sample position of the marker (+ device time from virtual +0x68). Check
+  whether the broker's 16-bit ring keeps these markers (it converts 24 -> 16 bit) before implementing.

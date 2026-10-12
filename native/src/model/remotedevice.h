@@ -109,6 +109,11 @@ public:
     // describe keep their content, so start from a dump the Virus sent.
     void update_dump(const MidiMessage &m, std::vector<uint8_t> &msg, const std::map<std::string, int> &values) const;
     static size_t dump_size(const MidiMessage &m);
+    // Brings a 524-byte single dump of an older format version (byte 9) up to the plug-in's current version, as the
+    // original does before sending a stored/init patch (decompile 0x1800a0c00, docs/protocol.md). Versions below 8
+    // need the original's default page B (`page_b`, 256 bytes from the user's plug-in binary); without it they are
+    // left unchanged. Recomputes both checksums. Returns true if the dump was changed.
+    static bool upgrade_single(std::vector<uint8_t> &dump, const std::vector<uint8_t> &page_b = {});
     // The 14-bit value the Virus reports per program in a bank info reply (39 -> 14): sum of a 524-byte single dump's
     // bytes 13..521 without 265, mod 16384. Equal value = the cached patch is current. -1 for a wrong size.
     static int single_fingerprint(const std::vector<uint8_t> &msg);

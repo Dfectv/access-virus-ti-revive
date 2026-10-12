@@ -81,6 +81,8 @@ private:
     std::mutex state_mu_;
     std::unique_ptr<DeviceOut> out_;
     int block_ = 512;
+    bool state_loaded_ = false;                // setState or the default state was applied
+    std::vector<std::vector<uint8_t>> default_; // a new instance's state (from the user's plug-in binary)
 
     void apply_state_to_params();
     void send_state();

@@ -75,6 +75,15 @@ int main(int argc, char **argv)
         for (auto &e : list) {
             printf("%d\t[%d] %s\tPart %02d/\n", e.id, e.part, vti::automation_title(dev, e).c_str(), e.part);
         }
+    } else if (cmd == "initpatch" && !args.empty()) { // the plug-in's embedded init patch, upgraded, to a file
+        auto d = files->init_single();
+        int v = d.size() > 9 ? d[9] : -1;
+        bool ch = vti::RemoteDevice::upgrade_single(d);
+        if (FILE *f = fopen(args[0].c_str(), "wb")) {
+            fwrite(d.data(), 1, d.size(), f);
+            fclose(f);
+        }
+        printf("init patch %zu bytes, version %d -> %d%s\n", d.size(), v, d.size() > 9 ? d[9] : -1, ch ? "" : " (unchanged)");
     } else if (cmd == "init") { // start-up messages (GlobalInit + ParamInit)
         for (auto &m : dev.init_messages()) {
             for (auto b : m)

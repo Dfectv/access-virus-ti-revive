@@ -79,3 +79,12 @@ load in the rewrite and vice versa.
   0x100000 + ch*0x1000 + 0x80 Aftertouch, + 0x81 Pitchbend, default 0.5). Title "[<part>] <shortname>", unit "Part NN/".
   automation.xml is keyed by (parameter, part), later entries win - which is why id 1574 (typo Part="4") is unmapped.
   `vtimodel automation` reproduces all 2671 titles byte-identically.
+
+## A new instance's state (what the native plug-in builds, R3)
+- From the user's plug-in binary at runtime: the init single (" -Init-", stored as bank 5 / program 127, format version
+  8) and the "MultiCtrl!" multi (AccessFiles::init_single / init_multi; Windows DLL file offsets 0x1c46b0 / 0x1c48c0).
+- Parts: init upgraded to version 9 (RemoteDevice::upgrade_single = port of 0x1800a0c00; versions 10-12 only for
+  bank-0 dumps), bank 0 / part n, checksums. The original's own default parts differ in 17 legacy bytes (zeroed old
+  chorus/delay area etc.) - the sound is the same init patch; the Virus upgrades what it receives to version 12.
+- The state's multi = the start-up table with bytes 25..40 and the checksum zeroed (as the original stores it).
+- Then `73 00 2D 02` twice (Global Surround/Output Control 2/3 = 2) and the 224 controller defaults.

@@ -142,6 +142,30 @@ bool AccessFiles::load_dir(const std::string &dir, std::string &error)
     return true;
 }
 
+std::vector<uint8_t> AccessFiles::find_dump(uint8_t cmd, size_t size, size_t name_at, const char *name) const
+{
+    std::vector<std::string> bins = {source_};                                       // Windows: the DLL itself
+    bins.push_back((fs::path(source_) / ".." / "MacOS" / "Virus Control").string()); // Mac: bundle binary
+    const uint8_t hdr[] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, cmd};
+    size_t nl = strlen(name);
+    for (auto &b : bins) {
+        std::error_code ec;
+        if (!fs::is_regular_file(b, ec))
+            continue;
+        std::vector<uint8_t> d;
+        read_file(b, d);
+        for (size_t i = 0; i + size <= d.size(); i++)
+            if (d[i] == 0xF0 && !memcmp(&d[i], hdr, sizeof hdr) && d[i + size - 1] == 0xF7 &&
+                !memcmp(&d[i + name_at], name, nl))
+                return std::vector<uint8_t>(d.begin() + i, d.begin() + i + size);
+    }
+    return {};
+}
+
+std::vector<uint8_t> AccessFiles::init_single() const { return find_dump(0x10, 524, 249, " -Init-"); }
+
+std::vector<uint8_t> AccessFiles::init_multi() const { return find_dump(0x11, 267, 13, "MultiCtrl!"); }
+
 std::unique_ptr<AccessFiles> AccessFiles::open(const std::string &hint, std::string &error)
 {
     std::vector<std::string> cands;
