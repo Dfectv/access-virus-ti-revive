@@ -68,6 +68,20 @@ Because the interfaces are user-space, TI Revive can provide them itself instead
 - The DAW must run under Rosetta 2 (Ableton: Finder > Get Info > "Open using Rosetta"), because the Access
   plug-ins are Intel-only.
 
+## Stages (user decision 2026-10-12)
+
+| Stage | What | Role |
+|---|---|---|
+| **1 - POC** | Ableton started under Rosetta loads the original Intel plug-in; our replacements (libVirusUSB.dylib, VirusTICommMem/ports, broker) make it work without any Access driver. | Proof of concept only: proves the driver replacement, sync, presets, audio. Not the release target. |
+| **2 - bridge (FIRST RELEASE)** | A native arm64 plug-in "Virus TI (TI Revive)" (VST3 + AU) runs in natively started Ableton and hosts the original Intel plug-in in a separate **helper process under Rosetta**: audio, MIDI, parameters/automation, state (presets), transport/timing, and the plug-in window are passed across the process boundary. Only the helper needs Rosetta, not Ableton. | **MOST important step for the first Mac release.** |
+| 3 - rewrite (long term, separate project) | Own plug-in for the Virus TI (native, Windows + Mac), starting with a simple instrument (MIDI, audio, sync, DAW controls), later an own editor UI. | When Rosetta goes away, or if Access releases its sources. |
+
+Stage 2 notes (to design after the POC): the helper is an x86_64 executable that loads the Access VST3 (or AU) and
+our libVirusUSB replacement; the arm64 plug-in talks to it through shared memory (audio buffers, sample-accurate
+MIDI with timestamps, low latency like the Windows broker ring) and a control channel (parameters, state,
+transport); the editor window is shown by the helper (an own window kept in front of / attached to the DAW, as
+plug-in bridges like jBridge / AudioGridder do) - the hardest part, to prototype early.
+
 ## Lab
 
 - **This Linux PC (x86)**: no macOS VM for Apple Silicon is possible (arm64 macOS needs Apple hardware; an Intel
