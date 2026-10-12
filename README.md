@@ -1,6 +1,6 @@
 # TI Revive
 
-**Total Integration for the Access Virus TI on Windows 11 — without the old kernel driver.**
+**Total Integration for the Access Virus TI on Windows 11 and on Macs with Apple Silicon — without the old drivers.**
 
 TI Revive brings the Access Virus TI (Desktop, Polar, Keyboard, Snow) back to current Windows:
 the original Virus TI plug-in with its "Total Integration" (parameter sync, preset browsing,
@@ -107,6 +107,33 @@ work and are the simpler choice), an Access Virus TI on USB, your own **Access "
 Uninstall via *Settings → Apps → TI Revive* (removes driver package, certificate, broker, plug-in and
 shortcuts). The Access software is uninstalled separately.
 
+### macOS (Apple Silicon)
+
+The Access kernel driver can never load on an Apple Silicon Mac, and the Access plug-ins are Intel-only. TI Revive
+provides a **native** plug-in "Virus TI (TI Revive)" that runs the original Access plug-in in a helper under
+Rosetta 2 and shows its editor in your DAW; your DAW itself runs natively. Requirements: Apple Silicon Mac,
+macOS 14.4 or newer, Rosetta 2, your own **Access "Virus TI Software Suite" installer** (`.pkg`, e.g. 5.1.7), a
+VST3 host (tested: Ableton Live 12).
+
+Both parts are needed, in any order:
+
+1. **`TI Revive.pkg`** (from `TI-Revive-<version>-mac.zip`) installs TI Revive: the native plug-in, its helper,
+   the USB service and TI Revive's replacement for Access' driver library. Not signed: right-click → *Open*, or
+   *System Settings → Privacy & Security → Open Anyway*.
+2. **`Install Access Virus TI software.command`** installs **your own, unmodified Access plug-ins** from your
+   Access `.pkg` (put it next to the script) - only the plug-in and Virus Control parts, **without** Access'
+   driver packages, which the Access installer cannot leave out and which cannot run on Apple Silicon anyway.
+   If the Access software is already installed, skip this step.
+
+Then connect the Virus, start your DAW and **allow it to use the microphone** when macOS asks (*System Settings →
+Privacy & Security → Microphone*): macOS gives the Virus' audio only to apps with that permission. Rescan
+plug-ins and use **"Virus TI (TI Revive)"**. After loading, the sound starts after about 5 seconds (the Virus'
+USB audio is restarted once, E109).
+
+Uninstall with `Uninstall TI Revive.command` (also in `/Library/Application Support/TI Revive`); it removes only
+TI Revive. Without TI Revive, a native DAW has no usable Virus plug-in, and sets that use "Virus TI (TI Revive)"
+cannot load (Ableton may even crash on them).
+
 ## Good to know
 
 - **Tested with** Ableton Live 11 on Windows 11 (real PC with memory integrity on, and a Secure Boot + TPM 2.0 VM)
@@ -132,6 +159,8 @@ shortcuts). The Access software is uninstalled separately.
 - **Bank sync** takes about one second per preset — the synth itself sends dumps at that speed.
 - **Windows MIDI ports** ("Virus TI MIDI"/"Virus TI Synth") of the old driver are not provided.
 - Do not run firmware/OS updates of the Virus through TI Revive; that path is not verified.
+- **macOS**: Virus Control Center (32-bit) does not run on current macOS; the Virus' audio comes from macOS' own
+  USB audio driver ("Virus TI" device, 44.1 kHz); logs for bug reports are in `/tmp/tirevive-*.log`.
 
 ## Status
 
@@ -146,6 +175,9 @@ shortcuts). The Access software is uninstalled separately.
 | Real Win11 hardware with memory integrity (HVCI) on: long session without sync errors or drift (0.3.0) | done |
 | ASIO sound card "Virus TI (TI Revive)" (2 in / 2 out, wraps the Access ASIO driver), audio to the Virus | done: clean on a real PC (0.3.91 test build) |
 | Latency measurements | open |
+| macOS (Apple Silicon): original plug-in without Access drivers (own libVirusUSB, USB broker, MIDI driver stand-in) | done (E099-E103) |
+| macOS: native VST3 bridge + Rosetta helper (audio, MIDI, editor incl. menus and text entry) | done, tested with Ableton Live 12 on an M3 (E104-E110) |
+| macOS installer (.pkg + Access script, GitHub Actions build) | tested on the M3; AU version open |
 
 ## Building
 
