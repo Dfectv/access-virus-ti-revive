@@ -10,3 +10,8 @@
   prefix), src/model (remotedevice.xml: 587 parameters, 128 value lists, 123 conditions, 12 message templates),
   tools/vtimodel (files/summary/params/encode). Encoding verified against the original for Global Master/Mode.
   docs/formats.md describes the XML semantics.
+- automation.xml = the original's VST3 ParamIDs (2671 of 2672 + 32 aftertouch/pitchbend ids = the 2703 mapped);
+  scripted automation of the original (vtihost VTI_PARAMS) confirms value = round(norm*127) and our encoding.
+- editor.xml structure documented (36 control classes, 404 bitmaps, 20 top-level containers).
+- R2 started: src/device/broker (C++ client of the TI Revive broker, POSIX), usbmidi packer, tools/virusctl
+  (state / set <path> <value> / note).
