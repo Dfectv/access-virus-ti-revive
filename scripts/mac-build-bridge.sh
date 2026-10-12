@@ -19,6 +19,8 @@ if [ -z "${SDKROOT:-}" ]; then
 fi
 P="$VST3SDK/pluginterfaces"
 mkdir -p "$OUT"
+VERSION="${VERSION:-0.5.0}"
+export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-14.4}" # os_sync_wait_on_address (tirbridge.h)
 CXX="clang++ -std=c++17 -O2 -Wall -Wno-unused-parameter -I $VST3SDK -I $REPO/src/mac/common"
 
 echo "== helper (x86_64)"
@@ -52,12 +54,13 @@ cat > "$B/Contents/Info.plist" <<'PLIST'
     <key>CFBundleIdentifier</key><string>io.github.derpsn.tirevive.bridge.vst3</string>
     <key>CFBundleName</key><string>Virus TI (TI Revive)</string>
     <key>CFBundlePackageType</key><string>BNDL</string>
-    <key>CFBundleShortVersionString</key><string>0.5.0</string>
-    <key>CFBundleVersion</key><string>0.5.0</string>
+    <key>CFBundleShortVersionString</key><string>VERSION_PLACEHOLDER</string>
+    <key>CFBundleVersion</key><string>VERSION_PLACEHOLDER</string>
     <key>CFBundleSignature</key><string>????</string>
 </dict>
 </plist>
 PLIST
+sed -i '' "s/VERSION_PLACEHOLDER/$VERSION/g" "$B/Contents/Info.plist"
 echo "BNDL????" > "$B/Contents/PkgInfo"
 codesign --force --sign - "$B/Contents/Resources/vtihelper"
 codesign --force --sign - "$B"

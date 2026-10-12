@@ -1,4 +1,5 @@
-# Build TI Revive: cross-compile the Windows binaries on Linux (mingw-w64), build the MSI with WiX 5 on Windows.
+# Build TI Revive: cross-compile the Windows binaries on Linux (mingw-w64), build the MSI with WiX 5 on Windows,
+# build the macOS zip (native bridge + Rosetta helper, scripts/mac-build-release.sh) on an Apple Silicon runner.
 # Runs ONLY when a version tag v<major>.<minor>.<build> (e.g. v0.2.3) is pushed: no builds on branch pushes, pull
 # requests or by hand. Each run uploads "TI-Revive-msi" as an artifact and creates a GitHub Release with the MSI
 # attached; the MSI version is taken from the tag.
@@ -78,9 +79,29 @@ jobs:
           path: out/TI-Revive-*.msi
           if-no-files-found: error
 
+  mac:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: repo
+      - name: VST3 pluginterfaces (MIT, pinned)
+        run: |
+          git clone -q https://github.com/steinbergmedia/vst3_pluginterfaces.git vst3sdk/pluginterfaces
+          git -C vst3sdk/pluginterfaces checkout -q 4f547e8e102b47de4a8b8aaf343c73b700786372
+      - name: Build
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          VST3SDK="$PWD/vst3sdk" bash repo/scripts/mac-build-release.sh repo "$v" "$PWD/out"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: TI-Revive-mac
+          path: out/TI-Revive-*-mac.zip
+          if-no-files-found: error
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: msi
+    needs: [msi, mac]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -89,6 +110,10 @@ jobs:
         with:
           name: TI-Revive-msi
           path: out
+      - uses: actions/download-artifact@v8
+        with:
+          name: TI-Revive-mac
+          path: out
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -96,15 +121,20 @@ jobs:
           v="${GITHUB_REF_NAME#v}"
           pre=""; case "$v" in 0.*) pre="--prerelease" ;; esac   # 0.x = beta
           cat > notes.md <<EOF_NOTES
-          **TI Revive $v** - Total Integration for the Access Virus TI on Windows 10/11 x64, without the old kernel driver.
+          **TI Revive $v** - Total Integration for the Access Virus TI without the old Access drivers.
 
-          - Download \`TI-Revive-$v.msi\` and put your own Access "Virus TI Software Suite" 64-bit \`.msi\` next to it.
-          - Run the TI Revive MSI (not code-signed: SmartScreen -> More info -> Run anyway) and keep
-            "Install the Access Virus TI software now" checked on the last page.
-          - In your DAW use the plug-in **"Virus TI (TI Revive)"**.
+          **Windows 10/11 x64:** download \`TI-Revive-$v.msi\` and put your own Access "Virus TI Software Suite"
+          64-bit \`.msi\` next to it. Run the TI Revive MSI (not code-signed: SmartScreen -> More info -> Run anyway)
+          and keep "Install the Access Virus TI software now" checked on the last page.
+
+          **macOS on Apple Silicon (14.4+):** download \`TI-Revive-$v-mac.zip\`, run \`TI Revive.pkg\`
+          (not signed: right-click > Open), then \`Install Access Virus TI software.command\` with your own
+          Access \`.pkg\` next to it. Your DAW runs natively; allow it to use the microphone. Details: README-mac.txt.
+
+          In your DAW use the plug-in **"Virus TI (TI Revive)"**.
 
           Not affiliated with Access Music or Kemper. Contains no Access software. See the
           [README](https://github.com/$GITHUB_REPOSITORY#readme) for how it works, limitations and uninstall.
           EOF_NOTES
-          gh release create "$GITHUB_REF_NAME" out/TI-Revive-*.msi $pre \
+          gh release create "$GITHUB_REF_NAME" out/TI-Revive-*.msi out/TI-Revive-*-mac.zip $pre \
             --repo "$GITHUB_REPOSITORY" --title "TI Revive $v" --notes-file notes.md

@@ -16,6 +16,7 @@
 #include <cerrno>
 #include <cstdarg>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -157,7 +158,13 @@ static int broker_connect()
         return 0;
     struct sockaddr_un sa = {};
     sa.sun_family = AF_UNIX;
-    snprintf(sa.sun_path, sizeof sa.sun_path, "/tmp/vtibroker-%u.sock", (unsigned)getuid());
+    // installed release: the system LaunchAgent's socket (launchd SecureSocketWithKey, path in the session
+    // environment, like SSH_AUTH_SOCK); development setup (scripts/mac-install-broker.sh): /tmp/vtibroker-<uid>.sock
+    const char *env = getenv("TIREVIVE_BROKER_SOCK");
+    if (env && *env)
+        snprintf(sa.sun_path, sizeof sa.sun_path, "%s", env);
+    else
+        snprintf(sa.sun_path, sizeof sa.sun_path, "/tmp/vtibroker-%u.sock", (unsigned)getuid());
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (connect(fd, (struct sockaddr *)&sa, sizeof sa)) {
         close(fd);

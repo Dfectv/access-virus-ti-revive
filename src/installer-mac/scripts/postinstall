@@ -1,0 +1,17 @@
+#!/bin/bash
+# TI Revive .pkg postinstall (runs as root): start the broker agent in the logged-in user's session right away
+# (otherwise it starts with the next login) and retire a development setup (scripts/mac-install-broker.sh).
+LABEL=io.github.derpsn.tirevive.vtibroker
+PLIST="/Library/LaunchAgents/$LABEL.plist"
+chown root:wheel "$PLIST"
+chmod 644 "$PLIST"
+USER_NAME=$(stat -f %Su /dev/console)
+if [ -n "$USER_NAME" ] && [ "$USER_NAME" != root ]; then
+    USER_ID=$(id -u "$USER_NAME")
+    launchctl bootout "gui/$USER_ID/com.tirevive.vtibroker" 2>/dev/null || true
+    rm -f "/Users/$USER_NAME/Library/LaunchAgents/com.tirevive.vtibroker.plist"
+    launchctl bootout "gui/$USER_ID/$LABEL" 2>/dev/null || true
+    launchctl bootstrap "gui/$USER_ID" "$PLIST" || true
+fi
+pkill -x vtibroker 2>/dev/null || true
+exit 0

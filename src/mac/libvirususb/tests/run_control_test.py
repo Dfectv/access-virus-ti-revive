@@ -23,7 +23,7 @@ def main():
     if positions != sorted(positions):
         raise ValueError("control-source markers are out of order")
     headers = "\n".join("#include <" + name + ">" for name in [
-        "cerrno", "cstdarg", "cstdint", "cstring", "cstdio", "ctime", "mutex",
+        "cerrno", "cstdarg", "cstdint", "cstdlib", "cstring", "cstdio", "ctime", "mutex",
         "pthread.h", "unistd.h", "sys/socket.h", "sys/un.h"])
     implementation = headers + "\n" + source[positions[0]:positions[1]] + source[positions[2]:positions[3]]
     with tempfile.TemporaryDirectory(prefix="tirevive-control-") as temp:

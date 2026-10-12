@@ -51,3 +51,10 @@ mac: vtibroker_posix.c vtimidi_mac.c vticore.c $(SRC_MIDI) vticore.h vtiproto.h 
 	mkdir -p $(OUT)/mac
 	clang $(CFLAGS) $$(pkg-config --cflags libusb-1.0) -o $(OUT)/mac/vtibroker vtibroker_posix.c vtimidi_mac.c vticore.c \
 		$(SRC_MIDI) $$(pkg-config --libs libusb-1.0) -lpthread -framework CoreFoundation
+
+# macOS release: libusb linked statically (users have no Homebrew); LIBUSB_PREFIX = $(brew --prefix libusb)
+mac-static: vtibroker_posix.c vtimidi_mac.c vticore.c $(SRC_MIDI) vticore.h vtiproto.h vtimidi_mac.h
+	mkdir -p $(OUT)/mac
+	clang $(CFLAGS) -arch arm64 -I$(LIBUSB_PREFIX)/include/libusb-1.0 -o $(OUT)/mac/vtibroker vtibroker_posix.c \
+		vtimidi_mac.c vticore.c $(SRC_MIDI) $(LIBUSB_PREFIX)/lib/libusb-1.0.a -lpthread -framework CoreFoundation \
+		-framework IOKit -framework Security
