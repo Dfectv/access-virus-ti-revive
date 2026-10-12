@@ -128,6 +128,26 @@ static DWORD WINAPI reader(LPVOID arg)
             HANDLE ev = v->audio_ev;
             if (ev)
                 SetEvent(ev);
+            static LARGE_INTEGER f, last, t0;
+            static double gmax;
+            static unsigned n, big;
+            LARGE_INTEGER t;
+            if (!f.QuadPart)
+                QueryPerformanceFrequency(&f);
+            QueryPerformanceCounter(&t);
+            if (last.QuadPart) {
+                double g = (double)(t.QuadPart - last.QuadPart) * 1000.0 / f.QuadPart;
+                gmax = g > gmax ? g : gmax;
+                big += g > 15;
+            } else
+                t0 = t;
+            last = t;
+            if (++n % 1000 == 0) { // tick arrival diagnostics (Wine path), every ~10 s
+                vti_log("vti: ticks %u in %.1f s, max gap %.1f ms, %u gaps > 15 ms\n", n,
+                        (double)(t.QuadPart - t0.QuadPart) / f.QuadPart, gmax, big);
+                gmax = 0;
+                big = 0;
+            }
             break;
         }
         case VTIMSG_STATE:

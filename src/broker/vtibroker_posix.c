@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <poll.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -228,6 +229,17 @@ static void audio_in(const int16_t *pcm, uint32_t frames, void *user) // libusb 
                VTI_AUDIO_IN_CH * sizeof(int16_t));
     g_shm->in_qpc = mono_100ns();
     __atomic_store_n(&g_shm->in_frames, w + frames, __ATOMIC_RELEASE); // publishes the data written above
+    static FILE *rec; // diagnostics: VTI_RECORD=<file.raw> records device channels 2/3 (USB 1), 16-bit stereo
+    static int rec_init;
+    if (!rec_init) {
+        rec_init = 1;
+        const char *path = getenv("VTI_RECORD");
+        if (path && (rec = fopen(path, "wb")))
+            blog("recording USB 1 to %s", path);
+    }
+    if (rec)
+        for (uint32_t i = 0; i < frames; i++)
+            fwrite(pcm + i * VTI_AUDIO_IN_CH + 2, 2, 2, rec);
     pthread_mutex_lock(&g_cs_tick);
     pthread_cond_signal(&g_cv_tick);
     pthread_mutex_unlock(&g_cs_tick);
@@ -515,6 +527,12 @@ static void *client_thread(void *arg)
                 pthread_mutex_lock(&g_cs_dev);
                 int r = g_dev ? vti_write(g_dev, buf[0], buf + 1, h.len - 1) : -1;
                 pthread_mutex_unlock(&g_cs_dev);
+#ifdef __linux__
+                if (g_verbose && g_shm) // note-ons (cable 2) with the device frame they were sent at
+                    for (int k = 1; k + 3 < h.len; k += 4)
+                        if (buf[k] == 0x29 && (buf[k + 1] & 0xf0) == 0x90 && buf[k + 3])
+                            blog("note-on %02x at device frame %lld", buf[k + 2], (long long)g_shm->in_frames);
+#endif
                 if (g_verbose || r) {
                     char hex[3 * 24 + 1] = "";
                     for (int k = 0; k < h.len - 1 && k < 24; k++)
@@ -699,6 +717,12 @@ int main(int argc, char **argv)
             client *c = calloc(1, sizeof *c);
             c->fd = fd;
             c->tcp = k == 1;
+#ifdef __linux__
+            if (c->tcp) { // small messages (ticks every 10 ms, MIDI): no Nagle delay (bursts of 20-80 ms, E118)
+                int one = 1;
+                setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
+            }
+#endif
             pthread_mutex_init(&c->wr, NULL);
             pthread_create(&t, NULL, client_thread, c);
             pthread_detach(t);

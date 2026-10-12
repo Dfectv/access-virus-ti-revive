@@ -121,6 +121,8 @@ static void wav_header(FILE *f, uint32_t frames)
     fwrite("data", 1, 4, f), fwrite(&data, 4, 1, f);
 }
 
+static int g_block = 512; // VTI_BLOCK=64/128/256/512
+
 struct Run {
     IAudioProcessor *proc;
     int seconds, quiet;
@@ -133,7 +135,7 @@ static DWORD WINAPI process_thread(LPVOID arg)
 {
     Run &r = *(Run *)arg;
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-    const int block = 512;
+    const int block = g_block;
     const double rate = 44100;
     long blocks = (long)(r.seconds * rate / block), per_sec = (long)(rate / block);
     std::vector<std::vector<std::vector<float>>> obuf(r.out_ch.size()), ibuf(r.in_ch.size());
@@ -163,11 +165,18 @@ static DWORD WINAPI process_thread(LPVOID arg)
     uint32_t wav_frames = 0;
     for (long i = 0; i < blocks; i++) {
         events.ev.clear();
-        if (i / per_sec >= r.quiet && (i % per_sec == per_sec / 4 || i % per_sec == 3 * per_sec / 4)) {
+        // a C4 from 0.25 s to 0.75 s of every second (exact sample positions; whole blocks would drift)
+        for (int on = 1; on >= 0; on--) {
+            int64_t first = (int64_t)i * block, last = first + block;
+            int64_t sec = first / 44100, at = sec * 44100 + (on ? 11025 : 33075);
+            if (at < first)
+                at += 44100;
+            if (at >= last || at / 44100 < r.quiet)
+                continue;
             Event e{};
             e.busIndex = 0;
-            e.sampleOffset = 0;
-            if (i % per_sec == per_sec / 4) {
+            e.sampleOffset = (int32)(at - first);
+            if (on) {
                 e.type = Event::kNoteOnEvent;
                 e.noteOn = {0, 60, 0.f, 0.8f, 0, -1};
             } else {
@@ -176,7 +185,12 @@ static DWORD WINAPI process_thread(LPVOID arg)
             }
             events.ev.push_back(e);
         }
-        ctx.state = ProcessContext::kPlaying | ProcessContext::kTempoValid | ProcessContext::kTimeSigValid;
+        ctx.state = ProcessContext::kPlaying | ProcessContext::kTempoValid | ProcessContext::kTimeSigValid |
+                    ProcessContext::kProjectTimeMusicValid | ProcessContext::kContTimeValid |
+                    ProcessContext::kSystemTimeValid;
+        ctx.continousTimeSamples = i * block;
+        QueryPerformanceCounter(&now);
+        ctx.systemTime = (int64)((double)now.QuadPart * 1e9 / f.QuadPart);
         ctx.sampleRate = rate;
         ctx.projectTimeSamples = i * block;
         ctx.tempo = 120;
@@ -195,7 +209,7 @@ static DWORD WINAPI process_thread(LPVOID arg)
         d.processContext = &ctx;
         r.proc->process(d);
         if (!obuf.empty() && obuf[0].size() >= 2) {
-            int16_t pcm[block * 2];
+            std::vector<int16_t> pcm(block * 2);
             for (int k = 0; k < block; k++)
                 for (int c = 0; c < 2; c++) {
                     float x = obuf[0][c][k];
@@ -204,7 +218,7 @@ static DWORD WINAPI process_thread(LPVOID arg)
                     pcm[k * 2 + c] = (int16_t)lrintf(x * 32767);
                 }
             if (r.wav)
-                fwrite(pcm, 4, block, r.wav), wav_frames += block;
+                fwrite(pcm.data(), 4, block, r.wav), wav_frames += block;
         }
         if ((i + 1) % per_sec == 0) {
             printf("t=%3lds output peak %.1f dBFS\n", (i + 1) / per_sec, peak > 0 ? 20 * log10f(peak) : -999.f);
@@ -296,7 +310,10 @@ int main(int argc, char **argv)
         comp->activateBus(kEvent, kInput, 0, true);
     printf("%zu output buses, %zu input buses\n", r.out_ch.size(), r.in_ch.size());
     proc->setBusArrangements(ia.empty() ? nullptr : ia.data(), (int32)ia.size(), oa.data(), (int32)oa.size());
-    ProcessSetup ps{kRealtime, kSample32, 512, 44100};
+    if (getenv("VTI_BLOCK"))
+        g_block = atoi(getenv("VTI_BLOCK"));
+    ProcessSetup ps{kRealtime, kSample32, g_block, 44100};
+    printf("block %d\n", g_block);
     printf("setupProcessing -> %d\n", (int)proc->setupProcessing(ps));
     printf("setActive -> %d\n", (int)comp->setActive(true));
     printf("setProcessing -> %d\n", (int)proc->setProcessing(true));

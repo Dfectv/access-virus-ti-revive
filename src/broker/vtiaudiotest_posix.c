@@ -122,6 +122,15 @@ int main(int argc, char **argv)
             continue;
         int64_t f = *(int64_t *)buf;
         ticks++;
+        static double tl, gmax;
+        static int big;
+        double tn = now();
+        if (tl) {
+            double g = (tn - tl) * 1000;
+            gmax = g > gmax ? g : gmax;
+            big += g > 15;
+        }
+        tl = tn;
         if (pos < 0) {
             pos = first = f;
             t0 = now();
@@ -162,7 +171,8 @@ int main(int argc, char **argv)
                    (f - first) / (t - t0), (long long)ticks);
             for (int c = 0; c < VTI_AUDIO_IN_CH; c++)
                 printf(" %d", peak[c]), peak[c] = 0;
-            printf(", out read %lld\n", (long long)s->out_read);
+            printf(", out read %lld, tick max gap %.1f ms, %d > 15 ms\n", (long long)s->out_read, gmax, big);
+            gmax = 0, big = 0;
             fflush(stdout);
             t_last = t;
             if (t - t0 >= secs)
