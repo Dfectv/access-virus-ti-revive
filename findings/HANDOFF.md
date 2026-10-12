@@ -24,9 +24,7 @@ PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `ti
    Access driver (start playback slightly before the first note). Optional later: confirm with the win10 snapshot pre-winusb.
 5. Occasional sync reports on Linux (E128): cause = wineserver's registry save ~30 s after the plug-in process starts
    (stalls the process ~25 ms -> plug-in re-anchors -> synth reports). Done: vtiaudio polls the ring under Wine (not
-   released yet). Next: try Wine 11 + ntsync; otherwise document. TEST STATE ON THIS PC: ~/.wine has the dev wrapper
-   (polling + 'delivery late' log), broker runs with the verbose drop-in ~/.config/systemd/user/tirevive-broker.service.d/verbose.conf
-   (remove when done).
+   released yet). Next: try Wine 11 + ntsync; otherwise document. This PC is back to the plain 0.7.1 release (plug-in, broker, units).
 6. macOS: Logic Pro test (AU), needs the user at the Mac.
 6a. ~~macOS + Cubase blocklist~~ - resolved (E129): Cubase 15 loads TI Revive fine; the blocklisted plug-in is the
     original Intel "Virus TI.vst3". Ideas left: (a) Mac pkg checks for Rosetta (README wrongly says macOS offers it);
