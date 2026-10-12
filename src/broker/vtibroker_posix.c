@@ -147,6 +147,36 @@ static void send_states(int dev_open) // g_cs_clients held
         }
 }
 
+// ---- trace recorder (VTI_TRACE=<file>): every plug-in channel packet and control request with time stamps ----
+// Binary records for offline analysis (scripts/vtitrace.py): file header "VTTRACE1", then per record
+//   u32 size of the rest, u8 kind (0 = host->device write, 1 = device->host RX, 2 = control request), u8 endpoint,
+//   u16 reserved, u64 monotonic ns, i64 synth frame (Linux: device frame counter of the audio stream, else -1),
+//   payload (kind 2: 8-byte setup, i32 result, then the data).
+static FILE *g_trace;
+static pthread_mutex_t g_cs_trace = PTHREAD_MUTEX_INITIALIZER;
+static int64_t trace_frame(void); // defined below (Linux: synth frame counter)
+
+static void trace_rec(uint8_t kind, uint8_t ep, const void *a, int alen, const void *b, int blen)
+{
+    if (!g_trace)
+        return;
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    uint64_t ns = (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
+    int64_t frame = trace_frame();
+    uint32_t size = 1 + 1 + 2 + 8 + 8 + (uint32_t)alen + (uint32_t)blen;
+    uint16_t z = 0;
+    pthread_mutex_lock(&g_cs_trace);
+    fwrite(&size, 4, 1, g_trace), fwrite(&kind, 1, 1, g_trace), fwrite(&ep, 1, 1, g_trace), fwrite(&z, 2, 1, g_trace);
+    fwrite(&ns, 8, 1, g_trace), fwrite(&frame, 8, 1, g_trace);
+    if (alen)
+        fwrite(a, 1, (size_t)alen, g_trace);
+    if (blen)
+        fwrite(b, 1, (size_t)blen, g_trace);
+    fflush(g_trace);
+    pthread_mutex_unlock(&g_cs_trace);
+}
+
 #ifdef __linux__
 static void f5_report(const uint8_t *p, int len);
 static void f5_second(void);
@@ -155,6 +185,7 @@ static void f5_second(void);
 static void on_rx(void *user, uint8_t ep, const uint8_t *data, int len)
 {
     (void)user;
+    trace_rec(1, ep, data, len, NULL, 0);
 #ifdef __APPLE__
     if (ep == VTI_EP_MI04_IN)
         vtimidi_rx(data, len);
@@ -352,6 +383,11 @@ static int64_t synth_frame_now(void)
     return f + (dt > 0 && dt < 500000 ? dt * 44100 / 10000000 : 0);
 }
 
+static int64_t trace_frame(void)
+{
+    return g_shm && g_shm->streaming ? synth_frame_now() : -1;
+}
+
 static void f5_note(const uint8_t *p, int len) // a WRITE to EP 0x06
 {
     if (!g_shm || !g_shm->streaming)
@@ -430,11 +466,13 @@ static void audio_stop(void) // g_cs_dev held
 }
 #else
 static void audio_stop(void) {}
+static int64_t trace_frame(void) { return -1; }
 #endif
 
 #ifdef __APPLE__
 static int midi_write(const uint8_t *data, int len) // pump thread: plug-in channel packets from the MDW ring
 {
+    trace_rec(0, VTI_EP_MI04_OUT, data, len, NULL, 0);
     pthread_mutex_lock(&g_cs_dev);
     int r = g_dev ? vti_write(g_dev, VTI_EP_MI04_OUT, data, len) : -1;
     pthread_mutex_unlock(&g_cs_dev);
@@ -624,6 +662,7 @@ static void *client_thread(void *arg)
                 pthread_mutex_lock(&g_cs_dev);
                 int r = g_dev ? vti_write(g_dev, buf[0], buf + 1, h.len - 1) : -1;
                 pthread_mutex_unlock(&g_cs_dev);
+                trace_rec(0, buf[0], buf + 1, h.len - 1, NULL, 0);
 #ifdef __linux__
                 if (g_verbose && buf[0] == VTI_EP_MI04_OUT)
                     f5_note(buf + 1, h.len - 1);
@@ -656,6 +695,12 @@ static void *client_thread(void *arg)
                                                 (uint16_t)(s[4] | s[5] << 8), data, wl)
                                   : -1;
                 pthread_mutex_unlock(&g_cs_dev);
+                if (g_trace) {
+                    uint8_t rec[8 + 4];
+                    memcpy(rec, s, 8);
+                    memcpy(rec + 8, &r, 4);
+                    trace_rec(2, 0, rec, 12, data, (s[0] & 0x80) ? (r > 0 ? r : 0) : wl);
+                }
                 uint8_t hdr[8];
                 memcpy(hdr, &seq, 4);
                 memcpy(hdr + 4, &r, 4);
@@ -729,6 +774,12 @@ int main(int argc, char **argv)
     sigaddset(&sigs, SIGHUP);
     pthread_sigmask(SIG_BLOCK, &sigs, NULL);
     vti_log = on_vti_log;
+    const char *tp = getenv("VTI_TRACE");
+    if (tp && (g_trace = fopen(tp, "ab"))) {
+        if (ftell(g_trace) == 0)
+            fwrite("VTTRACE1", 1, 8, g_trace);
+        blog("tracing to %s", tp);
+    }
     struct sockaddr_un sa = {.sun_family = AF_UNIX};
     snprintf(sa.sun_path, sizeof sa.sun_path, VTI_SOCK_FMT, (unsigned)getuid());
     int s = -1;
