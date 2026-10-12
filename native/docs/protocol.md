@@ -36,8 +36,10 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   (7-bit sum of bytes 5..521), F7. VirusTI_Singledump describes 435 parameter bytes (+ bit fields), the patch name is
   `Single Patch Name/Character 01..10` (bytes 249-258). Bank 0 = edit buffer (part = program byte). decode + re-encode
   of all 528 dumps is byte-identical (unknown bytes are kept: update_dump patches an existing dump).
-- Multi dump `11 00 00` (267 B, the plug-in sends one at start): template VirusTI_MultiDump (add7 5..264), but the
-  plug-in's own dump has checksum 0x26 where add7 gives 0x24 - no other byte range matches. Open (the Virus seems to accept it?).
+- Multi dump `11 00 00` (267 B) at start: a FIXED table in Virus Control (start-up function 0x180070520 sends
+  0x1801c5cc0): multi "MultiCtrl!", parts 1-16 = edit buffers on channels 1-16 (part bytes 0x01..0x0F ramp), volume
+  0x7F, pan/etc 0x40, 0x0A and 0x4F columns per part. Its checksum byte (0x26) is stale (add7 gives 0x24) and the
+  Virus accepts it. The rewrite builds this multi itself (own code, correct checksum), decoded via VirusTI_MultiDump.
 - Bank info `39 <bank>` -> `14 <bank> 00` + 256 data bytes (267 B, add7 checksum OK): 128 x (lo, hi) = one 14-bit
   value per program = sum of the single dump's bytes 13..521 without byte 265, mod 16384 (Virus Control checks a
   cached dump this way; verified on all 512 recorded programs; RemoteDevice::single_fingerprint). Byte 521 (after the
@@ -46,3 +48,10 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   bank and fetches only programs whose value differs (none in our traces).
 - Replies arrive on EP 0x86 (plug-in interface, cable 3) during a plug-in session and on EP 0x85 (MIDI port, cable 1)
   otherwise (virusctl sysex). The Virus needs ~1 s per request in both cases.
+
+## Decompile pointers (Virus Control.dll 5.1.7 x64, sha256 a622f9a2..., Ghidra; output only in work/decomp)
+- 0x1800a1540: cached single dump vs bank-info value (fingerprint, see above).
+- 0x1800a8420: F5 time stamps to the device (USB-MIDI `53 F5 lo hi`, 14-bit frame, -0x400 when late).
+- 0x1800303b0: transport -> F2 song position (+ FC stop) to the device.
+- 0x180070520: start-up sequence (globals, multi table, part init).
+- 0x18009b640: CVirusBank constructor (cache path {common_appdata}/Access Music/Virus TI/Cache/<device>/<bank>).
