@@ -126,6 +126,7 @@ static void wav_header(FILE *f, uint32_t frames)
 }
 
 static int g_block = 512; // VTI_BLOCK=64/128/256/512
+static long g_stop_frames = -1; // VTI_TRANSPORT=<s>: stopped for s seconds, then Play from 0 with 16ths at 120 BPM
 
 struct Run {
     IAudioProcessor *proc;
@@ -169,8 +170,31 @@ static DWORD WINAPI process_thread(LPVOID arg)
     uint32_t wav_frames = 0;
     for (long i = 0; i < blocks; i++) {
         events.ev.clear();
+        bool playing = true;
+        int64_t pos = (int64_t)i * block; // project position of this block
+        if (g_stop_frames >= 0) { // transport test: stopped, then Play from 0; 16th notes (5512.5 frames), 50 % long
+            playing = pos >= g_stop_frames;
+            pos = playing ? pos - g_stop_frames : 0;
+            for (int64_t k = playing ? (int64_t)(pos / 2756.25) : 0; playing; k++) {
+                int64_t at = (int64_t)(k * 2756.25 + 0.5); // even k = note-on, odd k = note-off
+                if (at < pos)
+                    continue;
+                if (at >= pos + block)
+                    break;
+                Event e{};
+                e.sampleOffset = (int32)(at - pos);
+                if (!(k & 1)) {
+                    e.type = Event::kNoteOnEvent;
+                    e.noteOn = {0, 60, 0.f, 0.8f, 0, -1};
+                } else {
+                    e.type = Event::kNoteOffEvent;
+                    e.noteOff = {0, 60, 0.f, -1, 0.f};
+                }
+                events.ev.push_back(e);
+            }
+        }
         // a C4 from 0.25 s to 0.75 s of every second (exact sample positions; whole blocks would drift)
-        for (int on = 1; on >= 0; on--) {
+        for (int on = 1; on >= 0 && g_stop_frames < 0; on--) {
             int64_t first = (int64_t)i * block, last = first + block;
             int64_t sec = first / 44100, at = sec * 44100 + (on ? 11025 : 33075);
             if (at < first)
@@ -189,17 +213,17 @@ static DWORD WINAPI process_thread(LPVOID arg)
             }
             events.ev.push_back(e);
         }
-        ctx.state = ProcessContext::kPlaying | ProcessContext::kTempoValid | ProcessContext::kTimeSigValid |
+        ctx.state = (playing ? ProcessContext::kPlaying : 0) | ProcessContext::kTempoValid | ProcessContext::kTimeSigValid |
                     ProcessContext::kProjectTimeMusicValid | ProcessContext::kContTimeValid |
                     ProcessContext::kSystemTimeValid;
         ctx.continousTimeSamples = i * block;
         QueryPerformanceCounter(&now);
         ctx.systemTime = (int64)((double)now.QuadPart * 1e9 / f.QuadPart);
         ctx.sampleRate = rate;
-        ctx.projectTimeSamples = i * block;
+        ctx.projectTimeSamples = pos;
         ctx.tempo = 120;
         ctx.timeSigNumerator = ctx.timeSigDenominator = 4;
-        ctx.projectTimeMusic = i * block / rate * 2;
+        ctx.projectTimeMusic = pos / rate * 2;
         ProcessData d{};
         d.processMode = kRealtime;
         d.symbolicSampleSize = kSample32;
@@ -221,7 +245,7 @@ static DWORD WINAPI process_thread(LPVOID arg)
                     x = x > 1 ? 1 : x < -1 ? -1 : x;
                     pcm[k * 2 + c] = (int16_t)lrintf(x * 32767);
                 }
-            if (r.wav)
+            if (r.wav && playing)
                 fwrite(pcm.data(), 4, block, r.wav), wav_frames += block;
         }
         if ((i + 1) % per_sec == 0) {
@@ -390,6 +414,8 @@ int main(int argc, char **argv)
         comp->activateBus(kEvent, kInput, 0, true);
     printf("%zu output buses, %zu input buses\n", r.out_ch.size(), r.in_ch.size());
     proc->setBusArrangements(ia.empty() ? nullptr : ia.data(), (int32)ia.size(), oa.data(), (int32)oa.size());
+    if (getenv("VTI_TRANSPORT"))
+        g_stop_frames = (long)(atof(getenv("VTI_TRANSPORT")) * 44100);
     if (getenv("VTI_BLOCK"))
         g_block = atoi(getenv("VTI_BLOCK"));
     ProcessSetup ps{kRealtime, kSample32, g_block, 44100};
