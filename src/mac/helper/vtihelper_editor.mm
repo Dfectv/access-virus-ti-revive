@@ -65,7 +65,8 @@ struct HelperEditor : IPlugFrame {
     char px_name[32] = "";
     double scale = 1, top_x = 0, top_y = 0;
     int w = 0, h = 0;
-    editor_resize_cb on_resize = nullptr;
+    editor_notify_cb notify = nullptr;
+    bool key_focus = false;
     void *ctx = nullptr;
 
     tresult PLUGIN_API queryInterface(const TUID iid, void **obj) override
@@ -93,8 +94,8 @@ struct HelperEditor : IPlugFrame {
         set_size(r->getWidth(), r->getHeight());
         tirb_editor_reply rep{w, h, {}};
         strcpy(rep.pixels_shm, px_name);
-        if (on_resize)
-            on_resize(ctx, rep);
+        if (notify)
+            notify(ctx, TIRB_N_EDITOR_RESIZE, &rep, sizeof rep);
         return kResultOk;
     }
 
@@ -137,8 +138,19 @@ struct HelperEditor : IPlugFrame {
         [win setFrame:NSMakeRect(top_x, top_y - h, w, h) display:NO];
     }
     unsigned long renders = 0;
+    void check_focus() // text editing in the original (VSTGUI CTextEdit = NSTextField -> field editor NSText)
+    {
+        bool f = [[win firstResponder] isKindOfClass:[NSText class]];
+        if (f == key_focus)
+            return;
+        key_focus = f;
+        int32_t on = f;
+        if (notify)
+            notify(ctx, TIRB_N_KEY_FOCUS, &on, 4);
+    }
     void render()
     {
+        check_focus();
         if (!px || !g_dirty)
             return;
         if (renders++ < 3)
@@ -176,7 +188,7 @@ struct HelperEditor : IPlugFrame {
 @end
 
 HelperEditor *editor_open(Vst::IEditController *ctl, const char *shm_prefix, double x, double y, double scale,
-                          tirb_editor_reply &reply, editor_resize_cb on_resize, void *ctx)
+                          tirb_editor_reply &reply, editor_notify_cb notify, void *ctx)
 {
     static bool app_ready;
     if (!app_ready) { // the helper runs a plain CFRunLoop, not -[NSApp run]: set AppKit up once by hand
@@ -198,7 +210,7 @@ HelperEditor *editor_open(Vst::IEditController *ctl, const char *shm_prefix, dou
     e->prefix = shm_prefix;
     e->scale = scale >= 2 ? 2 : 1;
     e->top_x = x, e->top_y = y;
-    e->on_resize = on_resize, e->ctx = ctx;
+    e->notify = notify, e->ctx = ctx;
     ViewRect r{};
     v->getSize(&r);
     e->w = r.getWidth() > 0 ? r.getWidth() : 800;
@@ -349,6 +361,7 @@ void editor_input(HelperEditor *e, const tirb_input &in)
     }
     if (ev)
         [e->win sendEvent:ev];
+    e->check_focus();
 }
 
 bool editor_dump_png(HelperEditor *e, const char *path)

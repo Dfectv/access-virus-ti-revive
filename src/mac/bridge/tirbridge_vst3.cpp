@@ -729,6 +729,11 @@ class Bridge : public IComponent, public IAudioProcessor, public IEditController
             memcpy(&rep, b.data(), sizeof rep);
             if (view)
                 bridge_view_resized(view, rep);
+        } else if (h.type == TIRB_N_KEY_FOCUS && b.size() >= 4) {
+            int32 on;
+            memcpy(&on, b.data(), 4);
+            if (view)
+                bridge_view_key_focus(view, on != 0);
         } else if (h.type == TIRB_N_RESTART && b.size() >= 4) {
             int32 flags;
             memcpy(&flags, b.data(), 4);

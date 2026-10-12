@@ -30,6 +30,7 @@ struct BridgeView : IPlugView {
     TIRMirrorView *ns = nil;
     NSTimer *timer = nil;
     bool opened = false;
+    bool want_keys = false; // only while the original edits text (TIRB_N_KEY_FOCUS)
     int w = 0, h = 0;
     tirb_pixels *px = nullptr;
     size_t px_size = 0;
@@ -227,7 +228,7 @@ static int32_t mods(NSEventModifierFlags f)
 @implementation TIRMirrorView {
     NSTrackingArea *_tracking;
 }
-- (BOOL)acceptsFirstResponder { return YES; }
+- (BOOL)acceptsFirstResponder { return self.owner && self.owner->want_keys; }
 - (BOOL)acceptsFirstMouse:(NSEvent *)e { return YES; }
 - (BOOL)isOpaque { return YES; }
 - (void)drawRect:(NSRect)r
@@ -305,11 +306,7 @@ static int32_t mods(NSEventModifierFlags f)
     }
     self.owner->link->editor_input(in);
 }
-- (void)mouseDown:(NSEvent *)e
-{
-    [[self window] makeFirstResponder:self];
-    [self send:e kind:1 button:0];
-}
+- (void)mouseDown:(NSEvent *)e { [self send:e kind:1 button:0]; } // no keyboard grab: keys stay with the DAW
 - (void)mouseUp:(NSEvent *)e { [self send:e kind:2 button:0]; }
 - (void)mouseDragged:(NSEvent *)e { [self send:e kind:3 button:0]; }
 - (void)rightMouseDown:(NSEvent *)e { [self send:e kind:1 button:1]; }
@@ -324,6 +321,22 @@ static int32_t mods(NSEventModifierFlags f)
 @end
 
 IPlugView *bridge_create_view(EditorLink *link) { return new BridgeView(link); }
+
+void bridge_view_key_focus(IPlugView *view, bool on)
+{
+    BridgeView *v = static_cast<BridgeView *>(view);
+    v->addRef();
+    dispatch_async(dispatch_get_main_queue(), ^{
+      v->want_keys = on;
+      if (v->ns && [v->ns window]) {
+          if (on)
+              [[v->ns window] makeFirstResponder:v->ns];
+          else if ([[v->ns window] firstResponder] == v->ns)
+              [[v->ns window] makeFirstResponder:nil]; // back to the DAW's window
+      }
+      v->release();
+    });
+}
 
 void bridge_view_resized(IPlugView *view, const tirb_editor_reply &r)
 {

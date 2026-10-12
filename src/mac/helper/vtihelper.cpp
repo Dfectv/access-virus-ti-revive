@@ -716,8 +716,8 @@ static void *conn_thread(void *arg)
                         editor_close(in->editor);
                     hlog("instance %u: editor open at %.0f,%.0f scale %.0f", in->id, q[0], q[1], q[2]);
                     in->editor = editor_open(in->ctl, in->shm_name, q[0], q[1], q[2], rep,
-                                             [](void *ctx, const tirb_editor_reply &r) {
-                                                 notify((Instance *)ctx, TIRB_N_EDITOR_RESIZE, &r, sizeof r);
+                                             [](void *ctx, uint32_t type, const void *p, uint32_t len) {
+                                                 notify((Instance *)ctx, type, p, len);
                                              },
                                              in);
                     hlog("instance %u: editor %s, %dx%d, pixels %s", in->id, in->editor ? "open" : "FAILED", rep.width,

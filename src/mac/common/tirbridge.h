@@ -39,6 +39,8 @@ enum {
     TIRB_N_PARAM_EDIT = 0x100, // tirb_param_edit
     TIRB_N_RESTART,            // i32 flags
     TIRB_N_EDITOR_RESIZE,      // tirb_editor_reply (new size, new pixel shm)
+    TIRB_N_KEY_FOCUS,          // i32 on: a text field of the original is being edited (the bridge view then takes
+                               // the keyboard; otherwise keys stay with the DAW, e.g. its computer MIDI keyboard)
 };
 
 typedef struct {

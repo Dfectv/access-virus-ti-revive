@@ -16,3 +16,4 @@ struct EditorLink { // implemented by the bridge instance (control channel to th
 // Creates the view; the returned object also receives TIRB_N_EDITOR_RESIZE through bridge_view_resized().
 Steinberg::IPlugView *bridge_create_view(EditorLink *link);
 void bridge_view_resized(Steinberg::IPlugView *view, const tirb_editor_reply &r); // any thread
+void bridge_view_key_focus(Steinberg::IPlugView *view, bool on);                  // any thread
