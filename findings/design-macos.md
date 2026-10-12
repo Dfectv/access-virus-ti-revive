@@ -37,6 +37,11 @@ components with small, clear interfaces (all x86_64 + i386, symbols kept):
 | MIDI plug-in -> Virus | CFMessagePort named **"VirusTIWritePort"** (Virus Control: `CFMessagePortCreateRemote` + `CFMessagePortSendRequest`) | "Virus TI MIDI Driver.plugin" (Core MIDI driver, creates the port locally) |
 | MIDI Virus -> plug-in | probably POSIX shared memory "VirusTISharedMem" + named semaphores (shm_open/mmap/sem_* in both; the MIDI driver's VirusTIUSBMIDIDevice handles the "hidden port" = the plug-in channel MI_04); Virus Control itself also has "VirusTICommMem" (Access::Threading::IPC::SharedMemory, likely instance coordination). To confirm at runtime on the Mac (which shm segments the DAW opens) | "Virus TI MIDI Driver.plugin" |
 
+IPC between Virus Control and the Access MIDI driver (E095): shm "VirusTICommMem" (16 KB directory: version 2,
+16 slots of 0x188 bytes with used flag, device id and the names "VirusTIMDP%08x" (CFMessagePort for writes),
+"VirusTIMDW%08x", "VirusTIMDR%08x" (write/read objects)); TI Revive's broker would create this directory and
+the per-device objects instead of the Access MIDI driver. `vc_request` = raw bmRequestType bits (E096).
+
 `VirusClient` virtual methods called by the library (implemented in Virus Control): +0x00 device attached
 (PGOSXDevice* = opaque device ID), +0x08 device removed, +0x10 notification (device, event: 1 other client
 attached, 2 detached, 3 state change, a, b), +0x18 audio IOProc. Private data at VirusClient+8 (owned by the
