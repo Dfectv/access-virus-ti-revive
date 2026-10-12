@@ -148,7 +148,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           v="${GITHUB_REF_NAME#v}"
-          pre=""; case "$v" in 0.*) pre="--prerelease" ;; esac   # 0.x = beta
           cat > notes.md <<EOF_NOTES
           **TI Revive $v** - Total Integration for the Access Virus TI without the old Access drivers.
 
@@ -167,5 +166,5 @@ jobs:
           [README](https://github.com/$GITHUB_REPOSITORY#readme) for how it works, limitations and uninstall.
           EOF_NOTES
           gh release create "$GITHUB_REF_NAME" out/TI-Revive-*-setup.exe out/TI-Revive-*.msi out/TI-Revive-*-mac.zip \
-            out/TI-Revive-*-linux.tar.gz repo/scripts/tirevive-usbinfo.ps1 $pre \
+            out/TI-Revive-*-linux.tar.gz repo/scripts/tirevive-usbinfo.ps1 \
             --repo "$GITHUB_REPOSITORY" --title "TI Revive $v" --notes-file notes.md
