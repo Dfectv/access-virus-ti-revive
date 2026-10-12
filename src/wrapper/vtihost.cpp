@@ -507,6 +507,15 @@ int main(int argc, char **argv)
     IPluginFactory *fac = gpf ? gpf() : nullptr;
     if (!fac)
         return 1;
+    for (int i = 0; i < fac->countClasses(); i++) { // all classes with their ids (the rewrite reuses them)
+        PClassInfo c{};
+        if (fac->getClassInfo(i, &c) != kResultOk)
+            continue;
+        printf("class %d: ", i);
+        for (int k = 0; k < 16; k++)
+            printf("%02X", (uint8_t)c.cid[k]);
+        printf(" %s \"%s\"\n", c.category, c.name);
+    }
     PClassInfo ci{};
     int idx = -1;
     for (int i = 0; i < fac->countClasses() && idx < 0; i++)
