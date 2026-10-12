@@ -35,7 +35,14 @@ components with small, clear interfaces (all x86_64 + i386, symbols kept):
 | Device, audio, USB control requests | C++ class `VirusClient` in `/Library/Application Support/Access Music/Virus TI/Common/libVirusUSB.dylib` (absolute install name, hard-linked by Virus Control): 20 methods used (`vc_init`, `vc_open(void *deviceID)`, `vc_start(rate)`, `vc_stop`, `vc_close`, `vc_term`, `vc_getNumDevices`, `vc_getDeviceInfo`, `vc_getDeviceID`, `vc_request(dir, level, recipient, request, value, index, data, length)`, `vc_getBuffersize`, `vc_get/setSamplerate`, `vc_getLatencies`, `vc_setIntParam`, `vc_isPluginMaster`, version/status queries) | libVirusUSB.dylib (Ploytec PGOSXDevice / OSXDeviceManager, talks to the kext) |
 | Audio to/from the plug-in | Core Audio style IOProc registered in `vc_open`; calls the client's virtual method at vtable +0x18 with (device, in channels, in bytes, in data, out channels, out bytes, out data, sample time) | same |
 | MIDI plug-in -> Virus | CFMessagePort named **"VirusTIWritePort"** (Virus Control: `CFMessagePortCreateRemote` + `CFMessagePortSendRequest`) | "Virus TI MIDI Driver.plugin" (Core MIDI driver, creates the port locally) |
-| MIDI Virus -> plug-in | open (Virus Control creates no local port; probably through libVirusUSB or a callback) | to analyse |
+| MIDI Virus -> plug-in | probably POSIX shared memory "VirusTISharedMem" + named semaphores (shm_open/mmap/sem_* in both; the MIDI driver's VirusTIUSBMIDIDevice handles the "hidden port" = the plug-in channel MI_04); Virus Control itself also has "VirusTICommMem" (Access::Threading::IPC::SharedMemory, likely instance coordination). To confirm at runtime on the Mac (which shm segments the DAW opens) | "Virus TI MIDI Driver.plugin" |
+
+`VirusClient` virtual methods called by the library (implemented in Virus Control): +0x00 device attached
+(PGOSXDevice* = opaque device ID), +0x08 device removed, +0x10 notification (device, event: 1 other client
+attached, 2 detached, 3 state change, a, b), +0x18 audio IOProc. Private data at VirusClient+8 (owned by the
+library: device, device manager, USB/HAL versions). `VC_DeviceInfo`: u16 +0, u8 +2, u16 +4/+6/+8, u8 +0xa..+0xd,
+u32 +0x10, char[256] +0x14, char[256] +0x114 (from the USB descriptors). `vc_request` = USB control request
+1:1, `vc_start(framesize)` sets the buffer size and starts the IOProc.
 
 ## Approach for macOS (preferred: no wrapper needed)
 
