@@ -200,75 +200,45 @@ struct AUBridge : BridgeCore {
         }
     }
 
-    // The original accepts only buffer sizes 64/128/256/512 ("buffer size too high" otherwise, as on Windows). AU hosts
-    // announce just a maximum (often 1156 or 4096), so the original is set up with a valid block size and longer host
-    // blocks are processed in pieces; events and parameter changes go into the piece they fall into.
-    UInt32 block_size() const
-    {
-        for (UInt32 b : {64u, 128u, 256u})
-            if (max_frames <= b)
-                return b;
-        return 512;
-    }
-
+    // A host block goes to the original in one piece, with the host's maximum block size announced. The original
+    // warns about sizes above 512 ("buffer size too high"), but it keeps MIDI and the Virus' real-time USB audio in
+    // sync per block: splitting longer host blocks into 512-sample pieces processed back to back made playback in
+    // GarageBand noticeably less tight (user, E111) - so no splitting.
     bool process(UInt32 frames)
     {
         tirb_shm *s = shm;
         if (!s || !ok)
             return false;
-        std::vector<tirb_event> ev;
-        std::vector<tirb_pchange> pc;
         {
             std::lock_guard<std::mutex> g(pend_mx);
-            ev.swap(pend_ev);
-            pc.swap(pend_pc);
-        }
-        std::stable_sort(ev.begin(), ev.end(),
-                         [](const tirb_event &a, const tirb_event &b) { return a.sample_offset < b.sample_offset; });
-        fill_transport(s->transport);
-        const UInt32 bs = block_size();
-        bool all_ok = true;
-        for (UInt32 pos = 0; pos < frames; pos += bs) {
-            UInt32 n = std::min(bs, frames - pos);
-            bool last = pos + n >= frames;
-            auto in_piece = [&](int32_t off) {
-                off = std::max<int32_t>(off, 0);
-                return (UInt32)off >= pos && ((UInt32)off < pos + n || last);
-            };
             uint32_t ne = 0, np = 0;
-            for (const tirb_event &e : ev)
-                if (ne < TIRB_MAX_EVENTS && in_piece(e.sample_offset)) {
+            for (const tirb_event &e : pend_ev)
+                if (ne < TIRB_MAX_EVENTS) {
                     s->events[ne] = e;
-                    s->events[ne].sample_offset = std::min<int32_t>(std::max<int32_t>(e.sample_offset, 0) - (int32_t)pos,
-                                                                    (int32_t)n - 1);
+                    s->events[ne].sample_offset = std::min<int32_t>(std::max<int32_t>(e.sample_offset, 0), (int32_t)frames - 1);
                     ne++;
                 }
-            for (const tirb_pchange &p : pc)
-                if (np < TIRB_MAX_PCHANGES && in_piece(p.sample_offset)) {
+            for (const tirb_pchange &p : pend_pc)
+                if (np < TIRB_MAX_PCHANGES) {
                     s->pchanges[np] = p;
-                    s->pchanges[np].sample_offset = std::min<int32_t>(std::max<int32_t>(p.sample_offset, 0) - (int32_t)pos,
-                                                                      (int32_t)n - 1);
+                    s->pchanges[np].sample_offset = std::min<int32_t>(std::max<int32_t>(p.sample_offset, 0), (int32_t)frames - 1);
                     np++;
                 }
+            pend_ev.clear();
+            pend_pc.clear();
+            std::stable_sort(s->events, s->events + ne,
+                             [](const tirb_event &a, const tirb_event &b) { return a.sample_offset < b.sample_offset; });
             s->num_events = ne;
             s->num_pchanges = np;
-            if (pos) { // later pieces: transport moves on
-                s->transport.project_time_samples += bs;
-                if (s->transport.tempo > 0)
-                    s->transport.project_time_music += bs / sample_rate * s->transport.tempo / 60.0;
-            }
-            if (!run(n)) {
-                all_ok = false;
-                for (int c = 0; c < NUM_BUSES * 2; c++)
-                    memset(out[c].data() + pos, 0, n * sizeof(float));
-                continue;
-            }
-            for (int c = 0; c < NUM_BUSES * 2; c++)
-                memcpy(out[c].data() + pos, s->out[c], n * sizeof(float));
         }
+        fill_transport(s->transport);
+        if (!run(frames))
+            return false;
+        for (int c = 0; c < NUM_BUSES * 2; c++)
+            memcpy(out[c].data(), s->out[c], frames * sizeof(float));
         const float *main_out[2] = {out[0].data(), out[1].data()};
         note_output_level(main_out, 2, frames);
-        return all_ok;
+        return true;
     }
 
     OSStatus render(AudioUnitRenderActionFlags *flags, const AudioTimeStamp *ts, UInt32 bus, UInt32 frames,
@@ -691,7 +661,7 @@ static OSStatus au_initialize(void *s)
         return kAudioUnitErr_FailedInitialization;
     for (auto &v : b->out)
         v.assign(MAX_FRAMES, 0.f);
-    b->setup(b->sample_rate, (int32_t)b->block_size(), 0 /* kRealtime */);
+    b->setup(b->sample_rate, (int32_t)b->max_frames, 0 /* kRealtime */);
     b->set_active(true);
     b->last_time = -1;
     b->initialized = true;
