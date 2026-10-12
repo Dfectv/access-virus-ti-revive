@@ -4,7 +4,9 @@
 // for half of every second after <quiet> seconds, prints the output peak per second and writes output bus 1 to a WAV.
 //
 // usage: vtihost <plugin.vst3> [seconds=60] [out.wav] [quiet=0]
-// env: VTI_BLOCK=64..512 (block size), VTI_EDITOR=<file.bmp> (open the editor, screenshot it every 10 s)
+// env: VTI_BLOCK=64..512 (block size), VTI_EDITOR=<file.bmp> (open the editor, screenshot it every 10 s),
+//      VTI_LISTPARAMS=1 (print all parameters of the controller and exit),
+//      VTI_PARAMS="id=normalized@seconds,..." (scripted parameter changes through process(), e.g. automation tests)
 // build: make -C src/wrapper (x86_64-w64-mingw32-g++, VST3 pluginterfaces from work/vst3sdk, MIT)
 #include <windows.h>
 #include <atomic>
@@ -40,6 +42,7 @@ DEF_CLASS_IID(IComponentHandler)
 DEF_CLASS_IID(IHostApplication)
 DEF_CLASS_IID(IEventList)
 DEF_CLASS_IID(IParameterChanges)
+DEF_CLASS_IID(IParamValueQueue)
 } // namespace Vst
 } // namespace Steinberg
 
@@ -106,12 +109,35 @@ struct EventList : IEventList {
     }
 };
 
-struct NoChanges : IParameterChanges {
+struct Queue : IParamValueQueue { // one point per block is enough for scripted changes
+    IMPLEMENT_FUNKNOWN(IParamValueQueue)
+    ParamID id = 0;
+    ParamValue value = 0;
+    ParamID PLUGIN_API getParameterId() override { return id; }
+    int32 PLUGIN_API getPointCount() override { return 1; }
+    tresult PLUGIN_API getPoint(int32, int32 &off, ParamValue &v) override
+    {
+        off = 0, v = value;
+        return kResultOk;
+    }
+    tresult PLUGIN_API addPoint(int32, ParamValue, int32 &) override { return kResultFalse; }
+};
+
+struct NoChanges : IParameterChanges { // scripted changes due in this block (VTI_PARAMS), otherwise none
     IMPLEMENT_FUNKNOWN(IParameterChanges)
-    int32 PLUGIN_API getParameterCount() override { return 0; }
-    IParamValueQueue *PLUGIN_API getParameterData(int32) override { return nullptr; }
+    std::vector<Queue *> due;
+    int32 PLUGIN_API getParameterCount() override { return (int32)due.size(); }
+    IParamValueQueue *PLUGIN_API getParameterData(int32 i) override { return i < (int32)due.size() ? due[i] : nullptr; }
     IParamValueQueue *PLUGIN_API addParameterData(const ParamID &, int32 &) override { return nullptr; }
 };
+
+struct ScriptedChange {
+    ParamID id;
+    double value, at;
+    bool done;
+    Queue q;
+};
+static std::vector<ScriptedChange *> g_script;
 
 static void wav_header(FILE *f, uint32_t frames)
 {
@@ -233,6 +259,16 @@ static DWORD WINAPI process_thread(LPVOID arg)
         d.numOutputs = (int32)outs.size();
         d.outputs = outs.data();
         d.inputEvents = &events;
+        changes.due.clear();
+        for (auto *c : g_script)
+            if (!c->done && (double)i * block / rate >= c->at) {
+                c->done = true;
+                c->q.id = c->id;
+                c->q.value = c->value;
+                changes.due.push_back(&c->q);
+                printf("t=%.3f param %u = %.4f\n", (double)i * block / rate, (unsigned)c->id, c->value);
+                fflush(stdout);
+            }
         d.inputParameterChanges = &changes;
         d.processContext = &ctx;
         r.proc->process(d);
@@ -388,6 +424,41 @@ int main(int argc, char **argv)
     }
     if (ctl)
         ctl->setComponentHandler(&g_handler);
+    if (ctl && getenv("VTI_LISTPARAMS")) { // id, title, short title, units, steps, default, flags
+        for (int32 i = 0; i < ctl->getParameterCount(); i++) {
+            ParameterInfo pi{};
+            ctl->getParameterInfo(i, pi);
+            char t[256], st[256], u[256];
+            auto u8 = [](const TChar *w, char *o) {
+                int k = 0;
+                for (; w[k] && k < 255; k++)
+                    o[k] = w[k] < 128 ? (char)w[k] : '?';
+                o[k] = 0;
+            };
+            u8(pi.title, t), u8(pi.shortTitle, st), u8(pi.units, u);
+            printf("%d\t%u\t%s\t%s\t%s\t%d\t%.6f\t%d\n", i, (unsigned)pi.id, t, st, u, (int)pi.stepCount,
+                   pi.defaultNormalizedValue, (int)pi.flags);
+        }
+        fflush(stdout);
+        TerminateProcess(GetCurrentProcess(), 0);
+    }
+    if (const char *sp = getenv("VTI_PARAMS")) { // "id=norm@sec,id=norm@sec"
+        for (const char *p = sp; *p;) {
+            unsigned id = 0;
+            double v = 0, at = 0;
+            int n = 0;
+            if (sscanf(p, "%u=%lf@%lf%n", &id, &v, &at, &n) == 3) {
+                auto *c = new ScriptedChange{id, v, at, false, {}};
+                g_script.push_back(c);
+                if (ctl)
+                    ctl->setParamNormalized(id, v); // the controller side too, as a host does
+            }
+            const char *comma = strchr(p, ',');
+            if (!comma)
+                break;
+            p = comma + 1;
+        }
+    }
     Run r{};
     r.proc = proc;
     r.seconds = seconds;
