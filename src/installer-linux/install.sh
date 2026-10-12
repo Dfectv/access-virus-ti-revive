@@ -39,7 +39,15 @@ fi
 
 # --- 1. USB access (udev) ------------------------------------------------------------------------------------------
 RULE=/etc/udev/rules.d/70-tirevive-virus-ti.rules
-if ! cmp -s "$HERE/udev/70-tirevive-virus-ti.rules" "$RULE" 2>/dev/null; then
+virus_accessible() { # a plugged-in Virus whose device node we may already open (rule present or other setup)
+    for d in /sys/bus/usb/devices/*; do
+        [ "$(cat "$d/idVendor" 2>/dev/null)" = 133e ] && [ "$(cat "$d/idProduct" 2>/dev/null)" = 0815 ] || continue
+        node=$(printf '/dev/bus/usb/%03d/%03d' "$(cat "$d/busnum")" "$(cat "$d/devnum")")
+        [ -r "$node" ] && [ -w "$node" ] && return 0
+    done
+    return 1
+}
+if ! cmp -s "$HERE/udev/70-tirevive-virus-ti.rules" "$RULE" 2>/dev/null && ! virus_accessible; then
     say "USB access for the Virus TI (udev rule, needs sudo)"
     sudo install -m 0644 "$HERE/udev/70-tirevive-virus-ti.rules" "$RULE"
     sudo udevadm control --reload
@@ -58,10 +66,12 @@ if ! grep -q '^token=' "$CONF/broker.token" 2>/dev/null; then # secret for the p
 fi
 chmod 600 "$CONF/broker.token"
 if command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
-    systemctl --user daemon-reload
-    systemctl --user enable tirevive-broker.socket >/dev/null
-    systemctl --user restart tirevive-broker.socket
-    echo "broker socket enabled (systemd user unit tirevive-broker.socket)"
+    if systemctl --user daemon-reload && systemctl --user enable tirevive-broker.socket >/dev/null &&
+        systemctl --user restart tirevive-broker.socket; then
+        echo "broker socket enabled (systemd user unit tirevive-broker.socket)"
+    else
+        echo "WARNING: could not enable the systemd user socket; start $LIB/vtibroker yourself before using the plug-in"
+    fi
 else
     echo "no systemd user session: start $LIB/vtibroker yourself before using the plug-in"
 fi
@@ -69,7 +79,7 @@ fi
 # --- 3. Wine prefix + Access software ------------------------------------------------------------------------------
 say "Wine prefix $PREFIX"
 export WINEPREFIX="$PREFIX" WINEDEBUG=-all
-[ -d "$PREFIX/drive_c" ] || wineboot -i >/dev/null 2>&1 || die "could not create the Wine prefix $PREFIX"
+[ -d "$PREFIX/drive_c" ] || wine wineboot -i >/dev/null 2>&1 || die "could not create the Wine prefix $PREFIX"
 if [ -f "$VST3_DIR/Virus TI.vst3" ]; then
     echo "Access Virus TI software is already installed in this prefix"
 else
@@ -86,8 +96,8 @@ else
     trap 'rm -rf "$TMP"' EXIT
     cp "$MSI" "$TMP/access.msi"
     chmod u+w "$TMP/access.msi"
-    wine "$HERE/wine/vtimsipatch.exe" "$(winepath -w "$TMP/access.msi")"
-    wine msiexec /i "$(winepath -w "$TMP/access.msi")" /qb || die "the Access installer failed"
+    wine "$HERE/wine/vtimsipatch.exe" "$(wine winepath -w "$TMP/access.msi" 2>/dev/null)"
+    wine msiexec /i "$(wine winepath -w "$TMP/access.msi" 2>/dev/null)" /qb || die "the Access installer failed"
     [ -f "$VST3_DIR/Virus TI.vst3" ] || die "the Access plug-in is missing after the install"
 fi
 
