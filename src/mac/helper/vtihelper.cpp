@@ -780,9 +780,22 @@ static void *conn_thread(void *arg)
     return nullptr;
 }
 
+static void on_exit_log() { hlog("process exit (atexit)"); }
+static void on_signal(int sig)
+{
+    char m[64];
+    snprintf(m, sizeof m, "vtihelper: signal %d\n", sig);
+    write(2, m, strlen(m));
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
 static int serve(const char *sock_path, int daw_pid)
 {
     g_daw_pid = daw_pid;
+    atexit(on_exit_log);
+    for (int sg : {SIGTERM, SIGINT, SIGHUP, SIGSEGV, SIGBUS, SIGILL, SIGABRT, SIGTRAP})
+        signal(sg, on_signal);
     signal(SIGPIPE, SIG_IGN);
     if (!load_original("/Library/Audio/Plug-Ins/VST3/Virus TI.vst3"))
         return 1;
@@ -927,6 +940,24 @@ static int editor_dump(const char *png)
     if (!in->editor)
         return 1;
     CFRunLoopRunInMode(kCFRunLoopDefaultMode, 3.0, false);
+    if (getenv("VTI_INPUT_TEST")) { // replay mouse moves and a click on the "OSC" tab like the bridge would
+        atexit(on_exit_log);
+        for (int k = 0; k < 20; k++) {
+            tirb_input mv{};
+            mv.kind = 4;
+            mv.x = 300 + k * 5, mv.y = 200;
+            editor_input(in->editor, mv);
+            CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.02, false);
+        }
+        tirb_input c{};
+        c.x = 370, c.y = 24, c.click_count = 1;
+        c.kind = 1;
+        editor_input(in->editor, c);
+        c.kind = 2;
+        editor_input(in->editor, c);
+        printf("input replayed\n");
+        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0, false);
+    }
     printf("png %s\n", editor_dump_png(in->editor, png) ? "written" : "FAILED");
     destroy_instance(in);
     return 0;

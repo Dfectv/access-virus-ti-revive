@@ -393,10 +393,20 @@ void editor_input(HelperEditor *e, const tirb_input &in)
         NSString *mode = [[NSRunLoop currentRunLoop] currentMode];
         if (!mode || [mode isEqualToString:NSDefaultRunLoopMode]) {
             NSEvent *q;
-            while ((q = [NSApp nextEventMatchingMask:NSEventMaskAny
+            // only the input kinds we post: system events (AppleEvents such as 'quit', activation, ...) stay
+            // untouched, as they always were in this helper (dequeuing everything killed it inside Ableton)
+            const NSEventMask ours = NSEventMaskLeftMouseDown | NSEventMaskLeftMouseUp | NSEventMaskLeftMouseDragged |
+                                     NSEventMaskRightMouseDown | NSEventMaskRightMouseUp |
+                                     NSEventMaskRightMouseDragged | NSEventMaskMouseMoved | NSEventMaskKeyDown |
+                                     NSEventMaskKeyUp;
+            while ((q = [NSApp nextEventMatchingMask:ours
                                            untilDate:nil
                                               inMode:NSDefaultRunLoopMode
                                              dequeue:YES])) {
+                static int logged;
+                if (logged++ < 20)
+                    fprintf(stderr, "vtihelper: drained event type %lu window %ld\n", (unsigned long)[q type],
+                            (long)[q windowNumber]);
                 HelperEditor *owner = editor_for_window([q window]);
                 if (owner) // our windows are never key (inactive helper): deliver to the window itself
                     [owner->win sendEvent:q];
