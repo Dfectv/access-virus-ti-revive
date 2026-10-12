@@ -4,6 +4,7 @@
 // for half of every second after <quiet> seconds, prints the output peak per second and writes output bus 1 to a WAV.
 //
 // usage: vtihost <plugin.vst3> [seconds=60] [out.wav] [quiet=0]
+// env: VTI_BLOCK=64..512 (block size), VTI_EDITOR=<file.bmp> (open the editor, screenshot it every 10 s)
 // build: make -C src/wrapper (x86_64-w64-mingw32-g++, VST3 pluginterfaces from work/vst3sdk, MIT)
 #include <windows.h>
 #include <atomic>
@@ -21,6 +22,7 @@
 #include "pluginterfaces/vst/ivsthostapplication.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include "pluginterfaces/vst/ivstprocesscontext.h"
+#include "pluginterfaces/gui/iplugview.h"
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -28,6 +30,8 @@ using namespace Steinberg::Vst;
 namespace Steinberg {
 DEF_CLASS_IID(FUnknown)
 DEF_CLASS_IID(IPluginFactory)
+DEF_CLASS_IID(IPlugView)
+DEF_CLASS_IID(IPlugFrame)
 namespace Vst {
 DEF_CLASS_IID(IComponent)
 DEF_CLASS_IID(IAudioProcessor)
@@ -242,6 +246,82 @@ static DWORD WINAPI process_thread(LPVOID arg)
     return 0;
 }
 
+// Editor test (VTI_EDITOR): the plug-in's view in a top-level Win32 window, saved as a BMP (PrintWindow).
+static HWND g_editor_wnd;
+static void save_bmp(HWND w, const char *path)
+{
+    RECT rc;
+    GetClientRect(w, &rc);
+    int cx = rc.right, cy = rc.bottom;
+    if (cx <= 0 || cy <= 0)
+        return;
+    HDC wdc = GetDC(w), mdc = CreateCompatibleDC(wdc);
+    BITMAPINFO bi{};
+    bi.bmiHeader = {sizeof(BITMAPINFOHEADER), cx, -cy, 1, 24, BI_RGB};
+    void *bits = nullptr;
+    HBITMAP bmp = CreateDIBSection(wdc, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    HGDIOBJ old = SelectObject(mdc, bmp);
+    if (!PrintWindow(w, mdc, PW_CLIENTONLY))
+        BitBlt(mdc, 0, 0, cx, cy, wdc, 0, 0, SRCCOPY);
+    GdiFlush();
+    int stride = (cx * 3 + 3) & ~3;
+    BITMAPFILEHEADER fh{0x4d42, (DWORD)(sizeof fh + sizeof bi.bmiHeader + stride * cy), 0, 0,
+                        (DWORD)(sizeof fh + sizeof bi.bmiHeader)};
+    FILE *f = fopen(path, "wb");
+    if (f) {
+        BITMAPINFOHEADER h = bi.bmiHeader;
+        fwrite(&fh, sizeof fh, 1, f), fwrite(&h, sizeof h, 1, f), fwrite(bits, stride, cy, f);
+        fclose(f);
+        printf("editor screenshot %dx%d -> %s\n", cx, cy, path);
+    }
+    SelectObject(mdc, old);
+    DeleteObject(bmp);
+    DeleteDC(mdc);
+    ReleaseDC(w, wdc);
+}
+
+struct Frame : IPlugFrame { // the plug-in asks for window size changes through this
+    IMPLEMENT_FUNKNOWN(IPlugFrame)
+    tresult PLUGIN_API resizeView(IPlugView *view, ViewRect *r) override
+    {
+        printf("resizeView %dx%d\n", r->getWidth(), r->getHeight());
+        if (g_editor_wnd) {
+            RECT wr{0, 0, r->getWidth(), r->getHeight()};
+            AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
+            SetWindowPos(g_editor_wnd, nullptr, 0, 0, wr.right - wr.left, wr.bottom - wr.top, SWP_NOMOVE | SWP_NOZORDER);
+        }
+        view->onSize(r);
+        return kResultOk;
+    }
+} g_frame;
+
+static IPlugView *open_editor(IEditController *ctl)
+{
+    IPlugView *view = ctl ? ctl->createView(ViewType::kEditor) : nullptr;
+    if (!view) {
+        printf("createView -> none\n");
+        return nullptr;
+    }
+    printf("HWND supported: %d\n", view->isPlatformTypeSupported(kPlatformTypeHWND) == kResultTrue);
+    view->setFrame(&g_frame);
+    ViewRect r{};
+    view->getSize(&r);
+    WNDCLASSA wc{};
+    wc.lpfnWndProc = DefWindowProcA;
+    wc.hInstance = GetModuleHandleA(nullptr);
+    wc.lpszClassName = "vtihost";
+    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    RegisterClassA(&wc);
+    RECT wr{0, 0, r.getWidth(), r.getHeight()};
+    AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
+    g_editor_wnd = CreateWindowA("vtihost", "Virus TI (TI Revive) - test host", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0,
+                                 wr.right - wr.left, wr.bottom - wr.top, nullptr, nullptr, wc.hInstance, nullptr);
+    tresult a = view->attached(g_editor_wnd, kPlatformTypeHWND);
+    printf("editor %dx%d attached -> %d\n", r.getWidth(), r.getHeight(), (int)a);
+    fflush(stdout);
+    return view;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -318,8 +398,15 @@ int main(int argc, char **argv)
     printf("setActive -> %d\n", (int)comp->setActive(true));
     printf("setProcessing -> %d\n", (int)proc->setProcessing(true));
     fflush(stdout);
+    const char *shot = getenv("VTI_EDITOR");
+    IPlugView *view = shot ? open_editor(ctl) : nullptr;
+    DWORD next_shot = GetTickCount() + 10000;
     HANDLE th = CreateThread(nullptr, 0, process_thread, &r, 0, nullptr);
     while (!r.done) { // main thread: the plug-in's windows / timers
+        if (view && GetTickCount() >= next_shot) {
+            save_bmp(g_editor_wnd, shot);
+            next_shot += 10000;
+        }
         MSG msg;
         while (PeekMessageA(&msg, nullptr, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
@@ -328,6 +415,12 @@ int main(int argc, char **argv)
         MsgWaitForMultipleObjects(1, &th, FALSE, 10, QS_ALLINPUT);
     }
     WaitForSingleObject(th, INFINITE);
+    if (view) {
+        save_bmp(g_editor_wnd, shot);
+        view->removed();
+        view->release();
+        DestroyWindow(g_editor_wnd);
+    }
     proc->setProcessing(false);
     comp->setActive(false);
     if (ctl && (void *)ctl != (void *)comp) {

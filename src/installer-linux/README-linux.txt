@@ -17,8 +17,8 @@ Install
    (it asks for your password once to allow USB access to the Virus; the Access software goes into your Wine
    prefix, ~/.wine or $WINEPREFIX, WITHOUT its old drivers and firmware updater)
 3. In your DAW, rescan plug-ins and load the VST3 "Virus TI (TI Revive)" (Snow: "Virus TI Snow (TI Revive)").
-   The first start syncs the Virus' patch memory, which takes a few minutes (the Virus sends about one patch per
-   second, as with the original driver); later starts use the cache.
+   The first start syncs the Virus' patch memory, which takes about 7 minutes (the Virus sends about one patch per
+   second, as with the original driver); later starts use the cache and play after a few seconds.
 
 Good to know
 - While TI Revive uses the Virus, Linux cannot use it as a normal sound card; it is handed back automatically when

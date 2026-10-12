@@ -52,7 +52,7 @@ VST3SDK ?= ../../work/vst3sdk
 $(OUT)/vtihost.exe: vtihost.cpp
 	mkdir -p $(OUT)
 	x86_64-w64-mingw32-g++ -std=c++17 -O2 -Wall -Wno-format -I$(VST3SDK) -o $@ vtihost.cpp $(VST3SDK)/pluginterfaces/base/funknown.cpp \
-		-static -lole32 -luuid
+		-static -lole32 -luuid -lgdi32 -luser32
 
 $(OUT)/vtilaunch.exe: vtilaunch.c
 	mkdir -p $(OUT)
