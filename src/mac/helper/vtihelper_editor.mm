@@ -83,8 +83,14 @@ struct HelperEditor : IPlugFrame {
     {
         if (!r)
             return kInvalidArgument;
-        set_size(r->getWidth(), r->getHeight());
         v->onSize(r);
+        if (!px) { // still inside editor_open (attached): just take the size, the reply reports it
+            w = r->getWidth(), h = r->getHeight();
+            [container setFrame:NSMakeRect(0, 0, w, h)];
+            place();
+            return kResultOk;
+        }
+        set_size(r->getWidth(), r->getHeight());
         tirb_editor_reply rep{w, h, {}};
         strcpy(rep.pixels_shm, px_name);
         if (on_resize)

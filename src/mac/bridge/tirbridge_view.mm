@@ -1,6 +1,7 @@
 // tirbridge_view.mm - see tirbridge_view.h.
 #import <Cocoa/Cocoa.h>
 #include <atomic>
+#include <cerrno>
 #include <fcntl.h>
 #include <string>
 #include <sys/mman.h>
@@ -79,20 +80,23 @@ struct BridgeView : IPlugView {
         w = r.width, h = r.height;
         return map(r.pixels_shm);
     }
-    bool map(const char *name)
+    bool map(const char *name) // keeps the current mapping if the new one cannot be opened
     {
-        unmap();
         int fd = shm_open(name, O_RDONLY, 0);
-        if (fd < 0)
+        if (fd < 0) {
+            fprintf(stderr, "bridge view: shm_open %s: %s\n", name, strerror(errno));
             return false;
+        }
         struct stat st;
         fstat(fd, &st);
         void *m = mmap(nullptr, (size_t)st.st_size, PROT_READ, MAP_SHARED, fd, 0);
         close(fd);
         if (m == MAP_FAILED)
             return false;
+        unmap();
         px = (tirb_pixels *)m;
         px_size = (size_t)st.st_size;
+        fprintf(stderr, "bridge view: mapped %s, %zu bytes, %ux%u px\n", name, px_size, px->pw, px->ph);
         last_frame = ~0u;
         return true;
     }
@@ -123,6 +127,8 @@ struct BridgeView : IPlugView {
         uint32_t f = __atomic_load_n(&px->frame, __ATOMIC_ACQUIRE);
         if (f == last_frame || !px->pw || !px->ph)
             return;
+        if (last_frame == ~0u)
+            fprintf(stderr, "bridge view: first frame %u\n", f);
         last_frame = f;
         uint32_t front = __atomic_load_n(&px->front, __ATOMIC_ACQUIRE) & 1;
         size_t bytes = (size_t)px->pw * px->ph * 4;
