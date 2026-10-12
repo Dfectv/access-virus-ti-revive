@@ -26,7 +26,16 @@ Install
    second, as with the original driver); later starts use the cache and play after a few seconds.
 
 Good to know
-- Audio system in your DAW: use ALSA or JACK (with PipeWire: the pipewire-jack package, PipeWire set to 44.1 kHz).
+- Audio system in your DAW: JACK through PipeWire works best (tested in REAPER):
+      sudo apt install pipewire-jack                          (once)
+      pw-metadata -n settings 0 clock.force-rate 44100        (until the next login; or permanently, see below)
+      pw-metadata -n settings 0 clock.force-quantum 512
+      pw-jack reaper                                          (start the DAW through PipeWire's JACK; in REAPER
+                                                               choose Audio system "JACK")
+  To keep 44.1 kHz / 512 permanently, create ~/.config/pipewire/pipewire.conf.d/tirevive.conf with
+      context.properties = { default.clock.rate = 44100  default.clock.allowed-rates = [ 44100 48000 ]
+                             default.clock.quantum = 512 }
+  and log out and in. ALSA directly works as well (but takes the sound card exclusively).
   NOT PulseAudio: it hands the plug-in irregular block sizes, the Virus then reports timing errors, playback
   sounds messy and notes can hang. Use a buffer size of 64, 128, 256 or 512 at 44.1 kHz.
 - Close your DAW normally (File -> Quit). The plug-in saves the synced Virus memory only then; if the DAW is
