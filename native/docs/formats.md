@@ -26,5 +26,18 @@ Windows / Wine: PE resources of "Virus Control.dll", types `XML` (7) and `PNG` (
 - `SoftknobMapping/Mapping index parameter` - soft-knob destination list.
 - `Initialisation/GlobalInit param value`, `ParamInit param part value` - what the plug-in sets on the device.
 
+## automation.xml - DAW automation ids
+
+`AutomationList/Automation Parameter Part Index`: `Index` IS the original plug-in's VST3 ParamID (part 2 Filter 1
+Cutoff = 793, part blocks of 640). 2672 entries; 2671 of them are exactly the original's mapped parameter ids
+(listed with vtihost VTI_LISTPARAMS: 10404 parameters, 2703 mapped). The other 32 mapped ids are Aftertouch and
+Pitchbend per MIDI channel (IMidiMapping targets, ids 0x100000+ch*0x1000 .. ). -> The rewrite can rebuild the
+original's parameter list (and so load projects / automation) from automation.xml + these 32.
+
+Verified with the original (scripted automation through process(), broker trace): ParamID 153 (Filter 1/Cutoff,
+part 1) 0.0/0.5/1.0 -> `B0 28 00` / `B0 28 40` / `B0 28 7F` (value = round(norm * 127)); ParamID 128 (Amp
+Envelope/Attack) 0.75 -> `B0 3B 5F`. ParamID 156 (Filter 2/Cutoff) 0.25 sent NOTHING (to explain: probably Filters/
+Cutoff Link on -> filter 2 follows filter 1). On plug-in close the original resets globals (73 00 3B/3A/3C/7A).
+
 ## Still to describe
 editor.xml / editordevice.xml (UI), automation.xml (DAW automation ids), the "PR" variants.
