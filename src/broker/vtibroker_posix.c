@@ -109,13 +109,27 @@ static int send_msg(client *c, uint16_t type, const void *a, int alen, const voi
     return r;
 }
 
-static void broadcast(uint16_t type, const void *a, int alen, const void *b, int blen)
+// One program at a time owns the Virus, as with the Access driver: the first connected client; the others are told
+// "no device" until the owner disconnects, then the next client takes over. A second program (another DAW, auval,
+// a test host) would otherwise initialise the Virus and restart its audio stream in the middle of the first one's
+// session, which left the Virus without USB audio until it was power-cycled (E112).
+static client *g_owner; // g_cs_clients
+
+static int is_owner(client *c)
 {
     pthread_mutex_lock(&g_cs_clients);
-    for (int i = 0; i < MAX_CLIENTS; i++)
-        if (g_clients[i])
-            send_msg(g_clients[i], type, a, alen, b, blen);
+    int r = c == g_owner;
     pthread_mutex_unlock(&g_cs_clients);
+    return r;
+}
+
+static void send_states(int dev_open) // g_cs_clients held
+{
+    for (int i = 0; i < MAX_CLIENTS; i++)
+        if (g_clients[i]) {
+            uint32_t st = dev_open && g_clients[i] == g_owner;
+            send_msg(g_clients[i], VTIMSG_STATE, &st, 4, NULL, 0);
+        }
 }
 
 static void on_rx(void *user, uint8_t ep, const uint8_t *data, int len)
@@ -125,7 +139,10 @@ static void on_rx(void *user, uint8_t ep, const uint8_t *data, int len)
     if (ep == VTI_EP_MI04_IN)
         vtimidi_rx(data, len);
 #endif
-    broadcast(VTIMSG_RX, &ep, 1, data, len);
+    pthread_mutex_lock(&g_cs_clients);
+    if (g_owner)
+        send_msg(g_owner, VTIMSG_RX, &ep, 1, data, len);
+    pthread_mutex_unlock(&g_cs_clients);
 }
 
 #ifdef __APPLE__
@@ -167,13 +184,15 @@ static void *device_thread(void *unused)
             blog("device failed: closing");
             vti_close(g_dev);
             g_dev = NULL;
-            uint32_t st = 0;
-            broadcast(VTIMSG_STATE, &st, 4, NULL, 0);
+            pthread_mutex_lock(&g_cs_clients);
+            send_states(0);
+            pthread_mutex_unlock(&g_cs_clients);
         }
         if (!g_dev && (g_dev = vti_open(on_rx, NULL))) {
             blog("device open, handshake sent");
-            uint32_t st = 1;
-            broadcast(VTIMSG_STATE, &st, 4, NULL, 0);
+            pthread_mutex_lock(&g_cs_clients);
+            send_states(1);
+            pthread_mutex_unlock(&g_cs_clients);
         }
         int open = g_dev != NULL;
         pthread_mutex_unlock(&g_cs_dev);
@@ -186,9 +205,13 @@ static void *client_thread(void *arg)
 {
     client *c = arg;
     uint8_t buf[VTIMSG_MAX];
-    blog("client connected");
     pthread_mutex_lock(&g_cs_dev);
-    uint32_t st = g_dev != NULL;
+    pthread_mutex_lock(&g_cs_clients);
+    if (!g_owner)
+        g_owner = c;
+    uint32_t st = g_dev != NULL && c == g_owner;
+    blog("client connected%s", c == g_owner ? " (owner)" : " (waiting: another program uses the Virus)");
+    pthread_mutex_unlock(&g_cs_clients);
     pthread_mutex_unlock(&g_cs_dev);
     send_msg(c, VTIMSG_STATE, &st, 4, NULL, 0);
     for (;;) {
@@ -200,7 +223,7 @@ static void *client_thread(void *arg)
             blog("client hello, protocol %u", h.len >= 4 ? *(uint32_t *)buf : 0);
             break;
         case VTIMSG_WRITE:
-            if (h.len >= 1) {
+            if (h.len >= 1 && is_owner(c)) {
                 pthread_mutex_lock(&g_cs_dev);
                 int r = g_dev ? vti_write(g_dev, buf[0], buf + 1, h.len - 1) : -1;
                 pthread_mutex_unlock(&g_cs_dev);
@@ -218,8 +241,9 @@ static void *client_thread(void *arg)
                     wl = VTIMSG_MAX - 16;
                 if (!(s[0] & 0x80))
                     memcpy(data, buf + 12, h.len - 12 < wl ? h.len - 12 : wl);
+                int owner = is_owner(c);
                 pthread_mutex_lock(&g_cs_dev);
-                int32_t r = g_dev ? vti_control(g_dev, s[0], s[1], (uint16_t)(s[2] | s[3] << 8),
+                int32_t r = g_dev && owner ? vti_control(g_dev, s[0], s[1], (uint16_t)(s[2] | s[3] << 8),
                                                 (uint16_t)(s[4] | s[5] << 8), data, wl)
                                   : -1;
                 pthread_mutex_unlock(&g_cs_dev);
@@ -239,11 +263,23 @@ static void *client_thread(void *arg)
         }
     }
     blog("client disconnected");
+    pthread_mutex_lock(&g_cs_dev);
     pthread_mutex_lock(&g_cs_clients);
     for (int i = 0; i < MAX_CLIENTS; i++)
         if (g_clients[i] == c)
             g_clients[i] = NULL;
+    if (g_owner == c) { // hand the Virus to the next waiting program
+        g_owner = NULL;
+        for (int i = 0; i < MAX_CLIENTS && !g_owner; i++)
+            g_owner = g_clients[i];
+        if (g_owner) {
+            uint32_t st = g_dev != NULL;
+            blog("next client becomes the owner");
+            send_msg(g_owner, VTIMSG_STATE, &st, 4, NULL, 0);
+        }
+    }
     pthread_mutex_unlock(&g_cs_clients);
+    pthread_mutex_unlock(&g_cs_dev);
     close(c->fd);
     pthread_mutex_destroy(&c->wr);
     free(c);
