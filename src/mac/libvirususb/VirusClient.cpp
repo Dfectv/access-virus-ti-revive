@@ -285,6 +285,7 @@ enum { IN_CH = 6, OUT_CH = 2, MAX_FRAMES = 8192 };
 struct audio_client {
     VirusClient *vc;
     AudioDeviceIOProcID proc = nullptr;
+    AudioObjectID dev = 0; // device the IOProc belongs to
     unsigned long calls = 0, peak = 0; // diagnostics, logged at vc_stop
     bool running = false;
     int32_t in[MAX_FRAMES * IN_CH], out[MAX_FRAMES * OUT_CH];
@@ -318,6 +319,22 @@ static AudioObjectID find_virus_device()
             return ids[i];
     }
     return 0;
+}
+
+// The Core Audio device of the Virus gets a new id after a USB reconnect (or Virus restart): check that the cached
+// one is still alive and look it up again otherwise.
+static AudioObjectID current_device()
+{
+    if (g_dev) {
+        UInt32 alive = 0, n = sizeof alive;
+        AudioObjectPropertyAddress a = {kAudioDevicePropertyDeviceIsAlive, kAudioObjectPropertyScopeGlobal,
+                                        kAudioObjectPropertyElementMain};
+        if (AudioObjectGetPropertyData(g_dev, &a, 0, nullptr, &n, &alive) || !alive)
+            g_dev = 0;
+    }
+    if (!g_dev)
+        g_dev = find_virus_device();
+    return g_dev;
 }
 
 template <class T> static bool dev_get(AudioObjectPropertySelector sel, AudioObjectPropertyScope scope, T &v)
@@ -392,14 +409,18 @@ int VirusClient::vc_open(void *id)
         vlog("%p vc_open %p -> 0 (no device)", this, id);
         return 0;
     }
-    if (!g_dev)
-        g_dev = find_virus_device();
+    AudioObjectID dev = current_device();
     pthread_mutex_lock(&g_clients_mx);
     audio_client *c = g_clients.count(this) ? g_clients[this] : (g_clients[this] = new audio_client);
+    if (c->proc && c->dev != dev) { // IOProc of a device that is gone (reconnect): make a new one
+        AudioDeviceDestroyIOProcID(c->dev, c->proc);
+        c->proc = nullptr, c->running = false;
+    }
+    c->dev = dev;
     c->vc = this;
     OSStatus st = 0;
-    if (g_dev && !c->proc)
-        st = AudioDeviceCreateIOProcID(g_dev, ioproc, c, &c->proc);
+    if (dev && !c->proc)
+        st = AudioDeviceCreateIOProcID(dev, ioproc, c, &c->proc);
     pthread_mutex_unlock(&g_clients_mx);
     g_open = 1;
     vlog("%p vc_open %p -> 1 (Core Audio device %u, IOProc %s)", this, id, g_dev, c->proc ? "ok" : "FAILED");
@@ -415,7 +436,7 @@ int VirusClient::vc_close()
     if (g_clients.count(this)) {
         audio_client *c = g_clients[this];
         if (c->proc)
-            AudioDeviceDestroyIOProcID(g_dev, c->proc);
+            AudioDeviceDestroyIOProcID(c->dev, c->proc);
         g_clients.erase(this);
         delete c;
     }
@@ -428,13 +449,17 @@ int VirusClient::vc_start(unsigned long fs)
     pthread_mutex_lock(&g_clients_mx);
     audio_client *c = g_clients.count(this) ? g_clients[this] : nullptr;
     pthread_mutex_unlock(&g_clients_mx);
+    if (c && c->proc && c->dev != current_device()) { // the Virus was reconnected since vc_open
+        vlog("%p vc_start: audio device changed, reopening", this);
+        vc_open(&g_device);
+    }
     if (!c || !c->proc) {
         vlog("%p vc_start framesize %lu -> no device", this, fs);
         return 0xbad10; // as the original when the stream does not start
     }
     if (fs)
         dev_set(kAudioDevicePropertyBufferFrameSize, (UInt32)fs);
-    OSStatus st = c->running ? 0 : AudioDeviceStart(g_dev, c->proc);
+    OSStatus st = c->running ? 0 : AudioDeviceStart(c->dev, c->proc);
     c->running = !st;
     Float64 rate = 0;
     dev_get(kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeGlobal, rate);
@@ -447,7 +472,7 @@ int VirusClient::vc_stop()
     audio_client *c = g_clients.count(this) ? g_clients[this] : nullptr;
     pthread_mutex_unlock(&g_clients_mx);
     if (c && c->running) {
-        AudioDeviceStop(g_dev, c->proc);
+        AudioDeviceStop(c->dev, c->proc);
         c->running = false;
         vlog("%p vc_stop after %lu IOProc calls, input peak (ch 2/3) 0x%08lx", this, c->calls, c->peak);
         c->calls = c->peak = 0;
@@ -524,8 +549,7 @@ unsigned long VirusClient::vc_getSamplerate()
 }
 bool VirusClient::vc_setSamplerate(unsigned long r)
 {
-    if (!g_dev)
-        g_dev = find_virus_device();
+    current_device();
     Float64 cur = 0;
     dev_get(kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeGlobal, cur);
     bool ok = cur == (Float64)r || dev_set(kAudioDevicePropertyNominalSampleRate, (Float64)r);
