@@ -30,6 +30,8 @@ PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `ti
     original Intel "Virus TI.vst3". (a) DONE (not released): "Install Access Virus TI software.command" checks Rosetta and offers to install it,
     bridge log names a missing Rosetta (EBADARCH). (b) DONE (E130, not released): originals moved to /Library/Application Support/TI Revive/Access plug-ins;
     verified in Cubase 15 with a local 0.7.2 test package; uninstall moves them back (tested on the Mac).
+6b. macOS universal bridge (E132, not released): DAWs under Rosetta can load TI Revive; tested with an x86_64 test
+    host under Rosetta. Open: real test in a DAW under Rosetta with the Virus on the Mac (e.g. Cubase 15 'Open using Rosetta').
 7. macOS: Control Center replacement (Access app is 32-bit) - biggest item.
 
 Waiting: **Snow** (issue #3, bidmessmer) - the regular plug-in finds the Snow, the Snow plug-in does not; asked for

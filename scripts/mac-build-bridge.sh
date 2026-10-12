@@ -1,7 +1,8 @@
 #!/bin/bash
 # mac-build-bridge.sh - build TI Revive's macOS stage 2 parts on the Mac and install the bridge for the current user
 # (findings/design-macos-bridge.md):
-#   "Virus TI (TI Revive).vst3"  arm64 VST3 bridge, Contents/Resources/vtihelper = x86_64 helper (runs under Rosetta)
+#   "Virus TI (TI Revive).vst3"  universal (arm64 + x86_64) VST3 bridge - x86_64 for DAWs running under Rosetta
+#                                ("Open using Rosetta", E132) -, Contents/Resources/vtihelper = x86_64 helper (Rosetta)
 #   libVirusUSB.dylib            x86_64, loaded by the original plug-in inside the helper (stage 1, E099-E103)
 #   vtibroker                    native broker (make -C src/broker mac; LaunchAgent: scripts/mac-install-broker.sh)
 # usage (on the Mac): mac-build-bridge.sh <repo dir with src/> [--install]
@@ -28,12 +29,12 @@ $CXX -arch x86_64 -I "$REPO/src/mac/helper" -o "$OUT/vtihelper" "$REPO/src/mac/h
     -fobjc-arc -x objective-c++ "$REPO/src/mac/helper/vtihelper_editor.mm" -x none \
     "$P/base/funknown.cpp" "$P/base/coreiids.cpp" -framework CoreFoundation -framework Cocoa
 
-echo "== bridge core + VST3 + AU (arm64)"
+echo "== bridge core + VST3 + AU (universal: arm64 native DAWs, x86_64 DAWs under Rosetta)"
 B_SRC="$REPO/src/mac/bridge"
 COMMON=("$B_SRC/tirbridge_core.cpp" -fobjc-arc -x objective-c++ "$B_SRC/tirbridge_view.mm" -x none
         "$P/base/funknown.cpp" "$P/base/coreiids.cpp" -framework CoreFoundation -framework Cocoa)
-$CXX -arch arm64 -bundle -fvisibility=hidden -o "$OUT/tirbridge" "$B_SRC/tirbridge_vst3.cpp" "${COMMON[@]}"
-$CXX -arch arm64 -bundle -fvisibility=hidden -o "$OUT/tirbridge_au" "$B_SRC/tirbridge_au.cpp" \
+$CXX -arch arm64 -arch x86_64 -bundle -fvisibility=hidden -o "$OUT/tirbridge" "$B_SRC/tirbridge_vst3.cpp" "${COMMON[@]}"
+$CXX -arch arm64 -arch x86_64 -bundle -fvisibility=hidden -o "$OUT/tirbridge_au" "$B_SRC/tirbridge_au.cpp" \
     -fobjc-arc -x objective-c++ "$B_SRC/tirbridge_au_view.mm" -x none "${COMMON[@]}" \
     -framework AudioToolbox -framework AudioUnit -framework CoreAudio
 

@@ -57,7 +57,8 @@ shortcuts). The Access software is uninstalled separately.
 Requirements: a Mac with Apple Silicon (M1 or newer), macOS 14.4 or newer, Rosetta 2 (`Install Access Virus TI software.command`
 checks it and offers to install it — a DAW starting the plug-in does not trigger macOS' own Rosetta prompt),
 an Access Virus TI on USB, your own **Access "Virus TI Software Suite" installer** (`.pkg`, e.g. 5.1.7), a VST3
-host. Your DAW runs **natively** — it does not need "Open using Rosetta".
+host. Your DAW runs **natively** — it does not need "Open using Rosetta" (since 0.7.3 TI Revive also loads in a DAW that runs
+under Rosetta; Cubase's plug-in report then shows "CPU: VirtualApple").
 
 Unpack `TI-Revive-<version>-mac.zip`. Both parts are needed, in any order:
 
