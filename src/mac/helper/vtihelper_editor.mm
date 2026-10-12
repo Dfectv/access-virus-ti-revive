@@ -6,6 +6,9 @@
 #import <Cocoa/Cocoa.h>
 #include <fcntl.h>
 #include <objc/runtime.h>
+#include <algorithm>
+#include <atomic>
+#include <vector>
 #include <string>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -19,6 +22,9 @@ namespace Steinberg {
 DEF_CLASS_IID(IPlugView)
 DEF_CLASS_IID(IPlugFrame)
 }
+
+static IMP g_orig_perform_click; // popup menus, see swz_perform_click
+static void swz_perform_click(id self, SEL sel, NSRect frame, NSView *view);
 
 // --- redraw detection: every -setNeedsDisplay(InRect): in this process marks the editors dirty
 static volatile bool g_dirty = true;
@@ -43,15 +49,24 @@ static void install_dirty_hooks()
     g_orig_sndir = method_setImplementation(m1, (IMP)swz_sndir);
     Method m2 = class_getInstanceMethod([NSView class], @selector(setNeedsDisplay:));
     g_orig_snd = method_setImplementation(m2, (IMP)swz_snd);
+    Method m3 = class_getInstanceMethod([NSPopUpButtonCell class], @selector(performClickWithFrame:inView:));
+    g_orig_perform_click = method_setImplementation(m3, (IMP)swz_perform_click);
 }
 
+// --- popup menus: VSTGUI's COptionMenu runs -[NSPopUpButtonCell performClickWithFrame:inView:] (modal menu tracking).
+// In this invisible, inactive helper that menu cannot be used and the call never returns (the plug-in "hangs"). The
+// swizzled version sends the menu to the bridge, which shows it natively in the DAW, waits for the answer in a nested
+// run loop (the plug-in's other main-thread work continues) and then performs the chosen item like a real selection.
 struct HelperEditor;
+static std::vector<HelperEditor *> g_editors;
+static HelperEditor *editor_for_window(NSWindow *w);
+
 @interface TIRRenderTimer : NSObject
 @property(assign) HelperEditor *editor;
 - (void)tick:(NSTimer *)t;
 @end
 
-struct HelperEditor : IPlugFrame {
+struct HelperEditor final : IPlugFrame {
     std::atomic<uint32> refs{1};
     IPlugView *view = nullptr;
     NSWindow *win = nil;
@@ -67,6 +82,9 @@ struct HelperEditor : IPlugFrame {
     int w = 0, h = 0;
     editor_notify_cb notify = nullptr;
     bool key_focus = false;
+    std::atomic<uint32_t> menu_id{0};
+    std::atomic<bool> menu_done{false};
+    tirb_menu_result menu_res{};
     void *ctx = nullptr;
 
     tresult PLUGIN_API queryInterface(const TUID iid, void **obj) override
@@ -247,6 +265,7 @@ HelperEditor *editor_open(Vst::IEditController *ctl, const char *shm_prefix, dou
                                       repeats:YES];
     [[NSRunLoop mainRunLoop] addTimer:e->timer forMode:NSRunLoopCommonModes]; // also while a popup menu tracks
     e->render();
+    g_editors.push_back(e);
     reply.width = e->w, reply.height = e->h;
     strcpy(reply.pixels_shm, e->px_name);
     return e;
@@ -258,6 +277,11 @@ void editor_close(HelperEditor *e)
         return;
     [e->timer invalidate];
     e->target.editor = nullptr;
+    g_editors.erase(std::remove(g_editors.begin(), g_editors.end(), e), g_editors.end());
+    if (e->menu_id) { // a menu is still waiting: end it
+        e->menu_res = {};
+        e->menu_done = true;
+    }
     e->view->removed();
     e->view->setFrame(nullptr);
     e->view->release();
@@ -383,4 +407,115 @@ bool editor_dump_png(HelperEditor *e, const char *path)
     CGDataProviderRelease(dp);
     CGColorSpaceRelease(cs);
     return [png writeToFile:[NSString stringWithUTF8String:path] atomically:YES];
+}
+
+static HelperEditor *editor_for_window(NSWindow *w)
+{
+    for (HelperEditor *e : g_editors)
+        if (e->win == w)
+            return e;
+    return nullptr;
+}
+
+static void serialize_menu(NSMenu *m, int depth, std::vector<tirb_menu_item> &out)
+{
+    for (NSMenuItem *it in [m itemArray]) {
+        if ([it isHidden])
+            continue;
+        tirb_menu_item mi{};
+        mi.depth = depth;
+        mi.flags = ([it isEnabled] ? 1 : 0) | ([it state] == NSControlStateValueOn ? 2 : 0) |
+                   ([it isSeparatorItem] ? 4 : 0) | ([it hasSubmenu] ? 8 : 0) |
+                   ([it state] == NSControlStateValueMixed ? 16 : 0);
+        const char *t = [[it title] UTF8String];
+        strncpy(mi.title, t ? t : "", sizeof mi.title - 1);
+        out.push_back(mi);
+        if ([it hasSubmenu])
+            serialize_menu([it submenu], depth + 1, out);
+    }
+}
+
+static NSMenuItem *visible_item(NSMenu *m, int idx) // index among the non-hidden items (as serialized)
+{
+    int k = 0;
+    for (NSMenuItem *it in [m itemArray]) {
+        if ([it isHidden])
+            continue;
+        if (k++ == idx)
+            return it;
+    }
+    return nil;
+}
+
+static void swz_perform_click(id self, SEL sel, NSRect frame, NSView *view)
+{
+    HelperEditor *e = editor_for_window([view window]);
+    if (!e || !e->notify) { // not one of our mirrored editors: behave as usual
+        ((void (*)(id, SEL, NSRect, NSView *))g_orig_perform_click)(self, sel, frame, view);
+        return;
+    }
+    NSPopUpButtonCell *cell = (NSPopUpButtonCell *)self;
+    NSMenu *menu = [cell menu];
+    std::vector<tirb_menu_item> items;
+    serialize_menu(menu, 0, items);
+    NSRect r = [view convertRect:frame toView:nil]; // window coordinates (bottom-left origin) = mirror view coordinates
+    tirb_menu_hdr h{};
+    h.x = (float)r.origin.x;
+    h.y = (float)(e->h - (r.origin.y + r.size.height));
+    h.w = (float)r.size.width, h.h = (float)r.size.height;
+    h.count = (int32_t)items.size();
+    NSMenuItem *sel_item = [cell selectedItem];
+    h.selected = -1;
+    if (sel_item) {
+        int k = 0;
+        for (NSMenuItem *it in [menu itemArray]) {
+            if ([it isHidden])
+                continue;
+            if (it == sel_item)
+                h.selected = k;
+            k++;
+        }
+    }
+    static uint32_t next_id;
+    h.menu_id = ++next_id;
+    std::vector<uint8_t> msg(sizeof h + items.size() * sizeof(tirb_menu_item));
+    memcpy(msg.data(), &h, sizeof h);
+    if (!items.empty())
+        memcpy(msg.data() + sizeof h, items.data(), items.size() * sizeof(tirb_menu_item));
+    e->menu_done = false;
+    e->menu_id = h.menu_id;
+    e->notify(e->ctx, TIRB_N_MENU, msg.data(), (uint32_t)msg.size());
+    // wait for the bridge's answer; the main queue (other calls into the plug-in) is served meanwhile
+    CFAbsoluteTime until = CFAbsoluteTimeGetCurrent() + 300;
+    while (!e->menu_done && CFAbsoluteTimeGetCurrent() < until)
+        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.05, false);
+    tirb_menu_result res = e->menu_res;
+    e->menu_id = 0;
+    if (!e->menu_done || res.n <= 0)
+        return; // cancelled
+    NSMenu *m = menu;
+    NSMenuItem *it = nil;
+    for (int level = 0; level < res.n && level < 8 && m; level++) {
+        it = visible_item(m, res.idx[level]);
+        if (!it)
+            return;
+        if (level < res.n - 1)
+            m = [it submenu];
+    }
+    if (!it || ![it isEnabled])
+        return;
+    NSMenu *owner = [it menu];
+    if (owner == menu)
+        [cell selectItem:it];
+    [owner performActionForItemAtIndex:[owner indexOfItem:it]];
+    g_dirty = true;
+}
+
+void editor_menu_result(HelperEditor *e, const tirb_menu_result &r)
+{
+    if (!e || r.menu_id != e->menu_id)
+        return;
+    e->menu_res = r;
+    e->menu_done = true;
+    CFRunLoopWakeUp(CFRunLoopGetMain());
 }

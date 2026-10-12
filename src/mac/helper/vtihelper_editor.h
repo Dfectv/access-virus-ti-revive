@@ -14,3 +14,6 @@ HelperEditor *editor_open(Steinberg::Vst::IEditController *ctl, const char *shm_
 void editor_close(HelperEditor *e);
 void editor_move(HelperEditor *e, double x, double y);
 void editor_input(HelperEditor *e, const tirb_input &in);
+
+// TIRB_MENU_RESULT from the bridge (any thread): ends the popup menu the original is waiting in
+void editor_menu_result(HelperEditor *e, const tirb_menu_result &r);

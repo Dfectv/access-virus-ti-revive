@@ -154,7 +154,7 @@ struct EventList : IEventList {
     }
 };
 
-struct ParamQueue : IParamValueQueue {
+struct ParamQueue final : IParamValueQueue {
     IMPLEMENT_FUNKNOWN(IParamValueQueue)
     ParamID id = 0;
     std::vector<std::pair<int32, ParamValue>> pts;
@@ -734,6 +734,13 @@ static void *conn_thread(void *arg)
                     in->editor = nullptr;
                 });
             send_msg(fd, rt, h.instance, h.seq, nullptr, 0);
+            break;
+        case TIRB_MENU_RESULT: // any thread: wakes the waiting menu on the main thread
+            if (in && in->editor && h.len >= sizeof(tirb_menu_result)) {
+                tirb_menu_result mr;
+                memcpy(&mr, buf.data(), sizeof mr);
+                editor_menu_result(in->editor, mr);
+            }
             break;
         case TIRB_EDITOR_MOVE:
         case TIRB_EDITOR_EVENT: // no reply; asynchronous on the main thread, in order

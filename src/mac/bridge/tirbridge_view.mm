@@ -4,6 +4,8 @@
 #include <cerrno>
 #include <fcntl.h>
 #include <string>
+#include <vector>
+#include <algorithm>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -21,6 +23,24 @@ struct BridgeView;
 
 @interface TIRMirrorView : NSView
 @property(assign) BridgeView *owner;
+@end
+
+// target of the native popup's items: remembers the chosen path
+@interface TIRMenuPick : NSObject
+@property(assign) int n;
+- (void)pick:(NSMenuItem *)item;
+@end
+@implementation TIRMenuPick {
+  @public
+    int _path[8];
+}
+- (void)pick:(NSMenuItem *)item
+{
+    NSArray *p = [item representedObject];
+    self.n = (int)MIN([p count], 8u);
+    for (int i = 0; i < self.n; i++)
+        _path[i] = [p[i] intValue];
+}
 @end
 
 struct BridgeView : IPlugView {
@@ -334,6 +354,81 @@ void bridge_view_key_focus(IPlugView *view, bool on)
           else if ([[v->ns window] firstResponder] == v->ns)
               [[v->ns window] makeFirstResponder:nil]; // back to the DAW's window
       }
+      v->release();
+    });
+}
+
+void bridge_view_menu(IPlugView *view, const void *msg, size_t len)
+{
+    if (len < sizeof(tirb_menu_hdr))
+        return;
+    BridgeView *v = static_cast<BridgeView *>(view);
+    v->addRef();
+    std::vector<uint8_t> copy((const uint8_t *)msg, (const uint8_t *)msg + len);
+    dispatch_async(dispatch_get_main_queue(), ^{
+      tirb_menu_hdr h;
+      memcpy(&h, copy.data(), sizeof h);
+      const tirb_menu_item *items = (const tirb_menu_item *)(copy.data() + sizeof h);
+      size_t n = std::min<size_t>((size_t)std::max(h.count, 0), (copy.size() - sizeof h) / sizeof(tirb_menu_item));
+      TIRMenuPick *pick = [TIRMenuPick new];
+      NSMenu *root = [[NSMenu alloc] initWithTitle:@""];
+      [root setAutoenablesItems:NO];
+      // depth-first list -> nested menus; each item carries its index path
+      std::vector<NSMenu *> stack{root};
+      std::vector<int> idx{-1};
+      NSMenuItem *last = nil;
+      for (size_t i = 0; i < n; i++) {
+          const tirb_menu_item &mi = items[i];
+          int d = std::max(0, mi.depth);
+          if (d > (int)stack.size() - 1 && last) { // enter the previous item's submenu
+              NSMenu *sub = [[NSMenu alloc] initWithTitle:@""];
+              [sub setAutoenablesItems:NO];
+              [last setSubmenu:sub];
+              stack.push_back(sub);
+              idx.push_back(-1);
+          }
+          while ((int)stack.size() - 1 > d) {
+              stack.pop_back();
+              idx.pop_back();
+          }
+          idx.back()++;
+          NSMenuItem *it;
+          if (mi.flags & 4)
+              it = [NSMenuItem separatorItem];
+          else {
+              char t[sizeof mi.title + 1] = {};
+              memcpy(t, mi.title, sizeof mi.title);
+              it = [[NSMenuItem alloc] initWithTitle:[NSString stringWithUTF8String:t] ?: @""
+                                              action:(mi.flags & 8) ? nil : @selector(pick:)
+                                       keyEquivalent:@""];
+              [it setTarget:pick];
+              [it setEnabled:(mi.flags & 1) != 0];
+              [it setState:(mi.flags & 2) ? NSControlStateValueOn
+                                          : (mi.flags & 16) ? NSControlStateValueMixed : NSControlStateValueOff];
+              NSMutableArray *path = [NSMutableArray array];
+              for (int k : idx)
+                  [path addObject:@(k)];
+              [it setRepresentedObject:path];
+          }
+          [stack.back() addItem:it];
+          last = it;
+      }
+      tirb_menu_result res{};
+      res.menu_id = h.menu_id;
+      if (v->ns && [v->ns window]) {
+          NSMenuItem *selected = h.selected >= 0 && h.selected < (int)[[root itemArray] count]
+                                     ? [root itemAtIndex:h.selected]
+                                     : nil;
+          // mirror view is not flipped: the popup's bottom-left in view coordinates
+          NSPoint at = NSMakePoint(h.x, v->h - (h.y + h.h));
+          if (selected)
+              at.y += h.h; // positioning item: the menu places that item over the popup
+          [root popUpMenuPositioningItem:selected atLocation:at inView:v->ns];
+          res.n = pick.n;
+          for (int i = 0; i < pick.n; i++)
+              res.idx[i] = pick->_path[i];
+      }
+      v->link->editor_menu_result(res);
       v->release();
     });
 }

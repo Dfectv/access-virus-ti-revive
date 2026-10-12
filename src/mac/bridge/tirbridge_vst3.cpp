@@ -669,6 +669,7 @@ class Bridge : public IComponent, public IAudioProcessor, public IEditController
     }
     void editor_input(const tirb_input &in) override { conn.post(TIRB_EDITOR_EVENT, inst, &in, sizeof in); }
     void editor_view_gone() override { view = nullptr; }
+    void editor_menu_result(const tirb_menu_result &r) override { conn.post(TIRB_MENU_RESULT, inst, &r, sizeof r); }
 
     // IMidiMapping
     tresult PLUGIN_API getMidiControllerAssignment(int32 bus, int16 channel, CtrlNumber cc, ParamID &id) override
@@ -729,6 +730,15 @@ class Bridge : public IComponent, public IAudioProcessor, public IEditController
             memcpy(&rep, b.data(), sizeof rep);
             if (view)
                 bridge_view_resized(view, rep);
+        } else if (h.type == TIRB_N_MENU) {
+            if (view)
+                bridge_view_menu(view, b.data(), b.size());
+            else { // no view (closed meanwhile): cancel so the original does not wait
+                tirb_menu_result r{};
+                if (b.size() >= sizeof(tirb_menu_hdr))
+                    r.menu_id = ((const tirb_menu_hdr *)b.data())->menu_id;
+                conn.post(TIRB_MENU_RESULT, inst, &r, sizeof r);
+            }
         } else if (h.type == TIRB_N_KEY_FOCUS && b.size() >= 4) {
             int32 on;
             memcpy(&on, b.data(), 4);

@@ -35,10 +35,13 @@ enum {
     TIRB_EDITOR_MOVE,      // -> f64 x, y (as EDITOR_OPEN, no reply)
     TIRB_MIDI_MAPPING,     // -> (none)                            <- u32 n, tirb_midimap[n] (IMidiMapping table)
     TIRB_SET_PARAM,        // -> u32 id, f64 value (controller side, no reply)
+    TIRB_MENU_RESULT,      // -> tirb_menu_result (answer to TIRB_N_MENU, no reply)
     // notifications helper -> bridge (no reply)
     TIRB_N_PARAM_EDIT = 0x100, // tirb_param_edit
     TIRB_N_RESTART,            // i32 flags
     TIRB_N_EDITOR_RESIZE,      // tirb_editor_reply (new size, new pixel shm)
+    TIRB_N_MENU,               // tirb_menu_hdr + tirb_menu_item[count]: the original opens a popup menu; the bridge
+                               // shows it natively and answers with TIRB_MENU_RESULT
     TIRB_N_KEY_FOCUS,          // i32 on: a text field of the original is being edited (the bridge view then takes
                                // the keyboard; otherwise keys stay with the DAW, e.g. its computer MIDI keyboard)
 };
@@ -89,6 +92,25 @@ typedef struct {
     uint32_t key_code;
     char chars[16]; // utf8
 } tirb_input;
+
+typedef struct {
+    float x, y, w, h;      // the popup's frame in view coordinates (origin top-left)
+    int32_t count;         // items that follow (depth-first, submenus inline)
+    int32_t selected;      // top-level index of the current selection, -1 = none
+    uint32_t menu_id;      // echoed in the result
+} tirb_menu_hdr;
+
+typedef struct {
+    int32_t depth;   // 0 = top level, 1 = in the submenu of the previous depth-0 item, ...
+    int32_t flags;   // 1 enabled, 2 checked, 4 separator, 8 has submenu, 16 mixed state
+    char title[96];  // utf8
+} tirb_menu_item;
+
+typedef struct {
+    uint32_t menu_id;
+    int32_t n;       // path length; 0 = cancelled
+    int32_t idx[8];  // index at each level
+} tirb_menu_result;
 
 typedef struct {
     int32_t what; // 0 begin, 1 perform, 2 end
