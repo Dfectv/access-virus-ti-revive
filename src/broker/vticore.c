@@ -67,9 +67,10 @@ vti *vti_open(vti_rx_cb cb, void *user)
 #ifdef __APPLE__
             static int hinted;
             if (r == LIBUSB_ERROR_ACCESS && !hinted++) // E134
-                vti_log("vti: another driver holds the Virus - most likely the old Access drivers (Virus TI MIDI Driver.plugin"
-                        " in /Library/Audio/MIDI Drivers, de.access-music.virus_ti.* in /Library/Audio/Plug-Ins/HAL): run"
-                        " \"Install Access Virus TI software.command\" again or remove them, then restart the Mac\n");
+                vti_log("vti: another driver holds the Virus - e.g. the old Access drivers (Virus TI MIDI Driver.plugin in"
+                        " /Library/Audio/MIDI Drivers, de.access-music.virus_ti.* in /Library/Audio/Plug-Ins/HAL; \"Install"
+                        " Access Virus TI software.command\" disables them) or another Virus USB driver such as the one of"
+                        " Aura Plugins' Virus Editor: disable it, then restart the Mac\n");
 #endif
             goto fail;
         }

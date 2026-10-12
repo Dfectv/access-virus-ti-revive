@@ -109,6 +109,12 @@ the plug-in is closed. Uninstall with `./uninstall.sh`. Details: `README-linux.t
 
 ## Good to know
 
+**One driver at a time.** TI Revive needs the Virus' USB interfaces for itself. Other Virus drivers on the same
+computer — the old Access drivers from a full Access install, or third-party ones such as the USB driver of Aura
+Plugins' Virus Editor — take the same interfaces, and TI Revive then shows "Virus TI not connected" (broker log:
+`claim interface 3: LIBUSB_ERROR_ACCESS`). Disable the other driver (macOS: System Settings → General → Login Items
+& Extensions → Driver Extensions, or its uninstaller) and restart.
+
 **Start playback slightly before the first note.** The plug-in sends notes to the Virus ahead of time to make up
 for the USB round trip; right at Play, notes in the first quarter second can come late or be skipped. This was the
 same with Access' own driver.
