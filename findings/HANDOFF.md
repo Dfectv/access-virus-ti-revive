@@ -22,8 +22,11 @@ PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `ti
 3. ~~Windows setup.exe interactive dialogs~~ - done (E126).
 4. BACKLOG - first notes at transport start (E127): same on Windows; the user remembers the same with the original
    Access driver (start playback slightly before the first note). Optional later: confirm with the win10 snapshot pre-winusb.
-5. Occasional Virus sync reports (Sync Information Event 0x54) in small bursts during playback (E125: 14 in ~160 s;
-   Windows Access driver E073: 4 in 5 min); the plug-in then shows "sync error", audio clean.
+5. Occasional sync reports on Linux (E128): cause = wineserver's registry save ~30 s after the plug-in process starts
+   (stalls the process ~25 ms -> plug-in re-anchors -> synth reports). Done: vtiaudio polls the ring under Wine (not
+   released yet). Next: try Wine 11 + ntsync; otherwise document. TEST STATE ON THIS PC: ~/.wine has the dev wrapper
+   (polling + 'delivery late' log), broker runs with the verbose drop-in ~/.config/systemd/user/tirevive-broker.service.d/verbose.conf
+   (remove when done).
 6. macOS: Logic Pro test (AU), needs the user at the Mac.
 6a. macOS + Cubase 14 (Reddit, Sequoia 15.8.1): "Virus TI (TI Revive).vst3" blocklisted, reactivation fails. The bridge's
     initialize() returns kResultFalse when the Rosetta helper does not start (no Rosetta: background spawn gets no

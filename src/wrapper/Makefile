@@ -22,7 +22,7 @@ $(OUT)/VirusTI_WinUSB.vst3: vtiwrap.c vtiemu.c vtiaudio.c vtiusbaudio.c vtiusbau
 $(OUT)/linux-wine/VirusTI_TIRevive.vst3: vtiwrap.c vtiemu.c vtiaudio.c vtiusbaudio.c vtiusbaudio.h replay_table.h ../broker/vticore_sock.c ../broker/vticore_midi.c ../broker/vticore.h ../broker/vtiproto.h ../broker/vtiaudioshm.h
 	mkdir -p $(OUT)/linux-wine
 	$(CC) $(CFLAGS) -DVTIEMU_NO_DLLMAIN -DVTIEMU_VIRTUAL_DEVICE -shared -o $@ vtiwrap.c vtiemu.c vtiaudio.c vtiusbaudio.c ../broker/vticore_sock.c \
-		../broker/vticore_midi.c -lwinusb -lsetupapi -lshlwapi -lshell32 -lole32 -luuid -lws2_32 -static -lpthread
+		../broker/vticore_midi.c -lwinusb -lsetupapi -lshlwapi -lshell32 -lole32 -luuid -lws2_32 -lwinmm -static -lpthread
 
 # Emulation DLL on the broker (pipe backend) for programs started via vtilaunch (Virus Control Center)
 $(OUT)/vtiemu-pipe.dll: vtiemu.c vtiaudio.c vtiusbaudio.c vtiusbaudio.h replay_table.h ../broker/vticore_pipe.c ../broker/vticore_midi.c ../broker/vticore.h ../broker/vtiproto.h

@@ -147,6 +147,11 @@ static void send_states(int dev_open) // g_cs_clients held
         }
 }
 
+#ifdef __linux__
+static void f5_report(const uint8_t *p, int len);
+static void f5_second(void);
+#endif
+
 static void on_rx(void *user, uint8_t ep, const uint8_t *data, int len)
 {
     (void)user;
@@ -162,6 +167,10 @@ static void on_rx(void *user, uint8_t ep, const uint8_t *data, int len)
         static unsigned n[2], bytes[2];
         static time_t last;
         n[ep == VTI_EP_MI04_IN]++, bytes[ep == VTI_EP_MI04_IN] += (unsigned)len;
+#ifdef __linux__
+        if (ep == VTI_EP_MI04_IN)
+            f5_report(data, len);
+#endif
         static unsigned dumped;
         if (g_verbose > 1 && dumped++ < 20000) {
             char hex[3 * 32 + 1] = "";
@@ -221,9 +230,19 @@ static int shm_create(void)
     return 0;
 }
 
+static volatile int64_t g_in_last, g_in_gap_max, g_tick_last, g_tick_gap_max; // diagnostics (-v), 100 ns
+
 static void audio_in(const int16_t *pcm, uint32_t frames, void *user) // libusb event thread
 {
     (void)user;
+    if (g_verbose) { // gaps between USB blocks (normally 10 ms)
+        int64_t t = mono_100ns();
+        if (g_in_last && t - g_in_last > g_in_gap_max)
+            g_in_gap_max = t - g_in_last;
+        if (g_in_last && t - g_in_last > 150000)
+            blog("usb block late: %.1f ms after the previous one", (t - g_in_last) / 1e4);
+        g_in_last = t;
+    }
     int64_t w = g_shm->in_frames;
     for (uint32_t i = 0; i < frames; i++)
         memcpy(&g_shm->in[((w + i) & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_IN_CH], pcm + i * VTI_AUDIO_IN_CH,
@@ -295,13 +314,87 @@ static void *tick_thread(void *unused)
             pthread_cond_wait(&g_cv_tick, &g_cs_tick);
         int64_t f = g_tick_sent = g_shm->in_frames;
         pthread_mutex_unlock(&g_cs_tick);
+        static time_t last_f5;
+        if (g_verbose && time(NULL) != last_f5) {
+            last_f5 = time(NULL);
+            f5_second();
+        }
+        int64_t t0 = g_verbose ? mono_100ns() : 0;
         pthread_mutex_lock(&g_cs_clients);
         for (int i = 0; i < MAX_CLIENTS; i++)
             if (g_clients[i] && g_clients[i]->audio)
                 send_msg(g_clients[i], VTIMSG_AUDIO_TICK, &f, 8, NULL, 0);
         pthread_mutex_unlock(&g_cs_clients);
+        if (g_verbose) { // tick sends: gap and how long the send took
+            int64_t t = mono_100ns();
+            if (g_tick_last && t - g_tick_last > g_tick_gap_max)
+                g_tick_gap_max = t - g_tick_last;
+            if ((g_tick_last && t - g_tick_last > 150000) || t - t0 > 50000)
+                blog("tick late: %.1f ms after the previous one (send took %.1f ms)", (t - g_tick_last) / 1e4,
+                     (t - t0) / 1e4);
+            g_tick_last = t;
+        }
     }
     return NULL;
+}
+
+// ---- diagnostics (-v): margin of the plug-in's F5 timestamps against the synth's frame counter (E128) ----
+// Every timed event the plug-in sends is "F5 <14-bit sample time>" (cable 5, CIN 3) followed by the event. The synth
+// reports a Sync Information Event (global 0x54) when events arrive too late for their time stamp. Logged: the time
+// stamp minus the synth's current frame (extrapolated between USB blocks), relative to the first one of the session.
+static pthread_mutex_t g_cs_f5 = PTHREAD_MUTEX_INITIALIZER;
+static int g_f5_base = -1, g_f5_min = 1 << 30, g_f5_max = -(1 << 30), g_f5_n, g_f5_hist[16], g_f5_hn;
+
+static int64_t synth_frame_now(void)
+{
+    int64_t f = __atomic_load_n(&g_shm->in_frames, __ATOMIC_ACQUIRE), q = g_shm->in_qpc;
+    int64_t dt = mono_100ns() - q;
+    return f + (dt > 0 && dt < 500000 ? dt * 44100 / 10000000 : 0);
+}
+
+static void f5_note(const uint8_t *p, int len) // a WRITE to EP 0x06
+{
+    if (!g_shm || !g_shm->streaming)
+        return;
+    for (int k = 0; k + 3 < len; k += 4)
+        if ((p[k] & 0x0F) == 0x3 && p[k + 1] == 0xF5) {
+            int ts = p[k + 2] | p[k + 3] << 7;
+            int d = (int)((ts - synth_frame_now()) & 0x3FFF);
+            pthread_mutex_lock(&g_cs_f5);
+            if (g_f5_base < 0)
+                g_f5_base = d;
+            int rel = ((d - g_f5_base + 8192) & 0x3FFF) - 8192; // change of the margin since the session start
+            g_f5_min = rel < g_f5_min ? rel : g_f5_min;
+            g_f5_max = rel > g_f5_max ? rel : g_f5_max;
+            g_f5_n++;
+            g_f5_hist[g_f5_hn++ & 15] = rel;
+            pthread_mutex_unlock(&g_cs_f5);
+        }
+}
+
+static void f5_report(const uint8_t *p, int len) // RX from EP 0x86: Sync Information Event?
+{
+    for (int i = 0; i + 3 < len; i += 4)
+        if ((p[i] & 0x0F) == 4 && p[i + 1] == 0x73 && p[i + 2] == 0x00 && p[i + 3] == 0x54) {
+            char h[16 * 7] = "";
+            pthread_mutex_lock(&g_cs_f5);
+            for (int k = 0; k < 16 && k < g_f5_hn; k++)
+                snprintf(h + strlen(h), sizeof h - strlen(h), " %d", g_f5_hist[(g_f5_hn - 1 - k) & 15]);
+            pthread_mutex_unlock(&g_cs_f5);
+            blog("SYNC REPORT from the synth at frame %lld; last F5 margins (newest first):%s",
+                 g_shm ? (long long)synth_frame_now() : -1LL, h);
+        }
+}
+
+static void f5_second(void) // once per second from the RX statistics
+{
+    pthread_mutex_lock(&g_cs_f5);
+    if (g_f5_n)
+        blog("f5: %d time stamps, margin change %d..%d frames (base %d); max gap usb %.1f ms, tick %.1f ms", g_f5_n,
+             g_f5_min, g_f5_max, g_f5_base, g_in_gap_max / 1e4, g_tick_gap_max / 1e4);
+    g_in_gap_max = g_tick_gap_max = 0;
+    g_f5_n = 0, g_f5_min = 1 << 30, g_f5_max = -(1 << 30);
+    pthread_mutex_unlock(&g_cs_f5);
 }
 
 static int audio_start(void) // g_cs_dev held, device open
@@ -315,6 +408,7 @@ static int audio_start(void) // g_cs_dev held, device open
     vti_libusb(g_dev, &ctx, &h);
     g_shm->in_frames = 0;
     g_tick_sent = 0;
+    g_f5_base = -1;
     g_shm->out_read = g_shm->out_write;
     g_out_playing = 0;
     g_out_frames = g_out_underruns = g_out_dropped = 0;
@@ -531,6 +625,8 @@ static void *client_thread(void *arg)
                 int r = g_dev ? vti_write(g_dev, buf[0], buf + 1, h.len - 1) : -1;
                 pthread_mutex_unlock(&g_cs_dev);
 #ifdef __linux__
+                if (g_verbose && buf[0] == VTI_EP_MI04_OUT)
+                    f5_note(buf + 1, h.len - 1);
                 if (g_verbose && g_shm) // note-ons (cable 2) with the device frame they were sent at
                     for (int k = 1; k + 3 < h.len; k += 4)
                         if (buf[k] == 0x29 && (buf[k + 1] & 0xf0) == 0x90 && buf[k + 3])

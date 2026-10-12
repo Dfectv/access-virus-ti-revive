@@ -32,7 +32,7 @@ echo "== Windows side (mingw): wrapper for Wine, MSI patch tool"
 x86_64-w64-mingw32-gcc -O2 -Wall -Wextra -DVTIEMU_NO_DLLMAIN -DVTIEMU_VIRTUAL_DEVICE -shared -o "$BUILD/VirusTI_TIRevive.vst3" \
     -I"$REPO/src/wrapper" "$REPO/src/wrapper/vtiwrap.c" "$REPO/src/wrapper/vtiemu.c" "$REPO/src/wrapper/vtiaudio.c" \
     "$REPO/src/wrapper/vtiusbaudio.c" "$B/vticore_sock.c" "$B/vticore_midi.c" -lwinusb -lsetupapi -lshlwapi \
-    -lshell32 -lole32 -luuid -lws2_32 -static -lpthread
+    -lshell32 -lole32 -luuid -lws2_32 -lwinmm -static -lpthread
 x86_64-w64-mingw32-gcc -O2 -Wall -o "$BUILD/vtimsipatch.exe" "$REPO/src/installer-linux/vtimsipatch.c" -lmsi -static
 
 echo "== package"

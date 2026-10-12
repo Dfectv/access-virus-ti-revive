@@ -15,6 +15,7 @@
 // shared ring (vtiaudioshm.h) that this process follows; with an older broker the plug-in process streams them
 // itself (same code).
 #include <windows.h>
+#include <mmsystem.h>
 #include <initguid.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
@@ -250,6 +251,12 @@ static void usb_in(const int16_t *pcm, uint32_t frames, void *user)
         double gap = (double)(t.QuadPart - last.QuadPart) * 1000.0 / f.QuadPart;
         if (gap > g_gap_max)
             g_gap_max = gap;
+        if (gap > 15) { // late delivery: with wall-clock time, to correlate with the broker log (E128)
+            SYSTEMTIME st;
+            GetLocalTime(&st);
+            vtiemu_log("audio: delivery late, %.1f ms after the previous one (%02u:%02u:%02u.%03u)", gap, st.wHour,
+                       st.wMinute, st.wSecond, st.wMilliseconds);
+        }
     }
     last = t;
     g_calls++;
@@ -304,8 +311,26 @@ static int broker_audio(void)
     static int16_t buf[4096 * IN_CHANNELS];
     int64_t pos = shm->in_frames;
     int idle = 0;
+#ifdef VTIEMU_VIRTUAL_DEVICE
+    // Wine (Linux): the broker's tick arrives over a socket and is turned into SetEvent - both go through wineserver,
+    // which occasionally delays the wake-up by 20-30 ms; the plug-in then re-anchors its time stamps and the synth
+    // reports a sync error (E128). Instead, poll the shared ring every millisecond (Sleep is handled without
+    // wineserver); the event stays as a fallback for the "stream stalled" check.
+    timeBeginPeriod(1);
+#endif
     while (g_running) {
+#ifdef VTIEMU_VIRTUAL_DEVICE
+        DWORD w = WAIT_TIMEOUT;
+        for (int ms = 0; ms < 200; ms++) {
+            if (*(volatile const int64_t *)&shm->in_frames != pos) {
+                w = WAIT_OBJECT_0;
+                break;
+            }
+            Sleep(1);
+        }
+#else
         DWORD w = WaitForSingleObject(ev, 200);
+#endif
         // plain aligned 64-bit read (atomic on x64); no interlocked op: the mapping is read-only (lock cmpxchg
         // writes and faults there). The broker publishes in_frames after the data, x64 keeps the load order.
         int64_t wr = *(volatile const int64_t *)&shm->in_frames;
@@ -336,6 +361,9 @@ static int broker_audio(void)
             avail -= k;
         }
     }
+#ifdef VTIEMU_VIRTUAL_DEVICE
+    timeEndPeriod(1);
+#endif
 #ifdef VTIAUDIO_FORWARD_OUTPUT
     g_out_shm = NULL;
 #endif
