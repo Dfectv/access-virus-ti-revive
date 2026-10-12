@@ -16,4 +16,18 @@ set(vst3sdk_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/vst3sdk)
 add_subdirectory(external/vst3sdk ${CMAKE_BINARY_DIR}/vst3sdk)
 smtg_enable_vst3_sdk()
 
+# pugixml (MIT) for the Access XML files
+include(FetchContent)
+FetchContent_Declare(pugixml GIT_REPOSITORY https://github.com/zeux/pugixml.git GIT_TAG v1.15 GIT_SHALLOW TRUE)
+FetchContent_MakeAvailable(pugixml)
+
+# core library: Access files + device model (no Access material in this repo; loaded at runtime)
+add_library(vticore STATIC src/access/accessfiles.cpp src/model/remotedevice.cpp)
+target_include_directories(vticore PUBLIC src)
+target_link_libraries(vticore PUBLIC pugixml::pugixml)
+set_target_properties(vticore PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+add_executable(vtimodel tools/vtimodel.cpp)
+target_link_libraries(vtimodel PRIVATE vticore)
+
 add_subdirectory(plugin)
