@@ -332,6 +332,27 @@ struct AUBridge : BridgeCore {
     {
         UInt32 sz = 0;
         Boolean w = false;
+        switch (id) { // properties of the unit as a whole: only global scope, element 0 (auval)
+        case kAudioUnitProperty_ClassInfo:
+        case kAudioUnitProperty_Latency:
+        case kAudioUnitProperty_TailTime:
+        case kAudioUnitProperty_MaximumFramesPerSlice:
+        case kAudioUnitProperty_SupportedNumChannels:
+        case kAudioUnitProperty_CocoaUI:
+        case kAudioUnitProperty_HostCallbacks:
+        case kAudioUnitProperty_LastRenderError:
+        case kAudioUnitProperty_InPlaceProcessing:
+        case kAudioUnitProperty_OfflineRender:
+        case kAudioUnitProperty_PresentPreset:
+        case kAudioUnitProperty_FactoryPresets:
+        case kAudioUnitProperty_ContextName:
+        case kTIRPropertyCore:
+            if (scope != kAudioUnitScope_Global)
+                return kAudioUnitErr_InvalidScope;
+            if (elem != 0)
+                return kAudioUnitErr_InvalidElement;
+            break;
+        }
         switch (id) {
         case kAudioUnitProperty_ClassInfo:
             sz = sizeof(CFPropertyListRef), w = true;
@@ -524,8 +545,10 @@ struct AUBridge : BridgeCore {
             *(OSStatus *)data = noErr;
             break;
         case kAudioUnitProperty_ShouldAllocateBuffer:
-        case kAudioUnitProperty_InPlaceProcessing:
             *(UInt32 *)data = 1;
+            break;
+        case kAudioUnitProperty_InPlaceProcessing: // an instrument has no input to process in place
+            *(UInt32 *)data = 0;
             break;
         case kAudioUnitProperty_OfflineRender:
             *(UInt32 *)data = 0;
