@@ -23,8 +23,11 @@ wIndex 0x01 status poll (~1 per 50 ms), 0x12 address writes, 0x30 16-byte reads,
 | 607 s | in c1 | `6F <part>` x16 | after the plug-in closed (reset echo?) |
 
 ROM banks are not transferred over USB: the plug-in builds them from the firmware package (cache files "ROM A".."Z").
-Open: is 1 dump/s the Virus' pace or the plug-in's (try faster requests in the rewrite); meaning of 39/14, 74 01 7E,
-6F per part; cached start (only the start-up part, no 30/10).
+Answered: ~1 s per request is the Virus' pace (measured with virusctl: 0.85-1 s per reply; overlapping requests ->
+truncated 281-byte reply, as at the start of the original's sync). `74 00 29 64` = Intern Display/Messagetimer 100,
+`74 01 7E 07` = Actions/Rise Message 7 (repeated ~1/s while syncing: keeps a message on the Virus display, presumably
+"synchronising"). `6F <part> 7F 00` (start) / device `6F <part> 7E 00` (close; 7E = Input/Atomizer): page D id 127 is not
+in remotedevice.xml - open. Cached start: start-up part + 39 per bank, no 30/10.
 
 ## Parameter changes (automation, original-automation.trace)
 CC / poly pressure / parameter SysEx exactly as remotedevice.xml describes (docs/formats.md), value = round(norm*127).
