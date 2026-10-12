@@ -1,0 +1,11 @@
+# TI Revive broker (Linux): systemd starts vtibroker on the first connect of a plug-in (socket activation, like the
+# LaunchAgent / on-demand start on macOS and Windows); the broker exits by itself after 30 s without clients.
+[Unit]
+Description=TI Revive broker socket (Access Virus TI)
+
+[Socket]
+ListenStream=/tmp/vtibroker-%U.sock
+SocketMode=0600
+
+[Install]
+WantedBy=sockets.target

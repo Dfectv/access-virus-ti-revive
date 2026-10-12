@@ -506,6 +506,15 @@ int main(int argc, char **argv)
         blog("socket from launchd");
     }
 #endif
+#ifdef __linux__
+    // Started by systemd socket activation (tirevive-broker.socket, installed by the Linux installer): the socket
+    // arrives as fd 3; systemd starts us again on the next connect after the idle exit.
+    const char *lpid = getenv("LISTEN_PID"), *lfds = getenv("LISTEN_FDS");
+    if (lpid && lfds && (pid_t)atol(lpid) == getpid() && atoi(lfds) >= 1) {
+        s = 3;
+        blog("socket from systemd");
+    }
+#endif
     if (s < 0) {
         s = socket(AF_UNIX, SOCK_STREAM, 0);
         // single instance: if a broker answers on the socket, leave; else remove a stale socket file

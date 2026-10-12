@@ -1,0 +1,8 @@
+[Unit]
+Description=TI Revive broker (Access Virus TI over USB)
+Requires=tirevive-broker.socket
+
+[Service]
+ExecStart=%h/.local/lib/tirevive/vtibroker
+# SIGTERM: the broker hands the Virus back to snd-usb-audio before it exits
+KillSignal=SIGTERM

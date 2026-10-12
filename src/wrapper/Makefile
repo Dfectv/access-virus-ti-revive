@@ -3,7 +3,7 @@ CC = x86_64-w64-mingw32-gcc
 CFLAGS = -O2 -Wall -Wextra
 OUT = ../../work/build
 
-all: $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3 $(OUT)/vtiemu-pipe.dll $(OUT)/vtilaunch.exe $(OUT)/vtiisotest.exe $(OUT)/TIRevive_ASIO.dll $(OUT)/vtiasiohost.exe $(OUT)/vtiloadtest.exe
+all: $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3 $(OUT)/vtiemu-pipe.dll $(OUT)/vtilaunch.exe $(OUT)/vtiisotest.exe $(OUT)/TIRevive_ASIO.dll $(OUT)/vtiasiohost.exe $(OUT)/vtiloadtest.exe $(OUT)/linux-wine/VirusTI_TIRevive.vst3
 
 $(OUT)/vtiemu.dll: vtiemu.c vtiaudio.c vtiusbaudio.c vtiusbaudio.h replay_table.h ../broker/vticore_winusb.c ../broker/vticore_midi.c ../broker/vticore.h
 	mkdir -p $(OUT)
@@ -16,6 +16,13 @@ $(OUT)/VirusTI_WinUSB.vst3: vtiwrap.c vtiemu.c vtiaudio.c vtiusbaudio.c vtiusbau
 	mkdir -p $(OUT)
 	$(CC) $(CFLAGS) -DVTIEMU_NO_DLLMAIN -shared -o $@ vtiwrap.c vtiemu.c vtiaudio.c vtiusbaudio.c ../broker/vticore_pipe.c \
 		../broker/vticore_midi.c -lwinusb -lsetupapi -lshlwapi -lshell32 -lole32 -luuid -static -lpthread
+
+# Linux (findings/design-linux.md, L2): the same wrapper for Wine/yabridge, device access through the NATIVE Linux
+# vtibroker over its Unix socket (vticore_sock.c) instead of the vtibroker.exe pipe
+$(OUT)/linux-wine/VirusTI_TIRevive.vst3: vtiwrap.c vtiemu.c vtiaudio.c vtiusbaudio.c vtiusbaudio.h replay_table.h ../broker/vticore_sock.c ../broker/vticore_midi.c ../broker/vticore.h ../broker/vtiproto.h ../broker/vtiaudioshm.h
+	mkdir -p $(OUT)/linux-wine
+	$(CC) $(CFLAGS) -DVTIEMU_NO_DLLMAIN -shared -o $@ vtiwrap.c vtiemu.c vtiaudio.c vtiusbaudio.c ../broker/vticore_sock.c \
+		../broker/vticore_midi.c -lwinusb -lsetupapi -lshlwapi -lshell32 -lole32 -luuid -lws2_32 -static -lpthread
 
 # Emulation DLL on the broker (pipe backend) for programs started via vtilaunch (Virus Control Center)
 $(OUT)/vtiemu-pipe.dll: vtiemu.c vtiaudio.c vtiusbaudio.c vtiusbaudio.h replay_table.h ../broker/vticore_pipe.c ../broker/vticore_midi.c ../broker/vticore.h ../broker/vtiproto.h
