@@ -45,6 +45,18 @@ void DeviceOut::send(std::vector<uint8_t> msg)
     cv_.notify_one();
 }
 
+bool DeviceOut::send_rt(const uint8_t *msg, size_t n)
+{
+    size_t w = rt_w_.load(std::memory_order_relaxed);
+    if (n > sizeof rt_[0].data || w - rt_r_.load(std::memory_order_acquire) >= RT_SLOTS)
+        return false;
+    Slot &s = rt_[w % RT_SLOTS];
+    s.len = (uint8_t)n;
+    memcpy(s.data, msg, n);
+    rt_w_.store(w + 1, std::memory_order_release);
+    return true;
+}
+
 void DeviceOut::run()
 {
     while (!stop_) {
@@ -74,10 +86,18 @@ void DeviceOut::run()
         std::vector<uint8_t> msg;
         {
             std::unique_lock<std::mutex> lk(mu_);
-            cv_.wait(lk, [this] { return stop_ || !queue_.empty(); });
+            // the realtime ring cannot signal; poll it every millisecond
+            cv_.wait_for(lk, std::chrono::milliseconds(1), [this] {
+                return stop_ || !queue_.empty() || rt_r_.load() != rt_w_.load(std::memory_order_acquire);
+            });
             if (stop_)
                 break;
-            if (!queue_.empty()) {
+            size_t r = rt_r_.load(std::memory_order_relaxed);
+            if (r != rt_w_.load(std::memory_order_acquire)) { // events from process() first
+                const Slot &sl = rt_[r % RT_SLOTS];
+                msg.assign(sl.data, sl.data + sl.len);
+                rt_r_.store(r + 1, std::memory_order_release);
+            } else if (!queue_.empty()) {
                 msg = std::move(queue_.front());
                 queue_.pop_front();
             }
@@ -281,11 +301,13 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             ParamID id = q->getParameterId();
             if (id >= MIDI_MAP_BASE) { // channel aftertouch / pitch bend of channel (id - base) / 0x1000
                 uint8_t ch = (uint8_t)(((id - MIDI_MAP_BASE) >> 12) & 15);
-                if ((id & 0xFFF) == 0x80)
-                    out_->send({(uint8_t)(0xD0 | ch), (uint8_t)std::lround(v * 127)});
-                else {
+                if ((id & 0xFFF) == 0x80) {
+                    uint8_t m[2] = {(uint8_t)(0xD0 | ch), (uint8_t)std::lround(v * 127)};
+                    out_->send_rt(m, 2);
+                } else {
                     int pb = (int)std::lround(v * 16383);
-                    out_->send({(uint8_t)(0xE0 | ch), (uint8_t)(pb & 0x7F), (uint8_t)(pb >> 7)});
+                    uint8_t m[3] = {(uint8_t)(0xE0 | ch), (uint8_t)(pb & 0x7F), (uint8_t)(pb >> 7)};
+                    out_->send_rt(m, 3);
                 }
                 continue;
             }
@@ -295,10 +317,11 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             int value = (int)std::lround(v * 127); // the original's automation scale (docs/formats.md)
             if (const Parameter *p = dev_.find(it->second.path))
                 value = std::min(std::max(value, p->min), p->max);
-            auto msg = dev_.encode(it->second.path, value, it->second.part);
-            if (!msg.empty())
-                out_->send(std::move(msg));
-            set_part_value(it->second.part, it->second.path, value);
+            uint8_t m[16];
+            size_t n = dev_.encode_into(it->second.path, value, it->second.part, m, sizeof m);
+            if (n)
+                out_->send_rt(m, n);
+            set_part_value(it->second.part, it->second.path, value); // TODO(R3): move off the audio thread
         }
     }
     if (data.inputEvents && out_) {
@@ -306,12 +329,15 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             Event e;
             if (data.inputEvents->getEvent(i, e) != kResultOk)
                 continue;
-            if (e.type == Event::kNoteOnEvent)
-                out_->send({(uint8_t)(0x90 | (e.noteOn.channel & 15)), (uint8_t)e.noteOn.pitch,
-                            (uint8_t)std::max(1L, std::lround(e.noteOn.velocity * 127))});
-            else if (e.type == Event::kNoteOffEvent)
-                out_->send({(uint8_t)(0x80 | (e.noteOff.channel & 15)), (uint8_t)e.noteOff.pitch,
-                            (uint8_t)std::lround(e.noteOff.velocity * 127)});
+            if (e.type == Event::kNoteOnEvent) {
+                uint8_t m[3] = {(uint8_t)(0x90 | (e.noteOn.channel & 15)), (uint8_t)e.noteOn.pitch,
+                                (uint8_t)std::max(1L, std::lround(e.noteOn.velocity * 127))};
+                out_->send_rt(m, 3);
+            } else if (e.type == Event::kNoteOffEvent) {
+                uint8_t m[3] = {(uint8_t)(0x80 | (e.noteOff.channel & 15)), (uint8_t)e.noteOff.pitch,
+                                (uint8_t)std::lround(e.noteOff.velocity * 127)};
+                out_->send_rt(m, 3);
+            }
         }
     }
     // device -> host: knob moves on the Virus as output parameter changes (the host updates the controller)

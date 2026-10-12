@@ -94,6 +94,8 @@ public:
     // The message that changes `path` to `value` for `part` (0-based; 16 = global) and device id - CC, poly pressure
     // or a parameter SysEx, built from the parameter's transport template. Empty if the parameter has none.
     std::vector<uint8_t> encode(const std::string &path, int value, int part, int device_id = 0x10) const;
+    // Same without allocating (realtime use): writes up to `cap` bytes, returns the length (0 = none).
+    size_t encode_into(const std::string &path, int value, int part, uint8_t *out, size_t cap, int device_id = 0x10) const;
     // Inverse of encode: the parameter changes in one message from the Virus (CC = page A, poly pressure = page B,
     // parameter SysEx pages 6E..74). Several parameters can share a controller (mode-dependent meaning); all are
     // returned. part = MIDI channel / SysEx part byte (0-based; 16 = global page / part "none").

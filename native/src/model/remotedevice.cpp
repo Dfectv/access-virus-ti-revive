@@ -128,6 +128,49 @@ const MidiMessage *RemoteDevice::message(const std::string &id) const
     return nullptr;
 }
 
+size_t RemoteDevice::encode_into(const std::string &path, int value, int part, uint8_t *out, size_t cap, int device_id) const
+{
+    const Parameter *p = find(path);
+    const MidiMessage *m = p ? message(p->message) : nullptr;
+    if (!m || m->bytes.size() > cap)
+        return 0;
+    int ctrl = -1;
+    for (auto &b : m->bytes)
+        for (auto &kv : b.controllers)
+            if (kv.second == path)
+                ctrl = kv.first;
+    if (ctrl < 0)
+        return 0;
+    size_t n = 0;
+    int channel = part & 15;
+    for (auto &b : m->bytes) {
+        const std::string &c = b.content;
+        uint8_t v;
+        if (c == "controller")
+            v = (uint8_t)(0xB0 | channel);
+        else if (c == "polypressure")
+            v = (uint8_t)(0xA0 | channel);
+        else if (c == "sysexstart")
+            v = 0xF0;
+        else if (c == "sysexend")
+            v = 0xF7;
+        else if (c == "byte")
+            v = (uint8_t)(b.tag < 0 ? 0 : b.tag);
+        else if (c == "deviceid")
+            v = (uint8_t)device_id;
+        else if (c == "part")
+            v = (uint8_t)part;
+        else if (c == "controllerid")
+            v = (uint8_t)ctrl;
+        else if (c == "value")
+            v = (uint8_t)(value & 0x7F);
+        else
+            return 0;
+        out[n++] = v;
+    }
+    return n;
+}
+
 std::vector<uint8_t> RemoteDevice::encode(const std::string &path, int value, int part, int device_id) const
 {
     const Parameter *p = find(path);

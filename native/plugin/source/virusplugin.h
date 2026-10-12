@@ -28,7 +28,9 @@ class DeviceOut {
 public:
     DeviceOut();
     ~DeviceOut();
-    void send(std::vector<uint8_t> msg); // a complete MIDI message (SysEx or channel message)
+    void send(std::vector<uint8_t> msg); // a complete MIDI message (SysEx or channel message); not from process()
+    // from process() only (single producer, lock-free): a message of up to 16 bytes; false if the ring is full
+    bool send_rt(const uint8_t *msg, size_t n);
     // messages from the Virus' panel (EP 0x86 cable 2: knob moves as CC / poly pressure / parameter SysEx)
     void on_panel(std::function<void(const std::vector<uint8_t> &)> h) { panel_ = std::move(h); }
     bool connected() const { return broker_.device_present(); }
@@ -40,6 +42,12 @@ private:
     std::mutex mu_;
     std::condition_variable cv_;
     std::deque<std::vector<uint8_t>> queue_;
+    struct Slot {
+        uint8_t len, data[16];
+    };
+    static constexpr size_t RT_SLOTS = 1024;
+    Slot rt_[RT_SLOTS];
+    std::atomic<size_t> rt_w_{0}, rt_r_{0};
     std::atomic<bool> stop_{false};
     bool open_ = false;
     AudioIn audio_;
