@@ -1,17 +1,15 @@
 #!/bin/bash
-# TI Revive .pkg postinstall (runs as root): start the broker agent in the logged-in user's session right away
-# (otherwise it starts with the next login) and retire a development setup (scripts/mac-install-broker.sh).
-LABEL=io.github.derpsn.tirevive.vtibroker
-PLIST="/Library/LaunchAgents/$LABEL.plist"
-chown root:wheel "$PLIST"
-chmod 644 "$PLIST"
+# TI Revive .pkg postinstall (runs as root). The broker needs no LaunchAgent: TI Revive's libVirusUSB.dylib starts
+# /Library/Application Support/TI Revive/vtibroker on demand from the DAW. Remove agents of earlier setups (the
+# development agent from scripts/mac-install-broker.sh, the system agent of a 0.5.0 test build) and stop old brokers.
 USER_NAME=$(stat -f %Su /dev/console)
 if [ -n "$USER_NAME" ] && [ "$USER_NAME" != root ]; then
     USER_ID=$(id -u "$USER_NAME")
-    launchctl bootout "gui/$USER_ID/com.tirevive.vtibroker" 2>/dev/null || true
+    for label in com.tirevive.vtibroker io.github.derpsn.tirevive.vtibroker; do
+        launchctl bootout "gui/$USER_ID/$label" 2>/dev/null || true
+    done
     rm -f "/Users/$USER_NAME/Library/LaunchAgents/com.tirevive.vtibroker.plist"
-    launchctl bootout "gui/$USER_ID/$LABEL" 2>/dev/null || true
-    launchctl bootstrap "gui/$USER_ID" "$PLIST" || true
 fi
+rm -f /Library/LaunchAgents/io.github.derpsn.tirevive.vtibroker.plist
 pkill -x vtibroker 2>/dev/null || true
 exit 0

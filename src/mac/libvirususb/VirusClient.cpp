@@ -20,6 +20,9 @@
 #include <cstring>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <spawn.h>
 #include <cstdio>
 #include <ctime>
 #include <mutex>
@@ -152,24 +155,76 @@ static void *reader(void *)
     return nullptr;
 }
 
+extern char **environ;
+#ifndef POSIX_SPAWN_CLOEXEC_DEFAULT
+#define POSIX_SPAWN_CLOEXEC_DEFAULT 0 // Apple extension; 0 for the portable control test on Linux
+#endif
+
+// Start vtibroker if nobody answers on its socket (installed: /Library/Application Support/TI Revive/vtibroker,
+// override: $TIREVIVE_BROKER). Started from the DAW's process tree it runs in the user's GUI session, where the
+// plug-in can reach its MIDI port (E100); it exits by itself 30 s after its last client. No inherited descriptors:
+// the broker must not keep our sockets alive.
+static void broker_spawn()
+{
+    static time_t last;
+    time_t now = time(nullptr);
+    if (now - last < 5) // the plug-in polls vc_getNumDevices constantly
+        return;
+    last = now;
+    const char *path = getenv("TIREVIVE_BROKER");
+    if (!path || !*path)
+        path = "/Library/Application Support/TI Revive/vtibroker";
+    if (access(path, X_OK))
+        return; // development setup: broker started by hand or by scripts/mac-install-broker.sh
+    posix_spawnattr_t at;
+    posix_spawnattr_init(&at);
+    posix_spawnattr_setflags(&at, POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSID);
+    posix_spawn_file_actions_t fa;
+    posix_spawn_file_actions_init(&fa);
+    posix_spawn_file_actions_addopen(&fa, 0, "/dev/null", O_RDONLY, 0);
+    posix_spawn_file_actions_addopen(&fa, 1, "/dev/null", O_WRONLY, 0);
+    posix_spawn_file_actions_addopen(&fa, 2, "/tmp/tirevive-vtibroker.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
+    pid_t pid;
+    char *argv[] = {(char *)path, nullptr};
+    int e = posix_spawn(&pid, path, &fa, &at, argv, environ);
+    posix_spawn_file_actions_destroy(&fa);
+    posix_spawnattr_destroy(&at);
+    if (e) {
+        vlog("starting %s failed: %s", path, strerror(e));
+        return;
+    }
+    vlog("started vtibroker (pid %d)", (int)pid);
+    pthread_t t; // reap it when it exits (no zombie in the DAW's process tree)
+    pthread_create(&t, nullptr, [](void *p) -> void * {
+        int st;
+        waitpid((pid_t)(intptr_t)p, &st, 0);
+        return nullptr;
+    }, (void *)(intptr_t)pid);
+    pthread_detach(t);
+}
+
 static int broker_connect()
 {
     if (g_fd >= 0)
         return 0;
     struct sockaddr_un sa = {};
     sa.sun_family = AF_UNIX;
-    // installed release: the system LaunchAgent's socket (launchd SecureSocketWithKey, path in the session
-    // environment, like SSH_AUTH_SOCK); development setup (scripts/mac-install-broker.sh): /tmp/vtibroker-<uid>.sock
-    const char *env = getenv("TIREVIVE_BROKER_SOCK");
-    if (env && *env)
-        snprintf(sa.sun_path, sizeof sa.sun_path, "%s", env);
-    else
-        snprintf(sa.sun_path, sizeof sa.sun_path, "/tmp/vtibroker-%u.sock", (unsigned)getuid());
-    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (connect(fd, (struct sockaddr *)&sa, sizeof sa)) {
+    snprintf(sa.sun_path, sizeof sa.sun_path, "/tmp/vtibroker-%u.sock", (unsigned)getuid());
+    int fd = -1;
+    for (int attempt = 0; attempt < 2; attempt++) {
+        fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (connect(fd, (struct sockaddr *)&sa, sizeof sa) == 0)
+            break;
         close(fd);
-        return -1; // TODO: start the broker on demand (LaunchAgent)
+        fd = -1;
+        if (attempt == 0) {
+            broker_spawn();
+            for (int i = 0; i < 30 && access(sa.sun_path, F_OK); i++) // up to 3 s for its socket
+                usleep(100000);
+        }
     }
+    if (fd < 0)
+        return -1;
     g_fd = fd;
     uint32_t ver = 2;
     send_msg(MSG_HELLO, &ver, 4, nullptr, 0);

@@ -121,6 +121,8 @@ static int connect_sock(const char *path)
 }
 
 // connect to this DAW's helper, starting it if needed (spawned by us so the DAW's Microphone permission covers it)
+extern char **environ;
+
 static int helper_connect()
 {
     static std::mutex mx;
@@ -137,9 +139,15 @@ static int helper_connect()
     posix_spawn_file_actions_t fa;
     posix_spawn_file_actions_init(&fa);
     posix_spawn_file_actions_addopen(&fa, 2, "/tmp/tirevive-helper.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
+    posix_spawn_file_actions_addopen(&fa, 0, "/dev/null", O_RDONLY, 0);
+    posix_spawn_file_actions_addopen(&fa, 1, "/dev/null", O_WRONLY, 0);
+    posix_spawnattr_t at; // no inherited descriptors from the DAW (open files, sockets, pipes)
+    posix_spawnattr_init(&at);
+    posix_spawnattr_setflags(&at, POSIX_SPAWN_CLOEXEC_DEFAULT);
     pid_t child;
-    int e = posix_spawn(&child, helper.c_str(), &fa, nullptr, (char *const *)argv, nullptr);
+    int e = posix_spawn(&child, helper.c_str(), &fa, &at, (char *const *)argv, environ);
     posix_spawn_file_actions_destroy(&fa);
+    posix_spawnattr_destroy(&at);
     if (e) {
         blog("posix_spawn %s: %s", helper.c_str(), strerror(e));
         return -1;

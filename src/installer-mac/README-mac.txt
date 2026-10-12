@@ -24,8 +24,9 @@ Install
 How it works
 The original Access plug-in is Intel-only and needs the Access kernel driver, which cannot load on Apple Silicon.
 "Virus TI (TI Revive)" is a native plug-in that runs the original in a helper process under Rosetta and shows its
-editor in your DAW. A small background service (vtibroker, started on demand) talks to the Virus over USB, and
-TI Revive's own libVirusUSB.dylib takes the place of Access' driver library. Audio comes from macOS' built-in USB
+editor in your DAW. A small background service (vtibroker, started on demand by the plug-in, ends 30 s after the
+last use) talks to the Virus over USB, and TI Revive's own libVirusUSB.dylib takes the place of Access' driver
+library. Audio comes from macOS' built-in USB
 audio driver (the "Virus TI" audio device, 44.1 kHz).
 
 Uninstall
