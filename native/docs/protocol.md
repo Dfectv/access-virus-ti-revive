@@ -39,12 +39,10 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
 - Multi dump `11 00 00` (267 B, the plug-in sends one at start): template VirusTI_MultiDump (add7 5..264), but the
   plug-in's own dump has checksum 0x26 where add7 gives 0x24 - no other byte range matches. Open (the Virus seems to accept it?).
 - Bank info `39 <bank>` -> `14 <bank> 00` + 256 data bytes (267 B, add7 checksum OK): 128 x (lo, hi) = one 14-bit
-  value per program. Formula (510 of 512 recorded programs): sum of the single dump's data bytes 9..520 WITHOUT bytes
-  9, 11, 12 (page A offsets 0, 2, 3: flags?, Original Bank, Original Patch) and 265 (page B offset 0), mod 16384.
-  The 2 exceptions (RAM A 3 and RAM A 106) are exactly +100 - both are the only patches with byte 117 (Chorus/Delay)
-  = 8 and byte 239 (unnamed) = 3; device table and dumps re-read live are unchanged (stable quirk of the firmware's
-  internal format). The cache files (RAM A-D: "MIDI" 00 01 08 00 + 128 x [u32 BE 524 + single dump]) do not store
-  the table, and a cached start of the original requests 39 for all banks but no single dump - so the original
-  recomputes the value from its cache including the quirk -> find the function in the decompile (work/decomp).
+  value per program = sum of the single dump's bytes 13..521 without byte 265, mod 16384 (Virus Control checks a
+  cached dump this way; verified on all 512 recorded programs; RemoteDevice::single_fingerprint). Byte 521 (after the
+  two 256-byte pages, before the checksum) is usually 0 but 100 in two patches. The cache files (RAM A-D: "MIDI"
+  00 01 08 00 + 128 x [u32 BE 524 + single dump]) do not store the table; a cached start requests 39 for every RAM
+  bank and fetches only programs whose value differs (none in our traces).
 - Replies arrive on EP 0x86 (plug-in interface, cable 3) during a plug-in session and on EP 0x85 (MIDI port, cable 1)
   otherwise (virusctl sysex). The Virus needs ~1 s per request in both cases.

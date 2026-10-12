@@ -105,8 +105,9 @@ int main(int argc, char **argv)
         }
         auto copy = msg;
         dev.update_dump(*m, copy, values);
-        printf("# %s bank %d program %d, name \"%s\", %zu values, round trip %s\n", m->id.c_str(), msg[7], msg[8],
-               name.c_str(), values.size(), copy == msg ? "identical" : "DIFFERS");
+        printf("# %s bank %d program %d, name \"%s\", %zu values, round trip %s, fingerprint %d\n", m->id.c_str(),
+               msg[7], msg[8], name.c_str(), values.size(), copy == msg ? "identical" : "DIFFERS",
+               vti::RemoteDevice::single_fingerprint(msg));
     } else {
         fprintf(stderr, "usage: vtimodel files|summary|params [filter]|message <id>|dump <file>|encode <path> <value> [part] [--access <path>]\n");
         return 2;

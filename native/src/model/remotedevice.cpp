@@ -193,6 +193,17 @@ size_t RemoteDevice::dump_size(const MidiMessage &m)
     return n;
 }
 
+int RemoteDevice::single_fingerprint(const std::vector<uint8_t> &msg)
+{
+    if (msg.size() != 524)
+        return -1;
+    unsigned sum = 0;
+    for (size_t i = 13; i <= 521; i++)
+        if (i != 265)
+            sum += msg[i];
+    return (int)(sum & 0x3FFF);
+}
+
 bool RemoteDevice::decode_dump(const MidiMessage &m, const std::vector<uint8_t> &msg, std::map<std::string, int> &values,
                                std::string &error) const
 {

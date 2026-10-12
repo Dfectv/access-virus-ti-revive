@@ -95,6 +95,9 @@ public:
     // describe keep their content, so start from a dump the Virus sent.
     void update_dump(const MidiMessage &m, std::vector<uint8_t> &msg, const std::map<std::string, int> &values) const;
     static size_t dump_size(const MidiMessage &m);
+    // The 14-bit value the Virus reports per program in a bank info reply (39 -> 14): sum of a 524-byte single dump's
+    // bytes 13..521 without 265, mod 16384. Equal value = the cached patch is current. -1 for a wrong size.
+    static int single_fingerprint(const std::vector<uint8_t> &msg);
 
 private:
     std::map<std::string, size_t> index_;
