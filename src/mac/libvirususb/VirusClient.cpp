@@ -139,6 +139,10 @@ static pthread_mutex_t g_clients_list_mx = PTHREAD_MUTEX_INITIALIZER;
 static VirusClient *g_client_list[16];
 static void *g_device_id; // the opaque device ID handed to Virus Control (= &g_device, set below)
 static int g_reported = -1; // last state reported to the clients
+// The broker's handshake on opening the Virus resets its USB audio while AppleUSBAudio's stream keeps running; that
+// stream then delivers broken, much quieter audio until it restarts (E109). A change of the nominal rate restarts it,
+// so after every (re)connection - and once per process - the rate is switched away and back before streaming.
+static std::atomic<bool> g_stream_resync{true};
 
 static void notify_clients(int connected)
 {
@@ -179,6 +183,8 @@ static void *reader(void *)
         if (h[0] == MSG_STATE && h[1] >= 4) {
             g_connected = buf[0] != 0;
             vlog("broker: device %s", g_connected ? "connected" : "disconnected");
+            if (g_connected)
+                g_stream_resync = true;
             notify_clients(g_connected);
         } else if (h[0] == MSG_CONTROL_REPLY && h[1] >= 8) {
             pthread_mutex_lock(&g_ctl);
@@ -539,6 +545,8 @@ int VirusClient::vc_close()
     return 1;
 }
 bool VirusClient::vc_isOpen() { return g_open; }
+static void stream_resync(Float64 target);
+
 static void *diag_thread(void *) // every 5 s: what the audio path sees (vlog is not real-time safe: not in the IOProc)
 {
     for (;;) {
@@ -580,6 +588,11 @@ int VirusClient::vc_start(unsigned long fs)
     if (!c || !c->proc) {
         vlog("%p vc_start framesize %lu -> no device", this, fs);
         return 0xbad10; // as the original when the stream does not start
+    }
+    if (g_stream_resync) { // reconnected since the last vc_setSamplerate
+        Float64 cur = 44100;
+        dev_get(kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeGlobal, cur);
+        stream_resync(cur > 0 ? cur : 44100);
     }
     if (fs)
         dev_set(kAudioDevicePropertyBufferFrameSize, (UInt32)fs);
@@ -671,16 +684,37 @@ unsigned long VirusClient::vc_getSamplerate()
     vlog("%p vc_getSamplerate -> %.0f", this, r);
     return (unsigned long)r;
 }
-bool VirusClient::vc_setSamplerate(unsigned long r)
+static bool set_rate_wait(Float64 r) // the change is asynchronous
 {
-    current_device();
     Float64 cur = 0;
     dev_get(kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeGlobal, cur);
-    bool ok = cur == (Float64)r || dev_set(kAudioDevicePropertyNominalSampleRate, (Float64)r);
-    for (int i = 0; ok && i < 100 && cur != (Float64)r; i++) { // the change is asynchronous
+    if (cur == r)
+        return true;
+    if (!dev_set(kAudioDevicePropertyNominalSampleRate, r))
+        return false;
+    for (int i = 0; i < 100 && cur != r; i++) {
         usleep(10000);
         dev_get(kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeGlobal, cur);
     }
+    return cur == r;
+}
+
+static void stream_resync(Float64 target) // see g_stream_resync
+{
+    if (!g_stream_resync.exchange(false) || !current_device())
+        return;
+    Float64 other = target == 48000 ? 44100 : 48000;
+    bool ok = set_rate_wait(other) && set_rate_wait(target);
+    vlog("audio stream restarted (rate %.0f -> %.0f -> %.0f): %s", target, other, target, ok ? "ok" : "FAILED");
+}
+
+bool VirusClient::vc_setSamplerate(unsigned long r)
+{
+    current_device();
+    stream_resync((Float64)r);
+    bool ok = set_rate_wait((Float64)r);
+    Float64 cur = 0;
+    dev_get(kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeGlobal, cur);
     vlog("%p vc_setSamplerate %lu -> %d (device at %.0f Hz)", this, r, ok, cur);
     return ok;
 }
