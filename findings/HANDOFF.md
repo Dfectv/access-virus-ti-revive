@@ -11,8 +11,8 @@ Evidence: [evidence.md](evidence.md) (E001-E125), protocol: [spec.md](spec.md)._
 | macOS Apple Silicon | stable: native VST3/AUv2 bridge + Rosetta helper hosting the original, own libVirusUSB, broker (MIDI driver stand-in) | `-mac.zip` (pkg + scripts) | design-macos.md, design-macos-bridge.md |
 | Linux (experimental) | works in REAPER: native broker owns the whole Virus (MIDI + iso audio), Windows wrapper under Wine/yabridge | `-linux.tar.gz` (install.sh) | design-linux.md |
 
-Latest release: **v0.7.1** (2026-10-12, marked "Latest"; since then CI no longer marks 0.x as pre-release, so every
-new tag becomes Latest). Contents: All Notes Off when a client that played notes disconnects (all brokers), Linux
+Latest release: **v0.7.2** (2026-10-12, CI run 38291289944, automatically "Latest": CI no longer marks 0.x as
+pre-release). 0.7.2 = macOS hides the Intel-only Access plug-ins + Rosetta check, Linux ring polling. Contents: All Notes Off when a client that played notes disconnects (all brokers), Linux
 PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `tirevive-usbinfo.ps1` (Snow testers).
 
 ## Open items (order agreed with the user 2026-10-12: easy first; deferred stays deferred)
