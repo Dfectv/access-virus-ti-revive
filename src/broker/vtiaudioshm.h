@@ -12,6 +12,8 @@
 #include <stdint.h>
 
 #define VTI_AUDIO_SHM_NAME "Local\\vtibroker_audio"
+#define VTI_AUDIO_SHM_LINUX "/tirevive-audio-%u" // Linux broker: POSIX shm (/dev/shm/tirevive-audio-<uid>); in_qpc
+                                                 // = CLOCK_MONOTONIC_RAW in 100 ns (Wine's QueryPerformanceCounter)
 #define VTI_AUDIO_MAGIC 0x41415456 // "VTAA"
 #define VTI_AUDIO_VERSION 2
 #define VTI_AUDIO_RING 16384 // frames per ring (power of 2, ~370 ms at 44.1 kHz)

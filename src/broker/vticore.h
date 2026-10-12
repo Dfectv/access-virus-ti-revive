@@ -27,6 +27,11 @@ void vti_close(vti *v);
 // 1 once a reader hit a fatal error (device removed, handle invalid): close and reopen.
 int vti_is_dead(vti *v);
 
+// libusb backend only (vticore.c): the context and handle, for the Linux broker's audio streaming
+struct libusb_context;
+struct libusb_device_handle;
+void vti_libusb(vti *v, struct libusb_context **ctx, struct libusb_device_handle **h);
+
 // Interrupt OUT of raw bytes, split into wMaxPacketSize chunks. Returns 0 on success.
 int vti_write(vti *v, uint8_t ep, const uint8_t *data, int len);
 

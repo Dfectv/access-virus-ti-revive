@@ -6,11 +6,12 @@
 //   CONTROL  {seq, setup[8], data(OUT)}       CONTROL_REPLY {seq, result, data(IN)}
 //                                             STATE    {connected}         (on connect and on change)
 //   AUDIO    {on, event name}                 AUDIO_REPLY {result}         (protocol 2, vtiaudioshm.h)
+//                                             AUDIO_TICK {in_frames}       (protocol 3, Linux: per received block)
 #pragma once
 #include <stdint.h>
 
 #define VTI_PIPE_NAME "\\\\.\\pipe\\vtibroker"
-#define VTI_PROTO_VERSION 2
+#define VTI_PROTO_VERSION 3
 
 enum {
     VTIMSG_HELLO = 1,         // client -> broker: u32 version
@@ -22,6 +23,7 @@ enum {
     VTIMSG_STATE = 0x84,      // broker -> client: u32 connected (1 = device open)
     VTIMSG_AUDIO_REPLY = 0x85, // broker -> client: i32 result (1 = streaming into VTI_AUDIO_SHM_NAME, 0 = no WinUSB
                                // audio function, -1 = error)
+    VTIMSG_AUDIO_TICK = 0x86, // broker -> audio client (Linux, no shared events across Wine): i64 in_frames
 };
 
 #pragma pack(push, 1)

@@ -97,6 +97,11 @@ void vti_close(vti *v)
         pthread_join(v->rd[i], NULL);
     for (int i = 3; i <= 4; i++)
         libusb_release_interface(v->h, i);
+#ifdef __linux__
+    // snd-usb-audio shuts the whole card down when interfaces 3/4 are taken away and does not come back on its own
+    // (E113): a port reset re-enumerates the Virus, so it is a normal Linux sound card again after the broker.
+    libusb_reset_device(v->h);
+#endif
     libusb_close(v->h);
     libusb_exit(v->ctx);
     free(v);
@@ -138,4 +143,10 @@ int vti_audio(vti *v, int on, const char *event_name) // broker audio exists onl
 int vti_is_dead(vti *v)
 {
     return v->dead != 0;
+}
+
+void vti_libusb(vti *v, struct libusb_context **ctx, struct libusb_device_handle **h) // Linux broker audio
+{
+    *ctx = v->ctx;
+    *h = v->h;
 }

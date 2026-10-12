@@ -1,8 +1,11 @@
 // vtibroker_posix.c - the broker for macOS (and Linux): owns the Virus TI's vendor interfaces MI_03/MI_04 over libusb
 // (vticore.c) and serves clients over a Unix domain socket with the same messages as on Windows (vtiproto.h).
 // Started on demand (LaunchAgent / first client) and exits when no client has been connected for IDLE_EXIT_S
-// seconds, like vtibroker.exe since 0.3.1 (E080). Audio is not streamed here: on macOS the Virus' class-compliant
-// audio function stays with Apple's USB audio driver (Core Audio), see findings/design-macos.md.
+// seconds, like vtibroker.exe since 0.3.1 (E080). On macOS audio is not streamed here: the Virus' class-compliant
+// audio function stays with Apple's USB audio driver (Core Audio), see findings/design-macos.md. On Linux the broker
+// owns the whole device like on Windows (snd-usb-audio cannot share it, E113): VTIMSG_AUDIO streams the audio
+// function on libusb (vtiusbaudio_libusb.c) into POSIX shared memory (vtiaudioshm.h), with VTIMSG_AUDIO_TICK to
+// the audio client per block, see findings/design-linux.md.
 //
 // usage: vtibroker [-v] [-stay]     socket: /tmp/vtibroker-<uid>.sock (VTI_SOCK_FMT)
 #include "vticore.h"
@@ -23,6 +26,12 @@
 #include "vtimidi_mac.h"
 #include <launch.h>
 #endif
+#ifdef __linux__
+#include "vtiaudioshm.h"
+#include "vtiusbaudio_libusb.h"
+#include <fcntl.h>
+#include <sys/mman.h>
+#endif
 
 #define VTI_SOCK_FMT "/tmp/vtibroker-%u.sock"
 #ifdef MSG_NOSIGNAL
@@ -36,6 +45,7 @@
 typedef struct {
     int fd;
     pthread_mutex_t wr; // one message at a time per client
+    int audio;          // Linux: wants VTIMSG_AUDIO_TICK
 } client;
 
 static client *g_clients[MAX_CLIENTS];
@@ -145,6 +155,155 @@ static void on_rx(void *user, uint8_t ep, const uint8_t *data, int len)
     pthread_mutex_unlock(&g_cs_clients);
 }
 
+#ifdef __linux__
+// ---- Linux: the Virus' audio function, streamed by the broker (port of vtibroker.c's audio ring) ----
+static vti_audio_shm *g_shm;
+static pthread_mutex_t g_cs_tick = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t g_cv_tick = PTHREAD_COND_INITIALIZER;
+static int64_t g_tick_sent;
+
+static int64_t mono_100ns(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+    return (int64_t)ts.tv_sec * 10000000 + ts.tv_nsec / 100;
+}
+
+static int shm_create(void)
+{
+    if (g_shm)
+        return 0;
+    char name[64];
+    snprintf(name, sizeof name, VTI_AUDIO_SHM_LINUX, (unsigned)getuid());
+    int fd = shm_open(name, O_RDWR | O_CREAT, 0600);
+    if (fd < 0 || ftruncate(fd, sizeof(vti_audio_shm))) {
+        blog("audio: shared memory %s: %s", name, strerror(errno));
+        if (fd >= 0)
+            close(fd);
+        return -1;
+    }
+    g_shm = mmap(NULL, sizeof(vti_audio_shm), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    close(fd);
+    if (g_shm == MAP_FAILED) {
+        g_shm = NULL;
+        return -1;
+    }
+    memset(g_shm, 0, sizeof *g_shm);
+    g_shm->magic = VTI_AUDIO_MAGIC;
+    g_shm->version = VTI_AUDIO_VERSION;
+    g_shm->rate = VLA_RATE;
+    g_shm->in_ch = VTI_AUDIO_IN_CH;
+    g_shm->out_ch = VTI_AUDIO_OUT_CH;
+    g_shm->ring_frames = VTI_AUDIO_RING;
+    return 0;
+}
+
+static void audio_in(const int16_t *pcm, uint32_t frames, void *user) // libusb event thread
+{
+    (void)user;
+    int64_t w = g_shm->in_frames;
+    for (uint32_t i = 0; i < frames; i++)
+        memcpy(&g_shm->in[((w + i) & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_IN_CH], pcm + i * VTI_AUDIO_IN_CH,
+               VTI_AUDIO_IN_CH * sizeof(int16_t));
+    g_shm->in_qpc = mono_100ns();
+    __atomic_store_n(&g_shm->in_frames, w + frames, __ATOMIC_RELEASE); // publishes the data written above
+    pthread_mutex_lock(&g_cs_tick);
+    pthread_cond_signal(&g_cv_tick);
+    pthread_mutex_unlock(&g_cs_tick);
+}
+
+// OUT packet source: as vtibroker.c - playback starts with OUT_PREFILL frames buffered, latency bounded by OUT_MAX
+#define OUT_PREFILL 512
+#define OUT_MAX 2048
+static int g_out_playing;
+static uint64_t g_out_underruns, g_out_dropped, g_out_frames;
+
+static void audio_out(int16_t *dst, uint32_t frames, void *user)
+{
+    (void)user;
+    int64_t w = __atomic_load_n(&g_shm->out_write, __ATOMIC_ACQUIRE), r = g_shm->out_read;
+    int64_t avail = w - r;
+    if (avail < 0 || avail > VTI_AUDIO_RING) { // writer restarted or far ahead: resynchronise
+        r = w;
+        avail = 0;
+        g_out_playing = 0;
+    }
+    if (!g_out_playing && avail >= OUT_PREFILL)
+        g_out_playing = 1;
+    if (g_out_playing && avail > OUT_MAX) {
+        g_out_dropped += (uint64_t)(avail - OUT_PREFILL);
+        r = w - OUT_PREFILL;
+        avail = OUT_PREFILL;
+    }
+    uint32_t n = 0;
+    if (g_out_playing) {
+        n = avail < frames ? (uint32_t)avail : frames;
+        for (uint32_t i = 0; i < n; i++)
+            memcpy(dst + i * VTI_AUDIO_OUT_CH, &g_shm->out[((r + i) & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_OUT_CH],
+                   VTI_AUDIO_OUT_CH * sizeof(int16_t));
+        if (n < frames) { // ran dry: refill before playing again
+            g_out_underruns++;
+            g_out_playing = 0;
+        }
+    }
+    memset(dst + n * VTI_AUDIO_OUT_CH, 0, (frames - n) * VTI_AUDIO_OUT_CH * sizeof(int16_t));
+    g_shm->out_read = r + n;
+    g_out_frames += n;
+}
+
+// Block notifications go out from here, not from the USB thread, so a slow client never delays the stream.
+static void *tick_thread(void *unused)
+{
+    (void)unused;
+    for (;;) {
+        pthread_mutex_lock(&g_cs_tick);
+        while (!g_shm || __atomic_load_n(&g_shm->in_frames, __ATOMIC_ACQUIRE) == g_tick_sent)
+            pthread_cond_wait(&g_cv_tick, &g_cs_tick);
+        int64_t f = g_tick_sent = g_shm->in_frames;
+        pthread_mutex_unlock(&g_cs_tick);
+        pthread_mutex_lock(&g_cs_clients);
+        for (int i = 0; i < MAX_CLIENTS; i++)
+            if (g_clients[i] && g_clients[i]->audio)
+                send_msg(g_clients[i], VTIMSG_AUDIO_TICK, &f, 8, NULL, 0);
+        pthread_mutex_unlock(&g_cs_clients);
+    }
+    return NULL;
+}
+
+static int audio_start(void) // g_cs_dev held, device open
+{
+    if (vla_running())
+        return 1;
+    if (shm_create())
+        return -1;
+    struct libusb_context *ctx;
+    struct libusb_device_handle *h;
+    vti_libusb(g_dev, &ctx, &h);
+    g_shm->in_frames = 0;
+    g_tick_sent = 0;
+    g_shm->out_read = g_shm->out_write;
+    g_out_playing = 0;
+    g_out_frames = g_out_underruns = g_out_dropped = 0;
+    if (vla_start(ctx, h, audio_in, audio_out, NULL))
+        return -1;
+    g_shm->streaming = 1;
+    return 1;
+}
+
+static void audio_stop(void) // g_cs_dev held
+{
+    if (!g_shm || !g_shm->streaming)
+        return;
+    vla_stop();
+    g_shm->streaming = 0;
+    if (g_out_frames)
+        blog("audio out: %llu frames played, %llu underruns, %llu frames dropped", (unsigned long long)g_out_frames,
+             (unsigned long long)g_out_underruns, (unsigned long long)g_out_dropped);
+}
+#else
+static void audio_stop(void) {}
+#endif
+
 #ifdef __APPLE__
 static int midi_write(const uint8_t *data, int len) // pump thread: plug-in channel packets from the MDW ring
 {
@@ -175,6 +334,7 @@ static void *device_thread(void *unused)
         else if (!g_stay && time(NULL) - last_busy > IDLE_EXIT_S) {
             blog("no clients for %d s: exiting", IDLE_EXIT_S);
             pthread_mutex_lock(&g_cs_dev);
+            audio_stop();
             if (g_dev)
                 vti_close(g_dev);
             exit(0);
@@ -182,6 +342,7 @@ static void *device_thread(void *unused)
         pthread_mutex_lock(&g_cs_dev);
         if (g_dev && vti_is_dead(g_dev)) {
             blog("device failed: closing");
+            audio_stop();
             vti_close(g_dev);
             g_dev = NULL;
             pthread_mutex_lock(&g_cs_clients);
@@ -198,6 +359,22 @@ static void *device_thread(void *unused)
         pthread_mutex_unlock(&g_cs_dev);
         usleep(open ? 500000 : 2000000);
     }
+    return NULL;
+}
+
+// SIGINT / SIGTERM (Ctrl+C, logout, systemd): close the device properly, so on Linux it is handed back to
+// snd-usb-audio (vti_close resets the port) instead of staying claimed until it is replugged.
+static void *signal_thread(void *arg)
+{
+    sigset_t *set = arg;
+    int sig = 0;
+    sigwait(set, &sig);
+    blog("signal %d: exiting", sig);
+    pthread_mutex_lock(&g_cs_dev);
+    audio_stop();
+    if (g_dev)
+        vti_close(g_dev);
+    exit(0);
     return NULL;
 }
 
@@ -253,8 +430,22 @@ static void *client_thread(void *arg)
                 send_msg(c, VTIMSG_CONTROL_REPLY, hdr, 8, data, (s[0] & 0x80) && r > 0 ? r : 0);
             }
             break;
-        case VTIMSG_AUDIO: { // macOS: audio comes from Core Audio, not from the broker
+        case VTIMSG_AUDIO: { // macOS: audio comes from Core Audio, not from the broker (reply 0)
             int32_t r = 0;
+#ifdef __linux__
+            uint32_t on = h.len >= 4 ? *(uint32_t *)buf : 0;
+            int owner = is_owner(c);
+            pthread_mutex_lock(&g_cs_dev);
+            if (on)
+                r = g_dev && owner ? audio_start() : -1;
+            else if (owner)
+                audio_stop();
+            pthread_mutex_unlock(&g_cs_dev);
+            pthread_mutex_lock(&g_cs_clients);
+            c->audio = on && r == 1;
+            pthread_mutex_unlock(&g_cs_clients);
+            blog("audio %s -> %d", on ? "on" : "off", r);
+#endif
             send_msg(c, VTIMSG_AUDIO_REPLY, &r, 4, NULL, 0);
             break;
         }
@@ -270,6 +461,7 @@ static void *client_thread(void *arg)
             g_clients[i] = NULL;
     if (g_owner == c) { // hand the Virus to the next waiting program
         g_owner = NULL;
+        audio_stop();
         for (int i = 0; i < MAX_CLIENTS && !g_owner; i++)
             g_owner = g_clients[i];
         if (g_owner) {
@@ -293,6 +485,12 @@ int main(int argc, char **argv)
         g_stay |= !strcmp(argv[i], "-stay");
     }
     signal(SIGPIPE, SIG_IGN);
+    static sigset_t sigs; // handled by signal_thread; blocked in every thread created after this
+    sigemptyset(&sigs);
+    sigaddset(&sigs, SIGINT);
+    sigaddset(&sigs, SIGTERM);
+    sigaddset(&sigs, SIGHUP);
+    pthread_sigmask(SIG_BLOCK, &sigs, NULL);
     vti_log = on_vti_log;
     struct sockaddr_un sa = {.sun_family = AF_UNIX};
     snprintf(sa.sun_path, sizeof sa.sun_path, VTI_SOCK_FMT, (unsigned)getuid());
@@ -329,8 +527,14 @@ int main(int argc, char **argv)
         blog("MIDI slot memory could not be created");
 #endif
     pthread_t t;
+    pthread_create(&t, NULL, signal_thread, &sigs);
+    pthread_detach(t);
     pthread_create(&t, NULL, device_thread, NULL);
     pthread_detach(t);
+#ifdef __linux__
+    pthread_create(&t, NULL, tick_thread, NULL);
+    pthread_detach(t);
+#endif
     for (;;) {
         int fd = accept(s, NULL, NULL);
         if (fd < 0) {
