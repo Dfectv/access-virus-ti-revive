@@ -667,19 +667,32 @@ bool VirusClient::vc_getDeviceInfo(unsigned long i, VC_DeviceInfo &info)
     memset(p, 0, 0x214);
     static uint8_t dd[18];
     static uint16_t vid = 0x133e, pid = 0x0815, rel = 0x0300; // Virus TI2 defaults
+    static char vendor[128] = "Access Music", product[128] = "Virus TI";
     if (!dd[0] && broker_control(0x80, 6, 0x0100, 0, dd, sizeof dd) >= 14) { // GET_DESCRIPTOR(device), once
         vid = (uint16_t)(dd[8] | dd[9] << 8);
         pid = (uint16_t)(dd[10] | dd[11] << 8);
         rel = (uint16_t)(dd[12] | dd[13] << 8);
+        // the device's own strings: a Snow says "Virus TI Snow" (with "Virus TI" it was taken for a TI, E115)
+        for (int k = 0; k < 2; k++) {
+            uint8_t idx = dd[14 + k], b[255];
+            int n = idx ? broker_control(0x80, 6, (uint16_t)(0x0300 | idx), 0x0409, b, sizeof b) : -1;
+            if (n < 2 || b[1] != 3)
+                continue;
+            char *o = k ? product : vendor;
+            int m = 0;
+            for (int i = 2; i + 1 < n && i < b[0] && m < 127; i += 2)
+                o[m++] = b[i + 1] ? '?' : (char)b[i];
+            o[m] = 0;
+        }
     }
     uint32_t key = 0x00100000; // = VTI_MAC_DEVKEY (src/broker/vtimidi_mac.h): pairs the device with MIDI slot 0
     memcpy(p + 4, &vid, 2);
     memcpy(p + 6, &pid, 2);
     memcpy(p + 8, &rel, 2);
     memcpy(p + 0x10, &key, 4);
-    strcpy((char *)p + 0x14, "Access Music");
-    strcpy((char *)p + 0x114, "Virus TI");
-    vlog("%p   device %04x:%04x bcdDevice %04x", this, vid, pid, rel);
+    strcpy((char *)p + 0x14, vendor);
+    strcpy((char *)p + 0x114, product);
+    vlog("%p   device %04x:%04x bcdDevice %04x \"%s\" \"%s\"", this, vid, pid, rel, vendor, product);
     return true;
 }
 bool VirusClient::vc_request(EReqDirection d, EReqLevel l, EReqRecipient r, EReqRequest q, unsigned short v,

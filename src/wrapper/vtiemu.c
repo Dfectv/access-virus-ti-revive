@@ -251,6 +251,48 @@ static void perf_mode_set(uint32_t v)
         RegSetKeyValueA(HKEY_CURRENT_USER, PERF_KEY, "PerformanceMode", REG_DWORD, &v, sizeof v);
 }
 
+// The device's own identity. Virus Control picks the model from the product string ("Virus TI" / "VIRUS TI" /
+// "Virus TI Snow") and bcdDevice (0x100 = TI or Snow, 0x300 = TI2) - E099. The recorded answers come from a TI2
+// Desktop, so they are patched with the connected device's descriptor and strings (a Snow showed up as a TI:
+// Snow plug-in "no device", the TI plug-in's sync ran past the Snow's shorter bank list, E115).
+static struct {
+    int ok;
+    uint8_t dd[18];
+    char vendor[128], product[128];
+} g_id;
+
+static int read_string(vti *dev, uint8_t idx, char *out, int cap)
+{
+    uint8_t b[255];
+    int n = idx ? vti_control(dev, 0x80, 6, (uint16_t)(0x0300 | idx), 0x0409, b, sizeof b) : -1;
+    if (n < 2 || b[1] != 3)
+        return -1;
+    int k = 0;
+    for (int i = 2; i + 1 < n && i < b[0] && k < cap - 1; i += 2)
+        out[k++] = b[i + 1] ? '?' : (char)b[i]; // UTF-16LE, ASCII only
+    out[k] = 0;
+    return 0;
+}
+
+static int identity(void)
+{
+    if (g_id.ok)
+        return 1;
+    vti *dev = dev_get();
+    uint8_t dd[18];
+    if (!dev || vti_control(dev, 0x80, 6, 0x0100, 0, dd, sizeof dd) != 18 || dd[1] != 1)
+        return 0;
+    memcpy(g_id.dd, dd, 18);
+    if (read_string(dev, dd[14], g_id.vendor, sizeof g_id.vendor))
+        strcpy(g_id.vendor, "Access Music");
+    if (read_string(dev, dd[15], g_id.product, sizeof g_id.product))
+        strcpy(g_id.product, "Virus TI");
+    g_id.ok = 1;
+    vlog("device identity: %04x:%04x bcdDevice %04x \"%s\" \"%s\"", dd[8] | dd[9] << 8, dd[10] | dd[11] << 8,
+         dd[12] | dd[13] << 8, g_id.vendor, g_id.product);
+    return 1;
+}
+
 static BOOL replay(DWORD code, void *in, void *out, DWORD outsz, LPDWORD ret)
 {
     int32_t sel = -1;
@@ -263,9 +305,25 @@ static BOOL replay(DWORD code, void *in, void *out, DWORD outsz, LPDWORD ret)
         vlog("  performance mode %s -> %u", sel == 0xe ? "set" : "get", r[1]);
         return reply(out, outsz, ret, r, sizeof r, outsz);
     }
+    if ((code == 0x220000 || code == 0x220004) && identity()) { // manufacturer / product string
+        const char *str = code == 0x220000 ? g_id.vendor : g_id.product;
+        DWORD n = (DWORD)strlen(str) + 1;
+        return reply(out, outsz, ret, str, n, n);
+    }
     for (size_t i = 0; i < sizeof REPLAY / sizeof *REPLAY; i++)
-        if (REPLAY[i].code == code && REPLAY[i].sel == sel)
-            return reply(out, outsz, ret, REPLAY[i].data, REPLAY[i].len, REPLAY[i].ret);
+        if (REPLAY[i].code == code && REPLAY[i].sel == sel) {
+            uint8_t buf[512];
+            const uint8_t *data = REPLAY[i].data;
+            if ((code == 0x22000c || (code == 0x2200d0 && sel == 22)) && REPLAY[i].len <= sizeof buf && identity()) {
+                memcpy(buf, data, REPLAY[i].len);
+                if (code == 0x22000c) // device block: idVendor, idProduct, bcdDevice first
+                    memcpy(buf, g_id.dd + 8, 6);
+                else // property 22: the device descriptor without bLength / bDescriptorType after the selector
+                    memcpy(buf + 4, g_id.dd + 2, 16);
+                data = buf;
+            }
+            return reply(out, outsz, ret, data, REPLAY[i].len, REPLAY[i].ret);
+        }
     if (sel >= 0) { // unknown property: echo the request with value 0, as the driver does for unset ones
         uint32_t echo[2] = {(uint32_t)sel, 0};
         vlog("  property %06lx sel 0x%x not recorded: echo", code, sel);

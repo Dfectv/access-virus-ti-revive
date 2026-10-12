@@ -95,12 +95,19 @@ void vti_close(vti *v)
     v->stop = 1;
     for (int i = 0; i < 2; i++)
         pthread_join(v->rd[i], NULL);
+#ifdef __linux__
+    // snd-usb-audio shuts the whole card down when interfaces 3/4 are taken away, and the dead card lives on while
+    // any of its interfaces is still bound ("USB device is in the shutdown state", E113). So: take all five (the
+    // card is freed), give them back, and reset the port so snd-usb-audio probes a fresh card - the Virus is a
+    // normal Linux sound card again after the broker.
+    for (int i = 0; i <= 4; i++)
+        libusb_claim_interface(v->h, i);
+    for (int i = 0; i <= 4; i++)
+        libusb_release_interface(v->h, i);
+    libusb_reset_device(v->h);
+#else
     for (int i = 3; i <= 4; i++)
         libusb_release_interface(v->h, i);
-#ifdef __linux__
-    // snd-usb-audio shuts the whole card down when interfaces 3/4 are taken away and does not come back on its own
-    // (E113): a port reset re-enumerates the Virus, so it is a normal Linux sound card again after the broker.
-    libusb_reset_device(v->h);
 #endif
     libusb_close(v->h);
     libusb_exit(v->ctx);
