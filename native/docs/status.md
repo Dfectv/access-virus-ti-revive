@@ -15,3 +15,10 @@
 - editor.xml structure documented (36 control classes, 404 bitmaps, 20 top-level containers).
 - R2 started: src/device/broker (C++ client of the TI Revive broker, POSIX), usbmidi packer, tools/virusctl
   (state / set <path> <value> / note).
+
+## 2026-10-13 (night)
+- Full-sync trace of the original (empty cache, 4 RAM banks, ~9 min): start-up sequence, bank info 39/14, single dump
+  requests 30/10 at ~1 per second; docs/protocol.md, tools/msgsummary.py.
+- virusctl state / set / note work against the Virus through the TI Revive broker (systemd socket).
+- Dumps: RemoteDevice::decode_dump / update_dump / dump_size, vtimodel message|dump; checksum add7 verified, decode +
+  re-encode byte-identical for all 528 recorded single dumps. Open: bank-info fingerprint function, multi dump checksum.

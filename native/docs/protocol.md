@@ -29,3 +29,17 @@ Open: is 1 dump/s the Virus' pace or the plug-in's (try faster requests in the r
 ## Parameter changes (automation, original-automation.trace)
 CC / poly pressure / parameter SysEx exactly as remotedevice.xml describes (docs/formats.md), value = round(norm*127).
 On close the original resets globals (73 00 3B/3A/3C/7A).
+
+## Dump formats (verified on 528 recorded single dumps, tools: `vtimodel message <id>`, `vtimodel dump <file.syx>`)
+- remotedevice.xml dump templates: the byte `index` is the offset inside the SysEx message (incl. F0).
+- Single dump `10 <bank> <prog>`: 524 bytes; header 9 bytes, data 9..520 (two 256-byte pages A/B), byte 522 = add7 checksum
+  (7-bit sum of bytes 5..521), F7. VirusTI_Singledump describes 435 parameter bytes (+ bit fields), the patch name is
+  `Single Patch Name/Character 01..10` (bytes 249-258). Bank 0 = edit buffer (part = program byte). decode + re-encode
+  of all 528 dumps is byte-identical (unknown bytes are kept: update_dump patches an existing dump).
+- Multi dump `11 00 00` (267 B, the plug-in sends one at start): template VirusTI_MultiDump (add7 5..264), but the
+  plug-in's own dump has checksum 0x26 where add7 gives 0x24 - no other byte range matches. Open (the Virus seems to accept it?).
+- Bank info `39 <bank>` -> `14 <bank> 00` + 256 data bytes (267 B, add7 checksum OK): 128 x 2 bytes, one 14-bit value
+  per program (lo, hi), stable between two requests. Most likely a per-program fingerprint the original compares with its
+  cache to fetch only changed patches. NOT a plain 14-bit sum over any contiguous range of the single dump (brute
+  forced, also with one excluded window) -> find the function in Virus Control (REA). The rewrite can work without it:
+  store the received bank info with the cache and refetch programs whose pair changed.

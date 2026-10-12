@@ -85,6 +85,17 @@ public:
     // or a parameter SysEx, built from the parameter's transport template. Empty if the parameter has none.
     std::vector<uint8_t> encode(const std::string &path, int value, int part, int device_id = 0x10) const;
 
+    // Dumps (VirusTI_Singledump, VirusTI_MultiDump, ...): the template's byte index is the offset in the SysEx message.
+    // Parameter values of a received dump; key = path, or "path@part" for bytes with a part attribute. Several
+    // parameters can share a byte (mode-dependent meaning) - all of them get the value. Fails on a wrong length or
+    // checksum.
+    bool decode_dump(const MidiMessage &m, const std::vector<uint8_t> &msg, std::map<std::string, int> &values,
+                     std::string &error) const;
+    // Writes `values` (same keys) into an existing dump and recomputes the checksums. Bytes the template does not
+    // describe keep their content, so start from a dump the Virus sent.
+    void update_dump(const MidiMessage &m, std::vector<uint8_t> &msg, const std::map<std::string, int> &values) const;
+    static size_t dump_size(const MidiMessage &m);
+
 private:
     std::map<std::string, size_t> index_;
 };

@@ -1,5 +1,6 @@
 // remotedevice.cpp - see remotedevice.h. Format notes: docs/formats.md.
 #include "remotedevice.h"
+#include <algorithm>
 #include <cstdlib>
 #include <pugixml.hpp>
 
@@ -164,6 +165,79 @@ std::vector<uint8_t> RemoteDevice::encode(const std::string &path, int value, in
             return {}; // dumps etc. are not single-parameter transports
     }
     return out;
+}
+
+static bool is_field(const MessageByte &b)
+{
+    return b.content.find('/') != std::string::npos;
+}
+
+static std::string field_key(const MessageByte &b)
+{
+    return b.part < 0 ? b.content : b.content + "@" + std::to_string(b.part);
+}
+
+static int checksum(const MessageByte &b, const std::vector<uint8_t> &msg)
+{
+    unsigned sum = 0; // add7: 7-bit sum of the bytes start..stop (the only method in remotedevice.xml)
+    for (int i = b.start; i <= b.stop && i < (int)msg.size(); i++)
+        sum += msg[i];
+    return sum & 0x7F;
+}
+
+size_t RemoteDevice::dump_size(const MidiMessage &m)
+{
+    size_t n = 0;
+    for (auto &b : m.bytes)
+        n = std::max(n, (size_t)b.index + 1);
+    return n;
+}
+
+bool RemoteDevice::decode_dump(const MidiMessage &m, const std::vector<uint8_t> &msg, std::map<std::string, int> &values,
+                               std::string &error) const
+{
+    if (msg.size() != dump_size(m)) {
+        error = m.id + ": " + std::to_string(msg.size()) + " bytes, expected " + std::to_string(dump_size(m));
+        return false;
+    }
+    for (auto &b : m.bytes) {
+        if (!b.method.empty() && checksum(b, msg) != msg[b.index]) {
+            error = m.id + ": checksum mismatch at byte " + std::to_string(b.index);
+            return false;
+        }
+        if (b.content == "byte" && b.tag >= 0 && b.index < 7 && msg[b.index] != b.tag) {
+            error = m.id + ": header byte " + std::to_string(b.index) + " differs";
+            return false;
+        }
+    }
+    for (auto &b : m.bytes)
+        if (is_field(b)) {
+            int v = msg[b.index];
+            if (b.mask >= 0)
+                v = (v & b.mask) >> b.shift;
+            values[field_key(b)] = v;
+        }
+    return true;
+}
+
+void RemoteDevice::update_dump(const MidiMessage &m, std::vector<uint8_t> &msg, const std::map<std::string, int> &values) const
+{
+    if (msg.size() < dump_size(m))
+        msg.resize(dump_size(m));
+    for (auto &b : m.bytes) {
+        if (!is_field(b))
+            continue;
+        auto it = values.find(field_key(b));
+        if (it == values.end())
+            continue;
+        if (b.mask >= 0)
+            msg[b.index] = (uint8_t)((msg[b.index] & ~b.mask) | ((it->second << b.shift) & b.mask));
+        else
+            msg[b.index] = (uint8_t)(it->second & 0x7F);
+    }
+    for (auto &b : m.bytes)
+        if (!b.method.empty())
+            msg[b.index] = (uint8_t)checksum(b, msg);
 }
 
 } // namespace vti
