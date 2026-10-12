@@ -61,6 +61,25 @@ struct HelperEditor;
 static std::vector<HelperEditor *> g_editors;
 static HelperEditor *editor_for_window(NSWindow *w);
 
+// The helper is an internal process of the bridge: it ends when its DAW or its last instance goes away, never through
+// AppKit. Inside the DAW's GUI session AppKit delivered a quit to it right after the first input event (helper gone ->
+// DAW waiting, E106), so termination requests are refused and logged.
+@interface TIRAppDelegate : NSObject <NSApplicationDelegate>
+@end
+@implementation TIRAppDelegate
+- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
+{
+    (void)sender;
+    fprintf(stderr, "vtihelper: AppKit asked to terminate: refused\n");
+    return NSTerminateCancel;
+}
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender
+{
+    (void)sender;
+    return NO;
+}
+@end
+
 @interface TIRRenderTimer : NSObject
 @property(assign) HelperEditor *editor;
 - (void)tick:(NSTimer *)t;
@@ -211,6 +230,10 @@ HelperEditor *editor_open(Vst::IEditController *ctl, const char *shm_prefix, dou
     static bool app_ready;
     if (!app_ready) { // the helper runs a plain CFRunLoop, not -[NSApp run]: set AppKit up once by hand
         [NSApplication sharedApplication];
+        static TIRAppDelegate *delegate = [TIRAppDelegate new];
+        [NSApp setDelegate:delegate];
+        [[NSProcessInfo processInfo] disableAutomaticTermination:@"TI Revive helper"];
+        [[NSProcessInfo processInfo] disableSuddenTermination];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory]; // no Dock icon, no menu bar
         [NSApp finishLaunching];
         app_ready = true;
