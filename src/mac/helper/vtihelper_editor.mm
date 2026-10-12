@@ -383,8 +383,28 @@ void editor_input(HelperEditor *e, const tirb_input &in)
         break;
     }
     }
-    if (ev)
-        [e->win sendEvent:ev];
+    if (ev) {
+        // Through the event queue, like real input: AppKit tracking loops (e.g. NSTextView's mouse tracking after a
+        // click into a VSTGUI text field) wait in -nextEventMatchingMask: for the following drag/up events and would
+        // never return if we called -sendEvent: directly. In the normal run loop mode nobody dequeues (the helper
+        // runs CFRunLoopRun, not -[NSApp run]), so drain the queue ourselves; inside a tracking loop (another mode)
+        // the loop takes the events.
+        [NSApp postEvent:ev atStart:NO];
+        NSString *mode = [[NSRunLoop currentRunLoop] currentMode];
+        if (!mode || [mode isEqualToString:NSDefaultRunLoopMode]) {
+            NSEvent *q;
+            while ((q = [NSApp nextEventMatchingMask:NSEventMaskAny
+                                           untilDate:nil
+                                              inMode:NSDefaultRunLoopMode
+                                             dequeue:YES])) {
+                HelperEditor *owner = editor_for_window([q window]);
+                if (owner) // our windows are never key (inactive helper): deliver to the window itself
+                    [owner->win sendEvent:q];
+                else
+                    [NSApp sendEvent:q];
+            }
+        }
+    }
     e->check_focus();
 }
 
