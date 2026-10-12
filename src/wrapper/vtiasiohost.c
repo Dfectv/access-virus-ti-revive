@@ -1,7 +1,7 @@
 // vtiasiohost.c - minimal ASIO host to test an ASIO driver without a DAW: loads it by CLSID, prints its name,
 // channels, latencies, buffer sizes and sample rate, creates buffers for every channel, runs N seconds and reports
 // buffer switches per second, sample position progress and the input peak per channel.
-// usage: vtiasiohost [seconds] [{CLSID}|-] [tone]   (default driver: Virus TI (TI Revive); tone: 440 Hz on the
+// usage: vtiasiohost [seconds] [{CLSID}|-] [tone] [panel]   (default driver: Virus TI (TI Revive); tone: 440 Hz on the
 // outputs at -12 dBFS instead of silence)
 // The IASIO interface is declared here from the ASIO ABI (COM-style vtable, x64 calling convention).
 #include <windows.h>
@@ -113,8 +113,11 @@ int main(int argc, char **argv)
 {
     int secs = argc > 1 ? atoi(argv[1]) : 5;
     CLSID clsid = {0x6fd63640, 0x1e0a, 0x4ee0, {0x91, 0x58, 0x73, 0x2a, 0x10, 0x77, 0xc8, 0xb5}};
-    for (int i = 2; i < argc; i++)
+    int panel = 0;
+    for (int i = 2; i < argc; i++) {
         g_tone |= !strcmp(argv[i], "tone");
+        panel |= !strcmp(argv[i], "panel"); // open the driver's control panel (modal) after init
+    }
     if (argc > 2 && argv[2][0] == '{') {
         wchar_t w[64];
         MultiByteToWideChar(CP_ACP, 0, argv[2], -1, w, 64);
@@ -133,6 +136,10 @@ int main(int argc, char **argv)
     printf("init -> %ld, driver \"%s\" version %ld, message \"%s\"\n", ok, name, a->v->getDriverVersion(a), err);
     if (!ok)
         return 1;
+    if (panel) {
+        printf("controlPanel -> %ld\n", a->v->controlPanel(a));
+        fflush(stdout);
+    }
     long in = 0, out = 0, li = 0, lo = 0, mn = 0, mx = 0, pref = 0, gran = 0;
     double rate = 0;
     a->v->getChannels(a, &in, &out);
