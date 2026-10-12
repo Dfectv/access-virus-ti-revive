@@ -43,6 +43,8 @@ PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `ti
 Waiting: **Snow** (issue #3, bidmessmer) - the regular plug-in finds the Snow, the Snow plug-in does not; asked for
 `tirevive-usbinfo.ps1` output after loading the Snow plug-in once (the vtiemu "device identity" line). Access'
 VirusUSB.inf also lists PID 0816 (unlikely the cause since TI Revive reaches the device).
+Stage 3 (native rewrite of the plug-in) is developed in the PRIVATE repo derpsn/virus-ti-native (~/virus-ti-native,
+plan docs/plan.md, status docs/status.md); TI Revive is its submodule.
 Deferred by the user: Windows MIDI ports (design-midi-ports.md), WDM sound card (design-wdm-bridge.md), latency
 measurements.
 
