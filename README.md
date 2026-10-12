@@ -72,6 +72,10 @@ Then connect the Virus, start your DAW and **allow it to use the microphone** wh
 Privacy & Security → Microphone*): macOS gives the Virus' audio only to apps with that permission. Rescan
 plug-ins and use **"Virus TI (TI Revive)"**. After loading, the sound starts after about 5 seconds.
 
+Your DAW will also list (or, like Cubase, blocklist) the original **"Virus TI"** plug-in as unusable: it is Intel-only
+and cannot load in a native DAW — that is expected; TI Revive loads it in the background. Use only **"Virus TI (TI Revive)"**.
+Tested additionally with Cubase 15 (VST3).
+
 Uninstall with `Uninstall TI Revive.command` (also in `/Library/Application Support/TI Revive`); it removes only
 TI Revive (the Access plug-ins are removed with Access' own uninstaller). Without TI Revive a native DAW has no
 usable Virus plug-in, and sets that use "Virus TI (TI Revive)" cannot load.
@@ -106,7 +110,7 @@ the plug-in is closed. Uninstall with `./uninstall.sh`. Details: `README-linux.t
 for the USB round trip; right at Play, notes in the first quarter second can come late or be skipped. This was the
 same with Access' own driver.
 
-**Both systems**
+**All systems**
 
 - **One plug-in instance per synth.** Virus Control is designed that way (it controls all 16 parts);
   a second instance reports "no Virus TI connected". This is the original behaviour.

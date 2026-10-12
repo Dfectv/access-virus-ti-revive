@@ -28,12 +28,10 @@ PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `ti
    (polling + 'delivery late' log), broker runs with the verbose drop-in ~/.config/systemd/user/tirevive-broker.service.d/verbose.conf
    (remove when done).
 6. macOS: Logic Pro test (AU), needs the user at the Mac.
-6a. macOS + Cubase 14 (Reddit, Sequoia 15.8.1): "Virus TI (TI Revive).vst3" blocklisted, reactivation fails. The bridge's
-    initialize() returns kResultFalse when the Rosetta helper does not start (no Rosetta: background spawn gets no
-    install prompt; README-mac wrongly says macOS offers it), the original Access plug-in is missing, or the helper
-    needs > 30 s. Asked the user for: Rosetta check, Access install, Mac model, version, /tmp/tirevive-bridge.log +
-    /tmp/tirevive-helper.log. TODO: (a) Mac pkg checks for Rosetta and offers to install it; (b) bridge scan-tolerant
-    (fixed bus layout / cached parameter list when the helper is not up yet instead of failing initialize).
+6a. ~~macOS + Cubase blocklist~~ - resolved (E129): Cubase 15 loads TI Revive fine; the blocklisted plug-in is the
+    original Intel "Virus TI.vst3". Ideas left: (a) Mac pkg checks for Rosetta (README wrongly says macOS offers it);
+    (b) hide the original from DAWs (move it out of /Library/Audio/Plug-Ins/VST3 and let the helper load it from a
+    private path) so nobody tries to use or reactivate it.
 7. macOS: Control Center replacement (Access app is 32-bit) - biggest item.
 
 Waiting: **Snow** (issue #3, bidmessmer) - the regular plug-in finds the Snow, the Snow plug-in does not; asked for
