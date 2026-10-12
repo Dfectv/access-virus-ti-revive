@@ -38,8 +38,13 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   of all 528 dumps is byte-identical (unknown bytes are kept: update_dump patches an existing dump).
 - Multi dump `11 00 00` (267 B, the plug-in sends one at start): template VirusTI_MultiDump (add7 5..264), but the
   plug-in's own dump has checksum 0x26 where add7 gives 0x24 - no other byte range matches. Open (the Virus seems to accept it?).
-- Bank info `39 <bank>` -> `14 <bank> 00` + 256 data bytes (267 B, add7 checksum OK): 128 x 2 bytes, one 14-bit value
-  per program (lo, hi), stable between two requests. Most likely a per-program fingerprint the original compares with its
-  cache to fetch only changed patches. NOT a plain 14-bit sum over any contiguous range of the single dump (brute
-  forced, also with one excluded window) -> find the function in Virus Control (REA). The rewrite can work without it:
-  store the received bank info with the cache and refetch programs whose pair changed.
+- Bank info `39 <bank>` -> `14 <bank> 00` + 256 data bytes (267 B, add7 checksum OK): 128 x (lo, hi) = one 14-bit
+  value per program. Formula (510 of 512 recorded programs): sum of the single dump's data bytes 9..520 WITHOUT bytes
+  9, 11, 12 (page A offsets 0, 2, 3: flags?, Original Bank, Original Patch) and 265 (page B offset 0), mod 16384.
+  The 2 exceptions (RAM A 3 and RAM A 106) are exactly +100 - both are the only patches with byte 117 (Chorus/Delay)
+  = 8 and byte 239 (unnamed) = 3; device table and dumps re-read live are unchanged (stable quirk of the firmware's
+  internal format). The cache files (RAM A-D: "MIDI" 00 01 08 00 + 128 x [u32 BE 524 + single dump]) do not store
+  the table, and a cached start of the original requests 39 for all banks but no single dump - so the original
+  recomputes the value from its cache including the quirk -> find the function in the decompile (work/decomp).
+- Replies arrive on EP 0x86 (plug-in interface, cable 3) during a plug-in session and on EP 0x85 (MIDI port, cable 1)
+  otherwise (virusctl sysex). The Virus needs ~1 s per request in both cases.

@@ -2,6 +2,8 @@
 //   virusctl state                       is a Virus connected?
 //   virusctl set <path> <value> [part]   send a parameter change (encoded from remotedevice.xml)
 //   virusctl note <note> [ms] [velocity] play a note on MIDI channel 1 (plug-in cable 2)
+//   virusctl sysex <hex bytes> [ms] [file] send a SysEx on cable 2, print the SysEx replies of the next ms (default
+//                                        2000) and append them to file (raw .syx)
 #include "../src/access/accessfiles.h"
 #include "../src/device/broker.h"
 #include "../src/device/usbmidi.h"
@@ -9,6 +11,9 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <map>
+#include <mutex>
+#include <sstream>
 #include <string>
 #include <thread>
 
@@ -59,6 +64,53 @@ int main(int argc, char **argv)
         printf("note %d %d ms\n", n, ms);
         return 0;
     }
-    fprintf(stderr, "usage: virusctl state | set <path> <value> [part] | note <note> [ms] [velocity]\n");
+    if (cmd == "sysex" && argc >= 3) {
+        std::vector<uint8_t> msg;
+        std::istringstream hex(argv[2]);
+        for (std::string t; hex >> t;)
+            msg.push_back((uint8_t)strtoul(t.c_str(), nullptr, 16));
+        int ms = argc > 3 ? atoi(argv[3]) : 2000;
+        FILE *out = argc > 4 ? fopen(argv[4], "ab") : nullptr;
+        static const int CIN_LEN[16] = {0, 0, 2, 3, 3, 1, 2, 3, 3, 3, 3, 3, 2, 2, 3, 1};
+        std::mutex mu;
+        std::map<int, std::vector<uint8_t>> partial; // per endpoint and cable
+        broker.on_rx([&](uint8_t ep, const uint8_t *d, size_t len) {
+            std::lock_guard<std::mutex> lk(mu);
+            if (getenv("VIRUSCTL_DEBUG")) {
+                printf("rx ep%02x %zu:", ep, len);
+                for (size_t k = 0; k < len && k < 16; k++)
+                    printf(" %02x", d[k]);
+                printf("\n");
+            }
+            // replies come on EP 0x86 (plug-in interface) during a plug-in session, else on EP 0x85 (MIDI port)
+            for (size_t i = 0; i + 4 <= len; i += 4) {
+                int cable = d[i] >> 4, cin = d[i] & 15, key = ep << 4 | cable;
+                auto &buf = partial[key];
+                if (cin == 4 || (cin >= 5 && cin <= 7 && (!buf.empty() || d[i + 1] == 0xF0))) {
+                    buf.insert(buf.end(), d + i + 1, d + i + 1 + CIN_LEN[cin]);
+                    if (cin != 4) {
+                        printf("ep%02x c%d %4zu B:", ep, cable, buf.size());
+                        for (size_t k = 0; k < buf.size() && k < 12; k++)
+                            printf(" %02x", buf[k]);
+                        printf(buf.size() > 12 ? " ..\n" : "\n");
+                        if (out)
+                            fwrite(buf.data(), 1, buf.size(), out);
+                        buf.clear();
+                    }
+                }
+            }
+        });
+        auto pk = vti::usbmidi_pack(msg, CABLE_PLUGIN);
+        if (!broker.write(EP_PLUGIN_OUT, pk.data(), pk.size())) {
+            fprintf(stderr, "virusctl: write failed\n");
+            return 1;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+        broker.on_rx(nullptr);
+        if (out)
+            fclose(out);
+        return 0;
+    }
+    fprintf(stderr, "usage: virusctl state | set <path> <value> [part] | note <note> [ms] [velocity] | sysex <hex> [ms] [file]\n");
     return 2;
 }
