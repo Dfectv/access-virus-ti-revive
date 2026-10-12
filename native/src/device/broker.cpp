@@ -112,6 +112,21 @@ int Broker::control(uint8_t rt, uint8_t req, uint16_t value, uint16_t index, uin
     return r;
 }
 
+int Broker::audio(bool on, int timeout_ms)
+{
+    {
+        std::lock_guard<std::mutex> g(ctl_);
+        audio_replied_ = false;
+    }
+    uint32_t v = on ? 1 : 0;
+    if (!send(VTIMSG_AUDIO, &v, 4, "", 1)) // u32 on + event name (unused on POSIX)
+        return -1;
+    std::unique_lock<std::mutex> l(ctl_);
+    if (!ctl_cv_.wait_for(l, std::chrono::milliseconds(timeout_ms), [&] { return audio_replied_; }))
+        return -1;
+    return audio_reply_;
+}
+
 void Broker::read_loop()
 {
     std::vector<uint8_t> buf(VTIMSG_MAX);
@@ -135,6 +150,14 @@ void Broker::read_loop()
                 memcpy(&seq, buf.data(), 4);
                 std::lock_guard<std::mutex> g(ctl_);
                 replies_[seq].assign(buf.begin() + 4, buf.begin() + h.len);
+                ctl_cv_.notify_all();
+            }
+            break;
+        case VTIMSG_AUDIO_REPLY:
+            if (h.len >= 4) {
+                std::lock_guard<std::mutex> g(ctl_);
+                memcpy(&audio_reply_, buf.data(), 4);
+                audio_replied_ = true;
                 ctl_cv_.notify_all();
             }
             break;

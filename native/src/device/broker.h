@@ -32,8 +32,14 @@ public:
     int control(uint8_t request_type, uint8_t request, uint16_t value, uint16_t index, uint8_t *data, uint16_t len,
                 int timeout_ms = 3000);
 
+    // Start/stop the Virus audio stream (only the owner may). Linux: 1 = streaming into the POSIX shm ring
+    // (vtiaudioshm.h, VTI_AUDIO_SHM_LINUX), 0 = no audio function, -1 = error / not the owner.
+    int audio(bool on, int timeout_ms = 3000);
+
 private:
     int fd_ = -1;
+    int audio_reply_ = 0;
+    bool audio_replied_ = false;
     std::thread reader_;
     std::mutex wr_, ctl_;
     std::condition_variable ctl_cv_;

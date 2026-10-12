@@ -75,6 +75,12 @@ int main(int argc, char **argv)
         for (auto &e : list) {
             printf("%d\t[%d] %s\tPart %02d/\n", e.id, e.part, vti::automation_title(dev, e).c_str(), e.part);
         }
+    } else if (cmd == "init") { // start-up messages (GlobalInit + ParamInit)
+        for (auto &m : dev.init_messages()) {
+            for (auto b : m)
+                printf("%02x ", b);
+            printf("\n");
+        }
     } else if (cmd == "message" && !args.empty()) {
         const vti::MidiMessage *m = dev.message(args[0]);
         if (!m) {

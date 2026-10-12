@@ -58,3 +58,12 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
 - 0x1800303b0: transport -> F2 song position (+ FC stop) to the device.
 - 0x180070520: start-up sequence (globals, multi table, part init).
 - 0x18009b640: CVirusBank constructor (cache path {common_appdata}/Access Music/Virus TI/Cache/<device>/<bank>).
+
+## Playing the Virus (verified with the native plug-in, 2026-10-13)
+- The Virus only plays plug-in notes after the start-up GlobalInit (Global Master/Mode = MIDI REMOTE etc.;
+  RemoteDevice::init_messages reproduces the original's 24 globals + 17 part settings byte-identically).
+- Every channel event on cable 2 needs a preceding time stamp `F5 lo hi` on cable 5 (USB-MIDI `53 F5 lo hi`); events
+  without one are ignored. A stamp = the newest frame of the broker's audio ring plays the event ~140 ms later
+  (first test). The original's stamps run 400-1000 frames behind the ring's newest frame in a 512-frame sawtooth (its
+  block grid) - R5: derive the exact rule from 0x1800a8420 for sample-accurate timing.
+- SysEx dumps are accepted at about MIDI speed (16 part dumps ~2.7 s), events queue behind them.

@@ -22,10 +22,10 @@ FetchContent_Declare(pugixml GIT_REPOSITORY https://github.com/zeux/pugixml.git 
 FetchContent_MakeAvailable(pugixml)
 
 # core library: Access files + device model (no Access material in this repo; loaded at runtime)
-add_library(vticore STATIC src/access/accessfiles.cpp src/model/remotedevice.cpp src/device/broker.cpp src/device/memsync.cpp)
+add_library(vticore STATIC src/access/accessfiles.cpp src/model/remotedevice.cpp src/device/broker.cpp src/device/memsync.cpp src/device/audioin.cpp)
 target_include_directories(vticore PUBLIC src external/ti-revive/src/broker)
 find_package(Threads REQUIRED)
-target_link_libraries(vticore PUBLIC Threads::Threads)
+target_link_libraries(vticore PUBLIC Threads::Threads $<$<PLATFORM_ID:Linux>:rt>)
 target_link_libraries(vticore PUBLIC pugixml::pugixml)
 set_target_properties(vticore PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -43,6 +43,6 @@ if(NOT TARGET sdk_hosting)
     smtg_create_public_sdk_hosting_target()
 endif()
 set(_h ${vst3sdk_SOURCE_DIR}/public.sdk/source)
-add_executable(nativehost tools/nativehost.cpp ${_h}/common/memorystream.cpp ${_h}/vst/hosting/module.cpp
+add_executable(nativehost tools/nativehost.cpp ${_h}/common/memorystream.cpp ${_h}/vst/hosting/module.cpp ${_h}/vst/hosting/eventlist.cpp
     $<$<PLATFORM_ID:Linux>:${_h}/vst/hosting/module_linux.cpp> $<$<PLATFORM_ID:Darwin>:${_h}/vst/hosting/module_mac.mm>)
 target_link_libraries(nativehost PRIVATE sdk_hosting)

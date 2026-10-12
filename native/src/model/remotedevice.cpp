@@ -1,6 +1,7 @@
 // remotedevice.cpp - see remotedevice.h. Format notes: docs/formats.md.
 #include "remotedevice.h"
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <pugixml.hpp>
 
@@ -202,6 +203,52 @@ int RemoteDevice::single_fingerprint(const std::vector<uint8_t> &msg)
         if (i != 265)
             sum += msg[i];
     return (int)(sum & 0x3FFF);
+}
+
+int RemoteDevice::value_of(const std::string &path, const std::string &text) const
+{
+    const Parameter *p = find(path);
+    if (!p)
+        return -1;
+    auto vl = valuelists.find(p->valuelist);
+    if (vl != valuelists.end())
+        for (auto &e : vl->second.entries)
+            if (e.text == text)
+                return e.index;
+    char *end = nullptr;
+    long v = strtol(text.c_str(), &end, 10);
+    if (end && *end == 0 && !text.empty()) {
+        // numbered lists show 1-based numbers ("01" = MIDI channel 1 = value 0) when the list's first text is "1"/"01"
+        if (vl != valuelists.end() && !vl->second.entries.empty()) {
+            const auto &first = vl->second.entries.front();
+            if (atoi(first.text.c_str()) == 1 && first.index == 0)
+                return (int)v - 1;
+        }
+        return (int)v;
+    }
+    return -1;
+}
+
+std::vector<std::vector<uint8_t>> RemoteDevice::init_messages(int device_id) const
+{
+    std::vector<std::vector<uint8_t>> out;
+    for (auto &g : global_init) {
+        int v = value_of(g.first, g.second);
+        auto m = v >= 0 ? encode(g.first, v, 0, device_id) : std::vector<uint8_t>{};
+        if (!m.empty())
+            out.push_back(m);
+        else
+            fprintf(stderr, "remotedevice: GlobalInit %s = %s not encodable\n", g.first.c_str(), g.second.c_str());
+    }
+    for (auto &pi : param_init) {
+        int v = value_of(pi.param, pi.value);
+        auto m = v >= 0 ? encode(pi.param, v, pi.part - 1, device_id) : std::vector<uint8_t>{};
+        if (!m.empty())
+            out.push_back(m);
+        else
+            fprintf(stderr, "remotedevice: ParamInit %s = %s not encodable\n", pi.param.c_str(), pi.value.c_str());
+    }
+    return out;
 }
 
 bool RemoteDevice::decode_dump(const MidiMessage &m, const std::vector<uint8_t> &msg, std::map<std::string, int> &values,

@@ -23,7 +23,7 @@ const FUID kVirusTIClassId(0xB49F90D9, 0x735F4305, 0xAC5397BE, 0x8958CD31);
 const FUID kVirusTIClassId(0xB49F90D9, 0x735F4305, 0xAC5397BE, 0x8958CD31 ^ 0xA5);
 #endif
 
-static const uint8_t EP_PLUGIN_OUT = 0x06, CABLE_PLUGIN = 2;
+static const uint8_t EP_PLUGIN_OUT = 0x06, CABLE_PLUGIN = 2, CABLE_TIME = 5;
 static const ParamID MIDI_MAP_BASE = 0x100000; // + channel * 0x1000 + 0x80 aftertouch / 0x81 pitch bend
 
 // ---- DeviceOut ----------------------------------------------------------------------------------------------------
@@ -50,6 +50,11 @@ void DeviceOut::run()
         if (!open_) {
             std::string err;
             open_ = broker_.open(err);
+            if (open_ && !audio_ok_) { // the owner starts the Virus audio stream (Linux: shm ring)
+                int r = broker_.audio(true);
+                audio_ok_ = r == 1 && audio_.open();
+                fprintf(stderr, "Virus TI native: audio %s (%d)\n", audio_ok_ ? "streaming" : "not available", r);
+            }
             if (!open_) {
                 fprintf(stderr, "Virus TI native: %s\n", err.c_str());
                 std::unique_lock<std::mutex> lk(mu_);
@@ -63,11 +68,27 @@ void DeviceOut::run()
             cv_.wait(lk, [this] { return stop_ || !queue_.empty(); });
             if (stop_)
                 break;
-            msg = std::move(queue_.front());
-            queue_.pop_front();
+            if (!queue_.empty()) {
+                msg = std::move(queue_.front());
+                queue_.pop_front();
+            }
         }
-        auto pk = usbmidi_pack(msg, CABLE_PLUGIN);
+        if (msg.empty())
+            continue;
+        // channel messages carry a time stamp: F5 lo hi on cable 5 = the synth frame (14 bit) at which the Virus
+        // executes the next event (docs/protocol.md). Without one the Virus ignores notes. For now "now"; R5 adds
+        // sample-accurate stamps from the block position.
+        std::vector<uint8_t> pk;
+        int64_t now = audio_ok_ ? audio_.newest_frame() : -1;
+        if (getenv("VTI_NATIVE_DEBUG"))
+            fprintf(stderr, "send %02x now %lld\n", msg.empty() ? 0 : msg[0], (long long)now);
+        if (now >= 0 && !msg.empty() && msg[0] >= 0x80 && msg[0] < 0xF0)
+            pk = usbmidi_pack({0xF5, (uint8_t)(now & 0x7F), (uint8_t)((now >> 7) & 0x7F)}, CABLE_TIME);
+        auto ev = usbmidi_pack(msg, CABLE_PLUGIN);
+        pk.insert(pk.end(), ev.begin(), ev.end());
         if (!broker_.write(EP_PLUGIN_OUT, pk.data(), pk.size())) {
+            audio_ok_ = false;
+            audio_.close();
             broker_.close();
             open_ = false;
         }
@@ -153,6 +174,9 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
                                 MIDI_MAP_BASE + ch * 0x1000 + 0x81);
     }
     out_ = std::make_unique<DeviceOut>();
+    // the original's start-up: GlobalInit (remote mode, cable numbers, clock sync, ...) + ParamInit, before any state
+    for (auto &m : dev_.init_messages())
+        out_->send(m);
     return kResultOk;
 }
 
@@ -164,7 +188,11 @@ tresult PLUGIN_API VirusPlugin::terminate()
 
 tresult PLUGIN_API VirusPlugin::setActive(TBool state) { return SingleComponentEffect::setActive(state); }
 
-tresult PLUGIN_API VirusPlugin::setupProcessing(ProcessSetup &setup) { return SingleComponentEffect::setupProcessing(setup); }
+tresult PLUGIN_API VirusPlugin::setupProcessing(ProcessSetup &setup)
+{
+    block_ = setup.maxSamplesPerBlock;
+    return SingleComponentEffect::setupProcessing(setup);
+}
 
 tresult PLUGIN_API VirusPlugin::canProcessSampleSize(int32 s) { return s == kSample32 ? kResultTrue : kResultFalse; }
 
@@ -232,10 +260,17 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
                             (uint8_t)std::lround(e.noteOff.velocity * 127)});
         }
     }
-    for (int32 b = 0; b < data.numOutputs; b++) // audio from the Virus follows (broker audio ring)
+    // audio: Out 1 = USB 1, Out 2 = USB 2 of the Virus (broker ring), Out 3 silent for now
+    for (int32 b = 0; b < data.numOutputs; b++)
         for (int32 c = 0; c < data.outputs[b].numChannels; c++)
             if (data.outputs[b].channelBuffers32 && data.outputs[b].channelBuffers32[c])
                 memset(data.outputs[b].channelBuffers32[c], 0, sizeof(float) * data.numSamples);
+    if (out_ && out_->audio_ready() && data.numOutputs >= 2 && data.outputs[0].numChannels >= 2 &&
+        data.outputs[1].numChannels >= 2 && data.numSamples > 0) {
+        float **o1 = data.outputs[0].channelBuffers32, **o2 = data.outputs[1].channelBuffers32;
+        if (o1 && o2)
+            out_->audio().read(o1[0], o1[1], o2[0], o2[1], data.numSamples, 2 * block_ + 256);
+    }
     return kResultOk;
 }
 

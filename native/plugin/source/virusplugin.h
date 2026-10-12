@@ -2,6 +2,7 @@
 // (automation.xml + 32 MIDI-mapping targets) and the same state format (docs/formats.md), talking to the Virus
 // through the TI Revive broker. Audio and editor follow in later steps.
 #pragma once
+#include "device/audioin.h"
 #include "device/broker.h"
 #include "model/remotedevice.h"
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
@@ -28,6 +29,8 @@ public:
     ~DeviceOut();
     void send(std::vector<uint8_t> msg); // a complete MIDI message (SysEx or channel message)
     bool connected() const { return broker_.device_present(); }
+    AudioIn &audio() { return audio_; } // read from process(); valid once audio_ready()
+    bool audio_ready() const { return audio_ok_; }
 
 private:
     Broker broker_;
@@ -36,6 +39,8 @@ private:
     std::deque<std::vector<uint8_t>> queue_;
     std::atomic<bool> stop_{false};
     bool open_ = false;
+    AudioIn audio_;
+    std::atomic<bool> audio_ok_{false};
     std::thread worker_;
     void run();
 };
@@ -75,6 +80,7 @@ private:
     std::vector<std::vector<uint8_t>> state_; // the state records (start-up messages), see formats.md
     std::mutex state_mu_;
     std::unique_ptr<DeviceOut> out_;
+    int block_ = 512;
 
     void apply_state_to_params();
     void send_state();

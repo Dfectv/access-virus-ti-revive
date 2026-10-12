@@ -94,6 +94,10 @@ public:
     // The message that changes `path` to `value` for `part` (0-based; 16 = global) and device id - CC, poly pressure
     // or a parameter SysEx, built from the parameter's transport template. Empty if the parameter has none.
     std::vector<uint8_t> encode(const std::string &path, int value, int part, int device_id = 0x10) const;
+    // Value of `path` for a valuelist text ("MIDI REMOTE", "Off", "01"); -1 if neither an entry nor a number.
+    int value_of(const std::string &path, const std::string &text) const;
+    // The messages the original sends at start-up before the project state: GlobalInit, then ParamInit.
+    std::vector<std::vector<uint8_t>> init_messages(int device_id = 0x10) const;
 
     // Dumps (VirusTI_Singledump, VirusTI_MultiDump, ...): the template's byte index is the offset in the SysEx message.
     // Parameter values of a received dump; key = path, or "path@part" for bytes with a part attribute. Several

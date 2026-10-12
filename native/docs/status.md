@@ -40,9 +40,13 @@
   passed / 0 failed. tools/nativehost: the original's state loads and getState returns it byte-identically; a
   Filter 1 Cutoff change updates exactly byte 49 + both checksums of the part 1 dump.
 
+- R3: the native plug-in PLAYS the Virus on Linux: init messages + state upload, notes with F5 stamps, audio from
+  the broker's shm ring (Out 1 = USB 1, Out 2 = USB 2, drift by frame drop/repeat). nativehost --notes --wav: init
+  patch audible every second (peak ~0.09), ~170 ms latency for now.
+
 ## Next
 - R2: start-up sequence of the original as a module (globals from GlobalInit, multi, part init, 74 01 7E poll?), edit
   buffer (part) dumps 10 00 <part> both ways; the 74 01 7E poll and 6F per part from the decompile.
-- R3: audio from the broker's ring (Linux shm / macOS / Windows), a new instance's default state (the original's
+- R3: exact F5 stamp rule (latency), a new instance's default state (the original's
   -Init- parts: from the DLL or the Virus), parameter changes from the Virus (knobs on the device -> host), REAPER test
   with a project saved with the original (VTI_NATIVE_DROPIN build), realtime-safe queue.
