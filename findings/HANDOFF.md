@@ -24,7 +24,7 @@ PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `ti
    Access driver (start playback slightly before the first note). Optional later: confirm with the win10 snapshot pre-winusb.
 5. Occasional sync reports on Linux (E128): cause = wineserver's registry save ~30 s after the plug-in process starts
    (stalls the process ~25 ms -> plug-in re-anchors -> synth reports). Done: vtiaudio polls the ring under Wine (not
-   released yet). Next: try Wine 11 + ntsync; otherwise document. This PC is back to the plain 0.7.1 release (plug-in, broker, units).
+   released yet). Wine 11 tested (E131, paused by the user): WineHQ 11.0 stable / 11.19 devel (noble builds, unpacked in ~/.local/opt/wine11*, prefix copy ~/.local/opt/wine11/prefix) have NO ntsync support compiled in; same 30 s registry stall (61-64 ms). /dev/ntsync exists after `sudo modprobe ntsync` (until reboot). This PC is back to the plain 0.7.1 release (plug-in, broker, units).
 6. macOS: Logic Pro test (AU), needs the user at the Mac.
 6a. ~~macOS + Cubase blocklist~~ - resolved (E129): Cubase 15 loads TI Revive fine; the blocklisted plug-in is the
     original Intel "Virus TI.vst3". (a) DONE (not released): "Install Access Virus TI software.command" checks Rosetta and offers to install it,
