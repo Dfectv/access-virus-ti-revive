@@ -13,6 +13,7 @@
 #include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <cstdarg>
 #include <cstdio>
@@ -280,6 +281,8 @@ class Bridge : public IComponent, public IAudioProcessor, public IEditController
     int32 max_block = 512;
     uint32_t seq = 0;
     unsigned long misses = 0;
+    double diag_frames = 0;
+    float diag_peak = 0; // output level towards the DAW, logged every ~5 s (diagnostics)
     std::vector<bool> out_active;
 
     virtual ~Bridge() = default;
@@ -568,9 +571,16 @@ class Bridge : public IComponent, public IAudioProcessor, public IEditController
         for (int32 b = 0; b < d.numOutputs && b < (int32)layout.num_outputs; b++) {
             AudioBusBuffers &o = d.outputs[b];
             for (int32 c = 0; c < o.numChannels && c < 2; c++)
-                if (o.channelBuffers32 && o.channelBuffers32[c])
+                if (o.channelBuffers32 && o.channelBuffers32[c]) {
                     memcpy(o.channelBuffers32[c], s->out[b * 2 + c], frames * sizeof(float));
+                    for (int32 k = 0; k < frames; k++)
+                        diag_peak = std::max(diag_peak, std::fabs(s->out[b * 2 + c][k]));
+                }
             o.silenceFlags = 0;
+        }
+        if ((diag_frames += frames) >= rate * 5) {
+            blog("instance %u: output peak %.1f dBFS (5 s)", inst, diag_peak > 0 ? 20 * std::log10(diag_peak) : -999.0);
+            diag_frames = 0, diag_peak = 0;
         }
         if (d.outputParameterChanges)
             for (uint32_t i = 0; i < s->num_out_pchanges && i < 64; i++) {

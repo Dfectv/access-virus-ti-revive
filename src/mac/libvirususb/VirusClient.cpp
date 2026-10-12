@@ -27,6 +27,7 @@
 #include <ctime>
 #include <mutex>
 #include <pthread.h>
+#include <atomic>
 #include <map>
 #include <unistd.h>
 
@@ -128,6 +129,46 @@ static int send_msg(uint16_t type, const void *a, int alen, const void *b, int b
     return r;
 }
 
+// --- device notifications to Virus Control. Access' library called the client's virtual methods when the Virus came
+// and went: vtable +0x00 virusAttached(device id), +0x08 virusDetached(device id) (Virus Control 0xee216 / 0xee194,
+// E108). Virus Control re-reads its device list only after such a call, so without them it neither noticed an
+// unplugged Virus nor reopened it after replugging. They run on their own thread: the plug-in sends USB requests
+// from inside, and their replies arrive on the reader thread.
+class VirusClient;
+static pthread_mutex_t g_clients_list_mx = PTHREAD_MUTEX_INITIALIZER;
+static VirusClient *g_client_list[16];
+static void *g_device_id; // the opaque device ID handed to Virus Control (= &g_device, set below)
+static int g_reported = -1; // last state reported to the clients
+
+static void notify_clients(int connected)
+{
+    struct Job {
+        int connected;
+    };
+    pthread_t t;
+    pthread_create(&t, nullptr, [](void *a) -> void * {
+        int on = ((Job *)a)->connected;
+        delete (Job *)a;
+        pthread_mutex_lock(&g_clients_list_mx);
+        if (on == g_reported) {
+            pthread_mutex_unlock(&g_clients_list_mx);
+            return nullptr;
+        }
+        g_reported = on;
+        VirusClient *list[16];
+        memcpy(list, g_client_list, sizeof list);
+        pthread_mutex_unlock(&g_clients_list_mx);
+        vlog("notifying Virus Control: Virus %s", on ? "attached" : "detached");
+        for (VirusClient *c : list)
+            if (c) {
+                typedef void (*cb)(VirusClient *, void *);
+                ((cb)(*(void ***)c)[on ? 0 : 1])(c, g_device_id);
+            }
+        return nullptr;
+    }, new Job{connected});
+    pthread_detach(t);
+}
+
 static void *reader(void *)
 {
     uint8_t buf[4096];
@@ -138,6 +179,7 @@ static void *reader(void *)
         if (h[0] == MSG_STATE && h[1] >= 4) {
             g_connected = buf[0] != 0;
             vlog("broker: device %s", g_connected ? "connected" : "disconnected");
+            notify_clients(g_connected);
         } else if (h[0] == MSG_CONTROL_REPLY && h[1] >= 8) {
             pthread_mutex_lock(&g_ctl);
             memcpy(&g_ctl_done_seq, buf, 4);
@@ -150,6 +192,7 @@ static void *reader(void *)
     }
     vlog("broker connection lost");
     g_connected = 0;
+    notify_clients(0);
     close(g_fd);
     g_fd = -1;
     return nullptr;
@@ -266,12 +309,35 @@ static int broker_control(uint8_t type, uint8_t req, uint16_t value, uint16_t in
 }
 
 static char g_device; // the one device: its address is the opaque device ID handed to Virus Control
+static struct DeviceIdInit {
+    DeviceIdInit() { g_device_id = &g_device; }
+} g_device_id_init;
 static int g_open;
 
 __attribute__((constructor)) static void loaded() { vlog("TI Revive libVirusUSB loaded"); }
 
-int VirusClient::vc_init() { vlog("%p vc_init", this); return 1; }
-int VirusClient::vc_term() { vlog("%p vc_term", this); return 1; }
+int VirusClient::vc_init()
+{
+    vlog("%p vc_init", this);
+    pthread_mutex_lock(&g_clients_list_mx);
+    for (VirusClient *&c : g_client_list)
+        if (!c) {
+            c = this;
+            break;
+        }
+    pthread_mutex_unlock(&g_clients_list_mx);
+    return 1;
+}
+int VirusClient::vc_term()
+{
+    vlog("%p vc_term", this);
+    pthread_mutex_lock(&g_clients_list_mx);
+    for (VirusClient *&c : g_client_list)
+        if (c == this)
+            c = nullptr;
+    pthread_mutex_unlock(&g_clients_list_mx);
+    return 1;
+}
 // ------------------------------------------------------------------------------------------- audio
 // Client callback (Virus Control VirusDeviceObject vtable +0x18, FUN_000ec434; E102):
 //   (this, frames, in channels, in bytes, in data, out channels, out bytes, out data, sample time)
@@ -286,7 +352,10 @@ struct audio_client {
     VirusClient *vc;
     AudioDeviceIOProcID proc = nullptr;
     AudioObjectID dev = 0; // device the IOProc belongs to
-    unsigned long calls = 0, peak = 0; // diagnostics, logged at vc_stop
+    unsigned long calls = 0, peak = 0;
+    // diagnostics, read by diag_thread: peak of the audio pair, timestamp channels 4/5 non-zero (the Virus sends
+    // them always; exact zeros on ALL channels = macOS microphone privacy, E103), output peak of the plug-in
+    std::atomic<unsigned long> d_in{0}, d_ts{0}, d_out{0}, d_frames{0}; // diagnostics, logged at vc_stop
     bool running = false;
     int32_t in[MAX_FRAMES * IN_CH], out[MAX_FRAMES * OUT_CH];
 };
@@ -386,6 +455,19 @@ static OSStatus ioproc(AudioObjectID, const AudioTimeStamp *now, const AudioBuff
         if (m > c->peak)
             c->peak = m;
     }
+    {
+        unsigned long pin = 0, ts = 0;
+        for (UInt32 i = 0; i < frames; i++) {
+            int32_t a = c->in[i * IN_CH + 2], b = c->in[i * IN_CH + 3];
+            unsigned long m = (unsigned long)(a < 0 ? -(int64_t)a : a) | (unsigned long)(b < 0 ? -(int64_t)b : b);
+            pin = m > pin ? m : pin;
+            ts += c->in[i * IN_CH + 4] != 0 || c->in[i * IN_CH + 5] != 0;
+        }
+        if (pin > c->d_in)
+            c->d_in = pin;
+        c->d_ts += ts;
+        c->d_frames += frames;
+    }
     audio_cb cb = (audio_cb)(*(void ***)c->vc)[3];
     cb(c->vc, frames, IN_CH, frames * IN_CH * 4, c->in, OUT_CH, frames * OUT_CH * 4, c->out,
        (unsigned long long)intime->mSampleTime);
@@ -444,8 +526,33 @@ int VirusClient::vc_close()
     return 1;
 }
 bool VirusClient::vc_isOpen() { return g_open; }
+static void *diag_thread(void *) // every 5 s: what the audio path sees (vlog is not real-time safe: not in the IOProc)
+{
+    for (;;) {
+        sleep(5);
+        pthread_mutex_lock(&g_clients_mx);
+        for (auto &kv : g_clients) {
+            audio_client *c = kv.second;
+            if (!c->running)
+                continue;
+            unsigned long fr = c->d_frames.exchange(0), in = c->d_in.exchange(0), ts = c->d_ts.exchange(0);
+            vlog("%p audio: %lu frames, input peak 0x%08lx, timestamp frames %lu%s", kv.first, fr, in, ts,
+                 fr && !ts && !in ? " (input exactly silent: is the DAW allowed to use the microphone?)" : "");
+        }
+        pthread_mutex_unlock(&g_clients_mx);
+    }
+    return nullptr;
+}
+
 int VirusClient::vc_start(unsigned long fs)
 {
+    static bool diag_started;
+    if (!diag_started) {
+        diag_started = true;
+        pthread_t t;
+        pthread_create(&t, nullptr, diag_thread, nullptr);
+        pthread_detach(t);
+    }
     pthread_mutex_lock(&g_clients_mx);
     audio_client *c = g_clients.count(this) ? g_clients[this] : nullptr;
     pthread_mutex_unlock(&g_clients_mx);
