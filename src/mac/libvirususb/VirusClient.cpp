@@ -355,7 +355,9 @@ struct audio_client {
     unsigned long calls = 0, peak = 0;
     // diagnostics, read by diag_thread: peak of the audio pair, timestamp channels 4/5 non-zero (the Virus sends
     // them always; exact zeros on ALL channels = macOS microphone privacy, E103), output peak of the plug-in
-    std::atomic<unsigned long> d_in{0}, d_ts{0}, d_out{0}, d_frames{0}; // diagnostics, logged at vc_stop
+    std::atomic<unsigned long> d_in{0}, d_ts{0}, d_out{0}, d_frames{0};
+    std::atomic<unsigned long> d_ch[IN_CH]{}; // peak per device channel
+    std::atomic<long> d_dc2{0};             // last sample of channel 2 (a constant there = misaligned frame?) // diagnostics, logged at vc_stop
     bool running = false;
     int32_t in[MAX_FRAMES * IN_CH], out[MAX_FRAMES * OUT_CH];
 };
@@ -465,6 +467,17 @@ static OSStatus ioproc(AudioObjectID, const AudioTimeStamp *now, const AudioBuff
         }
         if (pin > c->d_in)
             c->d_in = pin;
+        for (int k = 0; k < IN_CH; k++) {
+            unsigned long pk = 0;
+            for (UInt32 i = 0; i < frames; i++) {
+                int32_t v = c->in[i * IN_CH + k];
+                unsigned long m = (unsigned long)(v < 0 ? -(int64_t)v : v);
+                pk = m > pk ? m : pk;
+            }
+            if (pk > c->d_ch[k])
+                c->d_ch[k] = pk;
+        }
+        c->d_dc2 = c->in[(frames - 1) * IN_CH + 2];
         c->d_ts += ts;
         c->d_frames += frames;
     }
@@ -536,8 +549,12 @@ static void *diag_thread(void *) // every 5 s: what the audio path sees (vlog is
             if (!c->running)
                 continue;
             unsigned long fr = c->d_frames.exchange(0), in = c->d_in.exchange(0), ts = c->d_ts.exchange(0);
-            vlog("%p audio: %lu frames, input peak 0x%08lx, timestamp frames %lu%s", kv.first, fr, in, ts,
-                 fr && !ts && !in ? " (input exactly silent: is the DAW allowed to use the microphone?)" : "");
+            unsigned long ch[IN_CH];
+            for (int k = 0; k < IN_CH; k++)
+                ch[k] = c->d_ch[k].exchange(0) >> 16;
+            vlog("%p audio: %lu frames, input peak 0x%08lx, timestamp frames %lu, per channel %04lx %04lx %04lx %04lx "
+                 "%04lx %04lx, ch2 last %08lx",
+                 kv.first, fr, in, ts, ch[0], ch[1], ch[2], ch[3], ch[4], ch[5], (unsigned long)c->d_dc2.load());
         }
         pthread_mutex_unlock(&g_clients_mx);
     }
