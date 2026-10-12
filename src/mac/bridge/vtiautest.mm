@@ -69,7 +69,8 @@ int main(int argc, char **argv)
         }
         Float64 rate = 44100;
         set(pi, kAudioUnitProperty_SampleRate, kAudioUnitScope_Output, 0, &rate, sizeof rate);
-        UInt32 maxf = 512;
+        const UInt32 F = getenv("VTI_FRAMES") ? (UInt32)atoi(getenv("VTI_FRAMES")) : 512; // host block size
+        UInt32 maxf = F;
         set(pi, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &maxf, sizeof maxf);
         printf("Initialize -> %d\n", (int)init(pi));
 
@@ -88,31 +89,32 @@ int main(int argc, char **argv)
         int secs = argc > 3 ? atoi(argv[3]) : 4;
         std::vector<float> buf[6];
         for (auto &b : buf)
-            b.assign(512, 0);
+            b.assign(F, 0);
         double peak = 0;
         AudioTimeStamp ts{};
         ts.mFlags = kAudioTimeStampSampleTimeValid;
-        long blocks = (long)(secs * rate / 512);
+        long blocks = (long)(secs * rate / F);
         CFAbsoluteTime t0 = CFAbsoluteTimeGetCurrent();
         for (long i = 0; i < blocks; i++) {
-            if (i % 86 == 20)
-                midi(pi, 0x90, 60, 100, 0);
-            if (i % 86 == 60)
+            long per_s = (long)(rate / F);
+            if (i % per_s == per_s / 4)
+                midi(pi, 0x90, 60, 100, F - 10); // late in the block: lands in the last piece
+            if (i % per_s == 3 * per_s / 4)
                 midi(pi, 0x80, 60, 0, 0);
             for (UInt32 bus = 0; bus < 3; bus++) {
                 struct {
                     UInt32 n;
                     AudioBuffer b[2];
-                } abl{2, {{1, 512 * 4, buf[bus * 2].data()}, {1, 512 * 4, buf[bus * 2 + 1].data()}}};
+                } abl{2, {{1, F * 4, buf[bus * 2].data()}, {1, F * 4, buf[bus * 2 + 1].data()}}};
                 AudioUnitRenderActionFlags fl = 0;
-                st = render(pi, &fl, &ts, bus, 512, (AudioBufferList *)&abl);
+                st = render(pi, &fl, &ts, bus, F, (AudioBufferList *)&abl);
                 if (st)
                     return printf("Render bus %u -> %d\n", bus, (int)st), 1;
             }
-            for (int k = 0; k < 512; k++)
+            for (UInt32 k = 0; k < F; k++)
                 peak = std::max(peak, (double)std::fabs(buf[0][k]));
-            ts.mSampleTime += 512;
-            CFAbsoluteTime due = t0 + (i + 1) * 512 / rate; // real time, with the run loop serviced
+            ts.mSampleTime += F;
+            CFAbsoluteTime due = t0 + (i + 1) * F / rate; // real time, with the run loop serviced
             [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceReferenceDate:due]];
         }
         printf("rendered %ld blocks x 3 buses, main peak %.1f dBFS\n", blocks, peak > 0 ? 20 * log10(peak) : -999.0);
