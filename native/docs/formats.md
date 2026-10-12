@@ -58,3 +58,16 @@ Cutoff Link on -> filter 2 follows filter 1). On plug-in close the original rese
 
 ## Still to describe
 editor.xml / editordevice.xml (UI), automation.xml (DAW automation ids), the "PR" variants.
+
+## Plug-in state (VST3 component getState; the controller has none) - captured with vtihost VTI_SAVESTATE
+
+Same container as the cache files: "MIDI" + u32 big-endian length of the rest, then records (u32 big-endian length +
+one MIDI message). The state IS the list of messages the plug-in sends to the Virus when a project loads:
+1. an empty record (length 0),
+2. the multi dump `11 00 00` (267 B; the fixed "MultiCtrl!" table, see protocol.md),
+3. 16 single dumps `10 00 <part>` (524 B, bank 0 = edit buffer of part 1..16),
+4. globals as parameter SysEx (default project: `73 00 2D 02` twice),
+5. 224 CCs: controllers 1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16 for channels 1..16 (CC7 = 100, CC8 = 64,
+   CC11 = 127, others 0 in the default project).
+Default project: 10329 bytes. The rewrite reads and writes exactly this format -> projects saved with the original
+load in the rewrite and vice versa.
