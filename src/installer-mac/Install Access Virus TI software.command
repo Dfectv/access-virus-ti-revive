@@ -52,6 +52,21 @@ if [ ${#OLD_DRIVERS[@]} -gt 0 ]; then
        echo "Done. Please RESTART your Mac afterwards so macOS stops the old drivers." ;;
     esac
 fi
+# Other Virus USB drivers take the same interfaces (E134: Aura Plugins' Virus Editor driver). Only one driver can use
+# the Virus at a time: offer to park it (restorable), so TI Revive can connect.
+AURA="/Library/Audio/MIDI Drivers/AURA Plugins Virus TI USB Midi.plugin"
+if [ -e "$AURA" ]; then
+    echo "Aura Plugins' Virus TI USB MIDI driver is installed. It holds the Virus' USB interfaces, so TI Revive cannot"
+    echo "connect while it is active (only one driver can use the Virus at a time)."
+    printf "Park it now (moved to /Library/Application Support/Aura driver (parked); move it back to use Aura again)? [y/N] "
+    read -r ans
+    case "$ans" in
+    [yY]*) sudo mkdir -p "/Library/Application Support/Aura driver (parked)"
+           sudo mv "$AURA" "/Library/Application Support/Aura driver (parked)/"
+           echo "Parked. Please RESTART your Mac afterwards." ;;
+    *) echo "Left active - disable it before using \"Virus TI (TI Revive)\"." ;;
+    esac
+fi
 echo "Reading $PKG ..."
 pkgutil --expand "$PKG" "$WORK/x"
 for part in Core_components Additional_items; do
