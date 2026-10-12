@@ -245,7 +245,7 @@ bool VirusClient::vc_getDeviceInfo(unsigned long i, VC_DeviceInfo &info)
         pid = (uint16_t)(dd[10] | dd[11] << 8);
         rel = (uint16_t)(dd[12] | dd[13] << 8);
     }
-    uint32_t key = 0x00100000;
+    uint32_t key = 0x00100000; // = VTI_MAC_DEVKEY (src/broker/vtimidi_mac.h): pairs the device with MIDI slot 0
     memcpy(p + 4, &vid, 2);
     memcpy(p + 6, &pid, 2);
     memcpy(p + 8, &rel, 2);
