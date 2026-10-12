@@ -130,10 +130,14 @@ struct HelperEditor : IPlugFrame {
     {
         [win setFrame:NSMakeRect(top_x, top_y - h, w, h) display:NO];
     }
+    unsigned long renders = 0;
     void render()
     {
         if (!px || !g_dirty)
             return;
+        if (renders++ < 3)
+            fprintf(stderr, "vtihelper: render %lu (%ux%u px, %lu subviews)\n", renders, px->pw, px->ph,
+                    (unsigned long)[[container subviews] count]);
         g_dirty = false;
         uint32_t back = px->front ^ 1;
         uint8_t *mem = px->data + (size_t)back * px->pw * px->ph * 4;
@@ -339,4 +343,25 @@ void editor_input(HelperEditor *e, const tirb_input &in)
     }
     if (ev)
         [e->win sendEvent:ev];
+}
+
+bool editor_dump_png(HelperEditor *e, const char *path)
+{
+    if (!e || !e->px)
+        return false;
+    g_dirty = true;
+    e->render();
+    tirb_pixels *px = e->px;
+    size_t bytes = (size_t)px->pw * px->ph * 4;
+    CGColorSpaceRef cs = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+    CGDataProviderRef dp = CGDataProviderCreateWithData(nullptr, px->data + (px->front & 1) * bytes, bytes, nullptr);
+    CGImageRef img = CGImageCreate(px->pw, px->ph, 8, 32, px->pw * 4, cs,
+                                   kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little, dp, nullptr, false,
+                                   kCGRenderingIntentDefault);
+    NSBitmapImageRep *rep = [[NSBitmapImageRep alloc] initWithCGImage:img];
+    NSData *png = [rep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+    CGImageRelease(img);
+    CGDataProviderRelease(dp);
+    CGColorSpaceRelease(cs);
+    return [png writeToFile:[NSString stringWithUTF8String:path] atomically:YES];
 }

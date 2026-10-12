@@ -653,9 +653,12 @@ class Bridge : public IComponent, public IAudioProcessor, public IEditController
     {
         double q[3] = {x, y, scale};
         std::vector<uint8_t> r;
-        if (!conn.call(TIRB_EDITOR_OPEN, inst, q, sizeof q, &r, 30) || r.size() < sizeof rep)
+        if (!conn.call(TIRB_EDITOR_OPEN, inst, q, sizeof q, &r, 30) || r.size() < sizeof rep) {
+            blog("instance %u: EDITOR_OPEN failed", inst);
             return false;
+        }
         memcpy(&rep, r.data(), sizeof rep);
+        blog("instance %u: editor %dx%d %s", inst, rep.width, rep.height, rep.pixels_shm);
         return rep.width > 0 && rep.pixels_shm[0];
     }
     void editor_close() override { conn.call(TIRB_EDITOR_CLOSE, inst, nullptr, 0, nullptr, 10); }

@@ -714,11 +714,14 @@ static void *conn_thread(void *arg)
                 on_main([&] {
                     if (in->editor)
                         editor_close(in->editor);
+                    hlog("instance %u: editor open at %.0f,%.0f scale %.0f", in->id, q[0], q[1], q[2]);
                     in->editor = editor_open(in->ctl, in->shm_name, q[0], q[1], q[2], rep,
                                              [](void *ctx, const tirb_editor_reply &r) {
                                                  notify((Instance *)ctx, TIRB_N_EDITOR_RESIZE, &r, sizeof r);
                                              },
                                              in);
+                    hlog("instance %u: editor %s, %dx%d, pixels %s", in->id, in->editor ? "open" : "FAILED", rep.width,
+                         rep.height, rep.pixels_shm);
                 });
             }
             send_msg(fd, rt, h.instance, h.seq, &rep, sizeof rep);
@@ -900,8 +903,31 @@ static int probe(const char *path, int seconds)
     return 0;
 }
 
+// --editor-dump <out.png>: open the original's editor through the bridge path, render for 3 s, save the front frame
+extern bool editor_dump_png(HelperEditor *e, const char *path);
+static int editor_dump(const char *png)
+{
+    if (!load_original("/Library/Audio/Plug-Ins/VST3/Virus TI.vst3"))
+        return 1;
+    tirb_create_reply r{};
+    Instance *in = create_instance(-1, r);
+    if (!in || !in->ctl)
+        return 1;
+    tirb_editor_reply rep{};
+    in->editor = editor_open(in->ctl, in->shm_name, 100, 900, 2, rep, nullptr, nullptr);
+    printf("editor %s %dx%d %s\n", in->editor ? "open" : "FAILED", rep.width, rep.height, rep.pixels_shm);
+    if (!in->editor)
+        return 1;
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 3.0, false);
+    printf("png %s\n", editor_dump_png(in->editor, png) ? "written" : "FAILED");
+    destroy_instance(in);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
+    if (argc >= 3 && !strcmp(argv[1], "--editor-dump"))
+        return editor_dump(argv[2]);
     if (argc >= 4 && !strcmp(argv[1], "--serve"))
         return serve(argv[2], atoi(argv[3]));
     if (argc >= 3 && !strcmp(argv[1], "--probe"))
