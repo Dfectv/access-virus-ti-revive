@@ -1,6 +1,17 @@
-// Build smoke test for the toolchain (VST3 SDK + VSTGUI on this platform); replaced by the real plug-in in R3.
+// entry.cpp - VST3 factory of the native Virus TI plug-in.
 #include "public.sdk/source/main/pluginfactory.h"
-#include "vstgui/vstgui.h"
+#include "virusplugin.h"
 
-BEGIN_FACTORY("TI Revive", "https://github.com/derpsn/access-virus-ti-revive", "", Steinberg::PFactoryInfo::kUnicode)
+#define VTI_NATIVE_VERSION "0.0.1"
+
+BEGIN_FACTORY_DEF("TI Revive", "https://github.com/derpsn/access-virus-ti-revive", "")
+
+DEF_CLASS2(INLINE_UID_FROM_FUID(vti::kVirusTIClassId), PClassInfo::kManyInstances, kVstAudioEffectClass,
+#ifdef VTI_NATIVE_DROPIN
+           "Virus TI",
+#else
+           "Virus TI (native)",
+#endif
+           0, Steinberg::Vst::PlugType::kInstrumentSynth, VTI_NATIVE_VERSION, kVstVersionString, vti::VirusPlugin::create)
+
 END_FACTORY

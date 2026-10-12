@@ -37,3 +37,12 @@ add_executable(virussync tools/virussync.cpp)
 target_link_libraries(virussync PRIVATE vticore)
 
 add_subdirectory(plugin)
+
+# test host for the native plug-in (R3 checks)
+if(NOT TARGET sdk_hosting)
+    smtg_create_public_sdk_hosting_target()
+endif()
+set(_h ${vst3sdk_SOURCE_DIR}/public.sdk/source)
+add_executable(nativehost tools/nativehost.cpp ${_h}/common/memorystream.cpp ${_h}/vst/hosting/module.cpp
+    $<$<PLATFORM_ID:Linux>:${_h}/vst/hosting/module_linux.cpp> $<$<PLATFORM_ID:Darwin>:${_h}/vst/hosting/module_mac.mm>)
+target_link_libraries(nativehost PRIVATE sdk_hosting)

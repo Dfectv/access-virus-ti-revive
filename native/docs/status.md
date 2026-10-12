@@ -32,7 +32,17 @@
   = 3.4 s, 3 corrupted programs refetched and the bank restored byte-identical to the original's cache.
 - Start-up multi dump = fixed table in the DLL (stale checksum, Virus accepts it); decompile pointers in protocol.md.
 
+- Plug-in state = the start-up message list in the cache container (formats.md); vtihost VTI_SAVESTATE/LOADSTATE
+  (TI Revive) captures the original's state. Original class ids + parameter list reproduced (2703 params, 2671/2671
+  titles identical; automation.xml typo handled like the original).
+- R3 started: plugin/ = "Virus TI (native)" (SingleComponentEffect, original buses, 2703 params, IMidiMapping, state in
+  the original's format, parameter changes -> encoded messages -> broker, part dumps kept current). VST3 validator: 47
+  passed / 0 failed. tools/nativehost: the original's state loads and getState returns it byte-identically; a
+  Filter 1 Cutoff change updates exactly byte 49 + both checksums of the part 1 dump.
+
 ## Next
 - R2: start-up sequence of the original as a module (globals from GlobalInit, multi, part init, 74 01 7E poll?), edit
   buffer (part) dumps 10 00 <part> both ways; the 74 01 7E poll and 6F per part from the decompile.
-- R3: plug-in shell (VST3) with the original's parameter IDs from automation.xml, state = the 16 part dumps.
+- R3: audio from the broker's ring (Linux shm / macOS / Windows), a new instance's default state (the original's
+  -Init- parts: from the DLL or the Virus), parameter changes from the Virus (knobs on the device -> host), REAPER test
+  with a project saved with the original (VTI_NATIVE_DROPIN build), realtime-safe queue.
