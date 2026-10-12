@@ -2,6 +2,8 @@
 // TI's plug-in channel (EP 0x06 / 0x86) carries them: cable 2 = MIDI/SysEx of the plug-in, cable 5 = F5 time stamps.
 #pragma once
 #include <cstdint>
+#include <functional>
+#include <map>
 #include <vector>
 
 namespace vti {
@@ -31,5 +33,37 @@ inline std::vector<uint8_t> usbmidi_pack(const std::vector<uint8_t> &msg, uint8_
     }
     return out;
 }
+
+// USB-MIDI packets -> complete messages per (endpoint, cable); SysEx is reassembled across packets.
+class UsbMidiParser {
+public:
+    using Handler = std::function<void(uint8_t ep, int cable, const std::vector<uint8_t> &msg)>;
+    explicit UsbMidiParser(Handler h) : h_(std::move(h)) {}
+
+    void feed(uint8_t ep, const uint8_t *d, size_t len)
+    {
+        static const int CIN_LEN[16] = {0, 0, 2, 3, 3, 1, 2, 3, 3, 3, 3, 3, 2, 2, 3, 1};
+        for (size_t i = 0; i + 4 <= len; i += 4) {
+            if (!d[i])
+                continue;
+            int cable = d[i] >> 4, cin = d[i] & 15;
+            auto &buf = sysex_[ep << 4 | cable];
+            const uint8_t *b = d + i + 1;
+            if (cin == 4 || (cin >= 5 && cin <= 7 && (!buf.empty() || b[0] == 0xF0))) {
+                buf.insert(buf.end(), b, b + CIN_LEN[cin]);
+                if (cin != 4) {
+                    h_(ep, cable, buf);
+                    buf.clear();
+                }
+            } else if (CIN_LEN[cin]) {
+                h_(ep, cable, std::vector<uint8_t>(b, b + CIN_LEN[cin]));
+            }
+        }
+    }
+
+private:
+    Handler h_;
+    std::map<int, std::vector<uint8_t>> sysex_;
+};
 
 } // namespace vti

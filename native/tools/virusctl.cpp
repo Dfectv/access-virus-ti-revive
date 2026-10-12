@@ -65,7 +65,7 @@ int main(int argc, char **argv)
         return 0;
     }
     if (cmd == "sysex" && argc >= 3) {
-        std::vector<uint8_t> msg;
+        std::vector<uint8_t> msg; // several messages may follow each other ("f0 .. f7 f0 .. f7")
         std::istringstream hex(argv[2]);
         for (std::string t; hex >> t;)
             msg.push_back((uint8_t)strtoul(t.c_str(), nullptr, 16));
@@ -73,6 +73,7 @@ int main(int argc, char **argv)
         FILE *out = argc > 4 ? fopen(argv[4], "ab") : nullptr;
         static const int CIN_LEN[16] = {0, 0, 2, 3, 3, 1, 2, 3, 3, 3, 3, 3, 2, 2, 3, 1};
         std::mutex mu;
+        auto t0 = std::chrono::steady_clock::now();
         std::map<int, std::vector<uint8_t>> partial; // per endpoint and cable
         broker.on_rx([&](uint8_t ep, const uint8_t *d, size_t len) {
             std::lock_guard<std::mutex> lk(mu);
@@ -89,7 +90,8 @@ int main(int argc, char **argv)
                 if (cin == 4 || (cin >= 5 && cin <= 7 && (!buf.empty() || d[i + 1] == 0xF0))) {
                     buf.insert(buf.end(), d + i + 1, d + i + 1 + CIN_LEN[cin]);
                     if (cin != 4) {
-                        printf("ep%02x c%d %4zu B:", ep, cable, buf.size());
+                        printf("%6lld ms ep%02x c%d %4zu B:", (long long)std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::steady_clock::now() - t0).count(), ep, cable, buf.size());
                         for (size_t k = 0; k < buf.size() && k < 12; k++)
                             printf(" %02x", buf[k]);
                         printf(buf.size() > 12 ? " ..\n" : "\n");
@@ -100,10 +102,17 @@ int main(int argc, char **argv)
                 }
             }
         });
-        auto pk = vti::usbmidi_pack(msg, CABLE_PLUGIN);
-        if (!broker.write(EP_PLUGIN_OUT, pk.data(), pk.size())) {
-            fprintf(stderr, "virusctl: write failed\n");
-            return 1;
+        for (size_t a = 0; a < msg.size();) {
+            size_t b = a;
+            while (b < msg.size() && msg[b] != 0xF7)
+                b++;
+            std::vector<uint8_t> one(msg.begin() + a, msg.begin() + std::min(b + 1, msg.size()));
+            auto pk = vti::usbmidi_pack(one, CABLE_PLUGIN);
+            if (!broker.write(EP_PLUGIN_OUT, pk.data(), pk.size())) {
+                fprintf(stderr, "virusctl: write failed\n");
+                return 1;
+            }
+            a = b + 1;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(ms));
         broker.on_rx(nullptr);

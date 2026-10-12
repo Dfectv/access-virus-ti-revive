@@ -26,3 +26,13 @@
   replies come on EP 0x85 outside a plug-in session; virusctl sysex sends requests and saves the replies.
 - Ghidra headless decompile of Virus Control.dll -> work/decomp/virus-control.c (tools/DecompileAll.java), for the
   fingerprint quirk and the remaining unknowns (39/14 compare, 74 01 7E poll, multi dump checksum).
+- R2 sync engine: src/device/memsync (bank info -> fetch only programs whose fingerprint differs; strictly one request
+  at a time - overlapping requests make the Virus truncate replies; ~1 s per request is the device's pace), cache in
+  the original's file format; UsbMidiParser in usbmidi.h. tools/virussync: import of an Access cache + check of 4 banks
+  = 3.4 s, 3 corrupted programs refetched and the bank restored byte-identical to the original's cache.
+- Start-up multi dump = fixed table in the DLL (stale checksum, Virus accepts it); decompile pointers in protocol.md.
+
+## Next
+- R2: start-up sequence of the original as a module (globals from GlobalInit, multi, part init, 74 01 7E poll?), edit
+  buffer (part) dumps 10 00 <part> both ways; the 74 01 7E poll and 6F per part from the decompile.
+- R3: plug-in shell (VST3) with the original's parameter IDs from automation.xml, state = the 16 part dumps.
