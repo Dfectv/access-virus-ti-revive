@@ -104,13 +104,33 @@ fi
 # --- 4. the TI Revive plug-in + yabridge ----------------------------------------------------------------------------
 say "plug-in Virus TI (TI Revive)"
 install -m 0644 "$HERE/wine/VirusTI_TIRevive.vst3" "$VST3_DIR/Virus TI (TI Revive).vst3"
+yabridge_version() { # e.g. 5.1.1 (release) or 5.1.1-57-gb580a9f7 (newer build) - read from the VST3 library
+    for d in "$(dirname "$(command -v yabridgectl)")" "$HOME/.local/share/yabridge" /usr/lib /usr/local/lib /usr/lib64; do
+        f="$d/libyabridge-vst3.so"
+        [ -f "$f" ] && tr -c '[:print:]' '\n' < "$f" | grep -E '^5\.[0-9]+\.[0-9]+(-[0-9]+-g[0-9a-f]+)?$' | head -1 && return
+    done
+}
+wine_new() { # Wine 9.22 or newer changed window embedding (yabridge issue #409)
+    v=$(wine --version 2>/dev/null | sed -n 's/^wine-\([0-9]*\)\.\([0-9]*\).*/\1 \2/p')
+    set -- $v
+    [ -n "${1:-}" ] && { [ "$1" -gt 9 ] || { [ "$1" -eq 9 ] && [ "${2:-0}" -ge 22 ]; }; }
+}
 if command -v yabridgectl >/dev/null 2>&1; then
+    YV=$(yabridge_version || true)
+    if [ "$YV" = 5.1.1 ] && wine_new; then
+        cat <<EOT
+
+WARNING: yabridge $YV with $(wine --version 2>/dev/null): the plug-in window will NOT react to mouse clicks
+(yabridge issue #409, fixed after 5.1.1). Install a newer yabridge build from
+    https://github.com/robbert-vdh/yabridge/actions  (Automated builds, master branch)
+into ~/.local/share/yabridge and run ./install.sh again. Continuing anyway.
+EOT
+    fi
     yabridgectl add "$VST3_DIR" >/dev/null 2>&1 || true
     # only the TI Revive plug-in is usable; the original "Virus TI" alone finds no Virus
     yabridgectl blacklist add "$VST3_DIR/Virus TI.vst3" >/dev/null 2>&1 || true
     yabridgectl sync
     echo "bridged with yabridge: rescan plug-ins in your DAW and load \"Virus TI (TI Revive)\" (VST3)"
-    echo "NOTE: with Wine 9.22+ the official yabridge 5.1.1 ignores mouse clicks in plug-in windows; use a newer build (README-linux.txt)"
 else
     cat <<EOT
 yabridge is not installed. It makes Windows plug-ins usable in Linux DAWs (REAPER, Bitwig, Ardour, ...):
