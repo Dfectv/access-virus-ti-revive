@@ -12,12 +12,14 @@
 
 #define VTI_PIPE_NAME "\\\\.\\pipe\\vtibroker"
 #define VTI_PROTO_VERSION 3
+#define VTI_TCP_PORT 47615 // Linux broker, 127.0.0.1 (Wine clients); actual port in ~/.config/tirevive/broker.token
 
 enum {
     VTIMSG_HELLO = 1,         // client -> broker: u32 version
     VTIMSG_WRITE = 2,         // client -> broker: u8 ep, data...
     VTIMSG_CONTROL = 3,       // client -> broker: u32 seq, u8 setup[8], OUT data...
-    VTIMSG_AUDIO = 4,         // client -> broker: u32 on (1 = start, 0 = stop), char event_name[] (on = 1)
+    VTIMSG_AUDIO = 4,
+    VTIMSG_AUTH = 5,          // client -> broker, first message on the Linux TCP listener: char token[64] (hex)         // client -> broker: u32 on (1 = start, 0 = stop), char event_name[] (on = 1)
     VTIMSG_RX = 0x81,         // broker -> client: u8 ep, data...
     VTIMSG_CONTROL_REPLY = 0x83, // broker -> client: u32 seq, i32 result (bytes or -1), IN data...
     VTIMSG_STATE = 0x84,      // broker -> client: u32 connected (1 = device open)

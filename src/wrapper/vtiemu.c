@@ -16,6 +16,7 @@
 #include <shlwapi.h>
 #include <tlhelp32.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -480,8 +481,76 @@ static const GUID *map_guid(const GUID *g)
     return g && IsEqualGUID(g, &GUID_ACCESS) ? &GUID_MI04 : g;
 }
 
+#ifdef VTIEMU_VIRTUAL_DEVICE
+// Wine (Linux, findings/design-linux.md): there is no Windows device node for the Virus - the native Linux broker
+// owns it. The Access GUID enumerates one virtual interface whose path carries our MI_04 GUID, so CreateFile
+// below turns it into a virtual handle as on Windows.
+#define FAKE_DEVINFO ((HDEVINFO)(ULONG_PTR)0x7e5a0001)
+static const char VIRTUAL_PATH[] = "\\\\?\\usb#vid_133e&pid_0815#tirevive#{5b45faf8-316b-4b94-aabf-ff442a85c5e7}";
+static BOOL(WINAPI *real_SetupDiGetDeviceInterfaceDetailA)(HDEVINFO, PSP_DEVICE_INTERFACE_DATA,
+                                                           PSP_DEVICE_INTERFACE_DETAIL_DATA_A, DWORD, PDWORD,
+                                                           PSP_DEVINFO_DATA);
+static BOOL(WINAPI *real_SetupDiDestroyDeviceInfoList)(HDEVINFO);
+static BOOL(WINAPI *real_SetupDiOpenDeviceInfoA)(HDEVINFO, PCSTR, HWND, DWORD, PSP_DEVINFO_DATA);
+
+static BOOL WINAPI hook_SetupDiGetDeviceInterfaceDetailA(HDEVINFO di, PSP_DEVICE_INTERFACE_DATA id,
+                                                         PSP_DEVICE_INTERFACE_DETAIL_DATA_A det, DWORD sz, PDWORD req,
+                                                         PSP_DEVINFO_DATA dd)
+{
+    if (di != FAKE_DEVINFO) {
+        if (!real_SetupDiGetDeviceInterfaceDetailA)
+            real_SetupDiGetDeviceInterfaceDetailA =
+                (void *)GetProcAddress(GetModuleHandleA("setupapi.dll"), "SetupDiGetDeviceInterfaceDetailA");
+        return real_SetupDiGetDeviceInterfaceDetailA(di, id, det, sz, req, dd);
+    }
+    DWORD need = (DWORD)(offsetof(SP_DEVICE_INTERFACE_DETAIL_DATA_A, DevicePath) + sizeof VIRTUAL_PATH);
+    if (req)
+        *req = need;
+    if (dd && dd->cbSize == sizeof *dd) {
+        memset(&dd->ClassGuid, 0, sizeof dd->ClassGuid);
+        dd->DevInst = 1;
+    }
+    vlog("SetupDiGetDeviceInterfaceDetailA (virtual) size %lu", sz);
+    if (!det || sz < need) {
+        SetLastError(ERROR_INSUFFICIENT_BUFFER);
+        return FALSE;
+    }
+    memcpy(det->DevicePath, VIRTUAL_PATH, sizeof VIRTUAL_PATH);
+    return TRUE;
+}
+
+static BOOL WINAPI hook_SetupDiDestroyDeviceInfoList(HDEVINFO di)
+{
+    if (di == FAKE_DEVINFO)
+        return TRUE;
+    if (!real_SetupDiDestroyDeviceInfoList)
+        real_SetupDiDestroyDeviceInfoList =
+            (void *)GetProcAddress(GetModuleHandleA("setupapi.dll"), "SetupDiDestroyDeviceInfoList");
+    return real_SetupDiDestroyDeviceInfoList(di);
+}
+
+static BOOL WINAPI hook_SetupDiOpenDeviceInfoA(HDEVINFO di, PCSTR inst, HWND w, DWORD fl, PSP_DEVINFO_DATA dd)
+{
+    vlog("SetupDiOpenDeviceInfoA \"%s\"%s", inst ? inst : "", di == FAKE_DEVINFO ? " (virtual)" : "");
+    if (di == FAKE_DEVINFO) {
+        if (dd && dd->cbSize == sizeof *dd)
+            dd->DevInst = 1;
+        return TRUE;
+    }
+    if (!real_SetupDiOpenDeviceInfoA)
+        real_SetupDiOpenDeviceInfoA = (void *)GetProcAddress(GetModuleHandleA("setupapi.dll"), "SetupDiOpenDeviceInfoA");
+    return real_SetupDiOpenDeviceInfoA(di, inst, w, fl, dd);
+}
+#endif
+
 static HDEVINFO WINAPI hook_SetupDiGetClassDevsA(const GUID *g, PCSTR en, HWND w, DWORD fl)
 {
+#ifdef VTIEMU_VIRTUAL_DEVICE
+    if (g && IsEqualGUID(g, &GUID_ACCESS)) {
+        vlog("SetupDiGetClassDevsA Access GUID -> virtual device list");
+        return FAKE_DEVINFO;
+    }
+#endif
     if (!real_SetupDiGetClassDevsA)
         real_SetupDiGetClassDevsA = (void *)GetProcAddress(GetModuleHandleA("setupapi.dll"), "SetupDiGetClassDevsA");
     if (g && IsEqualGUID(g, &GUID_ACCESS))
@@ -495,6 +564,18 @@ static BOOL WINAPI hook_SetupDiEnumDeviceInterfaces(HDEVINFO di, PSP_DEVINFO_DAT
     if (!real_SetupDiEnumDeviceInterfaces)
         real_SetupDiEnumDeviceInterfaces =
             (void *)GetProcAddress(GetModuleHandleA("setupapi.dll"), "SetupDiEnumDeviceInterfaces");
+#ifdef VTIEMU_VIRTUAL_DEVICE
+    if (di == FAKE_DEVINFO) {
+        if (i > 0 || !id) {
+            SetLastError(ERROR_NO_MORE_ITEMS);
+            return FALSE;
+        }
+        id->InterfaceClassGuid = GUID_ACCESS;
+        id->Flags = SPINT_ACTIVE;
+        id->Reserved = 1;
+        return TRUE;
+    }
+#endif
     return real_SetupDiEnumDeviceInterfaces(di, dd, map_guid(g), i, id);
 }
 
@@ -704,6 +785,11 @@ static const struct {
 } HOOKS[] = {
     {"setupapi.dll", "SetupDiGetClassDevsA", hook_SetupDiGetClassDevsA, 0},
     {"setupapi.dll", "SetupDiEnumDeviceInterfaces", hook_SetupDiEnumDeviceInterfaces, 0},
+#ifdef VTIEMU_VIRTUAL_DEVICE
+    {"setupapi.dll", "SetupDiGetDeviceInterfaceDetailA", hook_SetupDiGetDeviceInterfaceDetailA, 0},
+    {"setupapi.dll", "SetupDiDestroyDeviceInfoList", hook_SetupDiDestroyDeviceInfoList, 0},
+    {"setupapi.dll", "SetupDiOpenDeviceInfoA", hook_SetupDiOpenDeviceInfoA, 0},
+#endif
     {"kernel32.dll", "CreateFileA", hook_CreateFileA, 0},
     {"kernel32.dll", "CreateFileW", hook_CreateFileW, 0},
     {"kernel32.dll", "DeviceIoControl", hook_DeviceIoControl, 0},

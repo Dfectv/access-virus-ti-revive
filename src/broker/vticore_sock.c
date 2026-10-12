@@ -1,8 +1,8 @@
 // vticore_sock.c - client backend of vticore.h for the Windows wrapper running under Wine on Linux
 // (findings/design-linux.md, L2): talks to the NATIVE Linux vtibroker over its Unix domain socket
-// (/tmp/vtibroker-<uid>.sock; Wine's Winsock supports AF_UNIX and maps the Windows path to the Unix one) with the
-// same messages as vticore_pipe.c. Broker audio (protocol 3): the broker's POSIX shared memory
-// /dev/shm/tirevive-audio-<uid> is exposed to vtiaudio.c under the usual name VTI_AUDIO_SHM_NAME (a Windows file
+// (/tmp/vtibroker-<uid>.sock, if this Wine's Winsock has AF_UNIX) or its token-protected TCP listener on 127.0.0.1
+// (Wine 10 as packaged by Ubuntu has no AF_UNIX, E117), with the same messages as vticore_pipe.c.
+// Broker audio (protocol 3): the broker's POSIX shared memory /dev/shm/tirevive-audio-<uid> is exposed to vtiaudio.c under the usual name VTI_AUDIO_SHM_NAME (a Windows file
 // mapping of that file is a MAP_SHARED mapping in Wine), and every VTIMSG_AUDIO_TICK sets the client's event, so
 // vtiaudio.c follows the ring exactly as on Windows.
 // The broker is started by systemd socket activation (tirevive-broker.socket), not from here.
@@ -11,6 +11,7 @@
 #include "vtiproto.h"
 #include <winsock2.h>
 #include <afunix.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -138,9 +139,59 @@ static DWORD WINAPI reader(LPVOID arg)
     return 0;
 }
 
+// TCP fallback (Wine builds without AF_UNIX): 127.0.0.1:<port> plus the token from the user's
+// ~/.config/tirevive/broker.token (Wine passes the Unix home as WINEHOMEDIR = \??\Z:\home\<user>).
+static SOCKET connect_tcp(void)
+{
+    char home[MAX_PATH] = "", path[MAX_PATH + 64], line[128], token[65] = "";
+    int port = 0;
+    if (GetEnvironmentVariableA("WINEHOMEDIR", home, sizeof home)) {
+        if (!strncmp(home, "\\??\\", 4))
+            memmove(home, home + 4, strlen(home + 4) + 1);
+    } else if (GetEnvironmentVariableA("HOME", home, sizeof home) && home[0] == '/') {
+        char z[MAX_PATH];
+        snprintf(z, sizeof z, "Z:%s", home);
+        strcpy(home, z);
+    }
+    snprintf(path, sizeof path, "%s\\.config\\tirevive\\broker.token", home);
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        vti_log("vti: token file %s not found\n", path);
+        return INVALID_SOCKET;
+    }
+    while (fgets(line, sizeof line, f)) {
+        if (!strncmp(line, "port=", 5))
+            port = atoi(line + 5);
+        else if (!strncmp(line, "token=", 6))
+            sscanf(line + 6, "%64[0-9a-f]", token);
+    }
+    fclose(f);
+    if (port <= 0 || strlen(token) != 64) {
+        vti_log("vti: token file %s is invalid\n", path);
+        return INVALID_SOCKET;
+    }
+    SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    struct sockaddr_in sa = {.sin_family = AF_INET, .sin_port = htons((u_short)port)};
+    sa.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    if (s == INVALID_SOCKET || connect(s, (struct sockaddr *)&sa, sizeof sa)) {
+        vti_log("vti: connect 127.0.0.1:%d: error %d\n", port, WSAGetLastError());
+        if (s != INVALID_SOCKET)
+            closesocket(s);
+        return INVALID_SOCKET;
+    }
+    int one = 1;
+    setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (const char *)&one, sizeof one); // small MIDI / tick messages
+    vtimsg h = {VTIMSG_AUTH, 64};
+    if (sock_write(s, &h, sizeof h) || sock_write(s, token, 64)) {
+        closesocket(s);
+        return INVALID_SOCKET;
+    }
+    return s;
+}
+
 static SOCKET connect_broker(void)
 {
-    static int wsa;
+    static int wsa, no_unix;
     if (!wsa) {
         WSADATA d;
         if (WSAStartup(MAKEWORD(2, 2), &d))
@@ -150,11 +201,11 @@ static SOCKET connect_broker(void)
     // Wine converts the Windows path to the Unix one (Z: = /); try that and the plain Unix path
     unsigned uid = unix_uid();
     static const char *fmt[2] = {"Z:\\tmp\\vtibroker-%u.sock", "/tmp/vtibroker-%u.sock"};
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 2 && !no_unix; i++) {
         SOCKET s = socket(AF_UNIX, SOCK_STREAM, 0);
         if (s == INVALID_SOCKET) {
-            vti_log("vti: AF_UNIX sockets not available (error %d)\n", WSAGetLastError());
-            return INVALID_SOCKET;
+            no_unix = 1; // this Wine has no AF_UNIX: TCP from now on
+            break;
         }
         SOCKADDR_UN sa = {.sun_family = AF_UNIX};
         snprintf(sa.sun_path, sizeof sa.sun_path, fmt[i], uid);
@@ -163,7 +214,7 @@ static SOCKET connect_broker(void)
         vti_log("vti: connect %s: error %d\n", sa.sun_path, WSAGetLastError());
         closesocket(s);
     }
-    return INVALID_SOCKET;
+    return connect_tcp();
 }
 
 vti *vti_open(vti_rx_cb cb, void *user)

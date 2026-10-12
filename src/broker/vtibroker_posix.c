@@ -17,6 +17,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <netinet/in.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
@@ -46,6 +48,7 @@ typedef struct {
     int fd;
     pthread_mutex_t wr; // one message at a time per client
     int audio;          // Linux: wants VTIMSG_AUDIO_TICK
+    int tcp;            // Linux: came in over TCP (Wine), must send VTIMSG_AUTH first
 } client;
 
 static client *g_clients[MAX_CLIENTS];
@@ -378,10 +381,100 @@ static void *signal_thread(void *arg)
     return NULL;
 }
 
+#ifdef __linux__
+// ---- Linux: TCP listener for the wrapper under Wine (Wine's Winsock may lack AF_UNIX) ----
+// 127.0.0.1 only, and every connection must first send VTIMSG_AUTH with the secret from the user's token file
+// (~/.config/tirevive/broker.token, 0600: "port=<n>" and "token=<64 hex>"), so other local users cannot use it.
+static char g_token[65];
+static int g_tcp_port;
+
+static int token_load(void)
+{
+    const char *home = getenv("HOME");
+    if (!home)
+        return -1;
+    char dir[512], path[600];
+    snprintf(dir, sizeof dir, "%s/.config/tirevive", home);
+    snprintf(path, sizeof path, "%s/broker.token", dir);
+    FILE *f = fopen(path, "r");
+    if (f) {
+        char line[128];
+        while (fgets(line, sizeof line, f)) {
+            if (!strncmp(line, "port=", 5))
+                g_tcp_port = atoi(line + 5);
+            else if (!strncmp(line, "token=", 6))
+                sscanf(line + 6, "%64[0-9a-f]", g_token);
+        }
+        fclose(f);
+        if (g_tcp_port > 0 && strlen(g_token) == 64)
+            return 0;
+    }
+    // first start: create it (the Linux installer normally does this, see install-linux.sh)
+    uint8_t rnd[32];
+    FILE *u = fopen("/dev/urandom", "rb");
+    if (!u || fread(rnd, 1, sizeof rnd, u) != sizeof rnd) {
+        if (u)
+            fclose(u);
+        return -1;
+    }
+    fclose(u);
+    for (int i = 0; i < 32; i++)
+        snprintf(g_token + 2 * i, 3, "%02x", rnd[i]);
+    if (g_tcp_port <= 0)
+        g_tcp_port = VTI_TCP_PORT;
+    mkdir(dir, 0700);
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd < 0)
+        return -1;
+    dprintf(fd, "port=%d\ntoken=%s\n", g_tcp_port, g_token);
+    close(fd);
+    blog("created %s", path);
+    return 0;
+}
+
+static int tcp_auth(client *c) // first message must be VTIMSG_AUTH {token}
+{
+    vtimsg h;
+    char buf[VTIMSG_MAX];
+    struct timeval tv = {5, 0};
+    setsockopt(c->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
+    int ok = !read_all(c->fd, &h, sizeof h) && h.type == VTIMSG_AUTH && h.len == 64 && !read_all(c->fd, buf, 64) &&
+             g_token[0] && !memcmp(buf, g_token, 64);
+    tv.tv_sec = 0;
+    setsockopt(c->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
+    if (!ok)
+        blog("TCP client: authentication failed, closing");
+    return ok;
+}
+#endif
+
 static void *client_thread(void *arg)
 {
     client *c = arg;
     uint8_t buf[VTIMSG_MAX];
+#ifdef __linux__
+    if (c->tcp && !tcp_auth(c)) {
+        close(c->fd);
+        pthread_mutex_destroy(&c->wr);
+        free(c);
+        return NULL;
+    }
+#endif
+    int slot = -1;
+    pthread_mutex_lock(&g_cs_clients);
+    for (int i = 0; i < MAX_CLIENTS && slot < 0; i++)
+        if (!g_clients[i]) {
+            g_clients[i] = c;
+            slot = i;
+        }
+    pthread_mutex_unlock(&g_cs_clients);
+    if (slot < 0) {
+        blog("too many clients");
+        close(c->fd);
+        pthread_mutex_destroy(&c->wr);
+        free(c);
+        return NULL;
+    }
     pthread_mutex_lock(&g_cs_dev);
     pthread_mutex_lock(&g_cs_clients);
     if (!g_owner)
@@ -510,10 +603,15 @@ int main(int argc, char **argv)
     // Started by systemd socket activation (tirevive-broker.socket, installed by the Linux installer): the socket
     // arrives as fd 3; systemd starts us again on the next connect after the idle exit.
     const char *lpid = getenv("LISTEN_PID"), *lfds = getenv("LISTEN_FDS");
+    int tcp = -1;
     if (lpid && lfds && (pid_t)atol(lpid) == getpid() && atoi(lfds) >= 1) {
         s = 3;
-        blog("socket from systemd");
+        if (atoi(lfds) >= 2)
+            tcp = 4; // second ListenStream of tirevive-broker.socket: 127.0.0.1:<port>
+        blog("socket from systemd%s", tcp >= 0 ? " (+ TCP)" : "");
     }
+    if (token_load())
+        blog("token file could not be read or created: TCP clients (Wine) cannot authenticate");
 #endif
     if (s < 0) {
         s = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -530,6 +628,22 @@ int main(int argc, char **argv)
             return 1;
         }
     }
+#ifdef __linux__
+    if (tcp < 0 && g_tcp_port > 0) {
+        tcp = socket(AF_INET, SOCK_STREAM, 0);
+        int one = 1;
+        setsockopt(tcp, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
+        struct sockaddr_in in = {.sin_family = AF_INET, .sin_port = htons((uint16_t)g_tcp_port),
+                                 .sin_addr.s_addr = htonl(INADDR_LOOPBACK)};
+        if (bind(tcp, (struct sockaddr *)&in, sizeof in) || listen(tcp, 8)) {
+            blog("TCP 127.0.0.1:%d: %s", g_tcp_port, strerror(errno));
+            close(tcp);
+            tcp = -1;
+        }
+    }
+    if (tcp >= 0)
+        blog("TCP listener on 127.0.0.1:%d (token required)", g_tcp_port);
+#endif
     blog("vtibroker starting (protocol %d, %s)", VTI_PROTO_VERSION, sa.sun_path);
 #ifdef __APPLE__
     if (vtimidi_start(midi_write)) // stands in for Access' MIDI driver towards Virus Control (E100)
@@ -544,32 +658,28 @@ int main(int argc, char **argv)
     pthread_create(&t, NULL, tick_thread, NULL);
     pthread_detach(t);
 #endif
+    struct pollfd pf[2] = {{.fd = s, .events = POLLIN}, {.fd = -1, .events = POLLIN}};
+#ifdef __linux__
+    pf[1].fd = tcp;
+#endif
     for (;;) {
-        int fd = accept(s, NULL, NULL);
-        if (fd < 0) {
-            if (errno != EINTR)
-                blog("accept: %s", strerror(errno));
+        if (poll(pf, 2, -1) < 0)
             continue;
-        }
-        client *c = calloc(1, sizeof *c);
-        c->fd = fd;
-        pthread_mutex_init(&c->wr, NULL);
-        int slot = -1;
-        pthread_mutex_lock(&g_cs_clients);
-        for (int i = 0; i < MAX_CLIENTS && slot < 0; i++)
-            if (!g_clients[i]) {
-                g_clients[i] = c;
-                slot = i;
+        for (int k = 0; k < 2; k++) {
+            if (pf[k].fd < 0 || !(pf[k].revents & POLLIN))
+                continue;
+            int fd = accept(pf[k].fd, NULL, NULL);
+            if (fd < 0) {
+                if (errno != EINTR)
+                    blog("accept: %s", strerror(errno));
+                continue;
             }
-        pthread_mutex_unlock(&g_cs_clients);
-        if (slot < 0) {
-            blog("too many clients");
-            close(fd);
-            pthread_mutex_destroy(&c->wr);
-            free(c);
-            continue;
+            client *c = calloc(1, sizeof *c);
+            c->fd = fd;
+            c->tcp = k == 1;
+            pthread_mutex_init(&c->wr, NULL);
+            pthread_create(&t, NULL, client_thread, c);
+            pthread_detach(t);
         }
-        pthread_create(&t, NULL, client_thread, c);
-        pthread_detach(t);
     }
 }
