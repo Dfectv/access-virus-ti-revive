@@ -608,26 +608,35 @@ static int redirect_key(HKEY root, LPCSTR sub, char *to, size_t cap)
     snprintf(to, cap, "Software\\TI Revive\\VirusUSB%s", sub + n);
     return 1;
 }
+// The hooks call the real functions through pointers taken with GetProcAddress (init_common), never by name: a
+// call by name goes through this module's own import table, and if that were ever patched the hook would call
+// itself (0.4.1: the plug-in hung in IComponent::initialize, E092).
+static LSTATUS(WINAPI *real_RegOpenKeyA)(HKEY, LPCSTR, PHKEY);
+static LSTATUS(WINAPI *real_RegOpenKeyExA)(HKEY, LPCSTR, DWORD, REGSAM, PHKEY);
+static LSTATUS(WINAPI *real_RegCreateKeyA)(HKEY, LPCSTR, PHKEY);
+static LSTATUS(WINAPI *real_RegCreateKeyExA)(HKEY, LPCSTR, DWORD, LPSTR, DWORD, REGSAM, const LPSECURITY_ATTRIBUTES,
+                                             PHKEY, LPDWORD);
+
 static LSTATUS WINAPI hook_RegOpenKeyA(HKEY root, LPCSTR sub, PHKEY out)
 {
     char to[512];
     if (redirect_key(root, sub, to, sizeof to))
-        return RegCreateKeyA(HKEY_CURRENT_USER, to, out); // create: the panel opens before it writes
-    return RegOpenKeyA(root, sub, out);
+        return real_RegCreateKeyA(HKEY_CURRENT_USER, to, out); // create: the panel opens before it writes
+    return real_RegOpenKeyA(root, sub, out);
 }
 static LSTATUS WINAPI hook_RegOpenKeyExA(HKEY root, LPCSTR sub, DWORD opt, REGSAM sam, PHKEY out)
 {
     char to[512];
     if (redirect_key(root, sub, to, sizeof to))
-        return RegCreateKeyExA(HKEY_CURRENT_USER, to, 0, NULL, 0, sam, NULL, out, NULL);
-    return RegOpenKeyExA(root, sub, opt, sam, out);
+        return real_RegCreateKeyExA(HKEY_CURRENT_USER, to, 0, NULL, 0, sam, NULL, out, NULL);
+    return real_RegOpenKeyExA(root, sub, opt, sam, out);
 }
 static LSTATUS WINAPI hook_RegCreateKeyA(HKEY root, LPCSTR sub, PHKEY out)
 {
     char to[512];
     if (redirect_key(root, sub, to, sizeof to))
-        return RegCreateKeyA(HKEY_CURRENT_USER, to, out);
-    return RegCreateKeyA(root, sub, out);
+        return real_RegCreateKeyA(HKEY_CURRENT_USER, to, out);
+    return real_RegCreateKeyA(root, sub, out);
 }
 
 static const struct {
@@ -659,9 +668,22 @@ static int dll_matches(const char *imp, const char *want)
     return !_stricmp(want, "kernel32.dll") && !_strnicmp(imp, "api-ms-win-core-", 16);
 }
 
+// The module this emulation is linked into (wrapper VST3, ASIO wrapper, vtiemu*.dll): never patched, its own
+// calls must reach the real functions (E092).
+static HMODULE self_module(void)
+{
+    static HMODULE self;
+    if (!self)
+        GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           (LPCWSTR)(void *)self_module, &self);
+    return self;
+}
+
 // Replace the IAT slots of module m that import one of HOOKS by name (all = 0: only the loader hooks).
 static void patch_module(HMODULE m, int all)
 {
+    if (m == self_module())
+        return;
     BYTE *base = (BYTE *)m;
     IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)(base + ((IMAGE_DOS_HEADER *)base)->e_lfanew);
     IMAGE_DATA_DIRECTORY dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
@@ -763,6 +785,11 @@ static void init_common(void)
         real_LoadLibraryExA = (void *)GetProcAddress(k32, "LoadLibraryExA");
         real_LoadLibraryExW = (void *)GetProcAddress(k32, "LoadLibraryExW");
         real_GetProcAddress = (void *)GetProcAddress(k32, "GetProcAddress");
+        HMODULE adv = LoadLibraryA("advapi32.dll");
+        real_RegOpenKeyA = (void *)GetProcAddress(adv, "RegOpenKeyA");
+        real_RegOpenKeyExA = (void *)GetProcAddress(adv, "RegOpenKeyExA");
+        real_RegCreateKeyA = (void *)GetProcAddress(adv, "RegCreateKeyA");
+        real_RegCreateKeyExA = (void *)GetProcAddress(adv, "RegCreateKeyExA");
         char exe[MAX_PATH];
         GetModuleFileNameA(NULL, exe, sizeof exe);
         vlog("vtiemu attached to pid %lu %s", GetCurrentProcessId(), exe);

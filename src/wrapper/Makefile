@@ -3,7 +3,7 @@ CC = x86_64-w64-mingw32-gcc
 CFLAGS = -O2 -Wall -Wextra
 OUT = ../../work/build
 
-all: $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3 $(OUT)/vtiemu-pipe.dll $(OUT)/vtilaunch.exe $(OUT)/vtiisotest.exe $(OUT)/TIRevive_ASIO.dll $(OUT)/vtiasiohost.exe
+all: $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3 $(OUT)/vtiemu-pipe.dll $(OUT)/vtilaunch.exe $(OUT)/vtiisotest.exe $(OUT)/TIRevive_ASIO.dll $(OUT)/vtiasiohost.exe $(OUT)/vtiloadtest.exe
 
 $(OUT)/vtiemu.dll: vtiemu.c vtiaudio.c vtiusbaudio.c vtiusbaudio.h replay_table.h ../broker/vticore_winusb.c ../broker/vticore_midi.c ../broker/vticore.h
 	mkdir -p $(OUT)
@@ -34,6 +34,11 @@ $(OUT)/TIRevive_ASIO.dll: vtiasio.c vtiemu.c vtiaudio.c vtiusbaudio.c vtiusbaudi
 $(OUT)/vtiasiohost.exe: vtiasiohost.c
 	mkdir -p $(OUT)
 	$(CC) $(CFLAGS) -o $@ vtiasiohost.c -lole32 -luuid -static
+
+# Load a VST3 like a host's plug-in scanner (reproduce load-time hangs): vtiloadtest <plugin.vst3>
+$(OUT)/vtiloadtest.exe: vtiloadtest.c
+	mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -municode -o $@ vtiloadtest.c -static
 
 $(OUT)/vtilaunch.exe: vtilaunch.c
 	mkdir -p $(OUT)
