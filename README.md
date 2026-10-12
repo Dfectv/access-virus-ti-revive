@@ -106,6 +106,8 @@ usable Virus plug-in, and sets that use "Virus TI (TI Revive)" cannot load.
   Revive)*; in GarageBand under *Smart Controls → Plug-ins*). Only Ableton Live (VST3) and GarageBand (AU) are
   tested so far; other hosts should work — reports welcome. Each DAW needs its own microphone permission.
 - The Audio Unit lists the original's 2700 automatable parameters (its unused automation slots are left out).
+- In GarageBand / Logic the original may report **"buffer size too high"** once: click it away. The Audio Unit
+  passes the host's buffers through unchanged, which keeps the timing tight.
 - **Virus Control Center** (32-bit) does not run on current macOS.
 - The Virus' audio comes from macOS' own USB audio driver (the "Virus TI" audio device, 44.1 kHz); unplugging and
   replugging the Virus is detected by the plug-in.
