@@ -11,7 +11,7 @@ Evidence: [evidence.md](evidence.md) (E001-E125), protocol: [spec.md](spec.md)._
 | macOS Apple Silicon | stable: native VST3/AUv2 bridge + Rosetta helper hosting the original, own libVirusUSB, broker (MIDI driver stand-in) | `-mac.zip` (pkg + scripts) | design-macos.md, design-macos-bridge.md |
 | Linux (experimental) | works in REAPER: native broker owns the whole Virus (MIDI + iso audio), Windows wrapper under Wine/yabridge | `-linux.tar.gz` (install.sh) | design-linux.md |
 
-Latest release: **v0.7.2** (2026-10-12, CI run 38291289944, automatically "Latest": CI no longer marks 0.x as
+Latest release: **v0.7.3** (2026-10-12, universal macOS bridge; 0.7.2 CI run 38291289944, automatically "Latest": CI no longer marks 0.x as
 pre-release). 0.7.2 = macOS hides the Intel-only Access plug-ins + Rosetta check, Linux ring polling. Contents: All Notes Off when a client that played notes disconnects (all brokers), Linux
 PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `tirevive-usbinfo.ps1` (Snow testers).
 
@@ -30,7 +30,7 @@ PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `ti
     original Intel "Virus TI.vst3". (a) DONE (not released): "Install Access Virus TI software.command" checks Rosetta and offers to install it,
     bridge log names a missing Rosetta (EBADARCH). (b) DONE (E130, not released): originals moved to /Library/Application Support/TI Revive/Access plug-ins;
     verified in Cubase 15 with a local 0.7.2 test package; uninstall moves them back (tested on the Mac).
-6b. macOS universal bridge (E132, not released): DAWs under Rosetta can load TI Revive; tested with an x86_64 test
+6b. macOS universal bridge (E132, RELEASED in v0.7.3, release package verified universal): DAWs under Rosetta can load TI Revive; tested with an x86_64 test
     host under Rosetta. Open: real test in a DAW under Rosetta with the Virus on the Mac (e.g. Cubase 15 'Open using Rosetta').
 7. macOS: Control Center replacement (Access app is 32-bit) - biggest item.
 
