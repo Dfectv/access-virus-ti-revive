@@ -29,7 +29,7 @@ PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `ti
 6a. ~~macOS + Cubase blocklist~~ - resolved (E129): Cubase 15 loads TI Revive fine; the blocklisted plug-in is the
     original Intel "Virus TI.vst3". (a) DONE (not released): "Install Access Virus TI software.command" checks Rosetta and offers to install it,
     bridge log names a missing Rosetta (EBADARCH). (b) DONE (E130, not released): originals moved to /Library/Application Support/TI Revive/Access plug-ins;
-    verified in Cubase 15 with a local 0.7.2 test package. Uninstall move-back not yet tested on the Mac.
+    verified in Cubase 15 with a local 0.7.2 test package; uninstall moves them back (tested on the Mac).
 7. macOS: Control Center replacement (Access app is 32-bit) - biggest item.
 
 Waiting: **Snow** (issue #3, bidmessmer) - the regular plug-in finds the Snow, the Snow plug-in does not; asked for
