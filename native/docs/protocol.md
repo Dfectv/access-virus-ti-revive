@@ -72,3 +72,10 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   SAMPLE is out of range (|s| > 0x300000 in 24 bit): the Virus marks sync points inside its audio stream and the
   plug-in anchors its time stamps to the sample position of the marker (+ device time from virtual +0x68). Check
   whether the broker's 16-bit ring keeps these markers (it converts 24 -> 16 bit) before implementing.
+- Stamp calibration (virusctl timing, 2026-10-13): notes stamped at newest ring frame + D for D = -2000..+8000 all
+  sound at a FIXED ~6920 frames (157 ms) after sending - with or without a running stamped MIDI clock (24 ppqn).
+  So in our session the Virus does not honour the stamp value; the original reaches sub-ms timing (E121), so its
+  session differs: candidates (R5) the audio sync markers / anchor (0x1800a8900), the time base being the Virus'
+  counter at an anchor rather than the ring frame, the USB control-request handshake. Note: the Virus needs the
+  GlobalInit AND the multi dump (after every broker restart) before it plays plug-in notes - virusctl timing sends only
+  the globals, so run it right after the plug-in (nativehost) or extend it.

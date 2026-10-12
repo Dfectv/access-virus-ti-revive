@@ -2,15 +2,24 @@
 //   virusctl state                       is a Virus connected?
 //   virusctl set <path> <value> [part]   send a parameter change (encoded from remotedevice.xml)
 //   virusctl note <note> [ms] [velocity] play a note on MIDI channel 1 (plug-in cable 2)
+//   virusctl timing                      F5 calibration: notes stamped at newest ring frame + D, onset found in the ring
 //   virusctl sysex <hex bytes> [ms] [file] send a SysEx on cable 2, print the SysEx replies of the next ms (default
 //                                        2000) and append them to file (raw .syx)
 #include "../src/access/accessfiles.h"
+#include "../src/device/audioin.h"
 #include "../src/device/broker.h"
+extern "C" {
+#include "vtiaudioshm.h"
+}
 #include "../src/device/usbmidi.h"
 #include "../src/model/remotedevice.h"
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <atomic>
 #include <map>
 #include <mutex>
 #include <sstream>
@@ -62,6 +71,96 @@ int main(int argc, char **argv)
         std::this_thread::sleep_for(std::chrono::milliseconds(ms));
         broker.write(EP_PLUGIN_OUT, off.data(), off.size());
         printf("note %d %d ms\n", n, ms);
+        return 0;
+    }
+    if (cmd == "timing") {
+        if (broker.audio(true) != 1) {
+            fprintf(stderr, "virusctl: no audio stream\n");
+            return 1;
+        }
+        { // the original's start-up globals (remote mode); the Virus ignores plug-in notes without them
+            auto files = vti::AccessFiles::open("", err);
+            vti::RemoteDevice dev;
+            if (files && dev.load(files->get("remotedevice.xml"), err))
+                for (auto &m : dev.init_messages()) {
+                    auto pk = vti::usbmidi_pack(m, CABLE_PLUGIN);
+                    broker.write(EP_PLUGIN_OUT, pk.data(), pk.size());
+                }
+        }
+        vti::AudioIn a;
+        if (!a.open()) {
+            fprintf(stderr, "virusctl: cannot map the audio ring\n");
+            return 1;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        auto stamp = [&](int64_t f, std::vector<uint8_t> ev) {
+            auto pk = vti::usbmidi_pack({0xF5, (uint8_t)(f & 0x7F), (uint8_t)((f >> 7) & 0x7F)}, 5);
+            auto e = vti::usbmidi_pack(ev, CABLE_PLUGIN);
+            pk.insert(pk.end(), e.begin(), e.end());
+            broker.write(EP_PLUGIN_OUT, pk.data(), pk.size());
+        };
+        // read the raw ring (USB 1 left) via a second mapping of the shm
+        char name[64];
+        snprintf(name, sizeof name, VTI_AUDIO_SHM_LINUX, (unsigned)getuid());
+        int fd = shm_open(name, O_RDONLY, 0);
+        auto *shm = (const vti_audio_shm *)mmap(nullptr, sizeof(vti_audio_shm), PROT_READ, MAP_SHARED, fd, 0);
+        // MIDI clock like the original's (24 ppqn at 120 BPM = every 918.75 frames), each tick stamped with its frame
+        std::atomic<bool> clk_stop{false};
+        std::mutex wmu;
+        std::thread clk;
+        if (getenv("VTI_CLOCK")) {
+            clk = std::thread([&] {
+                double next = (double)a.newest_frame();
+                while (!clk_stop) {
+                    int64_t now = a.newest_frame();
+                    while (next < now + 2048) { // keep ticks ~46 ms ahead
+                        std::lock_guard<std::mutex> lk(wmu);
+                        stamp((int64_t)next, {0xF8});
+                        next += 918.75;
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                }
+            });
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        }
+        std::vector<int> ds;
+        if (const char *l = getenv("VTI_DS")) { // comma-separated offsets
+            for (const char *q = l; *q;) {
+                ds.push_back(atoi(q));
+                while (*q && *q != ',')
+                    q++;
+                if (*q)
+                    q++;
+            }
+        } else
+            for (int d = -8000; d <= 8000; d += 1000)
+                ds.push_back(d);
+        for (int d : ds) {
+            int64_t now = a.newest_frame(), t = now + d;
+            {
+                std::lock_guard<std::mutex> lk(wmu);
+                stamp(t, {0x90, 60, 100});
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(getenv("VTI_WAIT") ? atoi(getenv("VTI_WAIT")) : 400));
+            {
+                std::lock_guard<std::mutex> lk(wmu);
+                stamp(a.newest_frame() + 2048, {0x80, 60, 0});
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            int64_t onset = -1, end = a.newest_frame();
+            for (int64_t f = now - 2000; f < end && onset < 0; f++) {
+                const int16_t *fr = shm->in + (f & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_IN_CH;
+                if (std::abs(fr[2]) > 600 || std::abs(fr[3]) > 600)
+                    onset = f;
+            }
+            printf("D %5d: stamp %lld (sent at ring frame %lld), onset %lld -> onset - stamp %lld, onset - send %lld\n", d,
+                   (long long)t, (long long)now, (long long)onset, (long long)(onset - t), (long long)(onset - now));
+            fflush(stdout);
+        }
+        clk_stop = true;
+        if (clk.joinable())
+            clk.join();
+        broker.audio(false);
         return 0;
     }
     if (cmd == "sysex" && argc >= 3) {
