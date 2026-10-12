@@ -796,8 +796,9 @@ static int serve(const char *sock_path, int daw_pid)
         return 1;
     }
     // exit with the DAW
+    // on a background queue: must fire even if the main thread is stuck inside the plug-in
     dispatch_source_t ds = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, (uintptr_t)daw_pid, DISPATCH_PROC_EXIT,
-                                                  dispatch_get_main_queue());
+                                                  dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
     static char sock_copy[sizeof sa.sun_path];
     strcpy(sock_copy, sa.sun_path);
     dispatch_source_set_event_handler_f(ds, [](void *) {
