@@ -38,6 +38,16 @@ Windows and macOS: the user's own, unmodified Access software, no old drivers, n
 | L4 | Tests in the DAW: load, connect, sync, MIDI, audio, timing (16ths clip) | user at the PC |
 | L5 | Packaging: `TI-Revive-<v>-linux.tar.gz` with install script (broker, udev rule, Wine prefix setup, yabridge sync), CI on tags, README | |
 
+## Status (2026-10-12)
+
+- L1 done (E114, E116): broker audio on libusb, hand-back to snd-usb-audio in all cases.
+- L2 done: vticore_sock.c; Wine 10 (Ubuntu) has no AF_UNIX -> token-protected TCP on 127.0.0.1 (E117).
+- L3 largely done WITHOUT root (E117/E118): lab Wine from the Ubuntu packages via bubblewrap, Access software from
+  the patched MSI, virtual device enumeration; test host vtihost.exe under Wine: memory sync, notes and the Virus'
+  audio through the plug-in. Missing: yabridge + a real DAW (user).
+- L5 drafted: src/installer-linux (install.sh, uninstall.sh, systemd user socket, udev uaccess rule, vtimsipatch.exe),
+  scripts/linux-build-release.sh -> TI-Revive-<v>-linux.tar.gz. Not yet in CI.
+
 ## Risks (to settle in this order)
 
 1. Does the Access Windows plug-in (VSTGUI, GDI) run under Wine/yabridge? -> first thing in L3.
