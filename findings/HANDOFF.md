@@ -19,7 +19,7 @@ PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `ti
 
 1. ~~Mark a release as Latest~~ - done (0.7.1).
 2. ~~Tidy up HANDOFF~~ - done (this file).
-3. Windows setup.exe: look at the interactive dialogs (only silent install/upgrade/uninstall tested in the VM).
+3. ~~Windows setup.exe interactive dialogs~~ - done (E126).
 4. Linux: first note at transport start sounds ~57 ms late and the second (125 ms) is missing (E121, E125) - check
    whether the same happens on Windows/Mac, then where (plug-in start of stream vs our ring/clock at Play).
 5. Occasional Virus sync reports (Sync Information Event 0x54) in small bursts during playback (E125: 14 in ~160 s;
