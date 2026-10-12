@@ -14,7 +14,7 @@ current systems can no longer load. No kernel code of its own is installed.
 | **You need** | your own Access "Virus TI Software Suite" 64-bit `.msi` | your own Access "Virus TI Software Suite" `.pkg` |
 | **In your DAW** | plug-in **"Virus TI (TI Revive)"** (VST3), ASIO device "Virus TI (TI Revive)" | plug-in **"Virus TI (TI Revive)"** (VST3); the DAW runs natively |
 | **Virus Control Center** | yes | not on current macOS (the Access app is 32-bit) |
-| **Tested with** | Ableton Live 11 (Windows 11 PC and VM, Windows 10) | Ableton Live 12 (MacBook Air M3, macOS 26) |
+| **Tested with** | Ableton Live 11 (Windows 11 PC and VM, Windows 10); REAPER connects | Ableton Live 12 (MacBook Air M3, macOS 26); other VST3 hosts untested; **Logic Pro / GarageBand need the Audio Unit version (in development)** |
 
 > TI Revive is an independent project. It is **not affiliated with Access Music Electronics GmbH or
 > Kemper GmbH**. "Access", "Virus" and "Virus TI" are trademarks of their owners and are used only to
@@ -99,7 +99,9 @@ usable Virus plug-in, and sets that use "Virus TI (TI Revive)" cannot load.
 **macOS**
 
 - **Microphone permission** for your DAW is required (see above); without it the plug-in stays silent.
-- **VST3 only** for now (no Audio Unit yet).
+- **VST3 only** for now: Logic Pro and GarageBand load only Audio Units, so they cannot use TI Revive yet (an AU
+  version is in development). Other VST3 hosts (REAPER, Bitwig, Cubase, Studio One, ...) should work but are
+  untested so far — reports welcome; each DAW needs its own microphone permission.
 - **Virus Control Center** (32-bit) does not run on current macOS.
 - The Virus' audio comes from macOS' own USB audio driver (the "Virus TI" audio device, 44.1 kHz); unplugging and
   replugging the Virus is detected by the plug-in.
