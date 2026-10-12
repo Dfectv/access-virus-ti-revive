@@ -1,0 +1,5 @@
+# never commit Access material (graphics, XML, firmware, decompiled code) or device recordings with patch data
+work/
+build/
+*.wav
+*.trace

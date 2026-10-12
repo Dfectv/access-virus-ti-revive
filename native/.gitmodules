@@ -1,0 +1,6 @@
+[submodule "external/ti-revive"]
+	path = external/ti-revive
+	url = https://github.com/derpsn/access-virus-ti-revive.git
+[submodule "external/vst3sdk"]
+	path = external/vst3sdk
+	url = https://github.com/steinbergmedia/vst3sdk.git
