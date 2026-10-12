@@ -21,7 +21,7 @@ P="$VST3SDK/pluginterfaces"
 mkdir -p "$OUT"
 VERSION="${VERSION:-0.5.0}"
 export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-14.4}" # os_sync_wait_on_address (tirbridge.h)
-CXX="clang++ -std=c++17 -O2 -Wall -Wno-unused-parameter -I $VST3SDK -I $REPO/src/mac/common"
+CXX="clang++ -std=c++17 -O2 -Wall -Wno-unused-parameter -I $VST3SDK -I $REPO/src/mac/common -DTIR_VERSION=\"$VERSION\""
 
 echo "== helper (x86_64)"
 $CXX -arch x86_64 -I "$REPO/src/mac/helper" -o "$OUT/vtihelper" "$REPO/src/mac/helper/vtihelper.cpp" \

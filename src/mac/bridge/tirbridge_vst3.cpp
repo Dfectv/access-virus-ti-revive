@@ -36,6 +36,10 @@ DEF_CLASS_IID(IParamValueQueue)
 } // namespace Vst
 } // namespace Steinberg
 
+#ifndef TIR_VERSION
+#define TIR_VERSION "0.0.0" // set by scripts/mac-build-bridge.sh
+#endif
+
 // our class id (random, fixed forever: DAW projects refer to it)
 static const TUID kBridgeCid = INLINE_UID(0x7A1E5C3B, 0x4D2F4E61, 0x9B0C8A17, 0x2F64D5E9);
 
@@ -403,7 +407,7 @@ class Factory : public IPluginFactory2 {
         strcpy(info->name, "Virus TI (TI Revive)");
         strcpy(info->subCategories, "Instrument|Synth");
         strcpy(info->vendor, "TI Revive");
-        strcpy(info->version, "0.5.0");
+        strcpy(info->version, TIR_VERSION);
         strcpy(info->sdkVersion, kVstVersionString);
         return kResultOk;
     }
