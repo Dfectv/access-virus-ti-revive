@@ -39,5 +39,22 @@ part 1) 0.0/0.5/1.0 -> `B0 28 00` / `B0 28 40` / `B0 28 7F` (value = round(norm 
 Envelope/Attack) 0.75 -> `B0 3B 5F`. ParamID 156 (Filter 2/Cutoff) 0.25 sent NOTHING (to explain: probably Filters/
 Cutoff Link on -> filter 2 follows filter 1). On plug-in close the original resets globals (73 00 3B/3A/3C/7A).
 
+## editor.xml - the UI (VSTGUI-style), root `<Editor>`
+
+- `Prototypes`: 36 control classes with default colours/size - standard (Container, PatchContainer, StaticText,
+  Knob/MaskedKnob/Vertical-/Horizontal-/Inverse*Knob, Vertical-/HorizontalSlider, VUSlider, Button, KickButton,
+  DblClkButton, URLButton, RadioButton, Inc/DecButton, Menu, HierarchicMenu, TextEdit, TextSlider, NameEdit,
+  SearchEdit) and Virus-specific (PatchBrowser, RemoteBrowser, ADSTREnvelope, ArpEdit, OscClassicShape,
+  OscHypersawShape, LP4/HP4/BP4/BS4Response filter curves, WebDisplay).
+- `Bitmaps/bmpNNNNN Name="X.png" Tile=/TileInsetRect` - 404 bitmap entries (id -> PNG name, tiling insets).
+- `Frame/Container ...` - 20 top-level containers (header, page area, right border, pages); every element:
+  `Part` (-1 = current part), `Style`, `Tag`, `Name`, `Parameter` (device parameter path, or editor state
+  `VirusControl/...`), `NormalBack`/`PressedBack`/`DisabledBack` (PNG names; knob = vertical filmstrip),
+  `Condition` (visibility/enable, conditions from remotedevice.xml or editordevice.xml), `Enabled`, `Transparent`,
+  text attributes (`Align FontSize FontStyle ControlFont Shadow`), `OnValue` (radio buttons), child `BackColor`,
+  `ForeColor` (rgba), `Size left top width height` (relative to the parent).
+  Counts: 298 knobs, 158 radio buttons, 109 buttons, 91 menus, 119 containers, 72 static texts, 33 patch containers.
+- editordevice.xml (not yet analysed): editor-internal parameters such as `VirusControl/SelectedPage`.
+
 ## Still to describe
 editor.xml / editordevice.xml (UI), automation.xml (DAW automation ids), the "PR" variants.
