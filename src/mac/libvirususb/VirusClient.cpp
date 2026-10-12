@@ -141,9 +141,17 @@ static void *g_device_id; // the opaque device ID handed to Virus Control (= &g_
 static int g_reported = -1; // last state reported to the clients
 // The broker's handshake on opening the Virus resets its USB audio while AppleUSBAudio's stream keeps running; that
 // stream then delivers broken, much quieter audio until it restarts (E109). A change of the nominal rate WHILE the stream
-// runs restarts it on the device (a change while idle is only remembered by macOS and does not help), so after every
-// (re)connection - and once per process - the rate is switched away and back right after the stream has started.
+// runs restarts it on the device (a change while idle is only remembered by macOS); right after the handshake it does
+// not stick either, so RESYNC_DELAY_S after every (re)connection the rate is switched away and back once (diag thread).
 static std::atomic<bool> g_stream_resync{true};
+static std::atomic<long> g_resync_due{0}; // CLOCK_MONOTONIC seconds: restart the stream at/after this time
+#define RESYNC_DELAY_S 10 // after the broker's handshake the Virus needs a while before a restart sticks (E109)
+static long mono_s()
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (long)ts.tv_sec;
+}
 
 static void notify_clients(int connected)
 {
@@ -184,8 +192,10 @@ static void *reader(void *)
         if (h[0] == MSG_STATE && h[1] >= 4) {
             g_connected = buf[0] != 0;
             vlog("broker: device %s", g_connected ? "connected" : "disconnected");
-            if (g_connected)
+            if (g_connected) {
                 g_stream_resync = true;
+                g_resync_due = mono_s() + RESYNC_DELAY_S;
+            }
             notify_clients(g_connected);
         } else if (h[0] == MSG_CONTROL_REPLY && h[1] >= 8) {
             pthread_mutex_lock(&g_ctl);
@@ -550,8 +560,22 @@ static void stream_resync(Float64 target);
 
 static void *diag_thread(void *) // every 5 s: what the audio path sees (vlog is not real-time safe: not in the IOProc)
 {
-    for (;;) {
-        sleep(5);
+    for (int tick = 0;; tick++) {
+        sleep(1);
+        if (g_stream_resync && g_resync_due && mono_s() >= g_resync_due) { // see g_stream_resync
+            bool running = false;
+            pthread_mutex_lock(&g_clients_mx);
+            for (auto &kv : g_clients)
+                running |= kv.second->running;
+            pthread_mutex_unlock(&g_clients_mx);
+            if (running) {
+                Float64 cur = 44100;
+                dev_get(kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeGlobal, cur);
+                stream_resync(cur > 0 ? cur : 44100);
+            }
+        }
+        if (tick % 5)
+            continue;
         pthread_mutex_lock(&g_clients_mx);
         for (auto &kv : g_clients) {
             audio_client *c = kv.second;
@@ -594,11 +618,7 @@ int VirusClient::vc_start(unsigned long fs)
         dev_set(kAudioDevicePropertyBufferFrameSize, (UInt32)fs);
     OSStatus st = c->running ? 0 : AudioDeviceStart(c->dev, c->proc);
     c->running = !st;
-    if (c->running && g_stream_resync) { // only a change WHILE streaming reaches the Virus (E109)
-        Float64 cur = 44100;
-        dev_get(kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeGlobal, cur);
-        stream_resync(cur > 0 ? cur : 44100);
-    }
+
     Float64 rate = 0;
     dev_get(kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeGlobal, rate);
     vlog("%p vc_start framesize %lu -> %s (device at %.0f Hz)", this, fs, st ? "FAILED" : "running", rate);
