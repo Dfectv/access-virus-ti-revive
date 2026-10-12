@@ -1,20 +1,25 @@
 # TI Revive
 
-**Total Integration for the Access Virus TI on Windows 11 and on Apple Silicon Macs — without the old drivers.**
+**Total Integration for the Access Virus TI on Windows 11, on Apple Silicon Macs and (experimental) on Linux — without the old drivers.**
 
 TI Revive brings the Access Virus TI (Desktop, Polar, Keyboard, Snow) back to current computers: the original
 Virus TI plug-in with its "Total Integration" works again — parameter sync, preset browsing, the Virus audio
 streamed into your DAW through the plug-in — using your own Access software, without the old Access drivers that
 current systems can no longer load. No kernel code of its own is installed.
 
-| | Windows 11 | macOS on Apple Silicon |
-|---|---|---|
-| **Download** ([Releases](https://github.com/derpsn/access-virus-ti-revive/releases)) | `TI-Revive-<version>-setup.exe` (or the same as `.msi`) | `TI-Revive-<version>-mac.zip` (since 0.5.0, beta) |
-| **System** | Windows 11 x64 (also Windows 10) | M1 or newer, macOS 14.4 or newer, Rosetta 2 |
-| **You need** | your own Access "Virus TI Software Suite" 64-bit `.msi` | your own Access "Virus TI Software Suite" `.pkg` |
-| **In your DAW** | plug-in **"Virus TI (TI Revive)"** (VST3), ASIO device "Virus TI (TI Revive)" | plug-in **"Virus TI (TI Revive)"** (VST3 and Audio Unit); the DAW runs natively |
-| **Virus Control Center** | yes | not on current macOS (the Access app is 32-bit) |
-| **Tested with** | Ableton Live 11 (Windows 11 PC and VM, Windows 10); REAPER connects | Ableton Live 12 (VST3) and GarageBand (Audio Unit, passes Apple's `auval`) on a MacBook Air M3, macOS 26; Logic Pro and other hosts untested |
+| | Windows 11 | macOS on Apple Silicon | Linux (experimental) |
+|---|---|---|---|
+| **Download** ([Releases](https://github.com/derpsn/access-virus-ti-revive/releases)) | `TI-Revive-<version>-setup.exe` (or the same as `.msi`) | `TI-Revive-<version>-mac.zip` (since 0.5.0, beta) | `TI-Revive-<version>-linux.tar.gz` (since 0.7.0) |
+| **System** | Windows 11 x64 (also Windows 10) | M1 or newer, macOS 14.4 or newer, Rosetta 2 | x86_64, Wine 9.22+ / 10, yabridge newer than 5.1.1, systemd |
+| **You need** | your own Access "Virus TI Software Suite" 64-bit `.msi` | your own Access "Virus TI Software Suite" `.pkg` | your own Access 64-bit `.msi` (installed into Wine) |
+| **In your DAW** | plug-in **"Virus TI (TI Revive)"** (VST3), ASIO device "Virus TI (TI Revive)" | plug-in **"Virus TI (TI Revive)"** (VST3 and Audio Unit); the DAW runs natively | plug-in **"Virus TI (TI Revive)"** (VST3 through yabridge); the DAW runs natively |
+| **Virus Control Center** | yes | not on current macOS (the Access app is 32-bit) | no |
+| **Tested with** | Ableton Live 11 (Windows 11 PC and VM, Windows 10); REAPER connects | Ableton Live 12 (VST3) and GarageBand (Audio Unit, passes Apple's `auval`) on a MacBook Air M3, macOS 26; Logic Pro and other hosts untested | REAPER 7.82 on Ubuntu 26.04 (GNOME, Wayland), Wine 10.0 |
+
+**Virus TI Snow:** being tested. If TI Revive does not find your Snow, please run
+[`tirevive-usbinfo.ps1`](scripts/tirevive-usbinfo.ps1) (also attached to each release: right-click → *Run with
+PowerShell*) with the Snow connected and attach the `TI-Revive-usbinfo.txt` it saves on your Desktop to a
+[GitHub issue](https://github.com/derpsn/access-virus-ti-revive/issues). It only reads USB information.
 
 > TI Revive is an independent project. It is **not affiliated with Access Music Electronics GmbH or
 > Kemper GmbH**. "Access", "Virus" and "Virus TI" are trademarks of their owners and are used only to
@@ -70,6 +75,26 @@ plug-ins and use **"Virus TI (TI Revive)"**. After loading, the sound starts aft
 Uninstall with `Uninstall TI Revive.command` (also in `/Library/Application Support/TI Revive`); it removes only
 TI Revive (the Access plug-ins are removed with Access' own uninstaller). Without TI Revive a native DAW has no
 usable Virus plug-in, and sets that use "Virus TI (TI Revive)" cannot load.
+
+### Linux (experimental)
+
+Requirements: an x86_64 Linux with systemd (tested: Ubuntu 26.04), **Wine** (e.g. `sudo apt install wine`),
+**yabridge newer than 5.1.1** — the 5.1.1 release ignores mouse clicks in plug-in windows with Wine 9.22 and newer
+(yabridge [#409](https://github.com/robbert-vdh/yabridge/issues/409)); use a build from the project's *Automated
+builds* until a new release is out — a native VST3 host (REAPER, Bitwig, Ardour, …) and your own Access 64-bit
+`.msi`.
+
+1. Unpack `TI-Revive-<version>-linux.tar.gz` and run `./install.sh "/path/to/Virus TI Software Suite 5.1.7.00 64-bit.msi"`.
+   It allows your user to use the Virus over USB (udev rule, asks for your password once), installs the TI Revive
+   broker as a systemd user socket, installs your Access software into your Wine prefix **without its old drivers
+   and firmware updater**, copies the plug-in and bridges it with yabridge.
+2. For stable real-time audio, let your user use real-time priority (Ubuntu: `sudo usermod -aG pipewire $USER`,
+   then log out and in).
+3. In your DAW, rescan plug-ins and use **"Virus TI (TI Revive)"**. The first start syncs the Virus' memory once
+   (about 7 minutes); later starts play after a few seconds.
+
+While TI Revive uses the Virus, it is not available as a Linux sound card; it is handed back about 30 seconds after
+the plug-in is closed. Uninstall with `./uninstall.sh`. Details: `README-linux.txt` in the package.
 
 ## Good to know
 
@@ -222,6 +247,21 @@ backed by an entry in [`findings/evidence.md`](findings/evidence.md) (captures, 
 driver code). The macOS design is in [`findings/design-macos.md`](findings/design-macos.md) and
 [`findings/design-macos-bridge.md`](findings/design-macos-bridge.md).
 
+### Linux (experimental)
+
+```
+ Linux DAW (native) ── yabridge ── Wine: "Virus TI (TI Revive).vst3" (the Windows wrapper) ── your original Virus TI.vst3
+                                          │  the same driver emulation as on Windows; device access over a
+                                          │  token-protected local socket, audio ring in /dev/shm
+                                          ▼
+                              vtibroker (native, libusb, started by systemd on demand): the whole Virus TI -
+                              MIDI on interfaces 3/4 and the USB audio, streamed isochronously like on Windows
+```
+
+Linux' own USB audio driver cannot share the Virus (taking the vendor interfaces away shuts its sound card down),
+so the broker owns the whole device while TI Revive is in use and hands it back to Linux afterwards. Design and
+measurements: [`findings/design-linux.md`](findings/design-linux.md), evidence E113–E121.
+
 ## Status
 
 | Milestone | |
@@ -243,6 +283,10 @@ driver code). The macOS design is in [`findings/design-macos.md`](findings/desig
 | Installer (.pkg + Access script, GitHub Actions build) | done, released as 0.5.0 (beta) |
 | Audio Unit (AUv2) for Logic / GarageBand | done, tested in GarageBand, passes `auval` |
 | Control Center replacement | open |
+| **Linux (experimental)** | |
+| Broker with USB audio on libusb, device handed back to Linux | done |
+| Windows wrapper under Wine/yabridge (sync, MIDI, audio, editor) | done, tested in REAPER 7.82 (Ubuntu 26.04): timing sample-accurate |
+| Installer (`install.sh`, systemd user socket, GitHub Actions build) | done, released as 0.7.0 |
 
 ## Building
 
