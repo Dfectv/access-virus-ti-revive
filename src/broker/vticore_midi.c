@@ -50,3 +50,29 @@ void vti_unpack(vti_unpacker *u, const uint8_t *data, int len, vti_sysex_cb done
         }
     }
 }
+
+int vti_has_note_on(const uint8_t *data, int len)
+{
+    for (int i = 0; i + 3 < len; i += 4)
+        if ((data[i] & 0x0F) == 0x9 && (data[i + 1] & 0xF0) == 0x90 && data[i + 3]) // CIN 9 with velocity > 0
+            return 1;
+    return 0;
+}
+
+int vti_pack_notes_off(uint8_t *out, int outsz)
+{
+    const uint8_t cable = 2; // the plug-in's notes (EP 0x06 cable 2, E056)
+    int o = 0;
+    for (int ch = 0; ch < 16; ch++) {
+        static const uint8_t cc[2] = {64, 123}; // sustain pedal off, All Notes Off
+        for (int k = 0; k < 2; k++) {
+            if (o + 4 > outsz)
+                return -1;
+            out[o++] = (uint8_t)(cable << 4 | 0xB);
+            out[o++] = (uint8_t)(0xB0 | ch);
+            out[o++] = cc[k];
+            out[o++] = 0;
+        }
+    }
+    return o;
+}

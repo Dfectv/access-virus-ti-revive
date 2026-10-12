@@ -56,3 +56,8 @@ typedef struct {
 typedef void (*vti_sysex_cb)(void *user, uint8_t cable, const uint8_t *msg, int len);
 typedef void (*vti_event_cb)(void *user, uint8_t cable, const uint8_t *ev, int len);
 void vti_unpack(vti_unpacker *u, const uint8_t *data, int len, vti_sysex_cb done, vti_event_cb ev, void *user);
+
+// Hanging-note protection (brokers): does a plug-in channel write (EP 0x06, USB-MIDI packets) contain a note-on, and
+// the packets that silence everything (sustain off + All Notes Off on all 16 channels of the cables the plug-in uses)
+int vti_has_note_on(const uint8_t *data, int len);
+int vti_pack_notes_off(uint8_t *out, int outsz); // returns the number of bytes (128 per cable) or -1

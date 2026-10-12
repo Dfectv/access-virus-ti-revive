@@ -42,6 +42,7 @@ typedef struct {
     uint32_t q_head, q_len;
     volatile LONG alive;
     HANDLE sender;
+    int notes; // has sent note-ons: silence the Virus when it goes away (hanging-note protection)
 } client;
 static client *g_clients[MAX_CLIENTS];
 
@@ -412,6 +413,8 @@ static DWORD WINAPI client_thread(LPVOID arg)
             break;
         case VTIMSG_WRITE:
             if (h.len >= 1) {
+                if (buf[0] == VTI_EP_MI04_OUT && !c->notes && vti_has_note_on(buf + 1, h.len - 1))
+                    c->notes = 1;
                 EnterCriticalSection(&g_cs_dev);
                 int r = g_dev ? vti_write(g_dev, buf[0], buf + 1, h.len - 1) : -1;
                 LeaveCriticalSection(&g_cs_dev);
@@ -450,6 +453,14 @@ static DWORD WINAPI client_thread(LPVOID arg)
         }
     }
     blog("client disconnected");
+    if (c->notes) { // a DAW that crashed or was killed cannot send its note-offs any more
+        uint8_t off[256];
+        int n = vti_pack_notes_off(off, sizeof off);
+        EnterCriticalSection(&g_cs_dev);
+        int r = g_dev && n > 0 ? vti_write(g_dev, VTI_EP_MI04_OUT, off, n) : -1;
+        LeaveCriticalSection(&g_cs_dev);
+        blog("all notes off (the client had played notes) -> %d", r);
+    }
     audio_request(c, 0, NULL);
     EnterCriticalSection(&g_cs_clients);
     for (int i = 0; i < MAX_CLIENTS; i++)

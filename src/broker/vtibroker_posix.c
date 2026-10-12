@@ -50,6 +50,7 @@ typedef struct {
     pthread_mutex_t wr; // one message at a time per client
     int audio;          // Linux: wants VTIMSG_AUDIO_TICK
     int tcp;            // Linux: came in over TCP (Wine), must send VTIMSG_AUTH first
+    int notes;          // has sent note-ons: silence the Virus when it goes away (hanging-note protection)
 } client;
 
 static client *g_clients[MAX_CLIENTS];
@@ -524,6 +525,8 @@ static void *client_thread(void *arg)
             break;
         case VTIMSG_WRITE:
             if (h.len >= 1 && is_owner(c)) {
+                if (buf[0] == VTI_EP_MI04_OUT && !c->notes && vti_has_note_on(buf + 1, h.len - 1))
+                    c->notes = 1;
                 pthread_mutex_lock(&g_cs_dev);
                 int r = g_dev ? vti_write(g_dev, buf[0], buf + 1, h.len - 1) : -1;
                 pthread_mutex_unlock(&g_cs_dev);
@@ -588,6 +591,11 @@ static void *client_thread(void *arg)
     }
     blog("client disconnected");
     pthread_mutex_lock(&g_cs_dev);
+    if (c->notes && g_dev) { // a DAW that crashed or was killed cannot send its note-offs any more
+        uint8_t off[256];
+        int n = vti_pack_notes_off(off, sizeof off);
+        blog("all notes off (the client had played notes) -> %d", n > 0 ? vti_write(g_dev, VTI_EP_MI04_OUT, off, n) : -1);
+    }
     pthread_mutex_lock(&g_cs_clients);
     for (int i = 0; i < MAX_CLIENTS; i++)
         if (g_clients[i] == c)
