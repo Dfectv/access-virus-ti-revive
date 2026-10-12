@@ -18,4 +18,4 @@ ls -d /Library/Extensions/AccessVirusTI.kext /Library/Audio/Plug-Ins/HAL/de.acce
 kmutil showloaded 2>/dev/null | grep -i access || echo "no Access kext loaded"
 echo "== DAW"; ls -d /Applications/Ableton* 2>/dev/null
 for a in /Applications/Ableton*/Contents/MacOS/*; do [ -f "$a" ] && file "$a"; done 2>/dev/null | head -3
-echo "== tools"; xcode-select -p 2>/dev/null || echo "no Xcode command line tools"; command -v brew || echo "no Homebrew"
+echo "== tools"; xcode-select -p 2>/dev/null || echo "no Xcode command line tools"; ls /opt/homebrew/bin/brew 2>/dev/null || command -v brew || echo "no Homebrew"
