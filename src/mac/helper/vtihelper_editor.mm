@@ -6,6 +6,7 @@
 #import <Cocoa/Cocoa.h>
 #include <fcntl.h>
 #include <objc/runtime.h>
+#include <dlfcn.h>
 #include <algorithm>
 #include <atomic>
 #include <vector>
@@ -78,6 +79,18 @@ static HelperEditor *editor_for_window(NSWindow *w);
     (void)sender;
     return NO;
 }
+@end
+
+// borderless windows cannot become key by default; VSTGUI's frame only works fully in a key window (E107)
+@interface TIRKeyWindow : NSWindow
+@end
+@implementation TIRKeyWindow
+- (BOOL)canBecomeKeyWindow { return YES; }
+- (BOOL)canBecomeMainWindow { return YES; }
+// VSTGUI's CFrame only carries out focus changes while it is "active" (CFrame +0x158, set from the window's key
+// notification via -isKeyWindow; Virus Control 0x9478 setFocusView). The helper is never the active app, so AppKit
+// never makes this window key: report it as key, so text edits end on Return / focus loss (E107).
+- (BOOL)isKeyWindow { return YES; }
 @end
 
 @interface TIRRenderTimer : NSObject
@@ -260,7 +273,7 @@ HelperEditor *editor_open(Vst::IEditController *ctl, const char *shm_prefix, dou
     v->getSize(&r);
     e->w = r.getWidth() > 0 ? r.getWidth() : 800;
     e->h = r.getHeight() > 0 ? r.getHeight() : 600;
-    e->win = [[NSWindow alloc] initWithContentRect:NSMakeRect(x, y - e->h, e->w, e->h)
+    e->win = [[TIRKeyWindow alloc] initWithContentRect:NSMakeRect(x, y - e->h, e->w, e->h)
                                          styleMask:NSWindowStyleMaskBorderless
                                            backing:NSBackingStoreBuffered
                                              defer:NO];
@@ -281,6 +294,10 @@ HelperEditor *editor_open(Vst::IEditController *ctl, const char *shm_prefix, dou
         delete e;
         return nullptr;
     }
+    // VSTGUI only moves its focus (e.g. ends a text edit on Return: CFrame::setFocusView -> looseFocus) while the frame
+    // is active, which it learns from NSWindowDidBecomeKeyNotification. Our window is never key (inactive helper), so
+    // text edits never ended (E107): tell VSTGUI the window is active.
+    [[NSNotificationCenter defaultCenter] postNotificationName:NSWindowDidBecomeKeyNotification object:e->win];
     if (!e->map_pixels()) {
         editor_close(e);
         return nullptr;
@@ -602,4 +619,106 @@ void editor_menu_result(HelperEditor *e, const tirb_menu_result &r)
     e->menu_res = r;
     e->menu_done = true;
     CFRunLoopWakeUp(CFRunLoopGetMain());
+}
+
+const char *editor_first_responder(HelperEditor *e) // diagnostics (VTI_SCRIPT "fr")
+{
+    static char buf[256];
+    NSResponder *r = e ? [e->win firstResponder] : nil;
+    snprintf(buf, sizeof buf, "%s%s", r ? [NSStringFromClass([r class]) UTF8String] : "(none)",
+             [r isKindOfClass:[NSText class]] ? [[NSString stringWithFormat:@" text=\"%@\"", [(NSText *)r string]]
+                                                    UTF8String]
+                                              : "");
+    return buf;
+}
+
+const char *editor_end_editing(HelperEditor *e) // diagnostics (VTI_SCRIPT "endedit"): what a click elsewhere does
+{
+    BOOL ok = [e->win makeFirstResponder:nil];
+    return ok ? "resigned" : "refused";
+}
+
+const char *editor_text_command(HelperEditor *e, const char *sel) // diagnostics (VTI_SCRIPT "cmd insertNewline:")
+{
+    NSResponder *r = [e->win firstResponder];
+    if (![r isKindOfClass:[NSTextView class]])
+        return "no text view";
+    NSTextView *tv = (NSTextView *)r;
+    SEL s = NSSelectorFromString([NSString stringWithUTF8String:sel]);
+    id tf = [tv delegate];
+    if ([tf respondsToSelector:@selector(control:textView:doCommandBySelector:)]) {
+        Ivar iv = class_getInstanceVariable([tf class], "_textEdit");
+        void *pte = iv ? *(void **)((char *)(__bridge void *)tf + ivar_getOffset(iv)) : nullptr; // C++ pointer ivar
+        if (pte) {
+            void **cb = *(void ***)((char *)pte + 0x10); // object the handler calls (vtable +0x40 = loose focus)
+            void **vt = *(void ***)cb;
+            for (int k = 0; k < 12; k++) {
+                Dl_info di{};
+                dladdr(vt[k], &di);
+                printf("  callback vtable[%d] +0x%x = %s + 0x%lx\n", k, k * 8,
+                       di.dli_fname ? strrchr(di.dli_fname, '/') + 1 : "?",
+                       (unsigned long)((char *)vt[k] - (char *)di.dli_fbase));
+            }
+            void *frame = *(void **)((char *)cb - 0xf8); // CTextEdit (cb - 0x148) + 0x50 = CFrame*
+            void **fvt = *(void ***)frame;
+            for (int k : {97, 98, 99}) {
+                Dl_info fi{};
+                dladdr(fvt[k], &fi);
+                printf("  frame vtable[%d] +0x%x = %s + 0x%lx\n", k, k * 8, fi.dli_fname ? strrchr(fi.dli_fname, '/') + 1 : "?",
+                       (unsigned long)((char *)fvt[k] - (char *)fi.dli_fbase));
+            }
+            Dl_info di{};
+            dladdr((void *)vt, &di);
+            printf("  callback vtable at %s + 0x%lx\n", di.dli_fname ? strrchr(di.dli_fname, '/') + 1 : "?",
+                   (unsigned long)((char *)vt - (char *)di.dli_fbase));
+        }
+        BOOL ok = [tf control:tf textView:tv doCommandBySelector:s];
+        printf("direct control:textView:doCommandBySelector: -> %d\n", ok);
+        return "sent to delegate";
+    }
+    [tv doCommandBySelector:s];
+    return "sent";
+}
+
+static void dump_methods(Class c, const char *what)
+{
+    for (; c && c != [NSObject class]; c = class_getSuperclass(c)) {
+        unsigned n = 0;
+        Method *m = class_copyMethodList(c, &n);
+        printf("  %s %s: %u methods:", what, class_getName(c), n);
+        if (strncmp(class_getName(c), "NS", 2)) // only the plug-in's own classes in full
+            for (unsigned i = 0; i < n; i++)
+                printf(" %s", sel_getName(method_getName(m[i])));
+        printf("\n");
+        free(m);
+    }
+}
+
+void editor_inspect_text(HelperEditor *e) // diagnostics (VTI_SCRIPT "inspect")
+{
+    NSResponder *r = [e->win firstResponder];
+    printf("first responder %s\n", r ? class_getName([r class]) : "-");
+    if (![r isKindOfClass:[NSTextView class]])
+        return;
+    NSTextView *tv = (NSTextView *)r;
+    id d = [tv delegate];
+    for (const char *sn : {"control:textView:doCommandBySelector:", "removeFromSuperview", "initWithTextEdit:"}) {
+        IMP imp = class_getMethodImplementation(objc_getClass("VSTGUI_NSTextField"), sel_getUid(sn));
+        Dl_info di{};
+        dladdr((void *)imp, &di);
+        printf("IMP %s = %s + 0x%lx\n", sn, di.dli_fname ? strrchr(di.dli_fname, '/') + 1 : "?",
+               (unsigned long)((char *)imp - (char *)di.dli_fbase));
+    }
+    printf("field editor delegate %s %p, fieldEditor %d\n", d ? class_getName([d class]) : "-", (__bridge void *)d,
+           [tv isFieldEditor]);
+    if (d) {
+        dump_methods([d class], "delegate");
+        if ([d respondsToSelector:@selector(delegate)]) {
+            id dd = [(NSTextField *)d delegate];
+            printf("text field delegate %s %p\n", dd ? class_getName([dd class]) : "-", (__bridge void *)dd);
+            if (dd)
+                dump_methods([dd class], "tf-delegate");
+        }
+    }
+    fflush(stdout);
 }

@@ -938,6 +938,10 @@ static int probe(const char *path, int seconds)
 
 // --editor-dump <out.png>: open the original's editor through the bridge path, render for 3 s, save the front frame
 extern bool editor_dump_png(HelperEditor *e, const char *path);
+extern const char *editor_first_responder(HelperEditor *e);
+extern const char *editor_end_editing(HelperEditor *e);
+extern const char *editor_text_command(HelperEditor *e, const char *sel);
+extern void editor_inspect_text(HelperEditor *e);
 static int editor_dump(const char *png)
 {
     if (!load_original("/Library/Audio/Plug-Ins/VST3/Virus TI.vst3"))
@@ -952,23 +956,78 @@ static int editor_dump(const char *png)
     if (!in->editor)
         return 1;
     CFRunLoopRunInMode(kCFRunLoopDefaultMode, 3.0, false);
-    if (getenv("VTI_INPUT_TEST")) { // replay mouse moves and a click on the "OSC" tab like the bridge would
+    // VTI_SCRIPT: drive the editor like the bridge would, e.g.
+    //   "wait 60; png /tmp/a.png; dclick 300 480; type Foo; key 36 \r; fr; wait 1; png /tmp/b.png"
+    // commands: wait <s> | click <x> <y> | dclick <x> <y> | move <x> <y> | type <text> | key <keycode> [chars]
+    //           | fr (log the first responder) | png <file>   (x, y in view points, origin top-left)
+    if (const char *script = getenv("VTI_SCRIPT")) {
         atexit(on_exit_log);
-        for (int k = 0; k < 20; k++) {
-            tirb_input mv{};
-            mv.kind = 4;
-            mv.x = 300 + k * 5, mv.y = 200;
-            editor_input(in->editor, mv);
-            CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.02, false);
+        std::string all = script;
+        size_t pos = 0;
+        while (pos < all.size()) {
+            size_t end = all.find(';', pos);
+            std::string cmd = all.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
+            pos = end == std::string::npos ? all.size() : end + 1;
+            char op[16] = "", arg[128] = "";
+            float x = 0, y = 0;
+            if (sscanf(cmd.c_str(), " %15s %127[^\n]", op, arg) < 1)
+                continue;
+            tirb_input ev{};
+            if (!strcmp(op, "wait"))
+                CFRunLoopRunInMode(kCFRunLoopDefaultMode, atof(arg), false);
+            else if (!strcmp(op, "png"))
+                printf("png %s: %s\n", arg, editor_dump_png(in->editor, arg) ? "written" : "FAILED");
+            else if (!strcmp(op, "fr"))
+                printf("first responder: %s\n", editor_first_responder(in->editor));
+            else if (!strcmp(op, "inspect"))
+                editor_inspect_text(in->editor);
+            else if (!strcmp(op, "cmd"))
+                printf("cmd: %s\n", editor_text_command(in->editor, arg));
+            else if (!strcmp(op, "endedit"))
+                printf("endedit: %s\n", editor_end_editing(in->editor));
+            else if ((!strcmp(op, "click") || !strcmp(op, "dclick") || !strcmp(op, "move")) &&
+                     sscanf(arg, "%f %f", &x, &y) == 2) {
+                ev.x = x, ev.y = y;
+                if (!strcmp(op, "move")) {
+                    ev.kind = 4;
+                    editor_input_post(in->editor, ev);
+                } else
+                    for (int c = 1; c <= (!strcmp(op, "dclick") ? 2 : 1); c++) {
+                        ev.click_count = c;
+                        ev.kind = 1;
+                        editor_input_post(in->editor, ev);
+                        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.05, false);
+                        ev.kind = 2;
+                        editor_input_post(in->editor, ev);
+                        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.05, false);
+                    }
+            } else if (!strcmp(op, "type")) {
+                for (const char *c = arg; *c; c++) {
+                    ev.chars[0] = *c, ev.chars[1] = 0;
+                    ev.key_code = 0;
+                    ev.kind = 6;
+                    editor_input_post(in->editor, ev);
+                    ev.kind = 7;
+                    editor_input_post(in->editor, ev);
+                    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.03, false);
+                }
+            } else if (!strcmp(op, "key")) {
+                unsigned code = 0;
+                char chars[8] = "";
+                sscanf(arg, "%u %7s", &code, chars);
+                if (!strcmp(chars, "\\r") || !chars[0])
+                    strcpy(chars, "\r");
+                ev.key_code = code;
+                strcpy(ev.chars, chars);
+                ev.kind = 6;
+                editor_input_post(in->editor, ev);
+                ev.kind = 7;
+                editor_input_post(in->editor, ev);
+            }
+            CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, false);
+            printf("done: %s\n", cmd.c_str());
+            fflush(stdout);
         }
-        tirb_input c{};
-        c.x = 370, c.y = 24, c.click_count = 1;
-        c.kind = 1;
-        editor_input(in->editor, c);
-        c.kind = 2;
-        editor_input(in->editor, c);
-        printf("input replayed\n");
-        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0, false);
     }
     printf("png %s\n", editor_dump_png(in->editor, png) ? "written" : "FAILED");
     destroy_instance(in);
