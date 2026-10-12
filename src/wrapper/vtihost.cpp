@@ -429,6 +429,17 @@ int main(int argc, char **argv)
     }
     comp->terminate();
     comp->release();
+    fac->release();
+    printf("terminated, unloading\n");
+    fflush(stdout);
+    auto exitdll = (bool (*)())GetProcAddress(m, "ExitDll");
+    if (exitdll)
+        exitdll();
+    printf("FreeLibrary -> %d\n", FreeLibrary(m));
     printf("done\n");
+    fflush(stdout);
+    // the original's Virus Control.dll can hang in DLL_PROCESS_DETACH at process exit after its editor was open
+    // (E119); a host process does not need the clean exit
+    TerminateProcess(GetCurrentProcess(), 0);
     return 0;
 }
