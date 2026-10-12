@@ -10,6 +10,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <deque>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -28,6 +29,8 @@ public:
     DeviceOut();
     ~DeviceOut();
     void send(std::vector<uint8_t> msg); // a complete MIDI message (SysEx or channel message)
+    // messages from the Virus' panel (EP 0x86 cable 2: knob moves as CC / poly pressure / parameter SysEx)
+    void on_panel(std::function<void(const std::vector<uint8_t> &)> h) { panel_ = std::move(h); }
     bool connected() const { return broker_.device_present(); }
     AudioIn &audio() { return audio_; } // read from process(); valid once audio_ready()
     bool audio_ready() const { return audio_ok_; }
@@ -41,6 +44,8 @@ private:
     bool open_ = false;
     AudioIn audio_;
     std::atomic<bool> audio_ok_{false};
+    std::function<void(const std::vector<uint8_t> &)> panel_;
+    bool rx_set_ = false;
     std::thread worker_;
     void run();
 };
@@ -76,6 +81,9 @@ private:
     };
     RemoteDevice dev_;
     std::map<Steinberg::Vst::ParamID, Mapped> params_;
+    std::map<std::pair<std::string, int>, Steinberg::Vst::ParamID> ids_; // (path, part 0-based) -> id
+    std::mutex pending_mu_;
+    std::vector<std::pair<Steinberg::Vst::ParamID, double>> pending_; // device -> host, handed over in process()
     const MidiMessage *single_template_ = nullptr;
     std::vector<std::vector<uint8_t>> state_; // the state records (start-up messages), see formats.md
     std::mutex state_mu_;
@@ -85,6 +93,7 @@ private:
     std::vector<std::vector<uint8_t>> default_; // a new instance's state (from the user's plug-in binary)
 
     void apply_state_to_params();
+    void panel_message(const std::vector<uint8_t> &msg);
     void send_state();
     void set_part_value(int part, const std::string &path, int value); // keeps the part dump in state_ current
 };

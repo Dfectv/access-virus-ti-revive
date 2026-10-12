@@ -335,6 +335,34 @@ bool RemoteDevice::upgrade_single(std::vector<uint8_t> &m, const std::vector<uin
     return changed;
 }
 
+std::vector<RemoteDevice::Change> RemoteDevice::decode(const std::vector<uint8_t> &m) const
+{
+    std::vector<Change> out;
+    if (by_ctl_.empty()) { // built lazily: (message id, controller index) -> parameters
+        auto *self = const_cast<RemoteDevice *>(this);
+        for (auto &p : parameters)
+            if (p.controller >= 0 && !p.message.empty())
+                self->by_ctl_[{p.message, p.controller}].push_back(p.path);
+    }
+    std::string id;
+    int ctl = -1, part = 0, value = 0;
+    if (m.size() == 3 && (m[0] & 0xF0) == 0xB0)
+        id = "cc", ctl = m[1], part = m[0] & 15, value = m[2];
+    else if (m.size() == 3 && (m[0] & 0xF0) == 0xA0)
+        id = "pp", ctl = m[1], part = m[0] & 15, value = m[2];
+    else if (m.size() == 11 && m[0] == 0xF0 && m[1] == 0x00 && m[2] == 0x20 && m[3] == 0x33 && m[10] == 0xF7) {
+        for (auto &msg : messages) // the parameter SysEx template whose byte 6 is this page
+            if (msg.bytes.size() == 11 && msg.bytes[6].tag == m[6])
+                id = msg.id;
+        ctl = m[8], part = m[7], value = m[9];
+    }
+    auto it = by_ctl_.find({id, ctl});
+    if (it != by_ctl_.end())
+        for (auto &path : it->second)
+            out.push_back({path, part, value});
+    return out;
+}
+
 int RemoteDevice::value_of(const std::string &path, const std::string &text) const
 {
     const Parameter *p = find(path);

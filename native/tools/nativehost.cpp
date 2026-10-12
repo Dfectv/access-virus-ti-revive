@@ -127,7 +127,7 @@ int main(int argc, char **argv)
     HostProcessData data;
     data.prepare(*comp, 512, kSample32);
     data.numSamples = 512;
-    ParameterChanges pc;
+    ParameterChanges pc, outpc;
     EventList ev;
     std::vector<int16_t> pcm;
     float peak = 0;
@@ -162,7 +162,26 @@ int main(int argc, char **argv)
                 }
             }
         data.inputParameterChanges = &pc;
+        outpc.clearQueue();
+        data.outputParameterChanges = &outpc;
         proc->process(data);
+        for (int32 i = 0; i < outpc.getParameterCount(); i++) { // device -> host (knobs on the Virus)
+            IParamValueQueue *q = outpc.getParameterData(i);
+            int32 off;
+            ParamValue v;
+            if (q && q->getPoint(q->getPointCount() - 1, off, v) == kResultOk) {
+                String128 title{};
+                ParameterInfo pi{};
+                if (ctl)
+                    for (int32 k = 0; k < ctl->getParameterCount(); k++)
+                        if (ctl->getParameterInfo(k, pi) == kResultOk && pi.id == q->getParameterId())
+                            break;
+                char t[128] = "";
+                for (int k = 0; k < 127 && pi.title[k]; k++)
+                    t[k] = (char)pi.title[k];
+                printf("from the Virus: %u %s = %.3f\n", (unsigned)q->getParameterId(), t, v);
+            }
+        }
         if (data.numOutputs > 0 && data.outputs[0].numChannels >= 2) {
             float *l = data.outputs[0].channelBuffers32[0], *r = data.outputs[0].channelBuffers32[1];
             for (int i = 0; i < 512; i++) {

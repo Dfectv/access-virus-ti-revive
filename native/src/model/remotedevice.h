@@ -94,6 +94,14 @@ public:
     // The message that changes `path` to `value` for `part` (0-based; 16 = global) and device id - CC, poly pressure
     // or a parameter SysEx, built from the parameter's transport template. Empty if the parameter has none.
     std::vector<uint8_t> encode(const std::string &path, int value, int part, int device_id = 0x10) const;
+    // Inverse of encode: the parameter changes in one message from the Virus (CC = page A, poly pressure = page B,
+    // parameter SysEx pages 6E..74). Several parameters can share a controller (mode-dependent meaning); all are
+    // returned. part = MIDI channel / SysEx part byte (0-based; 16 = global page / part "none").
+    struct Change {
+        std::string path;
+        int part = 0, value = 0;
+    };
+    std::vector<Change> decode(const std::vector<uint8_t> &msg) const;
     // Value of `path` for a valuelist text ("MIDI REMOTE", "Off", "01"); -1 if neither an entry nor a number.
     int value_of(const std::string &path, const std::string &text) const;
     // The messages the original sends at start-up before the project state: GlobalInit, then ParamInit.
@@ -120,6 +128,7 @@ public:
 
 private:
     std::map<std::string, size_t> index_;
+    std::map<std::pair<std::string, int>, std::vector<std::string>> by_ctl_; // (message id, controller) -> paths
 };
 
 } // namespace vti

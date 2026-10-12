@@ -50,6 +50,14 @@ void DeviceOut::run()
     while (!stop_) {
         if (!open_) {
             std::string err;
+            if (!rx_set_) {
+                auto parser = std::make_shared<UsbMidiParser>([this](uint8_t ep, int cable, const std::vector<uint8_t> &m) {
+                    if (ep == 0x86 && cable == 2 && panel_)
+                        panel_(m);
+                });
+                broker_.on_rx([parser](uint8_t ep, const uint8_t *d, size_t len) { parser->feed(ep, d, len); });
+                rx_set_ = true;
+            }
             open_ = broker_.open(err);
             if (open_ && !audio_ok_) { // the owner starts the Virus audio stream (Linux: shm ring)
                 int r = broker_.audio(true);
@@ -198,6 +206,7 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
         snprintf(units, sizeof units, "Part %02d/", e.part);
         parameters.addParameter(UString128(title), UString128(units), 0, 0.0, ParameterInfo::kCanAutomate, e.id);
         params_[(ParamID)e.id] = {e.path, e.part - 1};
+        ids_[{e.path, e.part - 1}] = (ParamID)e.id;
     }
     for (int ch = 0; ch < 16; ch++) {
         parameters.addParameter(STR16("Aftertouch"), STR16("Aftertouch"), 0, 0.0, ParameterInfo::kCanAutomate,
@@ -206,6 +215,7 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
                                 MIDI_MAP_BASE + ch * 0x1000 + 0x81);
     }
     out_ = std::make_unique<DeviceOut>();
+    out_->on_panel([this](const std::vector<uint8_t> &m) { panel_message(m); });
     // the original's start-up: GlobalInit (remote mode, cable numbers, clock sync, ...) + ParamInit, before any state
     for (auto &m : dev_.init_messages())
         out_->send(m);
@@ -304,6 +314,16 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
                             (uint8_t)std::lround(e.noteOff.velocity * 127)});
         }
     }
+    // device -> host: knob moves on the Virus as output parameter changes (the host updates the controller)
+    if (data.outputParameterChanges && pending_mu_.try_lock()) {
+        for (auto &pc : pending_) {
+            int32 idx;
+            if (IParamValueQueue *q = data.outputParameterChanges->addParameterData(pc.first, idx))
+                q->addPoint(0, pc.second, idx);
+        }
+        pending_.clear();
+        pending_mu_.unlock();
+    }
     // audio: Out 1 = USB 1, Out 2 = USB 2 of the Virus (broker ring), Out 3 silent for now
     for (int32 b = 0; b < data.numOutputs; b++)
         for (int32 c = 0; c < data.outputs[b].numChannels; c++)
@@ -316,6 +336,20 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             out_->audio().read(o1[0], o1[1], o2[0], o2[1], data.numSamples, 2 * block_ + 256);
     }
     return kResultOk;
+}
+
+void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
+{
+    for (auto &c : dev_.decode(msg)) {
+        if (c.part > 15)
+            continue; // globals are not plug-in parameters
+        set_part_value(c.part, c.path, c.value);
+        auto it = ids_.find({c.path, c.part});
+        if (it != ids_.end()) {
+            std::lock_guard<std::mutex> lk(pending_mu_);
+            pending_.push_back({it->second, c.value / 127.0});
+        }
+    }
 }
 
 void VirusPlugin::apply_state_to_params()

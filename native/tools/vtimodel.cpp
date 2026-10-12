@@ -84,6 +84,12 @@ int main(int argc, char **argv)
             fclose(f);
         }
         printf("init patch %zu bytes, version %d -> %d%s\n", d.size(), v, d.size() > 9 ? d[9] : -1, ch ? "" : " (unchanged)");
+    } else if (cmd == "decode" && !args.empty()) { // a message from the Virus (hex bytes) -> parameter changes
+        std::vector<uint8_t> m;
+        for (auto &a : args)
+            m.push_back((uint8_t)strtoul(a.c_str(), nullptr, 16));
+        for (auto &c : dev.decode(m))
+            printf("%-50s part %2d value %d\n", c.path.c_str(), c.part, c.value);
     } else if (cmd == "init") { // start-up messages (GlobalInit + ParamInit)
         for (auto &m : dev.init_messages()) {
             for (auto b : m)
