@@ -3,7 +3,7 @@ CC = x86_64-w64-mingw32-gcc
 CFLAGS = -O2 -Wall -Wextra
 OUT = ../../work/build
 
-all: $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3 $(OUT)/vtiemu-pipe.dll $(OUT)/vtilaunch.exe $(OUT)/vtiisotest.exe $(OUT)/TIRevive_ASIO.dll $(OUT)/vtiasiohost.exe $(OUT)/vtiloadtest.exe $(OUT)/linux-wine/VirusTI_TIRevive.vst3
+all: $(OUT)/vtiemu.dll $(OUT)/VirusTI_WinUSB.vst3 $(OUT)/vtiemu-pipe.dll $(OUT)/vtilaunch.exe $(OUT)/vtiisotest.exe $(OUT)/TIRevive_ASIO.dll $(OUT)/vtiasiohost.exe $(OUT)/vtiloadtest.exe $(OUT)/linux-wine/VirusTI_TIRevive.vst3 $(OUT)/vtihost.exe
 
 $(OUT)/vtiemu.dll: vtiemu.c vtiaudio.c vtiusbaudio.c vtiusbaudio.h replay_table.h ../broker/vticore_winusb.c ../broker/vticore_midi.c ../broker/vticore.h
 	mkdir -p $(OUT)
@@ -46,6 +46,13 @@ $(OUT)/vtiasiohost.exe: vtiasiohost.c
 $(OUT)/vtiloadtest.exe: vtiloadtest.c
 	mkdir -p $(OUT)
 	$(CC) $(CFLAGS) -municode -o $@ vtiloadtest.c -static
+
+# VST3 test host for Windows / Wine (process loop, test notes, WAV): vtihost <plugin.vst3> [seconds] [out.wav] [quiet]
+VST3SDK ?= ../../work/vst3sdk
+$(OUT)/vtihost.exe: vtihost.cpp
+	mkdir -p $(OUT)
+	x86_64-w64-mingw32-g++ -std=c++17 -O2 -Wall -Wno-format -I$(VST3SDK) -o $@ vtihost.cpp $(VST3SDK)/pluginterfaces/base/funknown.cpp \
+		-static -lole32 -luuid
 
 $(OUT)/vtilaunch.exe: vtilaunch.c
 	mkdir -p $(OUT)

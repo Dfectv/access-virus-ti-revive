@@ -156,6 +156,24 @@ static void on_rx(void *user, uint8_t ep, const uint8_t *data, int len)
     if (g_owner)
         send_msg(g_owner, VTIMSG_RX, &ep, 1, data, len);
     pthread_mutex_unlock(&g_cs_clients);
+    if (g_verbose) { // RX packets per endpoint, once per second
+        static unsigned n[2], bytes[2];
+        static time_t last;
+        n[ep == VTI_EP_MI04_IN]++, bytes[ep == VTI_EP_MI04_IN] += (unsigned)len;
+        static unsigned dumped;
+        if (g_verbose > 1 && dumped++ < 20000) {
+            char hex[3 * 32 + 1] = "";
+            for (int k = 0; k < len && k < 32; k++)
+                snprintf(hex + 3 * k, 4, " %02x", data[k]);
+            blog("rx ep%02x %d:%s", ep, len, hex);
+        }
+        time_t now = time(NULL);
+        if (now != last) {
+            blog("rx: ep85 %u packets %u bytes, ep86 %u packets %u bytes", n[0], bytes[0], n[1], bytes[1]);
+            n[0] = n[1] = bytes[0] = bytes[1] = 0;
+            last = now;
+        }
+    }
 }
 
 #ifdef __linux__
@@ -497,8 +515,12 @@ static void *client_thread(void *arg)
                 pthread_mutex_lock(&g_cs_dev);
                 int r = g_dev ? vti_write(g_dev, buf[0], buf + 1, h.len - 1) : -1;
                 pthread_mutex_unlock(&g_cs_dev);
-                if (g_verbose || r)
-                    blog("write ep%02x %d bytes -> %d", buf[0], h.len - 1, r);
+                if (g_verbose || r) {
+                    char hex[3 * 24 + 1] = "";
+                    for (int k = 0; k < h.len - 1 && k < 24; k++)
+                        snprintf(hex + 3 * k, 4, " %02x", buf[1 + k]);
+                    blog("write ep%02x %d bytes -> %d:%s", buf[0], h.len - 1, r, hex);
+                }
             }
             break;
         case VTIMSG_CONTROL:
@@ -574,7 +596,7 @@ static void *client_thread(void *arg)
 int main(int argc, char **argv)
 {
     for (int i = 1; i < argc; i++) {
-        g_verbose |= !strcmp(argv[i], "-v");
+        g_verbose += !strcmp(argv[i], "-v") + 2 * !strcmp(argv[i], "-vv");
         g_stay |= !strcmp(argv[i], "-stay");
     }
     signal(SIGPIPE, SIG_IGN);
