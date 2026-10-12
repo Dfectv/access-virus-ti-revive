@@ -25,6 +25,12 @@ PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `ti
 5. Occasional Virus sync reports (Sync Information Event 0x54) in small bursts during playback (E125: 14 in ~160 s;
    Windows Access driver E073: 4 in 5 min); the plug-in then shows "sync error", audio clean.
 6. macOS: Logic Pro test (AU), needs the user at the Mac.
+6a. macOS + Cubase 14 (Reddit, Sequoia 15.8.1): "Virus TI (TI Revive).vst3" blocklisted, reactivation fails. The bridge's
+    initialize() returns kResultFalse when the Rosetta helper does not start (no Rosetta: background spawn gets no
+    install prompt; README-mac wrongly says macOS offers it), the original Access plug-in is missing, or the helper
+    needs > 30 s. Asked the user for: Rosetta check, Access install, Mac model, version, /tmp/tirevive-bridge.log +
+    /tmp/tirevive-helper.log. TODO: (a) Mac pkg checks for Rosetta and offers to install it; (b) bridge scan-tolerant
+    (fixed bus layout / cached parameter list when the helper is not up yet instead of failing initialize).
 7. macOS: Control Center replacement (Access app is 32-bit) - biggest item.
 
 Waiting: **Snow** (issue #3, bidmessmer) - the regular plug-in finds the Snow, the Snow plug-in does not; asked for
