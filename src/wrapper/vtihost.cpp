@@ -7,8 +7,11 @@
 // env: VTI_BLOCK=64..512 (block size), VTI_EDITOR=<file.bmp> (open the editor, screenshot it every 10 s),
 //      VTI_LISTPARAMS=1 (print all parameters of the controller and exit),
 //      VTI_PARAMS="id=normalized@seconds,..." (scripted parameter changes through process(), e.g. automation tests)
+//      VTI_SAVESTATE=<file> (component + controller state at the end), VTI_LOADSTATE=<file> (restore before activation;
+//      file: "VTISTATE" u32 n + component state, u32 n + controller state)
 // build: make -C src/wrapper (x86_64-w64-mingw32-g++, VST3 pluginterfaces from work/vst3sdk, MIT)
 #include <windows.h>
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cstdio>
@@ -16,6 +19,7 @@
 #include <cstring>
 #include <vector>
 
+#include "pluginterfaces/base/ibstream.h"
 #include "pluginterfaces/base/ipluginbase.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
@@ -34,6 +38,7 @@ DEF_CLASS_IID(FUnknown)
 DEF_CLASS_IID(IPluginFactory)
 DEF_CLASS_IID(IPlugView)
 DEF_CLASS_IID(IPlugFrame)
+DEF_CLASS_IID(IBStream)
 namespace Vst {
 DEF_CLASS_IID(IComponent)
 DEF_CLASS_IID(IAudioProcessor)
@@ -382,6 +387,107 @@ static IPlugView *open_editor(IEditController *ctl)
     return view;
 }
 
+// Minimal IBStream over a byte vector (state save/load).
+struct MemStream : IBStream {
+    std::vector<uint8_t> d;
+    size_t pos = 0;
+    tresult PLUGIN_API queryInterface(const TUID iid, void **obj) override
+    {
+        if (FUnknownPrivate::iidEqual(iid, IBStream::iid) || FUnknownPrivate::iidEqual(iid, FUnknown::iid)) {
+            *obj = this;
+            return kResultOk;
+        }
+        *obj = nullptr;
+        return kNoInterface;
+    }
+    uint32 PLUGIN_API addRef() override { return 1; }
+    uint32 PLUGIN_API release() override { return 1; }
+    tresult PLUGIN_API read(void *buf, int32 n, int32 *got) override
+    {
+        size_t k = std::min((size_t)std::max(n, 0), d.size() - std::min(pos, d.size()));
+        memcpy(buf, d.data() + pos, k);
+        pos += k;
+        if (got)
+            *got = (int32)k;
+        return kResultOk;
+    }
+    tresult PLUGIN_API write(void *buf, int32 n, int32 *done) override
+    {
+        if (pos + n > d.size())
+            d.resize(pos + n);
+        memcpy(d.data() + pos, buf, n);
+        pos += n;
+        if (done)
+            *done = n;
+        return kResultOk;
+    }
+    tresult PLUGIN_API seek(int64 p, int32 mode, int64 *res) override
+    {
+        int64 base = mode == IBStream::kIBSeekSet ? 0 : mode == IBStream::kIBSeekCur ? (int64)pos : (int64)d.size();
+        pos = (size_t)std::max<int64>(0, base + p);
+        if (res)
+            *res = (int64)pos;
+        return kResultOk;
+    }
+    tresult PLUGIN_API tell(int64 *p) override
+    {
+        *p = (int64)pos;
+        return kResultOk;
+    }
+};
+
+static void save_state(IComponent *comp, IEditController *ctl, const char *path)
+{
+    MemStream a, b;
+    tresult ra = comp->getState(&a);
+    printf("getState -> %d (%zu bytes)", (int)ra, a.d.size());
+    if (ctl)
+    {
+        tresult rb = ctl->getState(&b);
+        printf(", controller getState -> %d (%zu bytes)", (int)rb, b.d.size());
+    }
+    printf("\n");
+    FILE *f = fopen(path, "wb");
+    if (!f)
+        return;
+    uint32_t n = (uint32_t)a.d.size(), m = (uint32_t)b.d.size();
+    fwrite("VTISTATE", 1, 8, f);
+    fwrite(&n, 4, 1, f);
+    fwrite(a.d.data(), 1, n, f);
+    fwrite(&m, 4, 1, f);
+    fwrite(b.d.data(), 1, m, f);
+    fclose(f);
+}
+
+static void load_state(IComponent *comp, IEditController *ctl, const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        printf("cannot open %s\n", path);
+        return;
+    }
+    char magic[8];
+    uint32_t n = 0, m = 0;
+    MemStream a, b;
+    if (fread(magic, 1, 8, f) == 8 && !memcmp(magic, "VTISTATE", 8) && fread(&n, 4, 1, f) == 1) {
+        a.d.resize(n);
+        if (fread(a.d.data(), 1, n, f) == n && fread(&m, 4, 1, f) == 1) {
+            b.d.resize(m);
+            if (fread(b.d.data(), 1, m, f) != m)
+                b.d.clear();
+        }
+    }
+    fclose(f);
+    printf("setState -> %d (%zu bytes)", (int)comp->setState(&a), a.d.size());
+    if (ctl) {
+        a.pos = 0;
+        printf(", setComponentState -> %d", (int)ctl->setComponentState(&a));
+        if (!b.d.empty())
+            printf(", controller setState -> %d", (int)ctl->setState(&b));
+    }
+    printf("\n");
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -489,6 +595,8 @@ int main(int argc, char **argv)
         g_stop_frames = (long)(atof(getenv("VTI_TRANSPORT")) * 44100);
     if (getenv("VTI_BLOCK"))
         g_block = atoi(getenv("VTI_BLOCK"));
+    if (const char *ls = getenv("VTI_LOADSTATE"))
+        load_state(comp, ctl, ls);
     ProcessSetup ps{kRealtime, kSample32, g_block, 44100};
     printf("block %d\n", g_block);
     printf("setupProcessing -> %d\n", (int)proc->setupProcessing(ps));
@@ -519,6 +627,8 @@ int main(int argc, char **argv)
         DestroyWindow(g_editor_wnd);
     }
     proc->setProcessing(false);
+    if (const char *ss = getenv("VTI_SAVESTATE"))
+        save_state(comp, ctl, ss);
     comp->setActive(false);
     if (ctl && (void *)ctl != (void *)comp) {
         ctl->terminate();
