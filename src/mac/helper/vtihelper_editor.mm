@@ -101,6 +101,8 @@ struct HelperEditor final : IPlugFrame {
     int w = 0, h = 0;
     editor_notify_cb notify = nullptr;
     bool key_focus = false;
+    std::atomic<long> win_number{0}; // for posting events from the control thread
+    std::atomic<int> height{0};
     std::atomic<uint32_t> menu_id{0};
     std::atomic<bool> menu_done{false};
     tirb_menu_result menu_res{};
@@ -124,6 +126,7 @@ struct HelperEditor final : IPlugFrame {
         v->onSize(r);
         if (!px) { // still inside editor_open (attached): just take the size, the reply reports it
             w = r->getWidth(), h = r->getHeight();
+            height = h;
             [container setFrame:NSMakeRect(0, 0, w, h)];
             place();
             return kResultOk;
@@ -166,6 +169,7 @@ struct HelperEditor final : IPlugFrame {
     void set_size(int nw, int nh)
     {
         w = nw, h = nh;
+        height = nh;
         [container setFrame:NSMakeRect(0, 0, w, h)];
         place();
         map_pixels();
@@ -268,6 +272,8 @@ HelperEditor *editor_open(Vst::IEditController *ctl, const char *shm_prefix, dou
     e->container = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, e->w, e->h)];
     [e->win setContentView:e->container];
     [e->win orderFront:nil];
+    e->win_number = (long)[e->win windowNumber];
+    e->height = e->h;
     v->setFrame(e);
     if (v->attached((__bridge void *)e->container, kPlatformTypeNSView) != kResultOk) {
         [e->win close];
@@ -339,15 +345,13 @@ static NSEventModifierFlags mods(int32_t m)
     return f;
 }
 
-void editor_input(HelperEditor *e, const tirb_input &in)
+// NSEvent for a forwarded mouse/key input (any thread; nil for the wheel, which is dispatched on the main thread)
+static NSEvent *make_event(HelperEditor *e, const tirb_input &in)
 {
-    if (!e)
-        return;
-    NSPoint p = NSMakePoint(in.x, e->h - in.y); // view (top-left origin) -> window coordinates
+    NSPoint p = NSMakePoint(in.x, e->height - in.y); // view (top-left origin) -> window coordinates
     NSTimeInterval ts = [[NSProcessInfo processInfo] systemUptime];
-    NSInteger wn = [e->win windowNumber];
+    NSInteger wn = (NSInteger)e->win_number.load();
     NSEventModifierFlags mf = mods(in.modifiers);
-    NSEvent *ev = nil;
     bool right = in.button == 1;
     switch (in.kind) {
     case 1: // down
@@ -360,85 +364,112 @@ void editor_input(HelperEditor *e, const tirb_input &in)
                         : in.kind == 2 ? (right ? NSEventTypeRightMouseUp : NSEventTypeLeftMouseUp)
                         : in.kind == 3 ? (right ? NSEventTypeRightMouseDragged : NSEventTypeLeftMouseDragged)
                                        : NSEventTypeMouseMoved;
-        ev = [NSEvent mouseEventWithType:t
+        return [NSEvent mouseEventWithType:t
+                                  location:p
+                             modifierFlags:mf
+                                 timestamp:ts
+                              windowNumber:wn
+                                   context:nil
+                               eventNumber:0
+                                clickCount:in.click_count > 0 ? in.click_count : 1
+                                  pressure:in.kind == 1 || in.kind == 3 ? 1.0f : 0.0f];
+    }
+    case 6:
+    case 7: {
+        NSString *chars = [NSString stringWithUTF8String:in.chars] ?: @"";
+        return [NSEvent keyEventWithType:in.kind == 6 ? NSEventTypeKeyDown : NSEventTypeKeyUp
                                 location:p
                            modifierFlags:mf
                                timestamp:ts
                             windowNumber:wn
                                  context:nil
-                             eventNumber:0
-                              clickCount:in.click_count > 0 ? in.click_count : 1
-                                pressure:in.kind == 1 || in.kind == 3 ? 1.0f : 0.0f];
-        break;
-    }
-    case 5: { // wheel: a CGEvent placed on our window, then dispatched like a real one
-        CGEventRef cg = CGEventCreateScrollWheelEvent2(nullptr, kCGScrollEventUnitPixel, 2, (int32_t)in.dy,
-                                                       (int32_t)in.dx, 0);
-        NSRect wr = [e->win frame];
-        NSPoint sp = NSMakePoint(wr.origin.x + p.x, wr.origin.y + p.y);
-        CGFloat main_h = NSMaxY([[[NSScreen screens] firstObject] frame]);
-        CGEventSetLocation(cg, CGPointMake(sp.x, main_h - sp.y));
-        CGEventSetIntegerValueField(cg, kCGMouseEventWindowUnderMousePointer, wn);
-        CGEventSetIntegerValueField(cg, kCGMouseEventWindowUnderMousePointerThatCanHandleThisEvent, wn);
-        CGEventSetFlags(cg, (CGEventFlags)mf);
-        ev = [NSEvent eventWithCGEvent:cg];
-        CFRelease(cg);
-        NSView *target = [e->container hitTest:p];
-        if (target && ev) {
-            [target scrollWheel:ev];
-            return;
-        }
-        break;
-    }
-    case 6:
-    case 7: {
-        NSString *chars = [NSString stringWithUTF8String:in.chars] ?: @"";
-        ev = [NSEvent keyEventWithType:in.kind == 6 ? NSEventTypeKeyDown : NSEventTypeKeyUp
-                              location:p
-                         modifierFlags:mf
-                             timestamp:ts
-                          windowNumber:wn
-                               context:nil
-                            characters:chars
-           charactersIgnoringModifiers:chars
-                             isARepeat:NO
-                               keyCode:(unsigned short)in.key_code];
-        break;
+                              characters:chars
+             charactersIgnoringModifiers:chars
+                               isARepeat:NO
+                                keyCode:(unsigned short)in.key_code];
     }
     }
-    if (ev) {
-        // Through the event queue, like real input: AppKit tracking loops (e.g. NSTextView's mouse tracking after a
-        // click into a VSTGUI text field) wait in -nextEventMatchingMask: for the following drag/up events and would
-        // never return if we called -sendEvent: directly. In the normal run loop mode nobody dequeues (the helper
-        // runs CFRunLoopRun, not -[NSApp run]), so drain the queue ourselves; inside a tracking loop (another mode)
-        // the loop takes the events.
-        [NSApp postEvent:ev atStart:NO];
-        NSString *mode = [[NSRunLoop currentRunLoop] currentMode];
-        if (!mode || [mode isEqualToString:NSDefaultRunLoopMode]) {
-            NSEvent *q;
-            // only the input kinds we post: system events (AppleEvents such as 'quit', activation, ...) stay
-            // untouched, as they always were in this helper (dequeuing everything killed it inside Ableton)
-            const NSEventMask ours = NSEventMaskLeftMouseDown | NSEventMaskLeftMouseUp | NSEventMaskLeftMouseDragged |
-                                     NSEventMaskRightMouseDown | NSEventMaskRightMouseUp |
-                                     NSEventMaskRightMouseDragged | NSEventMaskMouseMoved | NSEventMaskKeyDown |
-                                     NSEventMaskKeyUp;
-            while ((q = [NSApp nextEventMatchingMask:ours
-                                           untilDate:nil
-                                              inMode:NSDefaultRunLoopMode
-                                             dequeue:YES])) {
-                static int logged;
-                if (logged++ < 20)
-                    fprintf(stderr, "vtihelper: drained event type %lu window %ld\n", (unsigned long)[q type],
-                            (long)[q windowNumber]);
-                HelperEditor *owner = editor_for_window([q window]);
-                if (owner) // our windows are never key (inactive helper): deliver to the window itself
-                    [owner->win sendEvent:q];
-                else
-                    [NSApp sendEvent:q];
-            }
+    return nil;
+}
+
+// main thread, normal run loop mode: deliver the input events we posted (nobody else dequeues: the helper runs
+// CFRunLoopRun, not -[NSApp run]). Inside an AppKit tracking loop (another mode) the loop takes them itself.
+static void drain(HelperEditor *e)
+{
+    NSString *mode = [[NSRunLoop currentRunLoop] currentMode];
+    if (!mode || [mode isEqualToString:NSDefaultRunLoopMode]) {
+        // only the input kinds we post: system events stay untouched (dequeuing everything ended the helper, E106)
+        const NSEventMask ours = NSEventMaskLeftMouseDown | NSEventMaskLeftMouseUp | NSEventMaskLeftMouseDragged |
+                                 NSEventMaskRightMouseDown | NSEventMaskRightMouseUp | NSEventMaskRightMouseDragged |
+                                 NSEventMaskMouseMoved | NSEventMaskKeyDown | NSEventMaskKeyUp;
+        NSEvent *q;
+        while ((q = [NSApp nextEventMatchingMask:ours untilDate:nil inMode:NSDefaultRunLoopMode dequeue:YES])) {
+            HelperEditor *owner = editor_for_window([q window]);
+            if (owner) // our windows are never key (inactive helper): deliver to the window itself
+                [owner->win sendEvent:q];
+            else
+                [NSApp sendEvent:q];
         }
     }
-    e->check_focus();
+    if (std::find(g_editors.begin(), g_editors.end(), e) != g_editors.end())
+        e->check_focus();
+}
+
+// Control thread. Mouse and key events go straight into the application's event queue (-postEvent:atStart: may be
+// called from any thread): an AppKit tracking loop already running on the main thread (NSTextView mouse tracking
+// after a click into a VSTGUI text field waits in -nextEventMatchingMask: for drag/up) receives them there; a main-
+// queue block could not, because the main queue does not run while its current block (the mouse-down) is inside
+// that loop (E106). Then a drain on the main thread delivers them in the normal case.
+void editor_input_post(HelperEditor *e, const tirb_input &in)
+{
+    if (!e)
+        return;
+    if (in.kind == 5) { // wheel: main thread
+        tirb_input copy = in;
+        dispatch_async(dispatch_get_main_queue(), ^{
+          if (std::find(g_editors.begin(), g_editors.end(), e) != g_editors.end())
+              editor_input(e, copy);
+        });
+        return;
+    }
+    @autoreleasepool {
+        NSEvent *ev = make_event(e, in);
+        if (ev)
+            [NSApp postEvent:ev atStart:NO];
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+      drain(e);
+    });
+}
+
+void editor_input(HelperEditor *e, const tirb_input &in) // main thread
+{
+    if (!e)
+        return;
+    if (in.kind != 5) {
+        NSEvent *ev = make_event(e, in);
+        if (ev)
+            [NSApp postEvent:ev atStart:NO];
+        drain(e);
+        return;
+    }
+    // wheel: a CGEvent placed on our window, handed to the view under the pointer
+    NSPoint p = NSMakePoint(in.x, e->h - in.y);
+    NSInteger wn = [e->win windowNumber];
+    CGEventRef cg = CGEventCreateScrollWheelEvent2(nullptr, kCGScrollEventUnitPixel, 2, (int32_t)in.dy,
+                                                   (int32_t)in.dx, 0);
+    NSRect wr = [e->win frame];
+    NSPoint sp = NSMakePoint(wr.origin.x + p.x, wr.origin.y + p.y);
+    CGFloat main_h = NSMaxY([[[NSScreen screens] firstObject] frame]);
+    CGEventSetLocation(cg, CGPointMake(sp.x, main_h - sp.y));
+    CGEventSetIntegerValueField(cg, kCGMouseEventWindowUnderMousePointer, wn);
+    CGEventSetIntegerValueField(cg, kCGMouseEventWindowUnderMousePointerThatCanHandleThisEvent, wn);
+    CGEventSetFlags(cg, (CGEventFlags)mods(in.modifiers));
+    NSEvent *ev = [NSEvent eventWithCGEvent:cg];
+    CFRelease(cg);
+    NSView *target = [e->container hitTest:p];
+    if (target && ev)
+        [target scrollWheel:ev];
 }
 
 bool editor_dump_png(HelperEditor *e, const char *path)

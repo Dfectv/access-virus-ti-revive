@@ -756,14 +756,12 @@ static void *conn_thread(void *arg)
                         editor_move(a->first->editor, q[0], q[1]);
                         delete a;
                     });
-                else
-                    dispatch_async_f(dispatch_get_main_queue(), a, [](void *p) {
-                        auto *a = (std::pair<Instance *, std::vector<uint8_t>> *)p;
-                        tirb_input ev;
-                        memcpy(&ev, a->second.data(), sizeof ev);
-                        editor_input(a->first->editor, ev);
-                        delete a;
-                    });
+                else {
+                    tirb_input ev;
+                    memcpy(&ev, a->second.data(), sizeof ev);
+                    editor_input_post(in->editor, ev); // posts from this thread (tracking loops, E106)
+                    delete a;
+                }
             }
             break;
         default:
