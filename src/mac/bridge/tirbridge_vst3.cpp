@@ -51,10 +51,6 @@ using namespace Steinberg;
 using namespace Steinberg::Vst;
 
 namespace Steinberg {
-DEF_CLASS_IID(IPluginBase)
-DEF_CLASS_IID(IPluginFactory)
-DEF_CLASS_IID(IPluginFactory2)
-DEF_CLASS_IID(IBStream)
 namespace Vst {
 DEF_CLASS_IID(IComponent)
 DEF_CLASS_IID(IAudioProcessor)

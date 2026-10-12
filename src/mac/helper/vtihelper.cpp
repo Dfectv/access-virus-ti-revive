@@ -54,7 +54,6 @@ using namespace Steinberg::Vst;
 
 // interface IDs used here (the SDK declares them; one translation unit defines them)
 namespace Steinberg {
-DEF_CLASS_IID(IBStream)
 namespace Vst {
 DEF_CLASS_IID(IComponent)
 DEF_CLASS_IID(IAudioProcessor)
