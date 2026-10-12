@@ -34,6 +34,11 @@ int main(int argc, char **argv)
             printf("%8zu  %s\n", files->get(n).size(), n.c_str());
         return 0;
     }
+    if (cmd == "cat" && !args.empty()) { // raw content of one Access file (inspection only - output stays local)
+        auto d = files->get(args[0]);
+        fwrite(d.data(), 1, d.size(), stdout);
+        return d.empty();
+    }
     vti::RemoteDevice dev;
     if (!dev.load(files->get("remotedevice.xml"), err)) {
         fprintf(stderr, "vtimodel: %s\n", err.c_str());
@@ -61,6 +66,15 @@ int main(int argc, char **argv)
         for (auto x : b)
             printf("%02x ", x);
         printf("\n");
+    } else if (cmd == "automation") { // the plug-in parameter list as the original builds it: id, title, unit
+        std::vector<vti::AutomationEntry> list;
+        if (!vti::load_automation(files->get("automation.xml"), list, err)) {
+            fprintf(stderr, "vtimodel: %s\n", err.c_str());
+            return 1;
+        }
+        for (auto &e : list) {
+            printf("%d\t[%d] %s\tPart %02d/\n", e.id, e.part, vti::automation_title(dev, e).c_str(), e.part);
+        }
     } else if (cmd == "message" && !args.empty()) {
         const vti::MidiMessage *m = dev.message(args[0]);
         if (!m) {
@@ -109,7 +123,7 @@ int main(int argc, char **argv)
                msg[7], msg[8], name.c_str(), values.size(), copy == msg ? "identical" : "DIFFERS",
                vti::RemoteDevice::single_fingerprint(msg));
     } else {
-        fprintf(stderr, "usage: vtimodel files|summary|params [filter]|message <id>|dump <file>|encode <path> <value> [part] [--access <path>]\n");
+        fprintf(stderr, "usage: vtimodel files|summary|params [filter]|message <id>|dump <file>|cat <file>|encode <path> <value> [part] [--access <path>]\n");
         return 2;
     }
     return 0;

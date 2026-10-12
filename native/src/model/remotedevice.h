@@ -62,6 +62,16 @@ struct MidiMessage {
     std::vector<MessageByte> bytes;
 };
 
+// automation.xml: the original plug-in's VST3 parameter ids. id = ParamID, title as the original shows it
+// ("[<part>] <shortname>"), unit "Part NN/".
+struct AutomationEntry {
+    int id = 0, part = 1;
+    std::string path;
+};
+bool load_automation(const std::vector<uint8_t> &xml, std::vector<AutomationEntry> &out, std::string &error);
+// Short title as the original shows it: the parameter's shortname; "Softknobs/Softknob N" (virtual) -> "Softknob N".
+std::string automation_title(const class RemoteDevice &dev, const AutomationEntry &e);
+
 class RemoteDevice {
 public:
     bool load(const std::vector<uint8_t> &xml, std::string &error);

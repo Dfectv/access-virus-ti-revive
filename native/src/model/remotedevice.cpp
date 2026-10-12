@@ -251,4 +251,40 @@ void RemoteDevice::update_dump(const MidiMessage &m, std::vector<uint8_t> &msg, 
             msg[b.index] = (uint8_t)checksum(b, msg);
 }
 
+bool load_automation(const std::vector<uint8_t> &xml, std::vector<AutomationEntry> &out, std::string &error)
+{
+    pugi::xml_document doc;
+    auto r = doc.load_buffer(xml.data(), xml.size());
+    if (!r) {
+        error = std::string("automation.xml: ") + r.description();
+        return false;
+    }
+    for (auto a : doc.child("AutomationList").children("Automation")) {
+        AutomationEntry e;
+        e.path = a.attribute("Parameter").as_string();
+        e.part = a.attribute("Part").as_int(1);
+        e.id = a.attribute("Index").as_int(-1);
+        if (e.id < 0 || e.path.empty())
+            continue;
+        // keyed by (parameter, part) like the original: a later entry replaces an earlier one (automation.xml lists
+        // Filter Bank/Filter Frequency twice for part 4 - id 1574 should be part 3; the original leaves 1574 unmapped)
+        auto same = std::find_if(out.begin(), out.end(),
+                                 [&](const AutomationEntry &o) { return o.path == e.path && o.part == e.part; });
+        if (same != out.end())
+            *same = e;
+        else
+            out.push_back(e);
+    }
+    return !out.empty();
+}
+
+std::string automation_title(const RemoteDevice &dev, const AutomationEntry &e)
+{
+    const Parameter *p = dev.find(e.path);
+    if (p && !p->shortname.empty())
+        return p->shortname;
+    size_t slash = e.path.rfind('/');
+    return slash == std::string::npos ? e.path : e.path.substr(slash + 1);
+}
+
 } // namespace vti
