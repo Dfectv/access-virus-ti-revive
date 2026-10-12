@@ -6,7 +6,8 @@ launchctl bootout "gui/$(id -u)/io.github.derpsn.tirevive.vtibroker" 2>/dev/null
 sudo rm -f /Library/LaunchAgents/io.github.derpsn.tirevive.vtibroker.plist
 sudo pkill -x vtibroker 2>/dev/null
 sudo pkill -x vtihelper 2>/dev/null
-sudo rm -rf "/Library/Audio/Plug-Ins/VST3/Virus TI (TI Revive).vst3" "/Library/Application Support/TI Revive"
+sudo rm -rf "/Library/Audio/Plug-Ins/VST3/Virus TI (TI Revive).vst3" \
+    "/Library/Audio/Plug-Ins/Components/Virus TI (TI Revive).component" "/Library/Application Support/TI Revive"
 # our replacement of Access' driver-package library (the Access plug-ins stop connecting without TI Revive)
 sudo rm -f "/Library/Application Support/Access Music/Virus TI/Common/libVirusUSB.dylib"
 sudo pkgutil --forget io.github.derpsn.tirevive >/dev/null 2>&1

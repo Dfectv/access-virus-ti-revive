@@ -12,4 +12,5 @@ if [ -n "$USER_NAME" ] && [ "$USER_NAME" != root ]; then
 fi
 rm -f /Library/LaunchAgents/io.github.derpsn.tirevive.vtibroker.plist
 pkill -x vtibroker 2>/dev/null || true
+killall -9 AudioComponentRegistrar 2>/dev/null || true # make macOS rescan Audio Units (the new component)
 exit 0
