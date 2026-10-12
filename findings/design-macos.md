@@ -1,7 +1,11 @@
 # Plan: TI Revive for macOS on Apple Silicon (M processors)
 
-Status: plan (2026-10-12). Same approach as on Windows: keep the user's original Access software, replace the
-blocked driver with a user-space emulation plus a broker, no kernel code.
+Status: plan (2026-10-12). Same approach as on Windows: keep the user's original Access plug-ins, replace the
+blocked driver with user-space code plus a broker, no kernel code. **User guideline: avoid the old Access
+drivers at all cost** (no kext, no HAL plug-in, no Access MIDI driver are installed); only the plug-ins and
+Virus Control are used, as on Windows.
+
+Test machine: the user's **MacBook Air M3 with Ableton Live** (set up by the user; SSH from this PC).
 
 ## Starting point (static recon of the Access installer, E091)
 
@@ -20,6 +24,37 @@ Consequences:
 - The original driver can never work on an M Mac; TI Revive's approach is needed there.
 - Our plug-in wrapper must be x86_64 (it loads the Intel-only original) and the DAW must run under Rosetta.
 - Control Center (OS updates, settings) is gone on modern macOS; out of scope at first.
+
+## Driver interface of the Mac plug-in (static RE, E093)
+
+On the Mac, Virus Control does not talk to the kernel driver itself. Everything driver-side sits in user-space
+components with small, clear interfaces (all x86_64 + i386, symbols kept):
+
+| Direction | Interface | Access component (driver package) |
+|---|---|---|
+| Device, audio, USB control requests | C++ class `VirusClient` in `/Library/Application Support/Access Music/Virus TI/Common/libVirusUSB.dylib` (absolute install name, hard-linked by Virus Control): 20 methods used (`vc_init`, `vc_open(void *deviceID)`, `vc_start(rate)`, `vc_stop`, `vc_close`, `vc_term`, `vc_getNumDevices`, `vc_getDeviceInfo`, `vc_getDeviceID`, `vc_request(dir, level, recipient, request, value, index, data, length)`, `vc_getBuffersize`, `vc_get/setSamplerate`, `vc_getLatencies`, `vc_setIntParam`, `vc_isPluginMaster`, version/status queries) | libVirusUSB.dylib (Ploytec PGOSXDevice / OSXDeviceManager, talks to the kext) |
+| Audio to/from the plug-in | Core Audio style IOProc registered in `vc_open`; calls the client's virtual method at vtable +0x18 with (device, in channels, in bytes, in data, out channels, out bytes, out data, sample time) | same |
+| MIDI plug-in -> Virus | CFMessagePort named **"VirusTIWritePort"** (Virus Control: `CFMessagePortCreateRemote` + `CFMessagePortSendRequest`) | "Virus TI MIDI Driver.plugin" (Core MIDI driver, creates the port locally) |
+| MIDI Virus -> plug-in | open (Virus Control creates no local port; probably through libVirusUSB or a callback) | to analyse |
+
+## Approach for macOS (preferred: no wrapper needed)
+
+Because the interfaces are user-space, TI Revive can provide them itself instead of wrapping the plug-in:
+
+- **Our own `libVirusUSB.dylib`** (x86_64, same exported `VirusClient` methods, installed at the path above -
+  that file belongs to Access' *driver package*, which is not installed): device list and control requests via
+  the broker; audio from Apple's USB audio class driver (the Virus' audio function is class compliant, so
+  Core Audio should offer it as a device without any Access driver - to confirm on the Mac) through a Core Audio
+  IOProc on that device, forwarded to the client's callback; device clock = synth clock (no drift as with
+  WASAPI, E074).
+- **Our own "VirusTIWritePort"** (CFMessagePort server in the broker) for MIDI from the plug-in, and the receive
+  path once analysed.
+- **Broker** (`vtibroker` for macOS on libusb, Unix domain socket, LaunchAgent on demand): owns the vendor
+  interfaces MI_03/MI_04 (handshake, drain, MIDI), like on Windows.
+- The original plug-ins (VST/VST3/AU) stay untouched. **Fallback**: a VST3/AU wrapper that rebinds Virus
+  Control's imports to our implementation (the Windows approach), if replacing the library is not enough.
+- The DAW must run under Rosetta 2 (Ableton: Finder > Get Info > "Open using Rosetta"), because the Access
+  plug-ins are Intel-only.
 
 ## Lab
 
@@ -60,5 +95,5 @@ Consequences:
 
 ## Needed from the user
 
-- An Apple Silicon Mac for the lab (model, macOS version) with SSH access.
-- Which DAW on the Mac.
+- MacBook Air M3: macOS version, Ableton installed (+ Rosetta), the Access software installed **without** its
+  driver package (or with it - it cannot load anyway; to decide when installing), SSH access enabled for this PC.
