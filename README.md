@@ -102,6 +102,10 @@ the plug-in is closed. Uninstall with `./uninstall.sh`. Details: `README-linux.t
 
 ## Good to know
 
+**Start playback slightly before the first note.** The plug-in sends notes to the Virus ahead of time to make up
+for the USB round trip; right at Play, notes in the first quarter second can come late or be skipped. This was the
+same with Access' own driver.
+
 **Both systems**
 
 - **One plug-in instance per synth.** Virus Control is designed that way (it controls all 16 parts);
