@@ -131,9 +131,11 @@ firmware.bin (next to Virus Control.dll / in the Mac Common folder) is an IFF FO
 ROM bank i = sectors P(064+2i) (programs 0-63) and P(065+2i) (64-127), 512 bytes per patch = page A + page B; the dump
 is header 10 <5+i> <prog>, page A, add7, page B, add7, F7. TI and TI2 ROMs differ -> model from the USB device
 descriptor (bcdDevice 0x100 = TI or Snow by product string, 0x300 = TI2). Banks V..Z of the TI2 are "Empty".
-- OscHypersawShape (OSC page, HyperSaw mode): three 1-px lines over the element's full height in ForeColor at
-  centre and +-w, w = 1.9 + DetuneSpread * 5.6 / 127, centre x + w/2 - 0.25, positions floor(c + off + 0.5);
-  density does not change the display (captured from the original for 8 value pairs, all identical).
+- OscHypersawShape (OSC page, HyperSaw mode): one 1-px line per saw in ForeColor over the element's height: centre
+  x + w/2, then alternating right/left at floor(k * w), w = 2 + DetuneSpread * 2.625 / 64; saws from Density
+  (0 -> 1, 32 -> 2, 64 -> 3, 96 -> 5, 112 -> 7, 127 -> 9, linear); a fractional saw = shorter line from the bottom
+  (fraction * h). Pixel-identical for 8 density/spread pairs. (An earlier version ignored Density: its captures
+  were made while vtimodel setdump let Shape - same byte - overwrite Density.)
 - ArpEdit (ARP page, pattern User): 32 cells of 20 px, first cell 1 px inside the element; a step with Bitfield 1
   shows a bar from the bottom row (y + h - 1), height = Velocity px, ForeColor fill at ~38 %, frame (192,192,192).
   Width: right frame at cell + r, r = table(Length) (0:0 8:2 16:3 24:4 32:5 40:6 48:7 56:8 64:10 72:11 80:12 88:13

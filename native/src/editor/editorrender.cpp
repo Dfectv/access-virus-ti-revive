@@ -243,14 +243,30 @@ void EditorRenderer::filter_response(Canvas &c, const Element &e, int x, int y, 
 
 // classic oscillator display: sine (shape 0) -> saw (64) -> pulse (127, width from Pulsewidth); area between the wave
 // and the centre filled in ForeColor (182,200,228), wave line (91,100,114) - measured on the original
-// HyperSaw display: three 1-px lines over the full height in ForeColor, the outer two at +-w from the centre;
-// w depends only on DetuneSpread (measured on the original: ~2 px at 0 .. 7.5 px at 127; density does not change it)
+// HyperSaw display (measured on the original, 8 density/spread pairs): one 1-px line per saw in ForeColor, the centre
+// first, then alternating right/left at floor(k * w) from x + w/2, w = 2 + spread * 2.625 / 64; the number of saws
+// follows the density (0 -> 1, 32 -> 2, 64 -> 3, 96 -> 5, 112 -> 7, 127 -> 9, linear between); a fractional saw is
+// a shorter line from the bottom (height = fraction * h)
 void EditorRenderer::osc_hypersaw(Canvas &c, const Element &e, int x, int y, int part)
 {
-    double spread = values(e.get("Parameter"), part); // "Oscillator N HyperSaw/DetuneSpread"
-    double w = 1.9 + spread * 5.6 / 127, mid = x + e.w / 2.0 - 0.25; // fits all 8 measured cases exactly
-    for (double off : {-w, 0.0, w})
-        c.fill((int)std::floor(mid + off + 0.5), y, 1, e.h, e.fore);
+    const std::string &sp = e.get("Parameter"); // "Oscillator N HyperSaw/DetuneSpread"
+    double spread = values(sp, part), dens = values(sp.substr(0, sp.rfind('/') + 1) + "Density", part);
+    static const double dx[] = {0, 32, 64, 96, 112, 127}, dn[] = {1, 2, 3, 5, 7, 9};
+    double n = 9;
+    for (int i = 1; i < 6; i++)
+        if (dens <= dx[i]) {
+            n = dn[i - 1] + (dens - dx[i - 1]) * (dn[i] - dn[i - 1]) / (dx[i] - dx[i - 1]);
+            break;
+        }
+    double w = 2 + spread * 2.625 / 64;
+    int cx = x + e.w / 2, lines = (int)std::ceil(n - 1e-9);
+    for (int i = 0; i < lines; i++) {
+        int k = i == 0 ? 0 : (i % 2 ? (i + 1) / 2 : -(i / 2)); // 0, +1, -1, +2, -2, ...
+        double frac = std::min(1.0, n - i);
+        int h = i + 1 <= n ? e.h : (int)std::lround(frac * e.h);
+        if (h > 0)
+            c.fill(cx + (int)std::floor(k * w), y + e.h - h, 1, h, e.fore);
+    }
 }
 
 // arpeggiator user pattern (ArpEdit, measured on the original): 32 cells of 20 px; a step with its bit set shows a bar
