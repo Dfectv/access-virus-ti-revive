@@ -72,6 +72,11 @@
   font), double click loads the patch into the current part (dump to the Virus edit buffer + state + parameters).
   Part selection, menus, page tabs, knob/slider drags, buttons work; the editor follows device/automation changes.
 
+- Plug-in memory sync: after activation a background thread checks RAM A-D (bank info) through the plug-in's own
+  broker connection (MemorySync embedded: send function + feed of replies) and fetches only changed programs into
+  ~/.local/share/virus-ti-native/cache (initially imported from the Access cache). Verified: corrupted RAM C program
+  -> 1 fetched -> file identical to the original's cache again.
+
 ## Next
 - R3: device -> host (knobs on the Virus change parameters: decode incoming CC/poly pressure/SysEx with
   remotedevice.xml, update the part dumps, notify the host), realtime-safe event queue, exact F5 stamps (R5 rule).

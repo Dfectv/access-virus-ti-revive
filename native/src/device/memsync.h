@@ -24,8 +24,12 @@ bool save_bank_file(const std::string &path, const Bank &bank);
 
 class MemorySync {
 public:
+    // standalone: owns the broker's receive handler (tools/virussync)
     MemorySync(Broker &broker, int device_id = 0x10);
+    // embedded (the plug-in): `send` queues a SysEx to the Virus, replies are passed in with feed()
+    explicit MemorySync(std::function<bool(const std::vector<uint8_t> &)> send, int device_id = 0x10);
     ~MemorySync();
+    void feed(const std::vector<uint8_t> &sysex); // a SysEx from the Virus
 
     // One request/reply round trip: sends `request` (a SysEx), waits for a SysEx reply whose bytes 6..8 equal
     // `match` (prefix). Retries `tries` times with `timeout_ms` each. Empty result on failure.
@@ -40,7 +44,8 @@ public:
     int sync_bank(int bank, Bank &cache, const std::function<void(int, bool)> &progress = nullptr);
 
 private:
-    Broker &broker_;
+    Broker *broker_ = nullptr;
+    std::function<bool(const std::vector<uint8_t> &)> send_;
     int dev_;
     std::mutex mu_;
     std::condition_variable cv_;

@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstring>
 #include <dirent.h>
+#include <sys/stat.h>
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -68,6 +69,9 @@ void DeviceOut::run()
                 auto parser = std::make_shared<UsbMidiParser>([this](uint8_t ep, int cable, const std::vector<uint8_t> &m) {
                     if (ep == 0x86 && cable == 2 && panel_)
                         panel_(m);
+                    else if (((ep == 0x86 && cable == 3) || (ep == 0x85 && cable == 1)) && reply_ && !m.empty() &&
+                             m[0] == 0xF0)
+                        reply_(m);
                 });
                 broker_.on_rx([parser](uint8_t ep, const uint8_t *d, size_t len) { parser->feed(ep, d, len); });
                 rx_set_ = true;
@@ -244,6 +248,11 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
     }
     out_ = std::make_unique<DeviceOut>();
     out_->on_panel([this](const std::vector<uint8_t> &m) { panel_message(m); });
+    sync_ = std::make_unique<MemorySync>([this](const std::vector<uint8_t> &m) {
+        out_->send(m);
+        return true;
+    });
+    out_->on_reply([this](const std::vector<uint8_t> &m) { sync_->feed(m); });
     // the original's start-up: GlobalInit (remote mode, cable numbers, clock sync, ...) + ParamInit, before any state
     for (auto &m : dev_.init_messages())
         out_->send(m);
@@ -252,12 +261,16 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
 
 tresult PLUGIN_API VirusPlugin::terminate()
 {
+    if (sync_thread_.joinable())
+        sync_thread_.join(); // TODO: make the sync cancellable (up to ~10 min on an empty cache)
     out_.reset();
     return SingleComponentEffect::terminate();
 }
 
 tresult PLUGIN_API VirusPlugin::setActive(TBool state)
 {
+    if (state && sync_ && !sync_started_.exchange(true))
+        sync_thread_ = std::thread([this] { sync_banks(); });
     if (state && !state_loaded_ && !default_.empty()) { // new instance: the original's default project
         {
             std::lock_guard<std::mutex> lk(state_mu_);
@@ -472,8 +485,48 @@ void VirusPlugin::load_banks()
     }
 }
 
+void VirusPlugin::sync_banks()
+{
+    std::this_thread::sleep_for(std::chrono::seconds(4)); // after the start-up messages and the state
+    if (!out_ || !out_->connected())
+        return;
+    std::string dir;
+    if (const char *home = getenv("HOME")) {
+        dir = std::string(home) + "/.local/share/virus-ti-native/cache";
+        std::string mk;
+        for (size_t p = 0; (p = dir.find('/', p + 1)) != std::string::npos;)
+            mkdir(dir.substr(0, p).c_str(), 0755);
+        mkdir(dir.c_str(), 0755);
+    }
+    for (int b = 0; b < 4; b++) {
+        Bank bank;
+        {
+            std::lock_guard<std::mutex> lk(banks_mu_);
+            auto it = banks_.find(b);
+            if (it != banks_.end())
+                for (size_t p = 0; p < 128 && p < it->second.size(); p++)
+                    bank[p] = it->second[p];
+        }
+        int n = sync_->sync_bank(b + 1, bank, [this](int, bool fetched) {
+            if (fetched)
+                ui_dirty_ = true;
+        });
+        fprintf(stderr, "Virus TI native: RAM %c sync: %d fetched\n", 'A' + b, n);
+        if (n < 0)
+            return;
+        {
+            std::lock_guard<std::mutex> lk(banks_mu_);
+            banks_[b].assign(bank.begin(), bank.end());
+        }
+        if (!dir.empty())
+            save_bank_file(dir + "/RAM " + (char)('A' + b), bank);
+        ui_dirty_ = true;
+    }
+}
+
 std::string VirusPlugin::bank_patch(int bank, int program)
 {
+    std::lock_guard<std::mutex> lk(banks_mu_);
     auto b = banks_.find(bank);
     if (b == banks_.end() || program < 0 || program >= (int)b->second.size() || b->second[program].size() != 524)
         return {};
@@ -482,11 +535,15 @@ std::string VirusPlugin::bank_patch(int bank, int program)
 
 bool VirusPlugin::load_patch(int bank, int program, int part)
 {
-    auto b = banks_.find(bank);
-    if (b == banks_.end() || program < 0 || program >= (int)b->second.size() || b->second[program].size() != 524 ||
-        part < 0 || part > 15)
-        return false;
-    auto d = b->second[program];
+    std::vector<uint8_t> d;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto b = banks_.find(bank);
+        if (b == banks_.end() || program < 0 || program >= (int)b->second.size() || b->second[program].size() != 524 ||
+            part < 0 || part > 15)
+            return false;
+        d = b->second[program];
+    }
     RemoteDevice::upgrade_single(d);
     d[7] = 0, d[8] = (uint8_t)part; // edit buffer of the part
     unsigned a = 0;

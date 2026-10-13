@@ -36,6 +36,8 @@ public:
     bool send_rt(const uint8_t *msg, size_t n);
     // messages from the Virus' panel (EP 0x86 cable 2: knob moves as CC / poly pressure / parameter SysEx)
     void on_panel(std::function<void(const std::vector<uint8_t> &)> h) { panel_ = std::move(h); }
+    // SysEx replies (dumps, bank info): EP 0x86 cable 3 in a plug-in session, EP 0x85 cable 1 otherwise
+    void on_reply(std::function<void(const std::vector<uint8_t> &)> h) { reply_ = std::move(h); }
     bool connected() const { return broker_.device_present(); }
     AudioIn &audio() { return audio_; } // read from process(); valid once audio_ready()
     bool audio_ready() const { return audio_ok_; }
@@ -55,7 +57,7 @@ private:
     bool open_ = false;
     AudioIn audio_;
     std::atomic<bool> audio_ok_{false};
-    std::function<void(const std::vector<uint8_t> &)> panel_;
+    std::function<void(const std::vector<uint8_t> &)> panel_, reply_;
     bool rx_set_ = false;
     std::thread worker_;
     void run();
@@ -114,7 +116,12 @@ private:
     std::map<std::string, int> ui_state_;                   // editor-only parameters (VirusControl/SelectedPage ...)
     std::atomic<bool> ui_dirty_{true};
     std::map<int, std::vector<std::vector<uint8_t>>> banks_; // RAM A..D (bank cache, see load_banks)
+    std::mutex banks_mu_;
     void load_banks();
+    std::unique_ptr<MemorySync> sync_;
+    std::thread sync_thread_;
+    std::atomic<bool> sync_started_{false};
+    void sync_banks(); // brings the bank cache up to date with the Virus (background thread)
     std::map<Steinberg::Vst::ParamID, Mapped> params_;
     std::map<std::pair<std::string, int>, Steinberg::Vst::ParamID> ids_; // (path, part 0-based) -> id
     std::mutex pending_mu_;

@@ -54,20 +54,36 @@ bool save_bank_file(const std::string &path, const Bank &bank)
     return ok && rename(tmp.c_str(), path.c_str()) == 0;
 }
 
-MemorySync::MemorySync(Broker &broker, int device_id) : broker_(broker), dev_(device_id)
+MemorySync::MemorySync(Broker &broker, int device_id) : broker_(&broker), dev_(device_id)
 {
+    send_ = [this](const std::vector<uint8_t> &m) {
+        auto pk = usbmidi_pack(m, CABLE_PLUGIN);
+        return broker_->write(EP_PLUGIN_OUT, pk.data(), pk.size());
+    };
     // replies come on EP 0x86 cable 3 in a plug-in session, otherwise on EP 0x85 cable 1 (MIDI port)
-    auto parser = std::make_shared<UsbMidiParser>([this](uint8_t, int, const std::vector<uint8_t> &m) {
-        if (m.size() > 8 && m[0] == 0xF0 && m[1] == 0x00 && m[2] == 0x20 && m[3] == 0x33) {
-            std::lock_guard<std::mutex> lk(mu_);
-            inbox_.push_back(m);
-            cv_.notify_all();
-        }
-    });
-    broker_.on_rx([parser](uint8_t ep, const uint8_t *d, size_t len) { parser->feed(ep, d, len); });
+    auto parser = std::make_shared<UsbMidiParser>([this](uint8_t, int, const std::vector<uint8_t> &m) { feed(m); });
+    broker_->on_rx([parser](uint8_t ep, const uint8_t *d, size_t len) { parser->feed(ep, d, len); });
 }
 
-MemorySync::~MemorySync() { broker_.on_rx(nullptr); }
+MemorySync::MemorySync(std::function<bool(const std::vector<uint8_t> &)> send, int device_id)
+    : send_(std::move(send)), dev_(device_id)
+{
+}
+
+MemorySync::~MemorySync()
+{
+    if (broker_)
+        broker_->on_rx(nullptr);
+}
+
+void MemorySync::feed(const std::vector<uint8_t> &m)
+{
+    if (m.size() > 8 && m[0] == 0xF0 && m[1] == 0x00 && m[2] == 0x20 && m[3] == 0x33) {
+        std::lock_guard<std::mutex> lk(mu_);
+        inbox_.push_back(m);
+        cv_.notify_all();
+    }
+}
 
 Dump MemorySync::transact(const Dump &request, const std::vector<uint8_t> &match, int timeout_ms, int tries)
 {
@@ -76,8 +92,7 @@ Dump MemorySync::transact(const Dump &request, const std::vector<uint8_t> &match
             std::lock_guard<std::mutex> lk(mu_);
             inbox_.clear();
         }
-        auto pk = usbmidi_pack(request, CABLE_PLUGIN);
-        if (!broker_.write(EP_PLUGIN_OUT, pk.data(), pk.size()))
+        if (!send_(request))
             return {};
         std::unique_lock<std::mutex> lk(mu_);
         auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
