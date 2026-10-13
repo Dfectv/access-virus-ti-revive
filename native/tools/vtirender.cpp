@@ -4,6 +4,7 @@
 // --state takes a plug-in state (formats.md, or vtihost's VTISTATE file) for the device values of the parts.
 #include "access/accessfiles.h"
 #include "editor/editormodel.h"
+#include "editor/editorrender.h"
 #include "model/remotedevice.h"
 #include <cairo.h>
 #include <cmath>
@@ -56,173 +57,27 @@ struct PngCache {
     }
 };
 
-struct Renderer {
+struct CairoCanvas : Canvas {
     cairo_t *cr;
     PngCache &png;
-    const Conditions &cond;
-    ValueFn values;
-    int part;
-    bool outline;
-    int drawn = 0, hidden = 0;
-    double disabled_alpha = getenv("VTIRENDER_ALPHA") ? atof(getenv("VTIRENDER_ALPHA")) : 0.4, cur_alpha = 1.0;
-
-    // draw frame `index` of a vertical filmstrip whose frames are `fh` high
-    void strip(cairo_surface_t *s, int x, int y, int w, int h, int index)
+    CairoCanvas(cairo_t *c, PngCache &p) : cr(c), png(p) {}
+    void *image(const std::string &name) override { return png.get(name); }
+    int image_width(void *i) override { return cairo_image_surface_get_width((cairo_surface_t *)i); }
+    int image_height(void *i) override { return cairo_image_surface_get_height((cairo_surface_t *)i); }
+    void blit(void *img, int sx, int sy, int dx, int dy, int w, int h, double alpha) override
     {
         cairo_save(cr);
-        cairo_rectangle(cr, x, y, w, h);
+        cairo_rectangle(cr, dx, dy, w, h);
         cairo_clip(cr);
-        cairo_set_source_surface(cr, s, x, y - index * h);
-        cairo_paint_with_alpha(cr, cur_alpha);
+        cairo_set_source_surface(cr, (cairo_surface_t *)img, dx - sx, dy - sy);
+        cairo_paint_with_alpha(cr, alpha);
         cairo_restore(cr);
     }
-
-    std::function<std::string(int part)> patch_name;
-    const RemoteDevice *dev = nullptr, *ed = nullptr;
-
-    // bitmap font: vertical strip of 96 glyphs (ASCII 32..127), 6 x 9 pixels each
-    void text(const std::string &font, const std::string &str, int x, int y, int w, int h, const std::string &align)
+    void fill(int x, int y, int w, int h, Rgba c) override
     {
-        cairo_surface_t *f = png.get(font);
-        if (!f || str.empty())
-            return;
-        const int gw = 6, gh = cairo_image_surface_get_height(f) / 96;
-        int tw = (int)str.size() * gw;
-        int tx = align.find("Left") != std::string::npos    ? x
-                 : align.find("Right") != std::string::npos ? x + w - tw
-                                                            : x + (w - tw) / 2;
-        int ty = align.find("Top") != std::string::npos      ? y
-                 : align.find("Bottom") != std::string::npos ? y + h - gh
-                                                             : y + (h - gh) / 2;
-        cairo_save(cr);
+        cairo_set_source_rgba(cr, c.r / 255., c.g / 255., c.b / 255., c.a / 255.);
         cairo_rectangle(cr, x, y, w, h);
-        cairo_clip(cr);
-        for (size_t i = 0; i < str.size(); i++) {
-            int c = (unsigned char)str[i];
-            if (c < 32 || c > 127)
-                c = '?';
-            cairo_save(cr);
-            cairo_rectangle(cr, tx + (int)i * gw, ty, gw, gh);
-            cairo_clip(cr);
-            cairo_set_source_surface(cr, f, tx + (int)i * gw, ty - (c - 32) * gh);
-            cairo_paint(cr);
-            cairo_restore(cr);
-        }
-        cairo_restore(cr);
-    }
-
-    std::string value_text(const std::string &param, int v)
-    {
-        const Parameter *p = cond.find(param);
-        if (!p)
-            return std::to_string(v);
-        for (const RemoteDevice *d : {dev, ed}) {
-            auto vl = d ? d->valuelists.find(p->valuelist) : decltype(dev->valuelists.end()){};
-            if (d && vl != d->valuelists.end()) // an existing entry wins, even with empty text (live displays)
-                for (auto &en : vl->second.entries)
-                    if (en.index == v)
-                        return en.text;
-        }
-        return std::to_string(v);
-    }
-
-    void draw(const Element &e, int ox, int oy, int inherited = -1)
-    {
-        // Part -1 = the enclosing container's part (patch containers per part), else the current part
-        int pt = e.part() >= 0 ? e.part() : inherited >= 0 ? inherited : part;
-        if (!cond.eval(e.get("Condition"), values, pt)) {
-            hidden++;
-            return;
-        }
-        int x = ox + e.x, y = oy + e.y;
-        if (getenv("VTIRENDER_AT")) { // debug: elements covering a point "x,y"
-            int px = atoi(getenv("VTIRENDER_AT")), py = atoi(strchr(getenv("VTIRENDER_AT"), ',') + 1);
-            if (px >= x && px < x + e.w && py >= y && py < y + e.h)
-                fprintf(stderr, "at: %s \"%s\" (%d,%d %dx%d) %s %s cond=%s\n", e.type.c_str(), e.get("Name").c_str(), x, y, e.w, e.h,
-                        e.get("NormalBack").c_str(), e.get("Parameter").c_str(), e.get("Condition").c_str());
-        }
-        const std::string &param = e.get("Parameter");
-        cairo_surface_t *normal = png.get(e.get("NormalBack"));
-        // inactive controls (the parameter's activity condition is false, e.g. Chorus Mix while the chorus is off) are
-        // drawn translucent like the original's disabled controls
-        double alpha = 1.0;
-        if (const Parameter *ap = param.empty() ? nullptr : cond.find(param))
-            if (!ap->condition.empty() && !cond.eval(ap->condition, values, pt))
-                alpha = disabled_alpha;
-        if (param.rfind("Softknobs/Softknob ", 0) == 0) // virtual: inactive without a destination
-            if (values("Soft Knobs/Destination " + param.substr(19), pt) == 0)
-                alpha = disabled_alpha;
-        int v = param.empty() ? 0 : values(param, pt);
-        const Parameter *p = param.empty() ? nullptr : cond.find(param);
-        if (normal) {
-            int ih = cairo_image_surface_get_height(normal);
-            int frames = e.h > 0 ? std::max(1, ih / e.h) : 1;
-            int index = 0;
-            if (e.type.find("Knob") != std::string::npos || e.type.find("Slider") != std::string::npos) {
-                int lo = p ? p->min : 0, hi = p ? p->max : 127;
-                index = hi > lo ? (int)std::lround((double)(v - lo) / (hi - lo) * (frames - 1)) : 0;
-            } else if (e.type == "RadioButton") {
-                // 2-frame strips: frame 0 = off, frame 1 = selected; PressedBack only while the mouse is down
-                bool on = v == atoi(e.get("OnValue").c_str());
-                index = frames >= 2 && on ? 1 : 0;
-            } else if (e.type == "Button" || e.type == "KickButton") {
-                index = frames >= 2 && v ? 1 : 0;
-            }
-            index = std::max(0, std::min(frames - 1, index));
-            cur_alpha = alpha;
-            if (e.type == "VUSlider") { // level bar up to the value (the current part only), handle drawn below
-                normal = nullptr;
-                cairo_surface_t *bar = png.get(e.get("NormalBack"));
-                cairo_surface_t *hd = png.get(e.get("NormalHandle"));
-                int hw = hd ? cairo_image_surface_get_width(hd) : 0;
-                int lo = p ? p->min : 0, hi = p ? p->max : 127;
-                int pos = hi > lo ? (int)std::lround((double)(v - lo) / (hi - lo) * (e.w - hw)) : 0;
-                if (bar) { // 53-frame strip; the current part shows its volume, the others are dark
-                    int n = std::max(1, cairo_image_surface_get_height(bar) / e.h);
-                    int f = pt == part && hi > lo ? (int)std::lround((double)(v - lo) / (hi - lo) * (n - 1)) : 0;
-                    strip(bar, x, y, e.w, e.h, f);
-                }
-                if (hd) {
-                    cairo_set_source_surface(cr, hd, x + pos, y + (e.h - cairo_image_surface_get_height(hd)) / 2);
-                    cairo_paint(cr);
-                }
-                drawn++;
-            } else if (frames > 1)
-                strip(normal, x, y, e.w, e.h, index);
-            else {
-                cairo_save(cr);
-                cairo_rectangle(cr, x, y, e.w, e.h);
-                cairo_clip(cr);
-                cairo_set_source_surface(cr, normal, x, y);
-                cairo_paint_with_alpha(cr, cur_alpha);
-                cairo_restore(cr);
-            }
-            cur_alpha = 1.0;
-            drawn++;
-        } else if (e.get("Transparent") == "false" && e.back.a) {
-            cairo_set_source_rgba(cr, e.back.r / 255., e.back.g / 255., e.back.b / 255., e.back.a / 255.);
-            cairo_rectangle(cr, x, y, e.w, e.h);
-            cairo_fill(cr);
-        }
-        const std::string &font = e.get("ControlFont");
-        if (!font.empty()) {
-            std::string str;
-            if (e.type == "StaticText")
-                str = e.get("Name");
-            else if (e.type == "NameEdit" && patch_name)
-                str = patch_name(pt);
-            else if ((e.type == "TextSlider" || e.type == "Menu") && !param.empty())
-                str = value_text(param, v);
-            text(font, str, x, y, e.w, e.h, e.get("Align"));
-        }
-        if (outline && e.type != "Container") {
-            cairo_set_source_rgba(cr, 1, 0, 1, 0.6);
-            cairo_set_line_width(cr, 1);
-            cairo_rectangle(cr, x + 0.5, y + 0.5, e.w - 1, e.h - 1);
-            cairo_stroke(cr);
-        }
-        for (auto &c : e.children)
-            draw(c, x, y, e.part() >= 0 ? e.part() : inherited);
+        cairo_fill(cr);
     }
 };
 
@@ -313,8 +168,12 @@ int main(int argc, char **argv)
     cairo_set_source_rgb(cr, 0, 0, 0);
     cairo_paint(cr);
     PngCache png{*files, {}};
-    Renderer r{cr, png, cond, values, part, outline};
-    r.dev = &dev, r.ed = &ed;
+    CairoCanvas canvas(cr, png);
+    EditorRenderer r(layout, cond, dev, ed);
+    r.values = values;
+    r.part = part;
+    if (getenv("VTIRENDER_ALPHA"))
+        r.disabled_alpha = atof(getenv("VTIRENDER_ALPHA"));
     r.patch_name = [&](int pt) {
         std::string n;
         auto p = parts.find(pt);
@@ -330,11 +189,17 @@ int main(int argc, char **argv)
             n.pop_back();
         return n;
     };
-    for (auto &e : layout.elements)
-        r.draw(e, 0, 0);
+    r.render(canvas);
+    if (const char *at = getenv("VTIRENDER_AT")) { // debug: the control under a point "x,y"
+        Hit h = r.hit_test(atoi(at), atoi(strchr(at, ',') + 1));
+        if (h.element)
+            printf("hit: %s %s part %d at %d,%d\n", h.element->type.c_str(), h.element->get("Parameter").c_str(), h.part,
+                   h.x, h.y);
+    }
+    if (outline)
+        fprintf(stderr, "vtirender: --outline is not supported any more\n");
     cairo_surface_write_to_png(surf, argv[1]);
-    printf("%dx%d, %d bitmaps drawn, %d subtrees hidden by conditions -> %s\n", layout.width, layout.height, r.drawn,
-           r.hidden, argv[1]);
+    printf("%dx%d -> %s\n", layout.width, layout.height, argv[1]);
     cairo_destroy(cr);
     cairo_surface_destroy(surf);
     return 0;
