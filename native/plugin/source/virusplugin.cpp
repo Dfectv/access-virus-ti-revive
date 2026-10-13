@@ -284,6 +284,7 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
 
 tresult PLUGIN_API VirusPlugin::terminate()
 {
+    stop_warm_ = true;
     if (sync_thread_.joinable())
         sync_thread_.join(); // TODO: make the sync cancellable (up to ~10 min on an empty cache)
     out_.reset();
@@ -293,7 +294,10 @@ tresult PLUGIN_API VirusPlugin::terminate()
 tresult PLUGIN_API VirusPlugin::setActive(TBool state)
 {
     if (state && sync_ && !sync_started_.exchange(true))
-        sync_thread_ = std::thread([this] { sync_banks(); });
+        sync_thread_ = std::thread([this] {
+            sync_banks();
+            warm_categories();
+        });
     if (state && !state_loaded_ && !default_.empty()) { // new instance: the original's default project
         {
             std::lock_guard<std::mutex> lk(state_mu_);
@@ -1057,6 +1061,26 @@ std::string VirusPlugin::results_title()
     std::lock_guard<std::mutex> lk(banks_mu_);
     int pages = std::max(1, ((int)results_.size() + 127) / 128);
     return "Search Results/" + t + " (page " + std::to_string(results_page_ + 1) + " of " + std::to_string(pages) + ")";
+}
+
+// decode the categories of all stored patches in the background (after the bank sync), so the first category
+// filter does not stall the editor (~11000 patches with the factory backups)
+void VirusPlugin::warm_categories()
+{
+    std::vector<int> ids;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        for (auto &kv : banks_)
+            if (kv.first != SEARCH_BANK)
+                ids.push_back(kv.first);
+    }
+    auto t0 = std::chrono::steady_clock::now();
+    for (int b : ids)
+        for (int p = 0; p < 128 && !stop_warm_; p++)
+            patch_matches(b, p, 1, std::string());
+    if (getenv("VTI_NATIVE_DEBUG"))
+        fprintf(stderr, "Virus TI native: categories of %zu banks decoded in %.0f ms\n", ids.size(),
+                std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
 }
 
 std::string VirusPlugin::category_name_()

@@ -115,6 +115,8 @@ public:
     bool results_step(int dir);                          // previous / next results page (false: none)
     std::string results_title();
     void update_results();
+    void warm_categories(); // background: fill the category cache
+    std::atomic<bool> stop_warm_{false};
     std::string category_name_(); // the selected category filter's name
     void set_search(const std::string &s);
     std::string search() { std::lock_guard<std::mutex> lk(values_mu_); return search_; }

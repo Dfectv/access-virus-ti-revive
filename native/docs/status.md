@@ -142,7 +142,7 @@ popup itself not testable headless - waiting for the user's retest.
 - MIDI activity meters repainted 16x per tick -> REAPER sluggish while the editor was open; now one merged repaint
   of the changed meters (31bf493). Waiting for the user's REAPER retest.
 - Open: generic Linux menus feel slower/bigger than the original's native menus (VSTGUI theme not configurable
-  on X11 without an SDK patch - own menu view possible); first category search decodes ~11k patches once.
+  on X11 without an SDK patch - own menu view possible); first category search: categories now decoded in the background after the sync (~0.5-0.7 s).
 
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
