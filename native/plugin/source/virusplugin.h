@@ -18,6 +18,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <chrono>
 #include <thread>
 #include <vector>
@@ -261,6 +262,8 @@ private:
     int64_t stream_start_ = -1;
     int generation_seen_ = 0; // DeviceOut::generation handled by process()
     bool device_seen_ = false; // the Virus was present once (worker thread)
+    std::set<std::string> dump_paths_; // parameters stored in a part's single dump (the rest: single messages)
+    int state_part(const std::string &path, int part) const;
     bool state_loaded_ = false;                // setState or the default state was applied
     std::vector<std::vector<uint8_t>> default_; // a new instance's state (from the user's plug-in binary)
 

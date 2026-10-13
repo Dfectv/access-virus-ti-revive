@@ -269,6 +269,15 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
     // Output Control 2/3 globals, 14 controllers x 16 channels (formats.md)
     auto multi = files->init_multi();
     auto init = files->init_single();
+    if (single_template_ && init.size() == 524) { // which parameters a part's single dump carries
+        std::map<std::string, int> v;
+        std::string e;
+        auto d = init;
+        RemoteDevice::upgrade_single(d);
+        if (dev_.decode_dump(*single_template_, d, v, e))
+            for (auto &kv : v)
+                dump_paths_.insert(kv.first);
+    }
     if (multi.size() == 267 && init.size() == 524) {
         RemoteDevice::upgrade_single(init);
         default_.push_back({});
@@ -383,6 +392,13 @@ tresult PLUGIN_API VirusPlugin::getMidiControllerAssignment(int32 bus, int16 cha
     return kResultTrue;
 }
 
+// the part slot of a decoded message: globals and "part none" parameters (selected part, ...) are part -1
+int VirusPlugin::state_part(const std::string &path, int part) const
+{
+    const Parameter *p = dev_.find(path);
+    return part > 15 || (p && p->part == "none") ? -1 : part;
+}
+
 void VirusPlugin::set_part_value(int part, const std::string &path, int value)
 {
     {
@@ -393,9 +409,30 @@ void VirusPlugin::set_part_value(int part, const std::string &path, int value)
     if (!single_template_)
         return;
     std::lock_guard<std::mutex> lk(state_mu_);
-    for (auto &r : state_)
-        if (is_part_dump(r, part))
-            dev_.update_dump(*single_template_, r, {{path, value}});
+    if (state_.empty())
+        state_ = default_;
+    if (part >= 0 && part < 16 && dump_paths_.count(path)) { // inside the part's single dump
+        for (auto &r : state_)
+            if (is_part_dump(r, part))
+                dev_.update_dump(*single_template_, r, {{path, value}});
+        return;
+    }
+    // everything else (selected part, part volume/pan, globals) lives as single messages in the state: replace the
+    // message of this parameter, else add one - otherwise a patch load or project reload brought the old value back
+    // (user test: part 3 selected, load a patch -> back on part 1)
+    auto msg = dev_.encode(path, value, part < 0 ? 0 : part);
+    if (msg.empty())
+        return;
+    for (auto &r : state_) {
+        if (r.empty() || r.size() == 524 || r.size() == 267)
+            continue;
+        for (auto &c : dev_.decode(r))
+            if (c.path == path && state_part(c.path, c.part) == part) {
+                r = msg;
+                return;
+            }
+    }
+    state_.push_back(msg);
 }
 
 tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
@@ -1442,7 +1479,7 @@ void VirusPlugin::apply_state_to_params()
                 }
             if (!dump) // controllers and parameter SysEx of the state (volume, pan, globals)
                 for (auto &c : dev_.decode(r))
-                    parts[c.part > 15 ? -1 : c.part][c.path] = c.value;
+                    parts[state_part(c.path, c.part)][c.path] = c.value;
         }
     }
     {
