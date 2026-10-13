@@ -222,8 +222,11 @@ FILTER 2.70 % (mostly the big knob rings, which we show permanently).
 - User tests in REAPER: (a) pages showed part 1's values for every part (containers' Part="0" was inherited) ->
   fixed (bbfb44b); (b) USB unplug during playback not detected, no sound after reconnect -> the worker follows the
   broker's device state: "Virus disconnected" on the LCD, on return start-up messages + state again, audio retry,
-  timeline re-anchor (a64743b) - waiting for the user's retest. Still to test by the user: project save/reload and
-  quick project switching.
+  timeline re-anchor (a64743b) - user: works. (c) selected part jumped back to 1 after a patch load: non-dump values
+  (selected part, part volume/pan, globals) are now kept in the state (9adf045) - user: works. (d) linked knob
+  (LFO link) followed only on release -> repaint of changed params during drags (8bb3a5f). (e) LFO link lost after
+  project reload -> editor-only link buttons saved as F0 7D 'VTN' records (ea08936). (f) notes hung while the
+  start-up bank sync ran -> sync pauses while the host plays (8119d36) - waiting for the user's retest of (e)/(f).
 
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
