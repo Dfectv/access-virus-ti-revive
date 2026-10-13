@@ -103,7 +103,7 @@ original Virus TI software must be installed (it can stay unused). These are the
 | Personal Libraries | the Wine prefix's Documents folder; Wine links it to the XDG documents folder (e.g. `~/Dokumente`) |
 | audio setup | PipeWire with JACK; the host runs at 44.1 kHz (`pw-metadata -n settings 0 clock.force-rate 44100`) |
 
-### Windows (CI build, device-tested in a Win11 VM; DAW test pending)
+### Windows (working; tested in Ableton 11 in a Win11 VM)
 | topic | how |
 |---|---|
 | plug-in format | VST3 bundle in `C:\Program Files\Common Files\VST3\VirusTINative.vst3` (`x86_64-win`), built with MSVC in CI (`.github/workflows/build.yml`, artifacts `VirusTINative-windows` + `tools-windows`) |
@@ -118,11 +118,12 @@ original Virus TI software must be installed (it can stay unused). These are the
 Verified in the VM (TI Revive 0.7.4, Access 5.1.7): Access files and libraries found, broker started on demand,
 TI2 detected, audio streaming with notes, bank sync (cancellable when the plug-in closes).
 
-### macOS (CI build universal arm64 + x86_64; device test pending)
+### macOS (working; universal arm64 + x86_64, tested in Ableton 12 on an M3)
 | topic | how |
 |---|---|
 | plug-in format | VST3 bundle `~/Library/Audio/Plug-Ins/VST3/VirusTINative.vst3`, universal (runs natively on Apple Silicon, no Rosetta), built with Xcode in CI (artifacts `VirusTINative-macos`, `tools-macos`) |
 | UI | VSTGUI with Cocoa / CoreGraphics; native menus |
+| permissions | the DAW needs microphone access (System Settings > Privacy > Microphone): without it Core Audio delivers silent input buffers |
 | broker | same program and protocol as on Linux (`/tmp/vtibroker-<uid>.sock`); no socket activation on macOS, so the plug-in starts `/Library/Application Support/TI Revive/vtibroker` itself when nobody answers (like TI Revive's libVirusUSB; `$TIREVIVE_BROKER` overrides) |
 | audio | **not** through the broker: the Virus' USB audio function is class compliant, so Core Audio offers it as an input device. The plug-in finds it (name contains "Virus", 6 inputs), sets 44.1 kHz and fills the same ring structure (`vti_audio_shm`) from an IOProc in its own memory; drift handling and latency are shared with the other platforms |
 | cache | `~/Library/Application Support/virus-ti-native/cache` |

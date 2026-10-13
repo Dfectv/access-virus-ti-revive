@@ -164,7 +164,7 @@ popup itself not testable headless - waiting for the user's retest.
   "Virus TI", 6 in @ 44.1 kHz), broker started on demand (posix_spawn like libVirusUSB), double-connect bug fixed.
 - MacBook (macOS 26.6, arm64): plug-in installed in ~/Library/Audio/Plug-Ins/VST3; Access files, firmware ROM
   (26 banks) and libraries found; notes reach the Virus, Core Audio frames advance but are all zero when run over
-  SSH - most likely macOS microphone permission (TCC). Waiting for the user's Ableton test on the Mac.
+  SSH (no microphone permission). User test in Ableton 12 on the Mac: everything works, UI responsive.
 - Afterwards: the Virus goes back to Linux (open Linux items need the original next to ours: Hypersaw display,
   ArpEdit, FX2 menus, timing R5).
 
