@@ -224,6 +224,53 @@ void EditorRenderer::osc_hypersaw(Canvas &c, const Element &e, int x, int y, int
         c.fill((int)std::floor(mid + off + 0.5), y, 1, e.h, e.fore);
 }
 
+// arpeggiator user pattern (ArpEdit, measured on the original): 32 cells of 20 px; a step with its bit set shows a bar
+// from the bottom, height = velocity in px, width from the step length (table below, right border at cell + r), filled
+// with ForeColor at ~38 % and framed in (192,192,192); steps without the bit show nothing
+int EditorRenderer::arp_step_width(int len)
+{
+    static const int lens[] = {0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 112, 120, 127};
+    static const int r[] = {0, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 16, 18, 18};
+    len = std::max(0, std::min(127, len));
+    for (int i = 1; i < 16; i++)
+        if (len <= lens[i])
+            return (int)std::lround(r[i - 1] + (double)(len - lens[i - 1]) * (r[i] - r[i - 1]) / (lens[i] - lens[i - 1]));
+    return 18;
+}
+
+void EditorRenderer::arp_step_geometry(const Element &e, int x, int y, int step, int &cell_x, int &bottom)
+{
+    cell_x = x + 1 + step * (e.w / 32); // measured: the first cell starts 1 px inside the element
+    bottom = y + e.h - 1;
+}
+
+void EditorRenderer::arp_edit(Canvas &c, const Element &e, int x, int y, int part)
+{
+    const Rgba border{192, 192, 192, 255};
+    const double a = 0.38;
+    for (int i = 0; i < 32; i++) {
+        std::string st = "Arpeggiator User Pattern/Step " + std::to_string(i + 1) + " ";
+        if (!values(st + "Bitfield", part))
+            continue;
+        int vel = std::max(0, std::min(127, values(st + "Velocity", part)));
+        // the note lasts until the next step that is on: the length applies to the step plus the following off steps
+        int span = 1;
+        while (i + span < 32 &&
+               !values("Arpeggiator User Pattern/Step " + std::to_string(i + span + 1) + " Bitfield", part))
+            span++;
+        int r = std::min(span * 20 - 1, (int)std::lround(arp_step_width(values(st + "Length", part)) * (double)span));
+        int cx, bottom;
+        arp_step_geometry(e, x, y, i, cx, bottom);
+        int top = bottom - vel;
+        if (r > 0 && vel > 1) // translucent fill inside the frame
+            c.fill(cx, top + 1, r, vel - 1, Rgba{e.fore.r, e.fore.g, e.fore.b, (uint8_t)std::lround(a * 255)});
+        c.fill(cx - 1, top, r + 2, 1, border);    // top
+        c.fill(cx - 1, bottom, r + 2, 1, border); // bottom
+        c.fill(cx - 1, top, 1, vel + 1, border);  // left
+        c.fill(cx + r, top, 1, vel + 1, border);  // right
+    }
+}
+
 void EditorRenderer::osc_classic(Canvas &c, const Element &e, int x, int y, int part)
 {
     const std::string &pwp = e.get("Parameter"); // "Oscillator N/Pulsewidth"
@@ -325,6 +372,8 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
         osc_classic(c, e, x, y, pt);
     if (e.type == "OscHypersawShape" && !param.empty())
         osc_hypersaw(c, e, x, y, pt);
+    if (e.type == "ArpEdit")
+        arp_edit(c, e, x, y, pt);
     if (e.type == "ADSTREnvelope" && !param.empty())
         envelope(c, e, x, y, pt, alpha);
     if (e.type == "PatchBrowser" && bank_patch && !param.empty()) {

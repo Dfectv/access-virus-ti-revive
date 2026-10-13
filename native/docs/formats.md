@@ -134,3 +134,8 @@ descriptor (bcdDevice 0x100 = TI or Snow by product string, 0x300 = TI2). Banks 
 - OscHypersawShape (OSC page, HyperSaw mode): three 1-px lines over the element's full height in ForeColor at
   centre and +-w, w = 1.9 + DetuneSpread * 5.6 / 127, centre x + w/2 - 0.25, positions floor(c + off + 0.5);
   density does not change the display (captured from the original for 8 value pairs, all identical).
+- ArpEdit (ARP page, pattern User): 32 cells of 20 px, first cell 1 px inside the element; a step with Bitfield 1
+  shows a bar from the bottom row (y + h - 1), height = Velocity px, ForeColor fill at ~38 %, frame (192,192,192).
+  Width: right frame at cell + r, r = table(Length) (0:0 8:2 16:3 24:4 32:5 40:6 48:7 56:8 64:10 72:11 80:12 88:13
+  96:14 112:16 120:18 127:18, interpolated) times the span (the step plus the following steps that are off).
+  Matches the original pixel for pixel (test pattern with 16 lengths + the default alternating pattern).

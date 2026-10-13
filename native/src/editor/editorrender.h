@@ -76,6 +76,12 @@ private:
     void filter_response(Canvas &c, const Element &e, int x, int y, int part);
     void osc_classic(Canvas &c, const Element &e, int x, int y, int part);
     void osc_hypersaw(Canvas &c, const Element &e, int x, int y, int part);
+    void arp_edit(Canvas &c, const Element &e, int x, int y, int part);
+
+public:
+    // ArpEdit geometry (shared with the editor's mouse handling): step cell left edge and the bars' bottom row
+    static void arp_step_geometry(const Element &e, int x, int y, int step, int &cell_x, int &bottom);
+    static int arp_step_width(int len); // right border offset from the cell's left edge for a step length
     void digits(Canvas &c, int number, int right, int top);
 };
 
