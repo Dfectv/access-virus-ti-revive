@@ -105,6 +105,10 @@
   Windows broker's audio request. vtimodel.exe under Wine finds the Access installation (C:\Program Files\...).
   Untested against the Windows broker. The plug-in for Windows needs MSVC (CI).
 
+- MILESTONE 2026-10-13: first DAW test by the user - REAPER 7.82 on Linux (pw-jack), "Virus TI (native)" from
+  ~/.vst3: "everything is working", latency sounds good, only minor UI issues (to be listed by the user). The Virus
+  was power cycled after the E136 hang and works again.
+
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
   Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples
