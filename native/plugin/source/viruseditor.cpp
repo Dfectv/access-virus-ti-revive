@@ -17,6 +17,9 @@
 #include "public.sdk/source/vst/vstgui_linux_runloop_support.h"
 #include "vstgui/lib/platform/platform_x11.h"
 #include "vstgui/lib/platform/linux/linuxfactory.h"
+#include "vstgui/lib/platform/iplatformframe.h"
+#include "vstgui/lib/platform/common/genericoptionmenu.h"
+#include "vstgui/lib/cfont.h"
 #endif
 
 using namespace VSTGUI;
@@ -549,6 +552,21 @@ bool PLUGIN_API VirusEditor::open(void *parent, const PlatformType &platformType
     if (auto lf = getPlatformFactory().asLinuxFactory())
         cfg.runLoop = lf->getRunLoop();
     frame->open(parent, platformType, cfg.runLoop ? &cfg : nullptr);
+    // X11 has no native menus: VSTGUI's generic menu fades in and uses a large dark theme. Like the original's
+    // (Windows) menus: no animation, compact rows, light theme.
+    if (auto *pf = frame->getPlatformFrame()) {
+        GenericOptionMenuTheme theme;
+        theme.menuAnimationTime = 2; // fade-in = time / 2; 0 never completes (transparent menu)
+        theme.font = makeOwned<CFontDesc>(kSystemFont->getName(), 11);
+        theme.backgroundColor = CColor(250, 250, 250, 252);
+        theme.textColor = CColor(0, 0, 0, 255);
+        theme.selectedBackgroundColor = CColor(51, 153, 255, 255);
+        theme.selectedTextColor = CColor(255, 255, 255, 255);
+        theme.disabledTextColor = theme.titleTextColor = CColor(140, 140, 140, 255);
+        theme.separatorColor = CColor(200, 200, 200, 255);
+        theme.inset = CPoint(3, 2);
+        pf->setupGenericOptionMenu(true, &theme);
+    }
 #else
     frame->open(parent, platformType);
 #endif
