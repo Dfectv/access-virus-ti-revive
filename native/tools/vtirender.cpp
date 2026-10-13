@@ -80,6 +80,14 @@ struct CairoCanvas : Canvas {
         cairo_rectangle(cr, x, y, w, h);
         cairo_fill(cr);
     }
+    void line(double x0, double y0, double x1, double y1, Rgba c) override
+    {
+        cairo_set_source_rgba(cr, c.r / 255., c.g / 255., c.b / 255., c.a / 255.);
+        cairo_set_line_width(cr, 1);
+        cairo_move_to(cr, x0, y0);
+        cairo_line_to(cr, x1, y1);
+        cairo_stroke(cr);
+    }
 };
 
 static std::vector<std::vector<uint8_t>> read_state(const char *path)

@@ -55,6 +55,12 @@ public:
         ctx->setFillColor(CColor(c.r, c.g, c.b, c.a));
         ctx->drawRect(CRect(x, y, x + w, y + h), kDrawFilled);
     }
+    void line(double x0, double y0, double x1, double y1, Rgba c) override
+    {
+        ctx->setFrameColor(CColor(c.r, c.g, c.b, c.a));
+        ctx->setLineWidth(1);
+        ctx->drawLine(CPoint(x0, y0), CPoint(x1, y1));
+    }
 
 private:
     const AccessFiles &files_;

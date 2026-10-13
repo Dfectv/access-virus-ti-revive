@@ -18,6 +18,7 @@ public:
     // copy the w x h region at (sx, sy) of `img` to (dx, dy) with `alpha`
     virtual void blit(void *img, int sx, int sy, int dx, int dy, int w, int h, double alpha) = 0;
     virtual void fill(int x, int y, int w, int h, Rgba c) = 0;
+    virtual void line(double x0, double y0, double x1, double y1, Rgba c) = 0; // 1 pixel wide
 };
 
 struct Hit {
@@ -58,6 +59,7 @@ private:
               const std::string &align, double alpha = 1.0);
     bool hit(const Element &e, int ox, int oy, int inherited, int px, int py, Hit &out) const;
     void patch_browser(Canvas &c, const Element &e, int x, int y, int bank);
+    void envelope(Canvas &c, const Element &e, int x, int y, int part, double alpha);
     void digits(Canvas &c, int number, int right, int top);
 };
 

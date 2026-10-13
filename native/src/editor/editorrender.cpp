@@ -115,6 +115,70 @@ void EditorRenderer::patch_browser(Canvas &c, const Element &e, int x, int y, in
     }
 }
 
+// ADSTR envelope display: stage geometry measured on the original (init patch; the original builds its stages in
+// the control factory, not yet decompiled): x0 = 4, top = 3, bottom = h - 4 inside the element, 0.47 px per value
+// unit for attack/decay/release, a hold segment of 62 px at sustain 127 .. 94 px at sustain 0, a ~29 px sustain-time
+// segment (flat at 64), gradient fill under the curve, line in ForeColor, 7x7 handles, a marker at the slope end.
+void EditorRenderer::envelope(Canvas &c, const Element &e, int x, int y, int part, double alpha)
+{
+    const std::string &first = e.get("Parameter"); // "<Envelope>/Attack"
+    std::string g = first.substr(0, first.rfind('/') + 1);
+    int A = values(g + "Attack", part), D = values(g + "Decay", part), S = values(g + "Sustain", part);
+    int T = values(g + "Sustain Time", part), R = values(g + "Release", part);
+    const double k = 0.47, top = y + 3, bottom = y + e.h - 4, h = bottom - top;
+    double x0 = x + 4, x1 = x0 + A * k, x2 = x1 + 62 * std::pow(D / 127.0, 1.07), x3 = x2 + 62 + (127 - S) * 0.252;
+    double x4 = x3 + 29, x5 = x4 + R * 0.457;
+    double ys = bottom - S / 127.0 * h;
+    double yt = std::max(top, std::min(bottom, ys - (T - 64) / 63.0 * h * 0.5)); // slope: up for T > 64
+    // curve y for every column x0..x5
+    auto curve = [&](double px) {
+        if (px <= x1)
+            return x1 > x0 ? bottom - (px - x0) / (x1 - x0) * h : top;
+        if (px <= x2) {
+            double t = (px - x1) / std::max(1.0, x2 - x1);
+            return ys + (top - ys) * std::pow(1 - t, 3.0);
+        }
+        if (px <= x3)
+            return ys;
+        if (px <= x4)
+            return ys + (yt - ys) * (px - x3) / (x4 - x3);
+        double t = (px - x4) / std::max(1.0, x5 - x4);
+        return bottom + (yt - bottom) * std::pow(1 - t, 3.0);
+    };
+    int cx0 = (int)std::floor(x0), cx1 = (int)std::ceil(x5);
+    // gradient fill under the curve, row by row
+    for (int row = (int)top; row < (int)bottom; row++) {
+        int a = -1, b = -1;
+        for (int px = cx0; px <= cx1; px++)
+            if (curve(px) <= row) {
+                if (a < 0)
+                    a = px;
+                b = px;
+            }
+        if (a < 0)
+            continue;
+        double f = (row - top) / h;
+        Rgba col{(uint8_t)(133 + (38 - 133) * f), (uint8_t)(147 + (42 - 147) * f), (uint8_t)(167 + (48 - 167) * f),
+                 (uint8_t)(255 * alpha)};
+        c.fill(a, row, b - a + 1, 1, col);
+    }
+    Rgba fc = e.fore;
+    fc.a = (uint8_t)(255 * alpha);
+    double py = bottom;
+    for (int px = cx0; px <= cx1; px++) {
+        double cy = curve(px);
+        c.line(px - 1 + 0.5, py + 0.5, px + 0.5, cy + 0.5, fc);
+        py = cy;
+    }
+    c.line(x4 + 0.5, top + 0.5, x4 + 0.5, bottom + 0.5, fc); // slope end marker
+    if (void *hd = c.image(e.get("NormalHandle"))) {
+        int hw = c.image_width(hd), hh = c.image_height(hd);
+        double pts[5][2] = {{x1, top}, {x2, ys}, {x3, ys}, {x4, yt}, {x5, bottom}};
+        for (auto &pt : pts)
+            c.blit(hd, 0, 0, (int)std::lround(pt[0]) - hw / 2, (int)std::lround(pt[1]) - hh / 2, hw, hh, alpha);
+    }
+}
+
 void EditorRenderer::render(Canvas &c)
 {
     for (auto &e : layout_.elements)
@@ -165,6 +229,8 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
     } else if (e.get("Transparent") == "false" && e.back.a)
         c.fill(x, y, e.w, e.h, e.back);
 
+    if (e.type == "ADSTREnvelope" && !param.empty())
+        envelope(c, e, x, y, pt, alpha);
     if (e.type == "PatchBrowser" && bank_patch && !param.empty()) {
         // "Browser N/Selected Bank" (internal to the original): browser N shows RAM bank N by default
         int bank = values(param, pt);
