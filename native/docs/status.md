@@ -185,6 +185,22 @@ popup itself not testable headless - waiting for the user's retest.
 - FX2 "Reverb/Type" active with Reverb/Send 0 in the original while Reverb/Mode (same condition) is greyed: an
   inconsistency of the original (no special case in the decompile); ours follows the XML condition for both.
 
+## UI to-do (paused 2026-10-13 evening, continue here)
+
+Procedure: capture the original with `vtihost` + VTI_LOADSTATE (state built from VTI_SAVESTATE base + `vtimodel
+setdump` changes on part 0's dump), click the tab with work/bin/xclick (editor at screen offset 4,30), ImageGrab
+:77; render ours with nativehost --state <component state> in `bwrap --tmpfs /tmp` (no Virus access); diff pixels
+(threshold 24) per page. Scripts were in the session scratchpad (capa.py / allpages.py / fcmp.sh) - re-create.
+Current page diffs (base state): LFO, MATRIX, COMMON, FX1 0 %; ARP 0.04 %; FX2 0.08 %; EASY 1.65 %; OSC 2.29 %;
+FILTER 2.70 % (mostly the big knob rings, which we show permanently).
+1. OSC classic display: mixed shapes (sine..saw, pulse) - the original interpolates 64-point wave tables from the
+   DLL (FUN_180048470, DAT_1801ac340, second table at object+0x1c0): read the tables at runtime.
+2. Filter displays: highpass resonance height (original ~2 px higher at resonance 100, non-linear), HP within 2 px.
+3. Envelope displays: handles up to 1 px off for the base patch (measured geometry was from the init patch).
+4. Inactive menu text brightness differs in some places (ARP/FX2 vs MATRIX - the original is inconsistent).
+5. Big knob rings: shown permanently (user wanted them); the original under Wine shows them on hover only.
+6. Meta engine: tested reverb switch; LFO clock menus and filter/vocoder links untested with the Virus.
+
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
   Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples
