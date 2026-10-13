@@ -151,6 +151,13 @@ public:
                 lo = p->min, hi = p->max;
             else if (param == "Repository Actions/Category Filter")
                 hi = 22;
+            if (drag_value_ == VirusPlugin::SEARCH_BANK) { // the arrows page through the search results
+                plugin_->results_step(e.type == "IncButton" ? 1 : -1);
+                renderer_.pressed = &e;
+                invalid();
+                event.consumed = true;
+                return;
+            }
             int v = drag_value_ + (e.type == "IncButton" ? 1 : -1);
             plugin_->ui_set(param, h.part, std::max(lo, std::min(hi, v)));
             renderer_.pressed = &e;

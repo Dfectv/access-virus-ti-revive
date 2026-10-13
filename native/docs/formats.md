@@ -101,11 +101,12 @@ load in the rewrite and vice versa.
   "Internal System Info/Display Recall Progress" (false outside a recall).
 - Category filter: menu = editordevice "Val Name Category Filter" (All + alphabetical); its entry value is the
   category byte stored in the patch (Piano = index 16, stored 18). Search: live, case-insensitive substring of the
-  patch name. Like the original (decompile: repository "Search Results", URL search://), a search text fills a
-  results bank with the matching patches of all banks (device, then libraries; first 128) in browser 1 (the lower
-  browser). The category (user, from the original): the upper browser (browser 2) lists the patches of that
-  category from all banks; the search is not affected. Cleared, each browser returns to its bank. The generic
-  (Linux) menu ticks the entry of the menu's value (setValue), not checkEntryAlone.
+  patch name. Like the original (decompile: repository "Search Results", URL search://; user screenshots): search
+  text and/or category collect the matching patches of all banks, sorted by name (byte order, duplicates kept), in
+  pages of 128 in the UPPER browser ("Browser 0/Selected Bank"; the lower one is "Browser 1"). Title
+  "Search Results/" + `Category is "Piano"` | `Name contains "pi"` | `Name contains "pi" and category is "Piano"` +
+  ` (page 1 of N)`; the bank arrows page. Cleared, browser 0 returns to its bank. The generic (Linux) menu ticks
+  the entry of the menu's value (setValue), not checkEntryAlone.
 - Inactive controls (the parameter's own `condition` false, e.g. Chorus Mix with chorus off, Live Mode while the
   sequencer runs; soft knobs without destination) are painted with alpha 0.4.
 - Text: bitmap fonts FNT_LCD_5x7_*.png = 96 glyphs (ASCII 32..127) of 6x9 in a vertical strip; StaticText shows its

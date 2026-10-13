@@ -109,8 +109,9 @@ public:
     bool store_to_library(int part, int library, int slot);
     // does a stored patch have category `cat` (filter menu index, 0 = any) and contain `q` in its name?
     bool patch_matches(int bank, int program, int cat, const std::string &q);
-    static constexpr int SEARCH_BANK = 1000;             // "Search Results" (search://), browser 1
-    static constexpr int CATEGORY_BANK = 1001;           // the category filter's patches, browser 2
+    static constexpr int SEARCH_BANK = 1000;             // "Search Results" (search://): the current page
+    bool results_step(int dir);                          // previous / next results page (false: none)
+    std::string results_title();
     void update_results();
     std::string category_name_(); // the selected category filter's name
     void set_search(const std::string &s);
@@ -142,9 +143,7 @@ public:
     std::string bank_title(int bank) // browser title
     {
         if (bank == SEARCH_BANK)
-            return "Search Results";
-        if (bank == CATEGORY_BANK)
-            return "Category/" + category_name_();
+            return results_title();
         return bank >= LIB_BASE ? "Personal Libraries/" + library_name(bank - LIB_BASE) : device_name() + "/" + bank_name(bank);
     }
     static std::string bank_name(int bank) // 0..3 = RAM A..D, 4.. = ROM A..
@@ -183,7 +182,10 @@ private:
     std::map<std::string, int> ui_state_;                   // editor-only parameters (VirusControl/SelectedPage ...)
     std::string lcd_param_, lcd_value_, lcd_part_;          // the last edited parameter for the LCD
     std::string search_;                                    // browser search text
-    int results_return_ = 0, category_return_ = 1;          // browser 1 / 2's bank before the results
+    int results_return_ = 0;                                // browser 0's bank before the results
+    std::vector<std::vector<uint8_t>> results_;             // all search results (banks_mu_)
+    int results_page_ = 0;
+    void show_results_page();
     std::map<std::pair<int, int>, std::array<int, 3>> cat_cache_; // (bank, program) -> checksum, category 1, 2
     std::atomic<bool> ui_dirty_{true};
     std::atomic<int> meter_[16] = {};

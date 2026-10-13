@@ -925,55 +925,83 @@ void VirusPlugin::set_search(const std::string &s)
     update_results();
 }
 
-// like the original: a search text fills the "Search Results" bank (search://) with the matching patches of all banks,
-// shown in browser 1 (the lower one); a category fills the upper browser (browser 2) with the patches of that
-// category from all banks. Cleared, each browser returns to the bank it showed before.
+// like the original (repository "Search Results", search://): a search text and/or a category collect the matching
+// patches of all banks, sorted by name (byte order, duplicates kept), in pages of 128 shown in the upper browser
+// (browser 0); cleared, browser 0 returns to the bank it showed before
 void VirusPlugin::update_results()
 {
     int cat = ui_value("Repository Actions/Category Filter", -1);
     std::string q = search();
+    bool active = cat != 0 || !q.empty();
     std::vector<int> ids;
     {
         std::lock_guard<std::mutex> lk(banks_mu_);
         for (auto &kv : banks_)
-            if (kv.first != SEARCH_BANK && kv.first != CATEGORY_BANK)
+            if (kv.first != SEARCH_BANK)
                 ids.push_back(kv.first);
     }
-    struct View {
-        int bank;
-        const char *browser;
-        bool active;
-        int cat;
-        std::string q;
-        int *ret;
-    } views[] = {{SEARCH_BANK, "Browser 1/Selected Bank", !q.empty(), 0, q, &results_return_},
-                 {CATEGORY_BANK, "Browser 2/Selected Bank", cat != 0, cat, std::string(), &category_return_}};
-    for (auto &v : views) {
-        std::vector<std::vector<uint8_t>> found;
-        for (int b = 0; v.active && b < (int)ids.size() && found.size() < 128; b++)
-            for (int p = 0; p < 128 && found.size() < 128; p++) {
-                if (!patch_matches(ids[b], p, v.cat, v.q))
-                    continue;
-                std::lock_guard<std::mutex> lk(banks_mu_);
-                auto it = banks_.find(ids[b]);
-                if (it != banks_.end() && p < (int)it->second.size())
-                    found.push_back(it->second[p]);
-            }
-        {
+    std::vector<std::vector<uint8_t>> found;
+    for (int b = 0; active && b < (int)ids.size(); b++)
+        for (int p = 0; p < 128; p++) {
+            if (!patch_matches(ids[b], p, cat, q))
+                continue;
             std::lock_guard<std::mutex> lk(banks_mu_);
-            if (v.active)
-                banks_[v.bank] = std::move(found);
-            else
-                banks_.erase(v.bank);
+            auto it = banks_.find(ids[b]);
+            if (it != banks_.end() && p < (int)it->second.size())
+                found.push_back(it->second[p]);
         }
-        int shown = ui_value(v.browser, -1);
-        if (v.active && shown != v.bank) {
-            *v.ret = shown;
-            ui_state_[v.browser] = v.bank;
-        } else if (!v.active && shown == v.bank)
-            ui_state_[v.browser] = *v.ret;
+    std::stable_sort(found.begin(), found.end(), [](const std::vector<uint8_t> &a, const std::vector<uint8_t> &b) {
+        return std::lexicographical_compare(a.begin() + 249, a.begin() + 259, b.begin() + 249, b.begin() + 259);
+    });
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        results_ = std::move(found);
+        results_page_ = 0;
+        show_results_page();
+        if (!active)
+            banks_.erase(SEARCH_BANK);
     }
+    const std::string b0 = "Browser 0/Selected Bank";
+    int shown = ui_value(b0, -1);
+    if (active && shown != SEARCH_BANK) {
+        results_return_ = shown;
+        ui_state_[b0] = SEARCH_BANK;
+    } else if (!active && shown == SEARCH_BANK)
+        ui_state_[b0] = results_return_;
     ui_dirty_ = true;
+}
+
+void VirusPlugin::show_results_page() // banks_mu_ held
+{
+    int n = (int)results_.size(), from = results_page_ * 128;
+    banks_[SEARCH_BANK].assign(results_.begin() + std::min(n, from), results_.begin() + std::min(n, from + 128));
+}
+
+bool VirusPlugin::results_step(int dir)
+{
+    std::lock_guard<std::mutex> lk(banks_mu_);
+    int pages = std::max(1, ((int)results_.size() + 127) / 128), p = results_page_ + dir;
+    if (p < 0 || p >= pages)
+        return false;
+    results_page_ = p;
+    show_results_page();
+    ui_dirty_ = true;
+    return true;
+}
+
+std::string VirusPlugin::results_title()
+{
+    int cat = ui_value("Repository Actions/Category Filter", -1);
+    std::string q = search(), t;
+    if (!q.empty() && cat)
+        t = "Name contains \"" + q + "\" and category is \"" + category_name_() + "\"";
+    else if (!q.empty())
+        t = "Name contains \"" + q + "\"";
+    else
+        t = "Category is \"" + category_name_() + "\"";
+    std::lock_guard<std::mutex> lk(banks_mu_);
+    int pages = std::max(1, ((int)results_.size() + 127) / 128);
+    return "Search Results/" + t + " (page " + std::to_string(results_page_ + 1) + " of " + std::to_string(pages) + ")";
 }
 
 std::string VirusPlugin::category_name_()
