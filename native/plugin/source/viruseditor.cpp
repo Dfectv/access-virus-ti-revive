@@ -13,6 +13,9 @@
 #include "vstgui/lib/platform/platformfactory.h"
 #include <algorithm>
 #include <chrono>
+#include <functional>
+#include <list>
+#include <set>
 #include <cmath>
 #if SMTG_OS_LINUX
 // server-side (X pixmap) copies of the bitmaps: VSTGUI keeps CPU image surfaces and uploads their pixels on every
@@ -242,8 +245,39 @@ public:
                     }
                 if (!area.isEmpty())
                     invalidRect(area);
-            }
+            } else
+                preload_step();
         }, 50);
+    }
+
+    // idle ticks: decode the skin's bitmaps ahead of use (Linux: and upload them as pixmaps), so the first visit of a
+    // page does not load its bitmaps while drawing
+    void preload_step()
+    {
+        if (preload_pos_ == 0 && preload_.empty()) {
+            std::set<std::string> names;
+            std::function<void(const Element &)> walk = [&](const Element &e) {
+                for (auto &kv : e.attr)
+                    if (kv.second.size() > 4) {
+                        std::string ext = kv.second.substr(kv.second.size() - 4);
+                        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) { return (char)tolower(ch); });
+                        if (ext == ".png")
+                            names.insert(kv.second);
+                    }
+                for (auto &c : e.children)
+                    walk(c);
+            };
+            for (auto &e : plugin_->layout().elements)
+                walk(e);
+            preload_.assign(names.begin(), names.end());
+            if (preload_.empty())
+                preload_pos_ = 1; // nothing to do
+        }
+        if (!getFrame() || preload_pos_ >= preload_.size())
+            return;
+        canvas_.frame = getFrame();
+        for (int i = 0; i < 6 && preload_pos_ < preload_.size(); i++)
+            canvas_.image(preload_[preload_pos_++]);
     }
 
     void draw(CDrawContext *ctx) override { drawRect(ctx, getViewSize()); }
@@ -263,9 +297,18 @@ public:
         // meters, LCD) reuse the cache without walking the conditions
         bool full_update = r.getWidth() >= getViewSize().getWidth() - 1 && r.getHeight() >= getViewSize().getHeight() - 1;
         std::vector<const Element *> sig;
-        if (!static_bg_ || full_update)
+        if (statics_.empty() || full_update)
             sig = renderer_.static_signature();
-        if (!static_bg_ || (full_update && sig != static_key_)) {
+        bool rebuild = false;
+        if (statics_.empty() || (full_update && sig != statics_.front().key)) {
+            // the last pages' static layers stay cached: switching back is a copy instead of a rebuild
+            auto hit = std::find_if(statics_.begin(), statics_.end(), [&](const StaticLayer &l) { return l.key == sig; });
+            if (hit != statics_.end())
+                statics_.splice(statics_.begin(), statics_, hit);
+            else
+                rebuild = true;
+        }
+        if (rebuild) {
             CRect full = getViewSize();
             if (auto off = COffscreenContext::create(CPoint(full.getWidth(), full.getHeight()))) {
                 off->beginDraw();
@@ -278,21 +321,23 @@ public:
                 renderer_.render(canvas_);
                 renderer_.clip_x0 = c0, renderer_.clip_y0 = c1, renderer_.clip_x1 = c2, renderer_.clip_y1 = c3;
                 off->endDraw();
-                static_bg_ = off->getBitmap();
+                SharedPointer<CBitmap> bg = off->getBitmap();
 #if SMTG_OS_LINUX
-                if (auto sb = server_bitmap(getFrame(), static_bg_))
-                    static_bg_ = sb; // the cache as an X pixmap too
+                if (auto sb = server_bitmap(getFrame(), bg))
+                    bg = sb; // the cache as an X pixmap too
 #endif
-                static_key_ = sig;
+                statics_.push_front({sig, bg});
+                while (statics_.size() > 8) // ~1.9 MB each
+                    statics_.pop_back();
                 canvas_.ctx = ctx;
                 if (env_drawtime())
                     fprintf(stderr, "static layer rebuilt\n");
             }
         }
         canvas_.frame = getFrame(); // into the window: server-side bitmaps (Linux)
-        if (static_bg_ && full_update) { // small areas: drawing their few elements directly is cheaper on X11
+        if (!statics_.empty() && full_update) { // small areas: drawing their few elements directly is cheaper on X11
             CRect dst(update);
-            static_bg_->draw(ctx, dst, CPoint(dst.left - getViewSize().left, dst.top - getViewSize().top));
+            statics_.front().bg->draw(ctx, dst, CPoint(dst.left - getViewSize().left, dst.top - getViewSize().top));
             renderer_.layer = 2;
         } else
             renderer_.layer = 0;
@@ -558,8 +603,13 @@ private:
     int edit_part_ = 0;
     std::vector<CRect> meter_rects_; // the part strips' meters
     EditorRenderer::Deps deps_;      // what the controls read (filled by full repaints)
-    SharedPointer<CBitmap> static_bg_;              // cached static layer
-    std::vector<const Element *> static_key_;       // its visible conditional static elements
+    struct StaticLayer {
+        std::vector<const Element *> key; // the visible conditional static elements (page, modes, ...)
+        SharedPointer<CBitmap> bg;        // the static layer drawn with them
+    };
+    std::list<StaticLayer> statics_;   // front = current; the last 8 pages
+    std::vector<std::string> preload_; // the skin's bitmaps, loaded a few per idle tick (first page visits)
+    size_t preload_pos_ = 0;
     bool editing_search_ = false;
     CRect search_rect_;
 
