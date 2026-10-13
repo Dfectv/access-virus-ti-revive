@@ -96,6 +96,10 @@
   (mean 97.2 %). Open: FX2 menus that the original shows active although our state says inactive (Reverb Send 0 -
   the original probably uses the Virus' upgraded edit buffer values), Hypersaw/Wavetable displays, step sequencer.
 
+- Editor: patch rename (double click on a part's name, VSTGUI text edit -> dump + Virus), LCD shows the edited
+  parameter (display name, value text, part). process() is now free of blocking locks (automation -> lock-free ring ->
+  device worker updates the part dumps). Virus still off USB (E136 in TI Revive) - device tests wait for the user.
+
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
   Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples
