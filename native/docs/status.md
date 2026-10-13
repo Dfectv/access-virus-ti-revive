@@ -125,6 +125,14 @@
 - Questions for the user (could not be captured from the original under Wine): how the original's search shows
   results; whether a double click in the browser loads the patch (ours: double click loads, click selects).
 
+## 2026-10-13 (midday) - user test feedback, browser fixes
+
+User test in REAPER: CATEGORY text garbled, search field floating/not working, Piano filter dimmed everything,
+part strip bar always full. Fixed (2ca76d0): built-in CATEGORY conditions + "No Label", filter index -> stored
+category value, live search field at the layout position, VU = MIDI activity meter (decompile: ShowMIDIActivityMeters,
+per-channel max velocity, -1 per idle tick). Verified in nativehost/Xvfb (search "pi", meters part 1 only). Category
+popup itself not testable headless - waiting for the user's retest.
+
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
   Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples
