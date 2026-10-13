@@ -7,6 +7,11 @@ Virus TI plug-in with its "Total Integration" works again — parameter sync, pr
 streamed into your DAW through the plug-in — using your own Access software, without the old Access drivers that
 current systems can no longer load. No kernel code of its own is installed.
 
+> ☕ **TI Revive is free, and it will stay free.** The whole idea is to bring the Virus TI back to life for
+> everyone, at no cost. If it gives your Virus a second life and you'd like to say thanks, you're welcome to
+> [buy me a coffee](https://buymeacoffee.com/callmederpsn). That's entirely optional and never expected:
+> every feature works the same either way. A bug report, a test with your setup or a kind word helps just as much.
+
 | | Windows 11 | macOS on Apple Silicon | Linux (experimental) |
 |---|---|---|---|
 | **Download** ([Releases](https://github.com/derpsn/access-virus-ti-revive/releases)) | `TI-Revive-<version>-setup.exe` (or the same as `.msi`) | `TI-Revive-<version>-mac.zip` (since 0.5.0, beta) | `TI-Revive-<version>-linux.tar.gz` (since 0.7.0) |
