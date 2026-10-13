@@ -114,8 +114,8 @@
   browser / LOAD / SAVE / bank menu rebuilt after screenshots of the original (work/orig-ui: device > RAM/ROM banks,
   Personal Libraries, "000 Name", selection frame, category menu with check); big rings visible again; editor lag:
   partial repaints (~8 ms per drag step). Personal Libraries: the .mid patch files in Documents/Access Music/Virus TI/Patches (src/access/library; Linux
-  ~/Documents/..., else the Wine prefix's) in the bank menu, LOAD menu and browser. Open: Virus C (267-byte) dumps in
-  libraries, saving into libraries, search display in the original
+  ~/Documents/..., else the Wine prefix's) in the bank menu, LOAD menu and browser. Virus C (267-byte) dumps are upgraded
+  with the default page B from the DLL; SAVE writes into library files (overwrite / append). Open: search display in the original
   (typing into the original under Wine did not reach the field), whether the original loads on double click.
 
 - CI (.github/workflows/build.yml): Windows (MSVC, VirusTINative.vst3 artifact) + Linux builds on every push - both
