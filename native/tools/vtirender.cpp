@@ -64,6 +64,7 @@ struct Renderer {
     int part;
     bool outline;
     int drawn = 0, hidden = 0;
+    double disabled_alpha = getenv("VTIRENDER_ALPHA") ? atof(getenv("VTIRENDER_ALPHA")) : 0.4, cur_alpha = 1.0;
 
     // draw frame `index` of a vertical filmstrip whose frames are `fh` high
     void strip(cairo_surface_t *s, int x, int y, int w, int h, int index)
@@ -72,7 +73,7 @@ struct Renderer {
         cairo_rectangle(cr, x, y, w, h);
         cairo_clip(cr);
         cairo_set_source_surface(cr, s, x, y - index * h);
-        cairo_paint(cr);
+        cairo_paint_with_alpha(cr, cur_alpha);
         cairo_restore(cr);
     }
 
@@ -117,11 +118,10 @@ struct Renderer {
             return std::to_string(v);
         for (const RemoteDevice *d : {dev, ed}) {
             auto vl = d ? d->valuelists.find(p->valuelist) : decltype(dev->valuelists.end()){};
-            if (d && vl != d->valuelists.end()) {
-                std::string t = vl->second.text(v);
-                if (!t.empty())
-                    return t;
-            }
+            if (d && vl != d->valuelists.end()) // an existing entry wins, even with empty text (live displays)
+                for (auto &en : vl->second.entries)
+                    if (en.index == v)
+                        return en.text;
         }
         return std::to_string(v);
     }
@@ -143,6 +143,15 @@ struct Renderer {
         }
         const std::string &param = e.get("Parameter");
         cairo_surface_t *normal = png.get(e.get("NormalBack"));
+        // inactive controls (the parameter's activity condition is false, e.g. Chorus Mix while the chorus is off) are
+        // drawn translucent like the original's disabled controls
+        double alpha = 1.0;
+        if (const Parameter *ap = param.empty() ? nullptr : cond.find(param))
+            if (!ap->condition.empty() && !cond.eval(ap->condition, values, pt))
+                alpha = disabled_alpha;
+        if (param.rfind("Softknobs/Softknob ", 0) == 0) // virtual: inactive without a destination
+            if (values("Soft Knobs/Destination " + param.substr(19), pt) == 0)
+                alpha = disabled_alpha;
         int v = param.empty() ? 0 : values(param, pt);
         const Parameter *p = param.empty() ? nullptr : cond.find(param);
         if (normal) {
@@ -160,6 +169,7 @@ struct Renderer {
                 index = frames >= 2 && v ? 1 : 0;
             }
             index = std::max(0, std::min(frames - 1, index));
+            cur_alpha = alpha;
             if (e.type == "VUSlider") { // level bar up to the value (the current part only), handle drawn below
                 normal = nullptr;
                 cairo_surface_t *bar = png.get(e.get("NormalBack"));
@@ -184,9 +194,10 @@ struct Renderer {
                 cairo_rectangle(cr, x, y, e.w, e.h);
                 cairo_clip(cr);
                 cairo_set_source_surface(cr, normal, x, y);
-                cairo_paint(cr);
+                cairo_paint_with_alpha(cr, cur_alpha);
                 cairo_restore(cr);
             }
+            cur_alpha = 1.0;
             drawn++;
         } else if (e.get("Transparent") == "false" && e.back.a) {
             cairo_set_source_rgba(cr, e.back.r / 255., e.back.g / 255., e.back.b / 255., e.back.a / 255.);

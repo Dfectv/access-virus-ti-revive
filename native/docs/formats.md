@@ -88,3 +88,17 @@ load in the rewrite and vice versa.
   chorus/delay area etc.) - the sound is the same init patch; the Virus upgrades what it receives to version 12.
 - The state's multi = the start-up table with bytes 25..40 and the checksum zeroed (as the original stores it).
 - Then `73 00 2D 02` twice (Global Surround/Output Control 2/3 = 2) and the 224 controller defaults.
+
+## editor rendering rules (verified against a screenshot of the original, Easy page 97.0 % identical pixels)
+- Knob/slider bitmaps are vertical filmstrips: frames = bitmap height / control height, frame = (v-min)/(max-min).
+- RadioButton/Button: NormalBack is a 2-frame strip (0 = off, 1 = selected); PressedBack only while held.
+- VUSlider (part strip): NormalBack = 53-frame level strip (lit for the current part up to its volume), NormalHandle
+  at (w - handle width) * value; children of a PatchContainer inherit its Part.
+- Inactive controls (the parameter's own `condition` false, e.g. Chorus Mix with chorus off, Live Mode while the
+  sequencer runs; soft knobs without destination) are painted with alpha 0.4.
+- Text: bitmap fonts FNT_LCD_5x7_*.png = 96 glyphs (ASCII 32..127) of 6x9 in a vertical strip; StaticText shows its
+  Name, TextSlider/Menu the valuelist text (an existing entry wins even if empty: live displays stay blank),
+  NameEdit the part's patch name (Single Patch Name/Character 01..10).
+- Open: the big Filter 1 cutoff ring (MaskedKnob KNB_Cutoff_Rot_Uni) is not drawn by the original at rest; filter
+  response displays (LP4/HP4/BP4/BS4Response -> probably KXYControl in the decompile), envelope (KEnvelope), osc
+  shapes (KOscClassicShape/KOscHypersawShape), step sequencer (KStepSequencer) are custom drawn.
