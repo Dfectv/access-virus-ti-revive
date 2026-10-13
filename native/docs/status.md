@@ -109,6 +109,13 @@
   ~/.vst3: "everything is working", latency sounds good, only minor UI issues (to be listed by the user). The Virus
   was power cycled after the E136 hang and works again.
 
+- User feedback round (2026-10-13): first start without a cache = full RAM sync like the original (512 patches ~8 min,
+  identical to the original's cache; Virus display message + LCD progress); ROM A-Z from firmware.bin by model;
+  browser / LOAD / SAVE / bank menu rebuilt after screenshots of the original (work/orig-ui: device > RAM/ROM banks,
+  Personal Libraries, "000 Name", selection frame, category menu with check); big rings visible again; editor lag:
+  partial repaints (~8 ms per drag step). Open: Personal Libraries (patch files), search display in the original
+  (typing into the original under Wine did not reach the field), whether the original loads on double click.
+
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
   Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples
