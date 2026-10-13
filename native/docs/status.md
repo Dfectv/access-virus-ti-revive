@@ -211,8 +211,10 @@ FILTER 2.70 % (mostly the big knob rings, which we show permanently).
   flood: unthrottled automation 32 lanes/block (~2750/s) hangs it within 4 min; notes alone at ~2750/s are fine;
   automation throttled to 1000/s alone fine, but together with the notes it still hung (full-scale burst first).
   Automation is now coalesced per parameter and sent within a budget (AUTOMATION_RATE, now 250/s) - retest of the
-  full load pending (user power-cycles the Virus).
-- Block sizes: 64 = 1 re-anchor in 30 s (click); 128/256 fine; 1024/2048 results invalid (taken while hung).
+  full load passed at 250/s (4 min notes on 16 channels + 32 lanes, Virus fine afterwards).
+- Block sizes: 64 had a ring re-anchor (click) every ~30 s -> audio distance at least 768 frames (0 in 60 s);
+  128..2048 fine. Open (R5): the plug-in reports no latency to the host yet (getLatencySamples) - needs the real
+  note-to-audio latency (variable K), else delay compensation would be wrong.
 - Tooling: nativehost --stress / --stress-notes / --stress-params / --block N; VTI_NATIVE_STATS.
 
 ## Next

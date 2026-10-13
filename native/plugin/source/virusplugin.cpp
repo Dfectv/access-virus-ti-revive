@@ -549,7 +549,8 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             if (k && tl_valid_)
                 out_->audio().read_at(o1[0], o1[1], o2[0], o2[1], data.numSamples, block_start + atoi(k));
             else
-                out_->audio().read(o1[0], o1[1], o2[0], o2[1], data.numSamples, 2 * block_ + 256);
+                // at least 768 frames: with 64-sample blocks 2 * 64 + 256 gave a ring re-anchor (click) every ~30 s
+                out_->audio().read(o1[0], o1[1], o2[0], o2[1], data.numSamples, std::max(2 * block_ + 256, 768));
         }
     }
     return kResultOk;
