@@ -49,7 +49,10 @@ VirusUSB.inf also lists PID 0816 (unlikely the cause since TI Revive reaches the
 Stage 3 (native rewrite of the plug-in) is developed in the PRIVATE repo derpsn/virus-ti-native (~/virus-ti-native,
 plan docs/plan.md, status docs/status.md); TI Revive is its submodule. State 2026-10-13 (evening): the native VST3 works on Linux (REAPER),
 Windows (Ableton 11, win11 VM) and macOS (Ableton 12 on the M3, universal, Core Audio input) - user tests: sound,
-timing, editor from the user's Access files, browser/search like the original. Open there: a few displays, timing R5.
+timing, editor from the user's Access files, browser/search like the original. Night 2026-10-14: stability and
+performance pass (thread races fixed via TSan/ASan, no lost note-offs, idle CPU 5 % -> 1.4 %, partial repaints for
+automation, unit tests in CI); the device tests of it are on the list in docs/status.md there. Open there: a few
+displays, timing R5, an Ableton test with several M4L LFOs.
 Broker side from it: Mac broker logs "MDR ring full" once per episode (079904d, next release).
 Kemper (2026-10-13, reply to the user's request): the Virus TI software will not be open-sourced, no plans; the
 wish is forwarded to management. -> stage 3 stays on its rule: no Access material in any repo, everything loaded
