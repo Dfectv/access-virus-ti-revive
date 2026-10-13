@@ -349,7 +349,11 @@ private:
                 menu->addEntry(en.text.c_str());
         else
             menu->addEntry("All");
-        menu->checkEntryAlone(plugin_->ui_value("Repository Actions/Category Filter", -1));
+        // the generic (Linux) menu ticks the entry of the menu's value
+        int cur = plugin_->ui_value("Repository Actions/Category Filter", -1);
+        menu->setMax((float)std::max(0, menu->getNbEntries() - 1));
+        menu->setValue((float)cur);
+        menu->checkEntryAlone(cur);
         menu->popup(getFrame(), where, [this](COptionMenu *m) {
             if (m->getLastResult() >= 0)
                 plugin_->ui_set("Repository Actions/Category Filter", -1, m->getLastResult());

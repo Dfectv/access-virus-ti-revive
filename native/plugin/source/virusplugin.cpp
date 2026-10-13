@@ -925,54 +925,70 @@ void VirusPlugin::set_search(const std::string &s)
     update_results();
 }
 
-// like the original: a search text or a category fills the "Search Results" bank (search://) with the matching
-// patches of all banks, and browser 1 shows it; with both cleared browser 1 returns to its bank
+// like the original: a search text fills the "Search Results" bank (search://) with the matching patches of all banks,
+// shown in browser 1 (the lower one); a category fills the upper browser (browser 2) with the patches of that
+// category from all banks. Cleared, each browser returns to the bank it showed before.
 void VirusPlugin::update_results()
 {
     int cat = ui_value("Repository Actions/Category Filter", -1);
-    bool active = cat != 0 || !search().empty();
+    std::string q = search();
     std::vector<int> ids;
     {
         std::lock_guard<std::mutex> lk(banks_mu_);
         for (auto &kv : banks_)
-            if (kv.first != SEARCH_BANK)
+            if (kv.first != SEARCH_BANK && kv.first != CATEGORY_BANK)
                 ids.push_back(kv.first);
     }
-    std::vector<std::vector<uint8_t>> found;
-    for (int b = 0; active && b < (int)ids.size() && found.size() < 128; b++)
-        for (int p = 0; p < 128 && found.size() < 128; p++) {
-            if (!browser_match(ids[b], p))
-                continue;
+    struct View {
+        int bank;
+        const char *browser;
+        bool active;
+        int cat;
+        std::string q;
+        int *ret;
+    } views[] = {{SEARCH_BANK, "Browser 1/Selected Bank", !q.empty(), 0, q, &results_return_},
+                 {CATEGORY_BANK, "Browser 2/Selected Bank", cat != 0, cat, std::string(), &category_return_}};
+    for (auto &v : views) {
+        std::vector<std::vector<uint8_t>> found;
+        for (int b = 0; v.active && b < (int)ids.size() && found.size() < 128; b++)
+            for (int p = 0; p < 128 && found.size() < 128; p++) {
+                if (!patch_matches(ids[b], p, v.cat, v.q))
+                    continue;
+                std::lock_guard<std::mutex> lk(banks_mu_);
+                auto it = banks_.find(ids[b]);
+                if (it != banks_.end() && p < (int)it->second.size())
+                    found.push_back(it->second[p]);
+            }
+        {
             std::lock_guard<std::mutex> lk(banks_mu_);
-            auto it = banks_.find(ids[b]);
-            if (it != banks_.end() && p < (int)it->second.size())
-                found.push_back(it->second[p]);
+            if (v.active)
+                banks_[v.bank] = std::move(found);
+            else
+                banks_.erase(v.bank);
         }
-    {
-        std::lock_guard<std::mutex> lk(banks_mu_);
-        if (active)
-            banks_[SEARCH_BANK] = std::move(found);
-        else
-            banks_.erase(SEARCH_BANK);
+        int shown = ui_value(v.browser, -1);
+        if (v.active && shown != v.bank) {
+            *v.ret = shown;
+            ui_state_[v.browser] = v.bank;
+        } else if (!v.active && shown == v.bank)
+            ui_state_[v.browser] = *v.ret;
     }
-    const std::string b1 = "Browser 1/Selected Bank";
-    int shown = ui_value(b1, -1);
-    if (active && shown != SEARCH_BANK) {
-        results_return_ = shown;
-        ui_state_[b1] = SEARCH_BANK;
-    } else if (!active && shown == SEARCH_BANK)
-        ui_state_[b1] = results_return_;
     ui_dirty_ = true;
 }
 
-bool VirusPlugin::browser_match(int bank, int program)
+std::string VirusPlugin::category_name_()
 {
     int cat = ui_value("Repository Actions/Category Filter", -1);
-    std::string q = search();
-    if (cat == 0 && q.empty())
-        return true;
-    if (bank == SEARCH_BANK)
-        return true;
+    auto vl = ed_.valuelists.find("Val Name Category Filter");
+    if (vl != ed_.valuelists.end())
+        for (auto &en : vl->second.entries)
+            if (en.index == cat)
+                return en.text;
+    return std::to_string(cat);
+}
+
+bool VirusPlugin::patch_matches(int bank, int program, int cat, const std::string &q)
+{
     std::vector<uint8_t> d;
     {
         std::lock_guard<std::mutex> lk(banks_mu_);
