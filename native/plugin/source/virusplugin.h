@@ -152,8 +152,8 @@ public:
     }
     bool ui_changed() { return ui_dirty_.exchange(false); }
     // MIDI activity meters of the part strips (note-on velocity per MIDI channel, like the original's
-    // "ShowMIDIActivityMeters"): tick_meters() decays them and says whether the shown values changed
-    bool tick_meters(int step);
+    // "ShowMIDIActivityMeters"): tick_meters() decays them and returns the channels whose shown value changed (bits)
+    int tick_meters(int step);
     int meter(int channel) const { return channel >= 0 && channel < 16 ? meter_shown_[channel] : 0; }
     std::string live_text(const std::string &param); // LCD texts of the last edited parameter
 

@@ -85,11 +85,24 @@ public:
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) {
             if (plugin_->ui_changed() && !partial_) // during a drag the drag repaints its own area
                 invalid();
-            else if (plugin_->tick_meters(2)) { // the original: -1 per ~25 ms idle tick; here 2 per 50 ms
-                if (meter_rects_.empty())
-                    meter_rects_ = renderer_.param_rects("Internal MIDI Standard Parameters/07 Volume");
-                for (auto &rc : meter_rects_)
-                    invalidRect(CRect(rc[0], rc[1], rc[0] + rc[2], rc[1] + rc[3]));
+            else if (int changed = plugin_->tick_meters(2)) { // the original: -1 per ~25 ms idle tick; 2 per 50 ms
+                // repaint only the changed meters, merged into one area (a repaint per meter made hosts sluggish)
+                if (meter_rects_.empty()) { // the VU sliders (one per part), top to bottom = part 1..16
+                    for (auto &rc : renderer_.param_rects("Internal MIDI Standard Parameters/07 Volume"))
+                        meter_rects_.push_back(CRect(rc[0], rc[1], rc[0] + rc[2], rc[1] + rc[3]));
+                    std::sort(meter_rects_.begin(), meter_rects_.end(),
+                              [](const CRect &a, const CRect &b) { return a.top < b.top; });
+                }
+                CRect area;
+                for (int ch = 0; ch < 16 && ch < (int)meter_rects_.size(); ch++)
+                    if (changed & (1 << ch)) {
+                        if (area.isEmpty())
+                            area = meter_rects_[ch];
+                        else
+                            area.unite(meter_rects_[ch]);
+                    }
+                if (!area.isEmpty())
+                    invalidRect(area);
             }
         }, 50);
     }
@@ -253,7 +266,7 @@ public:
 
 private:
     int edit_part_ = 0;
-    std::vector<std::array<int, 4>> meter_rects_;
+    std::vector<CRect> meter_rects_; // the part strips' meters
     bool editing_search_ = false;
     CRect search_rect_;
 

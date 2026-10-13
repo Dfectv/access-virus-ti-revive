@@ -916,13 +916,13 @@ bool VirusPlugin::store_to_library(int part, int library, int slot)
     return ok;
 }
 
-bool VirusPlugin::tick_meters(int step)
+int VirusPlugin::tick_meters(int step)
 {
-    bool changed = false;
+    int changed = 0;
     for (int ch = 0; ch < 16; ch++) {
         int v = meter_[ch].load(std::memory_order_relaxed);
         if (v != meter_shown_[ch])
-            changed = true;
+            changed |= 1 << ch;
         meter_shown_[ch] = v;
         if (v > 0) // the original lowers every channel by 1 per editor idle tick
             meter_[ch].compare_exchange_strong(v, std::max(0, v - step), std::memory_order_relaxed);
