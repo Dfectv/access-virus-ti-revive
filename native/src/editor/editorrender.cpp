@@ -265,6 +265,12 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
     // original - shown while the control is held
     if (e.type == "MaskedKnob" && e.get("NormalBack").find("_Rot_") != std::string::npos && &e != pressed)
         normal = nullptr;
+    // inactive controls with a DisabledBack strip use it at full opacity (the translucent "_Trs" look)
+    bool use_disabled = alpha < 1.0 && normal && c.image(e.get("DisabledBack"));
+    if (use_disabled) {
+        normal = c.image(e.get("DisabledBack"));
+        alpha = 1.0;
+    }
     if (&e == pressed && c.image(e.get("PressedBack")))
         normal = c.image(e.get("PressedBack"));
     if (normal && e.w > 0 && e.h > 0) {
@@ -283,7 +289,9 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
                 index = frames >= 2 && v == atoi(e.get("OnValue").c_str()) ? 1 : 0;
             else if (e.type == "Button" || e.type == "KickButton")
                 index = frames >= 2 && v ? 1 : 0;
-            const std::string &nm = (&e == pressed && c.image(e.get("PressedBack"))) ? e.get("PressedBack") : e.get("NormalBack");
+            const std::string &nm = use_disabled ? e.get("DisabledBack")
+                                    : (&e == pressed && c.image(e.get("PressedBack"))) ? e.get("PressedBack")
+                                                                                       : e.get("NormalBack");
             image(c, nm, normal, index * std::min(e.h, c.image_height(normal)), std::min(e.h, c.image_height(normal)), x, y,
                   e.w, e.h, alpha);
         }
