@@ -23,6 +23,12 @@ jobs:
         with:
           name: tools-windows
           path: build/bin/Release/*.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: symbols-windows
+          path: |
+            build/**/VirusTINative.map
+            build/**/VirusTINative.pdb
   linux:
     runs-on: ubuntu-24.04
     steps:

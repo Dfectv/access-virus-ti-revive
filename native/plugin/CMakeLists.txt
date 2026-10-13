@@ -10,3 +10,7 @@ option(VTI_NATIVE_DROPIN "use the original's class id (loads projects saved with
 if(VTI_NATIVE_DROPIN)
     target_compile_definitions(VirusTINative PRIVATE VTI_NATIVE_DROPIN)
 endif()
+if(MSVC) # crash analysis: debug info + a linker map (function RVAs) next to the build, uploaded by CI
+    target_compile_options(VirusTINative PRIVATE /Zi)
+    target_link_options(VirusTINative PRIVATE /DEBUG /OPT:REF /OPT:ICF /MAP:$<TARGET_FILE_DIR:VirusTINative>/VirusTINative.map)
+endif()
