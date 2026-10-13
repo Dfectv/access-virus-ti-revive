@@ -292,4 +292,14 @@ P2 - CPU
 7. Automation changes set `ui_dirty_` -> full repaint at 20 Hz while LFOs run; repaint only the affected controls.
 8. Broker: one write per message -> batch per worker cycle.
 
+P2b - tests
+9. Unit tests for everything that works without the Virus (ctest, run in CI on all platforms): RemoteDevice
+   encode/decode round trips, update_dump fast path = full path, dump upgrader, valuelists, conditions, meta engine,
+   state container save/load, automation throttle/coalescing, event ordering in process(), SMF libraries, ROM banks
+   (skipped when no Access files are present).
+
+Progress: P1.1, P1.2 done (b9df2d6); P1.3 sanitizers done on Linux (TSan found a broker close race, fixed 040ea29;
+ASan/UBSan clean) - the Ableton M4L test is still open. P2.4 + P2.5 done: idle 5 % -> 1.4 % CPU, worker wake-ups
+1000/s -> ~220/s; --stress-params --notes 19 % -> 2.9 %.
+
 P3 - open features: UI to-do above, timing R5 + getLatencySamples, Snow issues #3/#4.

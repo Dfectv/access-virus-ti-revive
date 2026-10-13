@@ -36,6 +36,19 @@ using namespace VSTGUI;
 
 namespace vti {
 
+static bool env_debug()
+{
+    static const bool on = getenv("VTI_NATIVE_DEBUG") != nullptr; // read once (called on hot paths)
+    return on;
+}
+
+static bool env_drawtime()
+{
+    static const bool on = getenv("VTI_NATIVE_DRAWTIME") != nullptr; // read once (called on hot paths)
+    return on;
+}
+
+
 // Canvas on a VSTGUI draw context; bitmaps are created once from the user's PNGs.
 #if SMTG_OS_LINUX
 // an X pixmap copy of `bmp` for drawing into the frame's window (server-side composite, GPU with glamor)
@@ -226,7 +239,7 @@ public:
 #endif
                 static_key_ = sig;
                 canvas_.ctx = ctx;
-                if (getenv("VTI_NATIVE_DRAWTIME"))
+                if (env_drawtime())
                     fprintf(stderr, "static layer rebuilt\n");
             }
         }
@@ -243,10 +256,10 @@ public:
             plugin_->diag.draw_us += us;
             (r.getWidth() >= getViewSize().getWidth() - 1 ? plugin_->diag.full_draws : plugin_->diag.part_draws)++;
         }
-        if (getenv("VTI_NATIVE_DRAWTIME"))
+        if (env_drawtime())
             fprintf(stderr, "editor draw %dx%d: %.2f ms\n", (int)r.getWidth(), (int)r.getHeight(),
                     std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
-        if (getenv("VTI_NATIVE_DEBUG")) {
+        if (env_debug()) {
             int ok = 0, missing = 0;
             for (auto &b : bitmaps_)
                 (b.second ? ok : missing)++;
@@ -258,7 +271,7 @@ public:
     void onMouseDownEvent(MouseDownEvent &event) override
     {
         Hit h = renderer_.hit_test((int)event.mousePosition.x, (int)event.mousePosition.y);
-        if (getenv("VTI_NATIVE_DEBUG"))
+        if (env_debug())
             fprintf(stderr, "mouse down %.0f,%.0f -> %s %s\n", event.mousePosition.x, event.mousePosition.y,
                     h.element ? h.element->type.c_str() : "-", h.element ? h.element->get("Parameter").c_str() : "");
         if (!h.element)

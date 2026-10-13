@@ -39,6 +39,8 @@ public:
     // from process() only (single producer, lock-free): a message of up to 16 bytes; false if the ring is full
     // `stamp` = frame on the Virus timeline (F5 time stamp before the message), -1 = the latest timeline position
     bool send_rt(const uint8_t *msg, size_t n, int64_t stamp = -1);
+    // after a block's send_rt calls: wakes the worker (no lock; one notify per block instead of a 1 ms poll)
+    void wake_rt() { cv_.notify_one(); }
     std::atomic<int64_t> timeline{-1};
     bool busy() const { return queued_.load() > 0; } // non-realtime messages (state upload) still waiting
     // USB control request through the broker (device descriptor / strings)

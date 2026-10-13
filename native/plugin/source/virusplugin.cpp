@@ -30,6 +30,36 @@ const FUID kVirusTIClassId(0xB49F90D9, 0x735F4305, 0xAC5397BE, 0x8958CD31);
 const FUID kVirusTIClassId(0xB49F90D9, 0x735F4305, 0xAC5397BE, 0x8958CD31 ^ 0xA5);
 #endif
 
+static bool env_debug()
+{
+    static const bool on = getenv("VTI_NATIVE_DEBUG") != nullptr; // read once (called on hot paths)
+    return on;
+}
+
+static bool env_panellog()
+{
+    static const bool on = getenv("VTI_NATIVE_PANELLOG") != nullptr; // read once (called on hot paths)
+    return on;
+}
+
+static bool env_ping()
+{
+    static const bool on = getenv("VTI_NATIVE_PING") != nullptr; // read once (called on hot paths)
+    return on;
+}
+
+static bool env_ping3072()
+{
+    static const bool on = getenv("VTI_NATIVE_PING3072") != nullptr; // read once (called on hot paths)
+    return on;
+}
+
+static bool env_stats()
+{
+    static const bool on = getenv("VTI_NATIVE_STATS") != nullptr; // read once (called on hot paths)
+    return on;
+}
+
 static const uint8_t EP_PLUGIN_OUT = 0x06, CABLE_PLUGIN = 2, CABLE_TIME = 5;
 static const ParamID MIDI_MAP_BASE = 0x100000; // + channel * 0x1000 + 0x80 aftertouch / 0x81 pitch bend
 
@@ -106,8 +136,9 @@ void DeviceOut::run()
         int64_t stamp = -1;
         {
             std::unique_lock<std::mutex> lk(mu_);
-            // the realtime ring cannot signal; poll it every millisecond
-            cv_.wait_for(lk, std::chrono::milliseconds(1), [this] {
+            // process() wakes it once per block with events (wake_rt); the timeout is only a backstop and runs the idle
+            // work (parameter drain) - before: a 1 ms poll, 1000 wake-ups/s even without anything to send
+            cv_.wait_for(lk, std::chrono::milliseconds(5), [this] {
                 return stop_ || !queue_.empty() || rt_r_.load() != rt_w_.load(std::memory_order_acquire);
             });
             if (stop_)
@@ -144,7 +175,7 @@ void DeviceOut::run()
             if (device_ && (was || present))
                 device_(present != 0);
         }
-        if (getenv("VTI_NATIVE_STATS") && std::chrono::steady_clock::now() >= stats_next_) { // endurance tests
+        if (env_stats() && std::chrono::steady_clock::now() >= stats_next_) { // endurance tests
             stats_next_ = std::chrono::steady_clock::now() + std::chrono::seconds(10);
             int64_t newest = audio_ok_ ? audio_.newest_frame() : -1, pos = audio_ok_ ? audio_.position() : -1;
             fprintf(stderr, "stats: audio %d drops %lld distance %lld queued %d\n", (int)audio_ok_.load(),
@@ -173,7 +204,7 @@ void DeviceOut::run()
             stamp = timeline.load();
         if (stamp < 0 && audio_ok_)
             stamp = audio_.newest_frame();
-        if (getenv("VTI_NATIVE_DEBUG"))
+        if (env_debug())
             fprintf(stderr, "send %02x stamp %lld newest %lld\n", msg[0], (long long)stamp,
                     (long long)(audio_ok_ ? audio_.newest_frame() : -1));
         if (stamp >= 0 && ((msg[0] >= 0x80 && msg[0] < 0xF0) || msg[0] == 0xF8 || msg[0] == 0xFE || msg[0] == 0xF2 ||
@@ -521,7 +552,7 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         if (!tl_valid_ && out_->busy())
             stream_start_ = newest; // wait until the start-up messages and the state are through
         if (!tl_valid_ ? newest - stream_start_ > 22050 : std::llabs(err) > 8192) {
-            if (getenv("VTI_NATIVE_STATS"))
+            if (env_stats())
                 fprintf(stderr, "timeline %s: err %lld newest %lld block %d\n", tl_valid_ ? "re-anchor" : "anchor",
                         (long long)err, (long long)newest, data.numSamples);
             tl_ = target;
@@ -562,9 +593,9 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             spp = (int)std::max(0.0, data.processContext->projectTimeMusic * 4.0);
         uint8_t f2[3] = {0xF2, (uint8_t)(spp & 0x7F), (uint8_t)((spp >> 7) & 0x7F)};
         add(tl_ - M, f2, 3);
-        if (getenv("VTI_NATIVE_PING")) { // the original's sync ping (73 00 22 00): the Virus marks it in input ch 0/1
+        if (env_ping()) { // the original's sync ping (73 00 22 00): the Virus marks it in input ch 0/1
             static const uint8_t ping[11] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x22, 0x00, 0xF7};
-            add(getenv("VTI_NATIVE_PING3072") ? 3072 : tl_, ping, 11);
+            add(env_ping3072() ? 3072 : tl_, ping, 11);
             fprintf(stderr, "Virus TI native: sync ping stamped %lld (newest %lld)\n", (long long)tl_, (long long)newest);
         }
     }
@@ -663,6 +694,8 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             std::swap(evs[j], evs[j - 1]);
     for (int i = 0; out_ && i < nev; i++)
         out_->send_rt(evs[i].m, evs[i].n, evs[i].stamp);
+    if (out_ && nev > 0)
+        out_->wake_rt();
     int64_t block_start = tl_;
     if (tl_valid_) {
         tl_ += block_frames;
@@ -850,7 +883,7 @@ void VirusPlugin::ui_set(const std::string &path, int part, int value)
             out_->send(msg);
     }
     set_part_value(part, path, value);
-    if (getenv("VTI_NATIVE_DEBUG"))
+    if (env_debug())
         fprintf(stderr, "ui_set %s part %d = %d -> parts 0..2: %d %d %d\n", path.c_str(), part, value,
                 ui_value(path, 0), ui_value(path, 1), ui_value(path, 2));
     if (part >= 0) { // linked parameters (filter link, FX switches, LFO clocks)
@@ -1520,7 +1553,7 @@ void VirusPlugin::warm_categories()
     for (int b : ids)
         for (int p = 0; p < 128 && !stop_warm_; p++)
             patch_matches(b, p, 1, std::string());
-    if (getenv("VTI_NATIVE_DEBUG"))
+    if (env_debug())
         fprintf(stderr, "Virus TI native: categories of %zu banks decoded in %.0f ms\n", ids.size(),
                 std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
 }
@@ -1606,7 +1639,7 @@ std::string VirusPlugin::patch_name(int part)
 
 void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
 {
-    if (getenv("VTI_NATIVE_PANELLOG")) {
+    if (env_panellog()) {
         static int n;
         if (n++ < 40) {
             fprintf(stderr, "panel:");
