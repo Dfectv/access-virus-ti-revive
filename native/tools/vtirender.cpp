@@ -211,7 +211,14 @@ int main(int argc, char **argv)
         std::string n(b->second[prog].begin() + 249, b->second[prog].begin() + 259);
         return n;
     };
-    r.render(canvas);
+    if (getenv("VTIRENDER_LAYERS")) { // static layer, then the controls on top (checks the editor's cache order)
+        r.layer = 1;
+        r.render(canvas);
+        r.layer = 2;
+        r.render(canvas);
+        r.layer = 0;
+    } else
+        r.render(canvas);
     if (const char *bn = getenv("VTIRENDER_BENCH")) { // average render time over N repaints
         int n = atoi(bn);
         auto t0 = std::chrono::steady_clock::now();

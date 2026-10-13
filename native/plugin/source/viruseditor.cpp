@@ -3,6 +3,7 @@
 #include "virusplugin.h"
 #include "vstgui/lib/cbitmap.h"
 #include "vstgui/lib/cdrawcontext.h"
+#include "vstgui/lib/coffscreencontext.h"
 #include "vstgui/lib/cframe.h"
 #include "vstgui/lib/controls/coptionmenu.h"
 #include "vstgui/lib/controls/ctextedit.h"
@@ -126,6 +127,39 @@ public:
         renderer_.clip_x0 = (int)std::floor(r.left), renderer_.clip_y0 = (int)std::floor(r.top);
         renderer_.clip_x1 = (int)std::ceil(r.right), renderer_.clip_y1 = (int)std::ceil(r.bottom);
         auto t0 = std::chrono::steady_clock::now();
+        // the static layer (backgrounds, panels, labels) lives in an offscreen bitmap, rebuilt only when the
+        // visible structure changes (page, oscillator mode, ...); every repaint copies it and draws the controls
+        // the structure can only change with full repaints (page switch, menus, state); partial ones (knob drags,
+        // meters, LCD) reuse the cache without walking the conditions
+        bool full_update = r.getWidth() >= getViewSize().getWidth() - 1 && r.getHeight() >= getViewSize().getHeight() - 1;
+        std::vector<const Element *> sig;
+        if (!static_bg_ || full_update)
+            sig = renderer_.static_signature();
+        if (!static_bg_ || (full_update && sig != static_key_)) {
+            CRect full = getViewSize();
+            if (auto off = COffscreenContext::create(CPoint(full.getWidth(), full.getHeight()))) {
+                off->beginDraw();
+                canvas_.ctx = off;
+                int c0 = renderer_.clip_x0, c1 = renderer_.clip_y0, c2 = renderer_.clip_x1, c3 = renderer_.clip_y1;
+                renderer_.clip_x0 = renderer_.clip_y0 = -100000;
+                renderer_.clip_x1 = renderer_.clip_y1 = 100000;
+                renderer_.layer = 1;
+                renderer_.render(canvas_);
+                renderer_.clip_x0 = c0, renderer_.clip_y0 = c1, renderer_.clip_x1 = c2, renderer_.clip_y1 = c3;
+                off->endDraw();
+                static_bg_ = off->getBitmap();
+                static_key_ = sig;
+                canvas_.ctx = ctx;
+                if (getenv("VTI_NATIVE_DRAWTIME"))
+                    fprintf(stderr, "static layer rebuilt\n");
+            }
+        }
+        if (static_bg_ && full_update) { // small areas: drawing their few elements directly is cheaper on X11
+            CRect dst(update);
+            static_bg_->draw(ctx, dst, CPoint(dst.left - getViewSize().left, dst.top - getViewSize().top));
+            renderer_.layer = 2;
+        } else
+            renderer_.layer = 0;
         renderer_.render(canvas_);
         {
             long us = (long)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - t0).count();
@@ -373,6 +407,8 @@ private:
     }
     int edit_part_ = 0;
     std::vector<CRect> meter_rects_; // the part strips' meters
+    SharedPointer<CBitmap> static_bg_;              // cached static layer
+    std::vector<const Element *> static_key_;       // its visible conditional static elements
     bool editing_search_ = false;
     CRect search_rect_;
 

@@ -43,6 +43,10 @@ public:
     std::function<std::string(const std::string &param)> live_text;
     std::function<int(int channel)> meter;           // MIDI activity 0..127 per channel (part strip VU meters)
     int part = 0;                                    // the current (panel) part
+    int layer = 0;                                   // 0 = everything, 1 = static only, 2 = controls only
+    std::vector<const Element *> static_key;          // filled by a layer-1 render: visible conditional statics
+    // the visible conditional static elements right now (compare with static_key to know if the cache is valid)
+    std::vector<const Element *> static_signature() const;
     double disabled_alpha = 0.4;
     // the element held down by the mouse (drawn with PressedBack)
     const Element *pressed = nullptr;

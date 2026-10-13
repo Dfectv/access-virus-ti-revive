@@ -361,8 +361,27 @@ int EditorRenderer::own_part(const Element &e)
     return e.type == "Container" ? -1 : e.part();
 }
 
+std::vector<const Element *> EditorRenderer::static_signature() const
+{
+    std::vector<const Element *> out;
+    std::function<void(const Element &, int)> walk = [&](const Element &e, int inherited) {
+        int pt = own_part(e) >= 0 ? own_part(e) : inherited >= 0 ? inherited : part;
+        if (!cond_.eval(e.get("Condition"), values, pt))
+            return;
+        if (e.get("Parameter").empty() && !e.get("Condition").empty())
+            out.push_back(&e);
+        for (auto &ch : e.children)
+            walk(ch, own_part(e) >= 0 ? own_part(e) : inherited);
+    };
+    for (auto &e : layout_.elements)
+        walk(e, -1);
+    return out;
+}
+
 void EditorRenderer::render(Canvas &c)
 {
+    if (layer == 1)
+        static_key.clear();
     for (auto &e : layout_.elements)
         draw(c, e, 0, 0, -1);
 }
@@ -377,6 +396,12 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
     if (e.w > 0 && e.h > 0 && (x >= clip_x1 || y >= clip_y1 || x + e.w <= clip_x0 || y + e.h <= clip_y0))
         return; // outside the repaint area (children lie inside their parent)
     const std::string &param = e.get("Parameter");
+    // layers: 1 = static (no parameter: backgrounds, panels, labels), 2 = dynamic (controls with a value); the
+    // editor caches layer 1 and draws only layer 2 per repaint
+    bool skip_self = (layer == 1 && !param.empty()) || (layer == 2 && param.empty());
+    if (layer == 1 && param.empty() && !e.get("Condition").empty())
+        static_key.push_back(&e); // visible conditional static elements: the cache's identity
+    if (!skip_self) {
     const Parameter *p = param.empty() ? nullptr : cond_.find(param);
     int v = param.empty() ? 0 : values(param, pt);
     // inactive controls (the parameter's own condition is false; soft knobs without destination) are translucent
@@ -455,6 +480,7 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
         if (t != layout_.tiles.end())
             tl = t->second.left, tr = t->second.right, tt = t->second.top, tb = t->second.bottom;
         text(c, font, str, x + tl, y + tt, e.w - tl - tr, e.h - tt - tb, e.get("Align"), alpha);
+    }
     }
     for (auto &ch : e.children)
         draw(c, ch, x, y, own_part(e) >= 0 ? own_part(e) : inherited);
