@@ -83,9 +83,13 @@
   offset, clean start, host latency.
 
 ## Next
-- R3: device -> host (knobs on the Virus change parameters: decode incoming CC/poly pressure/SysEx with
-  remotedevice.xml, update the part dumps, notify the host), realtime-safe event queue, exact F5 stamps (R5 rule).
-- REAPER test with the user: "Virus TI (native)" instance (Linux VST3), and a project saved with the original
-  (VTI_NATIVE_DROPIN build) - needs the user at the PC.
-- R4: menus (popup with the valuelist), text edit (patch name), patch browser, custom displays (filter response,
-  envelopes, osc shapes, arp step editor), part selection, LCD info panel (parameter name/value while dragging).
+- R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
+  Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples
+  (0x1800a8900) - no such samples on any of the 6 ring channels in our session; check whether the original writes the
+  host->Virus audio stream (broker OUT ring) and whether the markers appear only then; else calibrate with a probe note
+  on a part routed to an unused USB output, (3) read the audio at timeline + offset and report the latency to the host.
+- R4: custom displays (KEnvelope 0x180039df0 + stage setup in the control factory, filter responses = KXYControl?,
+  KOscClassicShape/KOscHypersawShape, KStepSequencer), patch name editing, info panel / LCD texts, remaining 2-6 %
+  pixel differences (scripted page captures: tools/xclick.c + vtihost under Xvfb, see the orig-page*.png procedure).
+- REAPER test with the user (Linux VST3 "Virus TI (native)"; drop-in build for projects saved with the original).
+- R6: Windows (broker pipe client, WinUSB shm ring) and macOS (Core Audio path) ports of src/device.
