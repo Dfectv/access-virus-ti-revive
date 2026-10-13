@@ -219,15 +219,19 @@ void EditorRenderer::filter_response(Canvas &c, const Element &e, int x, int y, 
     int cv = values(cut, part), rv = values(res, part);
     const Rgba col{0, 25, 65, 255};
     double left = x + 3, right = x + e.w - 3, top = y + 4, bottom = y + e.h - 1;
-    double base = y + e.h / 2 - 3, hx = x + 3 + cv / 127.0 * (e.w - 17), hy = base - rv / 127.0 * (base - top - 6);
+    double base = y + e.h / 2 - 3, hx = x + 7 + cv / 127.0 * (e.w - 21), hy = base - rv / 127.0 * (base - top);
     double drop = (bottom - base) / 3;
-    auto ln = [&](double a, double b, double c2, double d) { c.line(a + 0.5, b + 0.5, c2 + 0.5, d + 0.5, col); };
+    // the curve sits 1 px left of and above the handle geometry (measured on the original)
+    auto ln = [&](double a, double b, double c2, double d) { c.line(a - 0.5, b - 0.5, c2 - 0.5, d - 0.5, col); };
     if (e.type == "LP4Response") {
         ln(left, base, hx - 4, base), ln(hx - 4, base, hx, hy), ln(hx, hy, std::min(right, hx + drop), bottom);
     } else if (e.type == "HP4Response") {
+        hx += 5; // the highpass handle sits 5 px right of the lowpass mapping (measured)
         ln(std::max(left, hx - drop), bottom, hx, hy), ln(hx, hy, hx + 4, base), ln(hx + 4, base, right, base);
-    } else if (e.type == "BP4Response") {
-        ln(std::max(left, hx - drop), bottom, hx, hy), ln(hx, hy, std::min(right, hx + drop), bottom);
+    } else if (e.type == "BP4Response") { // centred on the handle, 1 px right of the lowpass mapping (measured)
+        hx += 1;
+        auto lc = [&](double a, double b, double c2, double d) { c.line(a + 0.5, b + 0.5, c2 + 0.5, d + 0.5, col); };
+        lc(std::max(left, hx - drop), bottom, hx, hy), lc(hx, hy, std::min(right, hx + drop), bottom);
     } else { // BS4Response: flat with a notch at the cutoff
         ln(left, base, hx - drop / 2, base), ln(hx - drop / 2, base, hx, bottom), ln(hx, bottom, hx + drop / 2, base);
         ln(hx + drop / 2, base, right, base);
