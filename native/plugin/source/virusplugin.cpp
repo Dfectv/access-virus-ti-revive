@@ -261,6 +261,7 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
         return kResultOk;
     }
     single_template_ = dev_.message("VirusTI_Singledump");
+    ui_state_["VirusControl/InitialSyncProgress"] = 127; // exists before the sync thread updates it
     load_banks();
     if (ed_.load(files->get("editordevice.xml"), err) && layout_.load(files->get("editor.xml"), err))
         cond_ = std::make_unique<Conditions>(dev_, ed_);
@@ -621,6 +622,8 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             Event e;
             if (data.inputEvents->getEvent(i, e) != kResultOk)
                 continue;
+            if (e.type == Event::kNoteOnEvent && syncing_.load(std::memory_order_relaxed))
+                continue; // the start-up sync has priority (the Virus delays notes while it answers dump requests)
             if (e.type == Event::kNoteOnEvent) {
                 uint8_t m[3] = {(uint8_t)(0x90 | (e.noteOn.channel & 15)), (uint8_t)e.noteOn.pitch,
                                 (uint8_t)std::max(1L, std::lround(e.noteOn.velocity * 127))};
@@ -1078,6 +1081,16 @@ void VirusPlugin::load_rom_banks()
     ui_dirty_ = true;
 }
 
+void VirusPlugin::set_sync_progress(int v)
+{
+    const std::string path = "VirusControl/InitialSyncProgress";
+    auto it = ui_state_.find(path);
+    if (it != ui_state_.end() && it->second == v)
+        return;
+    ui_state_[path] = v;
+    ui_dirty_ = true;
+}
+
 bool VirusPlugin::wait_until_quiet()
 {
     bool shown = false;
@@ -1103,7 +1116,9 @@ void VirusPlugin::sync_banks()
         std::filesystem::create_directories(dir, ec);
     }
     load_rom_banks();
-    sync_->before_request = [this] { return wait_until_quiet(); };
+    // like the original: the sync has priority - its start-up page ("Initializing Virus TI and syncing memory",
+    // VirusControl/InitialSyncProgress 0..126) covers the editor and notes are held back until it is done
+    set_sync_progress(0);
     syncing_ = true;
     // the original keeps "synchronising" on the Virus display while it syncs (74 01 7E 07 about once a second)
     std::atomic<bool> rise{true};
@@ -1124,6 +1139,7 @@ void VirusPlugin::sync_banks()
                     bank[p] = it->second[p];
         }
         int n = sync_->sync_bank(b + 1, bank, [this, b, &bank](int p, bool fetched) {
+            set_sync_progress((b * 128 + p + 1) * 126 / 512);
             {
                 std::lock_guard<std::mutex> lk(values_mu_); // progress on the LCD
                 lcd_param_ = "Synchronizing " + bank_name(b);
@@ -1156,6 +1172,7 @@ void VirusPlugin::sync_banks()
     rise = false;
     riser.join();
     syncing_ = false;
+    set_sync_progress(127);
     {
         std::lock_guard<std::mutex> lk(values_mu_);
         lcd_param_ = "Synchronization done";

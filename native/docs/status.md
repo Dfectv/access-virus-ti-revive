@@ -13,6 +13,9 @@ Next (own tasks):
 - UI to-do list below ("UI to-do"): OSC classic mixed shapes (DLL wave tables), HP filter resonance, envelope 1 px,
   big rings on hover?, page-switch cost (cache rebuild 30-45 ms).
 - Timing R5 + reporting the plug-in latency to the host (getLatencySamples).
+- Start-up sync has priority again (user, 2026-10-14): the original's start-up page (InitialSyncProgress 0..126,
+  progress bar) covers the editor and note-ons are held back while the bank check/sync runs (a few s; first start
+  ~8 min). The "pause while playing" variant (8119d36) is gone.
 - Optional: skip the start-up bank check if the last one was recent (user asked; recommended to keep as is).
 - Tools: nativehost --stress/--block, VTI_NATIVE_STATS, diag.on/diag.log, tools/uicompare (capture the original).
 
