@@ -198,8 +198,11 @@ FILTER 2.70 % (mostly the big knob rings, which we show permanently).
 2. Filter displays: highpass resonance height (original ~2 px higher at resonance 100, non-linear), HP within 2 px.
 3. Envelope displays: handles up to 1 px off for the base patch (measured geometry was from the init patch).
 4. Inactive menu text brightness differs in some places (ARP/FX2 vs MATRIX - the original is inconsistent).
-5. Big knob rings: shown permanently (user wanted them); the original under Wine shows them on hover only.
-6. Meta engine: tested reverb switch; LFO clock menus and filter/vocoder links untested with the Virus.
+5. Editor speed in REAPER (field diagnostics, diag.on): a full repaint costs ~77 ms in REAPER (20 ms in nativehost
+   on Xvfb), a partial ~5 ms; knob drags used up to 25 % of REAPER's main thread. LCD-only changes now repaint
+   only the LCD. To do: cache the static background (offscreen bitmap) so full repaints become cheap.
+6. Big knob rings: shown permanently (user wanted them); the original under Wine shows them on hover only.
+7. Meta engine: tested reverb switch; LFO clock menus and filter/vocoder links untested with the Virus.
 
 ## 2026-10-13 (night) - stress tests
 

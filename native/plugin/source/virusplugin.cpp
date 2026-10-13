@@ -1070,8 +1070,9 @@ void VirusPlugin::sync_banks()
                 auto &v = banks_[b];
                 v.resize(128);
                 v[p] = bank[p];
-            }
-            ui_dirty_ = true;
+                ui_dirty_ = true; // a new patch name in the browser
+            } else
+                lcd_dirty_ = true; // only the progress on the LCD (a full repaint costs ~77 ms in REAPER)
         }, &stop_warm_);
         fprintf(stderr, "Virus TI native: RAM %c sync: %d fetched\n", 'A' + b, n);
         if (n == -2 && !dir.empty()) // closed while syncing: keep what was fetched, the next start continues
@@ -1298,7 +1299,7 @@ void VirusPlugin::set_lcd(const std::string &param, const std::string &value, co
     if (param != lcd_param_ || part != lcd_part_)
         lcd_orig_ = "[" + before + "]";
     lcd_param_ = param, lcd_value_ = value, lcd_part_ = part;
-    ui_dirty_ = true;
+    lcd_dirty_ = true; // only the LCD (value changes set ui_dirty_ themselves)
 }
 
 void VirusPlugin::set_search(const std::string &s)

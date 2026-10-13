@@ -165,6 +165,7 @@ public:
         return bank < 4 ? std::string("RAM ") + (char)('A' + bank) : std::string("ROM ") + (char)('A' + bank - 4);
     }
     bool ui_changed() { return ui_dirty_.exchange(false); }
+    bool lcd_changed() { return lcd_dirty_.exchange(false); } // only the LCD texts changed
     // field diagnostics (file ~/.local/share/virus-ti-native/diag.on enables a log every 10 s in diag.log)
     struct Diag {
         std::atomic<long> full_draws{0}, part_draws{0}, draw_us{0}, dirty_ticks{0}, process_calls{0};
@@ -229,7 +230,7 @@ private:
     int results_page_ = 0;
     void show_results_page();
     std::map<std::pair<int, int>, std::array<int, 3>> cat_cache_; // (bank, program) -> checksum, category 1, 2
-    std::atomic<bool> ui_dirty_{true};
+    std::atomic<bool> ui_dirty_{true}, lcd_dirty_{false};
     std::atomic<int> meter_[16] = {};
     int meter_shown_[16] = {}; // editor thread
     // automation values from process() for the part dumps (single producer / single consumer, lock-free)

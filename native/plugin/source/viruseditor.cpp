@@ -89,8 +89,10 @@ public:
             plugin_->diag_report();
             if (plugin_->ui_changed() && !partial_) { // during a drag the drag repaints its own area
                 plugin_->diag.dirty_ticks++;
+                plugin_->lcd_changed();
                 invalid();
-            }
+            } else if (plugin_->lcd_changed() && !partial_)
+                invalidRect(CRect(200, 470, 560, 512)); // the LCD only
             else if (int changed = plugin_->tick_meters(2)) { // the original: -1 per ~25 ms idle tick; 2 per 50 ms
                 // repaint only the changed meters, merged into one area (a repaint per meter made hosts sluggish)
                 if (meter_rects_.empty()) { // the VU sliders (one per part), top to bottom = part 1..16
