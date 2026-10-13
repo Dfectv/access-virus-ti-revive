@@ -68,6 +68,8 @@ static void drain_mdw(void)
     __atomic_store_n(&h[0], rd, __ATOMIC_RELEASE);
 }
 
+static int g_full_reported; // "ring full" logged once per episode (g_rd_lock)
+
 void vtimidi_rx(const uint8_t *data, int len)
 {
     if (!g_rd)
@@ -79,11 +81,15 @@ void vtimidi_rx(const uint8_t *data, int len)
         if (!data[i] && !data[i + 1] && !data[i + 2] && !data[i + 3])
             continue; // padding
         if ((wr + 1) % RING_CAP == __atomic_load_n(&h[0], __ATOMIC_ACQUIRE)) {
-            vti_log("midi: MDR ring full, dropping");
+            // nobody reads the ring (e.g. a client that takes MIDI from the broker directly): log once per full
+            // episode, not per packet (filled /tmp/tirevive-vtibroker.log several times a second)
+            if (!g_full_reported++)
+                vti_log("midi: MDR ring full, dropping (reported once until it drains)");
             break;
         }
         memcpy(&words[wr], data + i, 4);
         wr = (wr + 1) % RING_CAP;
+        g_full_reported = 0;
         g_n_in++;
     }
     __atomic_store_n(&h[1], wr, __ATOMIC_RELEASE);
