@@ -142,7 +142,8 @@ bool AccessFiles::load_dir(const std::string &dir, std::string &error)
     return true;
 }
 
-std::vector<uint8_t> AccessFiles::find_dump(uint8_t cmd, size_t size, size_t name_at, const char *name) const
+std::vector<uint8_t> AccessFiles::find_dump(uint8_t cmd, size_t size, size_t name_at, const char *name,
+                                            std::vector<uint8_t> *binary, size_t *offset) const
 {
     std::vector<std::string> bins = {source_};                                       // Windows: the DLL itself
     bins.push_back((fs::path(source_) / ".." / "MacOS" / "Virus Control").string()); // Mac: bundle binary
@@ -156,13 +157,32 @@ std::vector<uint8_t> AccessFiles::find_dump(uint8_t cmd, size_t size, size_t nam
         read_file(b, d);
         for (size_t i = 0; i + size <= d.size(); i++)
             if (d[i] == 0xF0 && !memcmp(&d[i], hdr, sizeof hdr) && d[i + size - 1] == 0xF7 &&
-                !memcmp(&d[i + name_at], name, nl))
-                return std::vector<uint8_t>(d.begin() + i, d.begin() + i + size);
+                !memcmp(&d[i + name_at], name, nl)) {
+                if (offset)
+                    *offset = i;
+                std::vector<uint8_t> out(d.begin() + i, d.begin() + i + size);
+                if (binary)
+                    *binary = std::move(d);
+                return out;
+            }
     }
     return {};
 }
 
 std::vector<uint8_t> AccessFiles::init_single() const { return find_dump(0x10, 524, 249, " -Init-"); }
+
+std::vector<uint8_t> AccessFiles::default_page_b() const
+{
+    std::vector<uint8_t> bin;
+    size_t off = 0;
+    if (find_dump(0x10, 524, 249, " -Init-", &bin, &off).empty() || off < 0x400)
+        return {};
+    std::vector<uint8_t> t(bin.begin() + off - 0x400, bin.begin() + off - 0x300);
+    for (auto b : t)
+        if (b > 0x7F)
+            return {};
+    return t;
+}
 
 std::vector<uint8_t> AccessFiles::init_multi() const { return find_dump(0x11, 267, 13, "MultiCtrl!"); }
 

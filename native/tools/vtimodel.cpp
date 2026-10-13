@@ -7,6 +7,7 @@
 #include <map>
 #include "../src/access/accessfiles.h"
 #include "../src/access/firmware.h"
+#include "../src/access/library.h"
 #include "../src/device/memsync.h"
 #include "../src/model/remotedevice.h"
 #include <cstdio>
@@ -105,6 +106,15 @@ int main(int argc, char **argv)
                 same += cache[p] == roms[b][p];
         }
         printf("identical to the cache: %d / %d dumps\n", same, total);
+    } else if (cmd == "libs") { // personal libraries (patch files) incl. Virus C upgrades
+        auto pb = files->default_page_b();
+        printf("%s, default page B %zu bytes\n", vti::library_dir().c_str(), pb.size());
+        for (auto &l : vti::load_libraries(vti::library_dir(), pb)) {
+            printf("%-40s %3zu dumps", l.name.c_str(), l.dumps.size());
+            if (!l.dumps.empty())
+                printf("  first \"%.10s\" version %d", (const char *)&l.dumps[0][249], l.dumps[0][9]);
+            printf("\n");
+        }
     } else if (cmd == "init") { // start-up messages (GlobalInit + ParamInit)
         for (auto &m : dev.init_messages()) {
             for (auto b : m)

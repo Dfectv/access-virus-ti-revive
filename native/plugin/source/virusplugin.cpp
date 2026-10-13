@@ -626,7 +626,7 @@ static std::string own_cache_dir()
 // (read only) - Windows/Wine: ProgramData/Access Music/Virus TI/Cache/<device>, Mac: /Library/Application Support/...
 void VirusPlugin::load_banks()
 {
-    for (auto &lib : load_libraries(library_dir())) { // personal libraries (patch files)
+    for (auto &lib : load_libraries(library_dir(), files_ ? files_->default_page_b() : std::vector<uint8_t>())) {
         banks_[LIB_BASE + (int)lib_names_.size()] = lib.dumps;
         lib_names_.push_back(lib.name);
     }

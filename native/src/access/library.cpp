@@ -1,5 +1,6 @@
 // library.cpp - see library.h.
 #include "library.h"
+#include "model/remotedevice.h"
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
@@ -9,7 +10,7 @@ namespace vti {
 
 namespace fs = std::filesystem;
 
-std::vector<PatchLibrary> load_libraries(const std::string &dir)
+std::vector<PatchLibrary> load_libraries(const std::string &dir, const std::vector<uint8_t> &page_b)
 {
     std::vector<PatchLibrary> out;
     std::error_code ec;
@@ -33,8 +34,14 @@ std::vector<PatchLibrary> load_libraries(const std::string &dir)
                 break;
             std::vector<uint8_t> m = {0xF0};
             m.insert(m.end(), d.begin() + i, end + 1);
-            if (m.size() == 524)
+            if (m.size() == 524) {
                 lib.dumps.push_back(m);
+            } else if (m.size() == 267 && page_b.size() == 256) { // Virus C: page A only -> upgrade like the original
+                m.resize(524, 0);
+                m[523] = 0xF7;
+                if (RemoteDevice::upgrade_single(m, page_b))
+                    lib.dumps.push_back(m);
+            }
             i = end - d.begin();
         }
         out.push_back(std::move(lib));

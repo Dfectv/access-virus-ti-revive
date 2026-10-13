@@ -27,9 +27,13 @@ public:
     std::vector<uint8_t> init_single() const;
     // The fixed multi dump the original sends at start-up and stores in its state ("MultiCtrl!", 267 bytes).
     std::vector<uint8_t> init_multi() const;
+    // the default page B the original gives old (Virus C, 267-byte) single dumps when upgrading them: 256 bytes
+    // 0x400 before the embedded init patch in the plug-in binary; empty if not plausible (all bytes must be 7-bit)
+    std::vector<uint8_t> default_page_b() const;
 
 private:
-    std::vector<uint8_t> find_dump(uint8_t cmd, size_t size, size_t name_at, const char *name) const;
+    std::vector<uint8_t> find_dump(uint8_t cmd, size_t size, size_t name_at, const char *name,
+                                   std::vector<uint8_t> *binary = nullptr, size_t *offset = nullptr) const;
     std::map<std::string, std::vector<uint8_t>> files_; // key: lower-case name
     std::string source_;
     bool load_pe(const std::string &dll, std::string &error);
