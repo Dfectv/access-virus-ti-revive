@@ -6,6 +6,8 @@
 // Options: --access <dll|bundle|dir> (default: the standard install locations)
 #include <map>
 #include "../src/access/accessfiles.h"
+#include "../src/access/firmware.h"
+#include "../src/device/memsync.h"
 #include "../src/model/remotedevice.h"
 #include <cstdio>
 #include <cstdlib>
@@ -90,6 +92,19 @@ int main(int argc, char **argv)
             m.push_back((uint8_t)strtoul(a.c_str(), nullptr, 16));
         for (auto &c : dev.decode(m))
             printf("%-50s part %2d value %d\n", c.path.c_str(), c.part, c.value);
+    } else if (cmd == "rom" && !args.empty()) { // ROM banks from firmware.bin: compare with an Access cache dir
+        auto fw = vti::firmware_path(files->source());
+        auto roms = vti::load_rom_banks(fw, args.size() > 1 && args[1] == "ti" ? vti::VirusModel::TI : vti::VirusModel::TI2, err);
+        printf("%s: %zu ROM banks %s\n", fw.c_str(), roms.size(), err.c_str());
+        int same = 0, total = 0;
+        for (size_t b = 0; b < roms.size(); b++) {
+            vti::Bank cache;
+            if (!vti::load_bank_file(args[0] + "/ROM " + (char)('A' + b), cache))
+                continue;
+            for (int p = 0; p < 128; p++, total++)
+                same += cache[p] == roms[b][p];
+        }
+        printf("identical to the cache: %d / %d dumps\n", same, total);
     } else if (cmd == "init") { // start-up messages (GlobalInit + ParamInit)
         for (auto &m : dev.init_messages()) {
             for (auto b : m)

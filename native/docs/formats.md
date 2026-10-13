@@ -104,3 +104,11 @@ load in the rewrite and vice versa.
 - Open: the big Filter 1 cutoff ring (MaskedKnob KNB_Cutoff_Rot_Uni) is not drawn by the original at rest; filter
   response displays (LP4/HP4/BP4/BS4Response -> probably KXYControl in the decompile), envelope (KEnvelope), osc
   shapes (KOscClassicShape/KOscHypersawShape), step sequencer (KStepSequencer) are custom drawn.
+
+## ROM banks (firmware.bin) - verified: 26 banks x 128 = 3328 dumps identical to the original's cache
+firmware.bin (next to Virus Control.dll / in the Mac Common folder) is an IFF FORM: TABL (chunk names) + chunks
+0001..; the device images vti.bin (TI), vti_2.bin (TI2), vti_snow.bin (Snow) are FORMs of 32 KB flash sectors:
+35842/35840-byte chunks = 512 records of 70 bytes with 32 data bytes at +3 and +38 (0x8000-byte chunks are raw).
+ROM bank i = sectors P(064+2i) (programs 0-63) and P(065+2i) (64-127), 512 bytes per patch = page A + page B; the dump
+is header 10 <5+i> <prog>, page A, add7, page B, add7, F7. TI and TI2 ROMs differ -> model from the USB device
+descriptor (bcdDevice 0x100 = TI or Snow by product string, 0x300 = TI2). Banks V..Z of the TI2 are "Empty".

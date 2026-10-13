@@ -22,7 +22,7 @@ FetchContent_Declare(pugixml GIT_REPOSITORY https://github.com/zeux/pugixml.git 
 FetchContent_MakeAvailable(pugixml)
 
 # core library: Access files + device model (no Access material in this repo; loaded at runtime)
-add_library(vticore STATIC src/access/accessfiles.cpp src/model/remotedevice.cpp src/device/broker.cpp src/device/memsync.cpp src/device/audioin.cpp src/editor/editormodel.cpp src/editor/editorrender.cpp)
+add_library(vticore STATIC src/access/accessfiles.cpp src/model/remotedevice.cpp src/device/broker.cpp src/device/memsync.cpp src/device/audioin.cpp src/editor/editormodel.cpp src/editor/editorrender.cpp src/access/firmware.cpp)
 target_include_directories(vticore PUBLIC src external/ti-revive/src/broker)
 find_package(Threads REQUIRED)
 target_link_libraries(vticore PUBLIC Threads::Threads $<$<PLATFORM_ID:Linux>:rt>)
