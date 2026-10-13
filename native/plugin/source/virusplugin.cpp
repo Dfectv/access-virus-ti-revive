@@ -130,6 +130,19 @@ void DeviceOut::run()
         }
         if (idle_)
             idle_();
+        // the Virus unplugged / switched off and back while the broker connection stays (user test): stop the audio,
+        // and on its return let the plug-in send the start-up messages and its state again; the audio start retries
+        if (int present = broker_.device_present() ? 1 : 0; present != present_seen_) {
+            bool was = present_seen_ == 1;
+            present_seen_ = present;
+            if (!present) {
+                audio_ok_ = false;
+                audio_.close();
+            } else
+                generation++;
+            if (device_ && (was || present))
+                device_(present != 0);
+        }
         if (getenv("VTI_NATIVE_STATS") && std::chrono::steady_clock::now() >= stats_next_) { // endurance tests
             stats_next_ = std::chrono::steady_clock::now() + std::chrono::seconds(10);
             int64_t newest = audio_ok_ ? audio_.newest_frame() : -1, pos = audio_ok_ ? audio_.position() : -1;
@@ -139,7 +152,7 @@ void DeviceOut::run()
         }
         // the broker may refuse the audio start right after another session ended (stress test: every second
         // quick re-open had no sound): retry every 500 ms while connected without audio
-        if (!audio_ok_ && std::chrono::steady_clock::now() >= audio_retry_) {
+        if (!audio_ok_ && present_seen_ == 1 && std::chrono::steady_clock::now() >= audio_retry_) {
             audio_retry_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
 #ifdef __APPLE__
             int r = 1;
@@ -305,6 +318,20 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
         return true;
     });
     out_->on_reply([this](const std::vector<uint8_t> &m) { sync_->feed(m); });
+    out_->on_device([this](bool present) { // worker thread
+        if (!present) {
+            set_lcd("Virus disconnected", std::string(), std::string(), std::string());
+            return;
+        }
+        if (!device_seen_) { // the first connection: the start-up messages are already queued
+            device_seen_ = true;
+            return;
+        }
+        set_lcd("Virus reconnected", std::string(), std::string(), std::string());
+        for (auto &m : dev_.init_messages())
+            out_->send(m);
+        send_state();
+    });
     // the original's start-up: GlobalInit (remote mode, cable numbers, clock sync, ...) + ParamInit, before any state
     for (auto &m : dev_.init_messages())
         out_->send(m);
@@ -377,6 +404,11 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
     static const int S = getenv("VTI_NATIVE_S") ? atoi(getenv("VTI_NATIVE_S")) : 5000;
     const double ratio = 44100.0 / rate_; // Virus frames per host sample
     int64_t newest = out_ && out_->audio_ready() ? out_->audio().newest_frame() : -1;
+    if (out_ && out_->generation.load() != generation_seen_) { // the Virus came back: a new audio stream
+        generation_seen_ = out_->generation.load();
+        tl_valid_ = false;
+        stream_start_ = -1;
+    }
     if (newest >= 0) {
         // anchor once the stream has run for ~0.5 s (the first blocks arrive in bursts), then follow drift gently:
         // one frame per block, re-anchor (new song position) only on a large jump (DAW or USB stall)

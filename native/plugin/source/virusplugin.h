@@ -50,11 +50,16 @@ public:
     void on_reply(std::function<void(const std::vector<uint8_t> &)> h) { reply_ = std::move(h); }
     // called by the worker every loop (<= 1 ms): non-realtime follow-up of process() (state updates)
     void on_idle(std::function<void()> h) { idle_ = std::move(h); }
+    // the Virus went away (USB unplugged / switched off) or came back while the broker connection stays
+    void on_device(std::function<void(bool present)> h) { device_ = std::move(h); }
+    std::atomic<int> generation{0}; // +1 on every return of the Virus (process() re-anchors its timeline)
     bool connected() const { return broker_.device_present(); }
     AudioIn &audio() { return audio_; } // read from process(); valid once audio_ready()
     bool audio_ready() const { return audio_ok_; }
 
 private:
+    std::function<void(bool)> device_;
+    int present_seen_ = -1; // worker: last device presence handled (-1 = unknown)
     Broker broker_;
     std::mutex mu_;
     std::condition_variable cv_;
@@ -254,6 +259,8 @@ private:
     bool tl_valid_ = false, anchored_ = false;
     double next_tick_ = 0;
     int64_t stream_start_ = -1;
+    int generation_seen_ = 0; // DeviceOut::generation handled by process()
+    bool device_seen_ = false; // the Virus was present once (worker thread)
     bool state_loaded_ = false;                // setState or the default state was applied
     std::vector<std::vector<uint8_t>> default_; // a new instance's state (from the user's plug-in binary)
 
