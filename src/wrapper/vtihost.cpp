@@ -611,6 +611,7 @@ int main(int argc, char **argv)
     printf("setupProcessing -> %d\n", (int)proc->setupProcessing(ps));
     printf("setActive -> %d\n", (int)comp->setActive(true));
     printf("setProcessing -> %d\n", (int)proc->setProcessing(true));
+    printf("latency %u samples\n", (unsigned)proc->getLatencySamples());
     fflush(stdout);
     const char *shot = getenv("VTI_EDITOR");
     IPlugView *view = shot ? open_editor(ctl) : nullptr;
