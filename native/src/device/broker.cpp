@@ -15,6 +15,14 @@ extern "C" {
 #include <sys/un.h>
 #include <unistd.h>
 #endif
+#ifdef __APPLE__
+#include <crt_externs.h>
+#include <fcntl.h>
+#include <spawn.h>
+#include <sys/wait.h>
+#include <thread>
+#define environ (*_NSGetEnviron())
+#endif
 
 namespace vti {
 
@@ -141,12 +149,56 @@ static bool io_all(intptr_t fd, void *p, size_t n, bool wr)
     return true;
 }
 
+#ifdef __APPLE__
+// macOS has no socket activation: like TI Revive's libVirusUSB, start the installed broker when nobody answers. Started
+// from the DAW's process tree it runs in the user's GUI session; no inherited descriptors (it must not keep our sockets
+// alive); it exits by itself 30 s after its last client.
+static bool start_broker()
+{
+    const char *path = getenv("TIREVIVE_BROKER");
+    if (!path || !*path)
+        path = "/Library/Application Support/TI Revive/vtibroker";
+    if (access(path, X_OK))
+        return false;
+    posix_spawnattr_t at;
+    posix_spawnattr_init(&at);
+    posix_spawnattr_setflags(&at, POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSID);
+    posix_spawn_file_actions_t fa;
+    posix_spawn_file_actions_init(&fa);
+    posix_spawn_file_actions_addopen(&fa, 0, "/dev/null", O_RDONLY, 0);
+    posix_spawn_file_actions_addopen(&fa, 1, "/dev/null", O_WRONLY, 0);
+    posix_spawn_file_actions_addopen(&fa, 2, "/tmp/tirevive-vtibroker.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
+    pid_t pid;
+    char *argv[] = {(char *)path, nullptr};
+    int e = posix_spawn(&pid, path, &fa, &at, argv, environ);
+    posix_spawn_file_actions_destroy(&fa);
+    posix_spawnattr_destroy(&at);
+    if (e)
+        return false;
+    std::thread([pid] { // reap it when it exits (no zombie in the DAW's process tree)
+        int st;
+        waitpid(pid, &st, 0);
+    }).detach();
+    return true;
+}
+#endif
+
 static intptr_t os_connect(std::string &error)
 {
     sockaddr_un sa{};
     sa.sun_family = AF_UNIX;
     snprintf(sa.sun_path, sizeof sa.sun_path, "/tmp/vtibroker-%u.sock", (unsigned)getuid());
     int fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
+#ifdef __APPLE__
+    if (fd >= 0 && ::connect(fd, (sockaddr *)&sa, sizeof sa) && start_broker())
+        for (int i = 0; i < 40; i++) { // up to ~4 s for the broker to listen
+            usleep(100000);
+            ::close(fd);
+            fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
+            if (fd < 0 || !::connect(fd, (sockaddr *)&sa, sizeof sa))
+                return fd < 0 ? -1 : fd;
+        }
+#endif
     if (fd < 0 || ::connect(fd, (sockaddr *)&sa, sizeof sa)) {
         error = std::string("cannot connect to the TI Revive broker at ") + sa.sun_path + ": " + strerror(errno);
         if (fd >= 0)

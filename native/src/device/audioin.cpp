@@ -16,6 +16,11 @@ extern "C" {
 #include <sys/mman.h>
 #include <unistd.h>
 #endif
+#ifdef __APPLE__
+#include <CoreAudio/CoreAudio.h>
+#include <string>
+#include <vector>
+#endif
 
 namespace vti {
 
@@ -34,6 +39,92 @@ static inline int64_t load_acquire(volatile int64_t *p)
 }
 
 AudioIn::~AudioIn() { close(); }
+
+#ifdef __APPLE__
+// macOS: the Virus' audio function is USB class compliant, so Core Audio offers it as an input device. The broker only
+// carries MIDI there; this reader fills the same ring (vti_audio_shm, here in our own memory) from an IOProc, so the
+// rest of AudioIn (drift handling, read_at) is shared with Linux and Windows.
+struct MacAudio {
+    AudioObjectID dev = kAudioObjectUnknown;
+    AudioDeviceIOProcID proc = nullptr;
+    vti_audio_shm *ring = nullptr;
+};
+
+static std::string cf_string(AudioObjectID id, AudioObjectPropertySelector sel)
+{
+    AudioObjectPropertyAddress a{sel, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain};
+    CFStringRef cs = nullptr;
+    UInt32 sz = sizeof cs;
+    if (AudioObjectGetPropertyData(id, &a, 0, nullptr, &sz, &cs) || !cs)
+        return {};
+    char buf[256] = {};
+    CFStringGetCString(cs, buf, sizeof buf, kCFStringEncodingUTF8);
+    CFRelease(cs);
+    return buf;
+}
+
+static int input_channels(AudioObjectID id)
+{
+    AudioObjectPropertyAddress a{kAudioDevicePropertyStreamConfiguration, kAudioObjectPropertyScopeInput,
+                                 kAudioObjectPropertyElementMain};
+    UInt32 sz = 0;
+    if (AudioObjectGetPropertyDataSize(id, &a, 0, nullptr, &sz) || !sz)
+        return 0;
+    std::vector<uint8_t> buf(sz);
+    auto *bl = (AudioBufferList *)buf.data();
+    if (AudioObjectGetPropertyData(id, &a, 0, nullptr, &sz, bl))
+        return 0;
+    int n = 0;
+    for (UInt32 i = 0; i < bl->mNumberBuffers; i++)
+        n += (int)bl->mBuffers[i].mNumberChannels;
+    return n;
+}
+
+// the Virus as Core Audio input device: name contains "Virus", at least 6 input channels (E082 order)
+static AudioObjectID find_virus()
+{
+    AudioObjectPropertyAddress a{kAudioHardwarePropertyDevices, kAudioObjectPropertyScopeGlobal,
+                                 kAudioObjectPropertyElementMain};
+    UInt32 sz = 0;
+    if (AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &a, 0, nullptr, &sz))
+        return kAudioObjectUnknown;
+    std::vector<AudioObjectID> ids(sz / sizeof(AudioObjectID));
+    if (AudioObjectGetPropertyData(kAudioObjectSystemObject, &a, 0, nullptr, &sz, ids.data()))
+        return kAudioObjectUnknown;
+    for (AudioObjectID id : ids)
+        if (cf_string(id, kAudioObjectPropertyName).find("Virus") != std::string::npos &&
+            input_channels(id) >= VTI_AUDIO_IN_CH)
+            return id;
+    return kAudioObjectUnknown;
+}
+
+// Core Audio delivers Float32 (interleaved or one buffer per stream); the ring holds int16 frames of 6 channels
+static OSStatus io_proc(AudioObjectID, const AudioTimeStamp *, const AudioBufferList *in, const AudioTimeStamp *,
+                        AudioBufferList *, const AudioTimeStamp *, void *user)
+{
+    auto *r = (vti_audio_shm *)user;
+    if (!in || !in->mNumberBuffers)
+        return noErr;
+    UInt32 frames = in->mBuffers[0].mNumberChannels
+                        ? in->mBuffers[0].mDataByteSize / (sizeof(float) * in->mBuffers[0].mNumberChannels)
+                        : 0;
+    int64_t base = r->in_frames;
+    for (UInt32 f = 0; f < frames; f++) {
+        int16_t *dst = r->in + ((base + f) & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_IN_CH;
+        int ch = 0;
+        for (UInt32 b = 0; b < in->mNumberBuffers && ch < VTI_AUDIO_IN_CH; b++) {
+            const AudioBuffer &ab = in->mBuffers[b];
+            const float *src = (const float *)ab.mData + f * ab.mNumberChannels;
+            for (UInt32 c = 0; c < ab.mNumberChannels && ch < VTI_AUDIO_IN_CH; c++, ch++) {
+                float v = src[c] * 32768.0f;
+                dst[ch] = (int16_t)(v > 32767.0f ? 32767 : v < -32768.0f ? -32768 : v);
+            }
+        }
+    }
+    __atomic_store_n(&r->in_frames, base + frames, __ATOMIC_RELEASE);
+    return noErr;
+}
+#endif
 
 bool AudioIn::open()
 {
@@ -69,8 +160,35 @@ bool AudioIn::open()
     }
     pos_ = -1;
     return true;
+#elif defined(__APPLE__)
+    auto *m = new MacAudio;
+    m->dev = find_virus();
+    if (m->dev == kAudioObjectUnknown) {
+        delete m;
+        return false;
+    }
+    // the Virus runs at 44.1 kHz like the plug-in's host (the clock master is the synth)
+    AudioObjectPropertyAddress ra{kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeGlobal,
+                                  kAudioObjectPropertyElementMain};
+    Float64 rate = 44100;
+    AudioObjectSetPropertyData(m->dev, &ra, 0, nullptr, sizeof rate, &rate);
+    m->ring = new vti_audio_shm();
+    m->ring->magic = VTI_AUDIO_MAGIC, m->ring->version = VTI_AUDIO_VERSION, m->ring->rate = 44100;
+    m->ring->in_ch = VTI_AUDIO_IN_CH, m->ring->out_ch = VTI_AUDIO_OUT_CH, m->ring->ring_frames = VTI_AUDIO_RING;
+    if (AudioDeviceCreateIOProcID(m->dev, io_proc, m->ring, &m->proc) || AudioDeviceStart(m->dev, m->proc)) {
+        if (m->proc)
+            AudioDeviceDestroyIOProcID(m->dev, m->proc);
+        delete m->ring;
+        delete m;
+        return false;
+    }
+    m->ring->streaming = 1;
+    mac_ = m;
+    map_ = m->ring;
+    pos_ = -1;
+    return true;
 #else
-    return false; // macOS: Core Audio device (R6)
+    return false;
 #endif
 }
 
@@ -82,6 +200,14 @@ void AudioIn::close()
 #elif defined(_WIN32)
     if (map_)
         UnmapViewOfFile(map_);
+#elif defined(__APPLE__)
+    if (auto *m = (MacAudio *)mac_) {
+        AudioDeviceStop(m->dev, m->proc);
+        AudioDeviceDestroyIOProcID(m->dev, m->proc);
+        delete m->ring;
+        delete m;
+        mac_ = nullptr;
+    }
 #endif
     map_ = nullptr;
 }

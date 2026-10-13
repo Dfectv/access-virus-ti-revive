@@ -26,6 +26,9 @@ add_library(vticore STATIC src/access/accessfiles.cpp src/model/remotedevice.cpp
 target_include_directories(vticore PUBLIC src external/ti-revive/src/broker)
 find_package(Threads REQUIRED)
 target_link_libraries(vticore PUBLIC Threads::Threads $<$<PLATFORM_ID:Linux>:rt>)
+if(APPLE)
+    target_link_libraries(vticore PUBLIC "-framework CoreAudio" "-framework CoreFoundation")
+endif()
 target_link_libraries(vticore PUBLIC pugixml::pugixml)
 set_target_properties(vticore PROPERTIES POSITION_INDEPENDENT_CODE ON)
 

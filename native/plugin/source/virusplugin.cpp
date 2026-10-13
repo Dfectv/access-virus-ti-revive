@@ -82,7 +82,11 @@ void DeviceOut::run()
             }
             open_ = broker_.open(err);
             if (open_ && !audio_ok_) { // the owner starts the Virus audio stream (Linux: shm ring)
+#ifdef __APPLE__
+                int r = 1; // macOS: the plug-in reads the Virus' Core Audio input itself (the broker carries MIDI)
+#else
                 int r = broker_.audio(true);
+#endif
                 audio_ok_ = r == 1 && audio_.open();
                 fprintf(stderr, "Virus TI native: audio %s (%d)\n", audio_ok_ ? "streaming" : "not available", r);
             }

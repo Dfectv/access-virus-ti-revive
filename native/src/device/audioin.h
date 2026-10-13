@@ -9,7 +9,7 @@ namespace vti {
 class AudioIn {
 public:
     ~AudioIn();
-    bool open();  // Linux: map /dev/shm/tirevive-audio-<uid>
+    bool open();  // Linux: map /dev/shm/tirevive-audio-<uid>; Windows: the broker's mapping; macOS: Core Audio input
     void close();
     bool streaming() const;
     // n frames into usb1 (L, R) and usb2 (L, R); missing data -> silence. `latency` = target distance in frames.
@@ -21,6 +21,7 @@ public:
 
 private:
     void *map_ = nullptr; // vti_audio_shm (vtiaudioshm.h)
+    void *mac_ = nullptr; // macOS: the Core Audio reader that fills map_
     int64_t pos_ = -1, drops_ = 0;
 };
 
