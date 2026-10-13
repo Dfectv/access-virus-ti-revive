@@ -386,6 +386,9 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         if (!tl_valid_ && out_->busy())
             stream_start_ = newest; // wait until the start-up messages and the state are through
         if (!tl_valid_ ? newest - stream_start_ > 22050 : std::llabs(err) > 8192) {
+            if (getenv("VTI_NATIVE_STATS"))
+                fprintf(stderr, "timeline %s: err %lld newest %lld block %d\n", tl_valid_ ? "re-anchor" : "anchor",
+                        (long long)err, (long long)newest, data.numSamples);
             tl_ = target;
             next_tick_ = (double)tl_;
             tl_valid_ = true;

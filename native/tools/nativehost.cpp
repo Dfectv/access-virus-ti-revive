@@ -178,6 +178,7 @@ int main(int argc, char **argv)
     }
     const char *state = nullptr, *save = nullptr, *wav = nullptr;
     bool notes = false, editor = false, stress = false;
+    int block = 512; // --block N: host block size
     struct Action {
         double t;
         char kind; // c = click, d = drag, s = screenshot
@@ -199,6 +200,8 @@ int main(int argc, char **argv)
             notes = true;
         else if (!strcmp(argv[i], "--stress")) // MIDI load: notes on 16 channels + 32 automated parameters per block
             stress = true;
+        else if (!strcmp(argv[i], "--block") && i + 1 < argc)
+            block = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--editor"))
             editor = true;
         else if ((!strcmp(argv[i], "--click") || !strcmp(argv[i], "--drag") || !strcmp(argv[i], "--shot") ||
@@ -298,23 +301,23 @@ int main(int argc, char **argv)
         XFlush(dpy);
     }
 #endif
-    ProcessSetup ps{kRealtime, kSample32, 512, 44100};
+    ProcessSetup ps{kRealtime, kSample32, block, 44100};
     proc->setupProcessing(ps);
     comp->setActive(true);
     proc->setProcessing(true);
     HostProcessData data;
-    data.prepare(*comp, 512, kSample32);
-    data.numSamples = 512;
+    data.prepare(*comp, block, kSample32);
+    data.numSamples = block;
     ParameterChanges pc, outpc;
     EventList ev;
     std::vector<int16_t> pcm;
     float peak = 0;
-    int blocks = (int)(seconds * 44100 / 512);
+    int blocks = (int)(seconds * 44100 / block);
     auto t_next = std::chrono::steady_clock::now();
     for (int b = 0; b < blocks; b++) {
         ev.clear();
         if (notes) { // C4 on at the start of every second, off at the half
-            long f0 = (long)b * 512, f1 = f0 + 512;
+            long f0 = (long)b * block, f1 = f0 + block;
             for (long t = (f0 / 22050) * 22050; t < f1; t += 22050)
                 if (t >= f0) {
                     Event e{};
@@ -389,21 +392,26 @@ int main(int argc, char **argv)
         }
         if (data.numOutputs > 0 && data.outputs[0].numChannels >= 2) {
             float *l = data.outputs[0].channelBuffers32[0], *r = data.outputs[0].channelBuffers32[1];
-            for (int i = 0; i < 512; i++) {
+            for (int i = 0; i < block; i++) {
+                if (!std::isfinite(l[i]) || !std::isfinite(r[i])) {
+                    static int bad;
+                    if (bad++ < 3)
+                        fprintf(stderr, "non-finite sample at block %d frame %d: %f %f\n", b, i, l[i], r[i]);
+                }
                 peak = std::max(peak, std::max(std::fabs(l[i]), std::fabs(r[i])));
                 pcm.push_back((int16_t)std::max(-32768.f, std::min(32767.f, l[i] * 32768)));
                 pcm.push_back((int16_t)std::max(-32768.f, std::min(32767.f, r[i] * 32768)));
             }
         }
-        if (b % 86 == 85) {
-            printf("t=%.0f s peak %.3f\n", (b + 1) * 512 / 44100.0, peak);
+        if ((b + 1) * (long)block / 44100 != (long)b * block / 44100) { // once per second
+            printf("t=%.0f s peak %.3f\n", (b + 1) * (double)block / 44100.0, peak);
             fflush(stdout);
             peak = 0;
         }
-        t_next += std::chrono::microseconds(11610); // real time: 512 frames at 44.1 kHz
+        t_next += std::chrono::microseconds((long long)block * 1000000 / 44100); // real time at 44.1 kHz
 #ifdef __linux__
         if (view) {
-            double now = (b + 1) * 512 / 44100.0;
+            double now = (b + 1) * (double)block / 44100.0;
             for (auto &a : actions)
                 if (!a.done && now >= a.t) {
                     a.done = true;
