@@ -4,6 +4,12 @@ State: all work committed and pushed (private + public). Native VST3 runs on Lin
 win11 VM) and macOS (Ableton 12, M3). Virus is on the Linux PC (broker socket active); win11 VM may still be running
 (Virus detached, Ableton was open there). Diagnostics off (no ~/.local/share/virus-ti-native/diag.on).
 
+Automation CPU (2026-10-13): nativehost --stress-params --notes, worker thread 12.4 % -> ~3 %. Three changes:
+state record index in set_part_value ("path#part" -> record), coalesced drain_param_updates (latest value per
+parameter, at most every 5 ms) and a per-message field index in RemoteDevice::update_dump (one value: 7.8 -> 0.4 us,
+fast path checked against the full path for all 435 single-dump fields). Improvement plan: see "Plan: stability and
+performance" below / chat 2026-10-13.
+
 Waiting for the user:
 1. (done 2026-10-14: HyperSaw sound + display confirmed by the user)
 2. Snow issues #3 (Windows: Access kernel driver) / #4 (macOS: MIDIServer driver) - answers posted, waiting for

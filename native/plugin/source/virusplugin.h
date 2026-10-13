@@ -18,6 +18,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <unordered_map>
 #include <set>
 #include <chrono>
 #include <thread>
@@ -279,6 +280,11 @@ private:
     int generation_seen_ = 0; // DeviceOut::generation handled by process()
     bool device_seen_ = false; // the Virus was present once (worker thread)
     std::set<std::string> dump_paths_; // parameters stored in a part's single dump (the rest: single messages)
+    std::unordered_map<std::string, size_t> state_index_; // "path#part" -> state record (state_mu_)
+    const std::vector<uint8_t> *state_index_data_ = nullptr;
+    size_t state_index_size_ = 0;
+    std::chrono::steady_clock::time_point drain_next_{}; // worker: next automation drain
+    std::map<Steinberg::Vst::ParamID, int> latest_;       // worker: coalesced automation values
     int state_part(const std::string &path, int part) const;
 public:
     // parameters changed since the last call (the editor repaints linked controls while a knob is dragged)

@@ -122,6 +122,13 @@ bool RemoteDevice::load(const std::vector<uint8_t> &xml, std::string &error)
                 mb.controllers.push_back({num(p, "mapindex", 0), p.attribute("content").value()});
             mm.bytes.push_back(mb);
         }
+        for (size_t i = 0; i < mm.bytes.size(); i++) {
+            const auto &b = mm.bytes[i];
+            if (b.content.find('/') != std::string::npos)
+                mm.field_bytes[b.part < 0 ? b.content : b.content + "@" + std::to_string(b.part)].push_back(i);
+            if (!b.method.empty())
+                mm.checksum_bytes.push_back(i);
+        }
         messages.push_back(mm);
     }
     for (auto m : root.child("SoftknobMapping").children("Mapping")) {
@@ -506,6 +513,22 @@ void RemoteDevice::update_dump(const MidiMessage &m, std::vector<uint8_t> &msg, 
 {
     if (msg.size() < dump_size(m))
         msg.resize(dump_size(m));
+    if (values.size() == 1 && !m.field_bytes.empty()) { // one value (automation, knobs): only its bytes
+        auto f = m.field_bytes.find(values.begin()->first);
+        if (f != m.field_bytes.end()) {
+            int v = values.begin()->second;
+            for (size_t i : f->second) {
+                const auto &b = m.bytes[i];
+                if (b.mask >= 0)
+                    msg[b.index] = (uint8_t)((msg[b.index] & ~b.mask) | ((v << b.shift) & b.mask));
+                else
+                    msg[b.index] = (uint8_t)(v & 0x7F);
+            }
+        }
+        for (size_t i : m.checksum_bytes)
+            msg[m.bytes[i].index] = (uint8_t)checksum(m.bytes[i], msg);
+        return;
+    }
     for (auto &b : m.bytes) {
         if (!is_field(b))
             continue;

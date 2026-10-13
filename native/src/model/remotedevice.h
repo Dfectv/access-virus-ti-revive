@@ -7,6 +7,7 @@
 #pragma once
 #include <cstdint>
 #include <map>
+#include <unordered_map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -80,6 +81,10 @@ struct MessageByte {
 struct MidiMessage {
     std::string id, name;
     std::vector<MessageByte> bytes;
+    // built at load: field key -> its bytes, and the checksum bytes (update_dump of one value without walking all
+    // ~520 bytes and building a key string for each - ~8 us per automation change before)
+    std::unordered_map<std::string, std::vector<size_t>> field_bytes;
+    std::vector<size_t> checksum_bytes;
 };
 
 // automation.xml: the original plug-in's VST3 parameter ids. id = ParamID, title as the original shows it

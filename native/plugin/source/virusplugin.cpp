@@ -427,16 +427,30 @@ void VirusPlugin::set_part_value(int part, const std::string &path, int value)
     auto msg = dev_.encode(path, value, part < 0 ? 0 : part);
     if (msg.empty())
         return;
-    for (auto &r : state_) {
-        if (r.empty() || r.size() == 524 || r.size() == 267)
-            continue;
-        for (auto &c : dev_.decode(r))
-            if (c.path == path && state_part(c.path, c.part) == part) {
-                r = msg;
-                return;
-            }
+    // index (path, part) -> record, rebuilt when the record list was replaced or grew (patch / project load); a
+    // linear decode of all ~240 records per change cost ~45 us - with automation thousands of times per second
+    if (state_index_data_ != state_.data() || state_index_size_ != state_.size()) {
+        state_index_.clear();
+        for (size_t i = 0; i < state_.size(); i++) {
+            const auto &r = state_[i];
+            if (r.empty() || r.size() == 524 || r.size() == 267 || (r.size() > 1 && r[1] == 0x7D))
+                continue;
+            for (auto &c : dev_.decode(r))
+                state_index_[c.path + '#' + std::to_string(state_part(c.path, c.part))] = i;
+        }
+        state_index_data_ = state_.data();
+        state_index_size_ = state_.size();
+    }
+    std::string key = path + '#' + std::to_string(part);
+    auto it = state_index_.find(key);
+    if (it != state_index_.end() && it->second < state_.size()) {
+        state_[it->second] = msg;
+        return;
     }
     state_.push_back(msg);
+    state_index_[key] = state_.size() - 1;
+    state_index_data_ = state_.data();
+    state_index_size_ = state_.size();
 }
 
 static std::string own_cache_dir();
@@ -681,12 +695,22 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
 
 void VirusPlugin::drain_param_updates()
 {
+    // at most every 5 ms, and per parameter only the latest value (automation arrives up to every block for each
+    // lane - the editor and the state only need the newest)
+    auto now = std::chrono::steady_clock::now();
+    if (now < drain_next_)
+        return;
+    drain_next_ = now + std::chrono::milliseconds(5);
+    latest_.clear();
     for (size_t r = pu_r_.load(std::memory_order_relaxed); r != pu_w_.load(std::memory_order_acquire); r++) {
         const ParamUpdate u = pu_[r % PU_SLOTS];
         pu_r_.store(r + 1, std::memory_order_release);
-        auto it = params_.find(u.id);
+        latest_[u.id] = u.value;
+    }
+    for (auto &kv : latest_) {
+        auto it = params_.find(kv.first);
         if (it != params_.end())
-            set_part_value(it->second.part, it->second.path, u.value);
+            set_part_value(it->second.part, it->second.path, kv.second);
     }
 }
 
