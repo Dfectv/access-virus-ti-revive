@@ -40,8 +40,14 @@ bool EditorLayout::load(const std::vector<uint8_t> &xml, std::string &error)
         return false;
     }
     auto root = doc.child("Editor");
-    for (auto b : root.child("Bitmaps").children())
+    for (auto b : root.child("Bitmaps").children()) {
         bitmaps[b.name()] = b.attribute("Name").value();
+        if (b.attribute("Tile").as_bool()) {
+            auto in = b.child("TileInsetRect");
+            tiles[b.attribute("Name").value()] = {in.attribute("left").as_int(), in.attribute("top").as_int(),
+                                                  in.attribute("right").as_int(), in.attribute("bottom").as_int()};
+        }
+    }
     auto frame = root.child("Frame");
     width = frame.attribute("width").as_int(), height = frame.attribute("height").as_int();
     frame_parameter = frame.attribute("parameter").value();

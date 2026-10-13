@@ -56,6 +56,32 @@ void EditorRenderer::text(Canvas &c, const std::string &font, const std::string 
     }
 }
 
+void EditorRenderer::image(Canvas &c, const std::string &name, void *img, int sy, int fh, int x, int y, int w, int h,
+                           double alpha)
+{
+    auto t = layout_.tiles.find(name);
+    int iw = c.image_width(img);
+    if (t == layout_.tiles.end() || (iw == w && fh == h)) {
+        c.blit(img, 0, sy, x, y, std::min(w, iw), std::min(h, fh), alpha);
+        return;
+    }
+    const auto &in = t->second;
+    // source columns/rows: [0,l) [l, iw-r) [iw-r, iw); destination middle filled by repeating the source middle
+    int sx[3] = {0, in.left, iw - in.right}, sw[3] = {in.left, iw - in.left - in.right, in.right};
+    int syy[3] = {0, in.top, fh - in.bottom}, sh[3] = {in.top, fh - in.top - in.bottom, in.bottom};
+    int dx[3] = {x, x + in.left, x + w - in.right}, dw[3] = {in.left, w - in.left - in.right, in.right};
+    int dy[3] = {y, y + in.top, y + h - in.bottom}, dh[3] = {in.top, h - in.top - in.bottom, in.bottom};
+    for (int r = 0; r < 3; r++)
+        for (int k = 0; k < 3; k++) {
+            if (sw[k] <= 0 || sh[r] <= 0 || dw[k] <= 0 || dh[r] <= 0)
+                continue;
+            for (int oy = 0; oy < dh[r]; oy += sh[r])
+                for (int ox = 0; ox < dw[k]; ox += sw[k])
+                    c.blit(img, sx[k], sy + syy[r], dx[k] + ox, dy[r] + oy, std::min(sw[k], dw[k] - ox),
+                           std::min(sh[r], dh[r] - oy), alpha);
+        }
+}
+
 void EditorRenderer::render(Canvas &c)
 {
     for (auto &e : layout_.elements)
@@ -99,7 +125,9 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
                 index = frames >= 2 && v == atoi(e.get("OnValue").c_str()) ? 1 : 0;
             else if (e.type == "Button" || e.type == "KickButton")
                 index = frames >= 2 && v ? 1 : 0;
-            c.blit(normal, 0, index * e.h, x, y, e.w, std::min(e.h, c.image_height(normal)), alpha);
+            const std::string &nm = (&e == pressed && c.image(e.get("PressedBack"))) ? e.get("PressedBack") : e.get("NormalBack");
+            image(c, nm, normal, index * std::min(e.h, c.image_height(normal)), std::min(e.h, c.image_height(normal)), x, y,
+                  e.w, e.h, alpha);
         }
     } else if (e.get("Transparent") == "false" && e.back.a)
         c.fill(x, y, e.w, e.h, e.back);
@@ -113,7 +141,11 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
             str = patch_name(pt);
         else if ((e.type == "TextSlider" || e.type == "Menu") && !param.empty())
             str = value_text(param, v);
-        text(c, font, str, x, y, e.w, e.h, e.get("Align"));
+        int tl = 0, tr = 0;
+        auto t = layout_.tiles.find(e.get("NormalBack"));
+        if (t != layout_.tiles.end())
+            tl = t->second.left, tr = t->second.right;
+        text(c, font, str, x + tl, y, e.w - tl - tr, e.h, e.get("Align"));
     }
     for (auto &ch : e.children)
         draw(c, ch, x, y, e.part() >= 0 ? e.part() : inherited);

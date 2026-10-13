@@ -35,6 +35,10 @@ struct EditorLayout {
     std::string frame_parameter; // the part selector ("Multi Parameters/Panel Part")
     std::vector<Element> elements;
     std::map<std::string, std::string> bitmaps; // id (bmpNNNNN) -> PNG name (most elements use PNG names directly)
+    struct Tile {
+        int left = 0, top = 0, right = 0, bottom = 0; // fixed borders; the middle repeats (nine-part bitmap)
+    };
+    std::map<std::string, Tile> tiles; // PNG name -> tiling insets (Tile="true" in the Bitmaps table)
     bool load(const std::vector<uint8_t> &xml, std::string &error);
 };
 

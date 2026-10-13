@@ -64,7 +64,8 @@
 
 - Editor fidelity vs screenshots of the original (vtihost under Xvfb, tabs clicked with tools/xclick.c): identical
   pixels per page: Easy 97.0, Browser 89.3, OSC 90.3, Filter 93.7, LFO 97.5, Matrix 86.6, Arp 97.0, FX 93.3, Common
-  95.9, FX2 (page 11) 93.6 % (mean 93.4 %). Missing: custom displays (envelopes 0x180039df0.., filter curves,
+  95.9, FX2 (page 11) 93.6 % (mean 93.4 %); with nine-part tiled bitmaps (Bitmaps Tile/TileInsetRect, menu text inside the insets):
+  Easy 97.0, Browser 91.7, OSC 94.7, Filter 93.7, LFO 98.3, Matrix 92.9, Arp 97.2, FX 94.4, Common 98.9, FX2 94.2 (mean 95.3 %). Missing: custom displays (envelopes 0x180039df0.., filter curves,
   osc shapes, patch browser), some menus/popups state. Menus pop up with the valuelist and switch layouts.
 
 ## Next

@@ -99,6 +99,8 @@ load in the rewrite and vice versa.
 - Text: bitmap fonts FNT_LCD_5x7_*.png = 96 glyphs (ASCII 32..127) of 6x9 in a vertical strip; StaticText shows its
   Name, TextSlider/Menu the valuelist text (an existing entry wins even if empty: live displays stay blank),
   NameEdit the part's patch name (Single Patch Name/Character 01..10).
+- Bitmaps with Tile="true" are nine-part images: TileInsetRect = fixed borders, the middle repeats to the control
+  size; text of such controls (menus) is laid out inside the left/right insets.
 - Open: the big Filter 1 cutoff ring (MaskedKnob KNB_Cutoff_Rot_Uni) is not drawn by the original at rest; filter
   response displays (LP4/HP4/BP4/BS4Response -> probably KXYControl in the decompile), envelope (KEnvelope), osc
   shapes (KOscClassicShape/KOscHypersawShape), step sequencer (KStepSequencer) are custom drawn.

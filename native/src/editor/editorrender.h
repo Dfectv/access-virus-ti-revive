@@ -47,6 +47,8 @@ private:
     const Conditions &cond_;
     const RemoteDevice &dev_, &ed_;
     void draw(Canvas &c, const Element &e, int ox, int oy, int inherited);
+    // a frame (sy..sy+fh) of `img`, nine-part tiled to w x h when the bitmap is marked tiled
+    void image(Canvas &c, const std::string &name, void *img, int sy, int fh, int x, int y, int w, int h, double alpha);
     void text(Canvas &c, const std::string &font, const std::string &str, int x, int y, int w, int h,
               const std::string &align);
     bool hit(const Element &e, int ox, int oy, int inherited, int px, int py, Hit &out) const;
