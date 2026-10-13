@@ -180,7 +180,8 @@ private:
     std::mutex values_mu_;
     std::map<int, std::map<std::string, int>> part_values_; // decoded part dumps + controllers, per part (-1 = global)
     std::map<std::string, int> ui_state_;                   // editor-only parameters (VirusControl/SelectedPage ...)
-    std::string lcd_param_, lcd_value_, lcd_part_;          // the last edited parameter for the LCD
+    std::string lcd_param_, lcd_value_, lcd_part_, lcd_orig_; // the last edited parameter for the LCD
+    void set_lcd(const std::string &param, const std::string &value, const std::string &part, const std::string &before);
     std::string search_;                                    // browser search text
     int results_return_ = 0;                                // browser 0's bank before the results
     std::vector<std::vector<uint8_t>> results_;             // all search results (banks_mu_)

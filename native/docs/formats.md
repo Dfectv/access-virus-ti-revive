@@ -105,7 +105,13 @@ load in the rewrite and vice versa.
   text and/or category collect the matching patches of all banks, sorted by name (byte order, duplicates kept), in
   pages of 128 in the UPPER browser ("Browser 0/Selected Bank"; the lower one is "Browser 1"). Title
   "Search Results/" + `Category is "Piano"` | `Name contains "pi"` | `Name contains "pi" and category is "Piano"` +
-  ` (page 1 of N)`; the bank arrows page. Cleared, browser 0 returns to its bank. The generic (Linux) menu ticks
+  ` (page 1 of N)`; the bank arrows page. Sources = device RAM + device ROM + ALL Personal Libraries including
+  subfolders (the installer's "Virus TI/TI2/Snow Factory Backup/Rom/*.mid"); copies of one sound count once, key =
+  dump bytes 11..264 (page A without its first two bytes). Verified: Piano = 70 entries with exactly the original's
+  9 doubles (HalfliteBC, Poly5thmi@, EP+Faze, EP3DosNyt@, CuttaD6, D50-50, Funk-U, SineLang, EP Res).
+- Personal Libraries: recursive; folders are submenus in the bank and LOAD/SAVE menus.
+- LCD: "VirusControl/Display Original Value" = "[value when editing of this parameter started]"; the category filter
+  shows as "Repository Actions Category Filter" / name / [before] / Part n. Cleared, browser 0 returns to its bank. The generic (Linux) menu ticks
   the entry of the menu's value (setValue), not checkEntryAlone.
 - Inactive controls (the parameter's own `condition` false, e.g. Chorus Mix with chorus off, Live Mode while the
   sequencer runs; soft knobs without destination) are painted with alpha 0.4.

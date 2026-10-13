@@ -14,7 +14,10 @@ std::vector<PatchLibrary> load_libraries(const std::string &dir, const std::vect
 {
     std::vector<PatchLibrary> out;
     std::error_code ec;
-    for (auto &e : fs::directory_iterator(dir, ec)) {
+    // like the original: also the libraries in subfolders (e.g. "Virus TI2 Factory Backup/Rom/Virus TI2 Rom A")
+    for (auto &e : fs::recursive_directory_iterator(dir, fs::directory_options::skip_permission_denied, ec)) {
+        if (!e.is_regular_file(ec))
+            continue;
         std::string ext = e.path().extension().string();
         for (auto &ch : ext)
             ch = (char)tolower(ch);
@@ -23,7 +26,9 @@ std::vector<PatchLibrary> load_libraries(const std::string &dir, const std::vect
         std::ifstream f(e.path(), std::ios::binary);
         std::vector<uint8_t> d((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
         PatchLibrary lib;
-        lib.name = e.path().stem().string();
+        lib.name = (e.path().parent_path().lexically_relative(dir) / e.path().stem()).generic_string();
+        if (lib.name.rfind("./", 0) == 0)
+            lib.name = lib.name.substr(2);
         lib.path = e.path().string();
         // SysEx single dumps anywhere in the file (SMF sysex events or raw .syx): 00 20 33 01 <dev> 10 ... F7
         for (size_t i = 0; i + 8 < d.size(); i++) {

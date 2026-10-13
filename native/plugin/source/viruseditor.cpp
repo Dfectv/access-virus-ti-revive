@@ -257,6 +257,28 @@ private:
     bool editing_search_ = false;
     CRect search_rect_;
 
+    // the submenu of a library's folder ("Virus TI2 Factory Backup/Rom/...") inside `root`, created on demand
+    static COptionMenu *folder_menu(COptionMenu *root, const std::string &name,
+                                    std::map<std::string, COptionMenu *> &folders, std::string &leaf)
+    {
+        COptionMenu *m = root;
+        std::string path;
+        size_t from = 0;
+        for (size_t slash; (slash = name.find('/', from)) != std::string::npos; from = slash + 1) {
+            path = name.substr(0, slash);
+            auto it = folders.find(path);
+            if (it == folders.end()) {
+                auto *sub = new COptionMenu();
+                m->addEntry(sub, name.substr(from, slash - from).c_str());
+                sub->forget(); // owned by the parent entry
+                it = folders.emplace(path, sub).first;
+            }
+            m = it->second;
+        }
+        leaf = name.substr(from);
+        return m;
+    }
+
     // LOAD: RAM A..D -> patch -> into the part; SAVE: RAM A..D -> slot -> store the part's patch there
     // LOAD / SAVE like the original: "<device> > RAM A.. (SAVE: RAM only) > 000 Name" and "Personal Libraries"
     void patch_menu(const Hit &h, const CPoint &where, bool save)
@@ -278,10 +300,13 @@ private:
         menu->addEntry(dev, plugin_->device_name());
         dev->forget();
         auto *lib = new COptionMenu(); // personal libraries (patch files); SAVE can also append
+        std::map<std::string, COptionMenu *> folders;
         if (plugin_->library_count() == 0)
             lib->addEntry("(none)", -1, CMenuItem::kDisabled);
         else
             for (int i = 0; i < plugin_->library_count(); i++) {
+                std::string leaf;
+                COptionMenu *parent = folder_menu(lib, plugin_->library_name(i), folders, leaf);
                 auto *lm = new COptionMenu();
                 for (int p = 0; p < plugin_->library_size(i); p++) {
                     char t[40];
@@ -293,7 +318,7 @@ private:
                     snprintf(t, sizeof t, "%03d (new)", plugin_->library_size(i));
                     lm->addEntry(t);
                 }
-                lib->addEntry(lm, plugin_->library_name(i));
+                parent->addEntry(lm, leaf.c_str());
                 (*banks)[lm] = VirusPlugin::LIB_BASE + i;
                 lm->forget();
             }
@@ -326,19 +351,27 @@ private:
             dev->addEntry(VirusPlugin::bank_name(b));
         menu->addEntry(dev, plugin_->device_name());
         auto *lib = new COptionMenu();
+        // (submenu, entry index) -> library; folders become submenus like in the original
+        auto entries = std::make_shared<std::map<std::pair<COptionMenu *, int>, int>>();
+        std::map<std::string, COptionMenu *> folders;
         if (plugin_->library_count() == 0)
             lib->addEntry("(none)", -1, CMenuItem::kDisabled);
-        for (int i = 0; i < plugin_->library_count(); i++)
-            lib->addEntry(plugin_->library_name(i));
+        for (int i = 0; i < plugin_->library_count(); i++) {
+            std::string leaf;
+            COptionMenu *parent = folder_menu(lib, plugin_->library_name(i), folders, leaf);
+            parent->addEntry(leaf.c_str());
+            (*entries)[{parent, parent->getNbEntries() - 1}] = i;
+        }
         menu->addEntry(lib, "Personal Libraries");
         std::string param = h.element->get("Parameter");
-        menu->popup(getFrame(), where, [this, param, dev, lib](COptionMenu *m) {
+        menu->popup(getFrame(), where, [this, param, dev, entries](COptionMenu *m) {
             int32_t idx = -1;
             COptionMenu *sub = m->getLastItemMenu(idx);
+            auto it = entries->find({sub, idx});
             if (sub == dev && idx >= 0)
                 plugin_->ui_set(param, -1, idx);
-            else if (sub == lib && idx >= 0 && plugin_->library_count())
-                plugin_->ui_set(param, -1, VirusPlugin::LIB_BASE + idx);
+            else if (it != entries->end())
+                plugin_->ui_set(param, -1, VirusPlugin::LIB_BASE + it->second);
             invalid();
         });
         lib->forget();
