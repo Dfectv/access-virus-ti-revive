@@ -272,3 +272,24 @@ FILTER 2.70 % (mostly the big knob rings, which we show permanently).
   pixel differences (scripted page captures: tools/xclick.c + vtihost under Xvfb, see the orig-page*.png procedure).
 - REAPER test with the user (Linux VST3 "Virus TI (native)"; drop-in build for projects saved with the original).
 - R6: Windows (broker pipe client, WinUSB shm ring) and macOS (Core Audio path) ports of src/device.
+
+## Plan: stability and performance (analysis 2026-10-13)
+
+Done: automation path CPU (worker 12.4 % -> ~3 % under --stress-params --notes), commit 19ffe1c.
+
+P1 - stability
+1. `ui_state_` (std::map) is read without a lock in `ui_value()` (worker: meta conditions; UI thread) while other
+   threads insert -> possible crash with modulated meta-linked parameters. Guard with `values_mu_` or keep it to one
+   thread.
+2. `process()`: `evs[128]` is filled with clock, CCs and up to 96 automation messages before the notes -> in a dense
+   block note-offs can be dropped (stuck notes). Reserve slots for notes, never drop note-offs.
+3. Sanitizer runs (TSan/ASan nativehost --stress-params --notes) + a 1 h Ableton test with 3+ M4L LFOs on each platform.
+
+P2 - CPU
+4. Worker polls every 1 ms -> wake on condition/event (idle wakeups 1000/s -> ~0).
+5. `getenv` in hot paths (worker loop, `process()` lines ~524/562) -> read once at start.
+6. Meta engine: `meta_source` walks all editor-device parameters per change -> precomputed path -> metas index.
+7. Automation changes set `ui_dirty_` -> full repaint at 20 Hz while LFOs run; repaint only the affected controls.
+8. Broker: one write per message -> batch per worker cycle.
+
+P3 - open features: UI to-do above, timing R5 + getLatencySamples, Snow issues #3/#4.
