@@ -137,6 +137,9 @@ public:
     void onMouseDownEvent(MouseDownEvent &event) override
     {
         Hit h = renderer_.hit_test((int)event.mousePosition.x, (int)event.mousePosition.y);
+        if (getenv("VTI_NATIVE_DEBUG"))
+            fprintf(stderr, "mouse down %.0f,%.0f -> %s %s\n", event.mousePosition.x, event.mousePosition.y,
+                    h.element ? h.element->type.c_str() : "-", h.element ? h.element->get("Parameter").c_str() : "");
         if (!h.element)
             return;
         const Element &e = *h.element;
@@ -152,6 +155,22 @@ public:
         drag_value_ = plugin_->ui_value(param, h.part);
         if (e.type == "NameEdit" && event.clickCount >= 2) { // rename the part's patch
             edit_name(h);
+            event.consumed = true;
+            return;
+        }
+        if (e.type == "ArpEdit") { // user pattern: drag a bar's right edge = length, else click/drag = velocity
+            arp_length_drag_ = -1;
+            int step = std::max(0, std::min(31, (int)(event.mousePosition.x - h.x - 1) / 20));
+            std::string st = "Arpeggiator User Pattern/Step " + std::to_string(step + 1) + " ";
+            if (plugin_->ui_value(st + "Bitfield", h.part)) {
+                int cx, bottom;
+                EditorRenderer::arp_step_geometry(e, h.x, h.y, step, cx, bottom);
+                int r = EditorRenderer::arp_step_width(plugin_->ui_value(st + "Length", h.part));
+                if (std::abs(event.mousePosition.x - (cx + r)) <= 2)
+                    arp_length_drag_ = step;
+            }
+            if (arp_length_drag_ < 0)
+                arp_set_velocity(h, event.mousePosition);
             event.consumed = true;
             return;
         }
@@ -219,6 +238,23 @@ public:
         if (!drag_.element || !event.buttonState.isLeft())
             return;
         const Element &e = *drag_.element;
+        if (e.type == "ArpEdit") {
+            if (arp_length_drag_ >= 0) { // length from the right edge position (inverse of the width table)
+                int cx, bottom;
+                EditorRenderer::arp_step_geometry(e, drag_.x, drag_.y, arp_length_drag_, cx, bottom);
+                int want = (int)event.mousePosition.x - cx, best = 0;
+                for (int len = 0; len <= 127; len++)
+                    if (std::abs(EditorRenderer::arp_step_width(len) - want) <
+                        std::abs(EditorRenderer::arp_step_width(best) - want))
+                        best = len;
+                plugin_->ui_set("Arpeggiator User Pattern/Step " + std::to_string(arp_length_drag_ + 1) + " Length",
+                                drag_.part, best);
+            } else
+                arp_set_velocity(drag_, event.mousePosition);
+            invalid();
+            event.consumed = true;
+            return;
+        }
         // drag and drop like the original: a part's patch name (or a browser entry) onto another part strip
         if (e.type == "NameEdit" || (e.type == "PatchBrowser" && dnd_prog_ >= 0)) {
             if (!dnd_ && std::hypot(event.mousePosition.x - drag_x_, event.mousePosition.y - drag_y_) > 4) {
@@ -309,6 +345,17 @@ public:
     }
 
 private:
+    int arp_length_drag_ = -1; // ArpEdit: step whose length is dragged
+    // ArpEdit: the step under the mouse gets the velocity of the mouse height (bars grow from the bottom row)
+    void arp_set_velocity(const Hit &h, const CPoint &p)
+    {
+        int step = std::max(0, std::min(31, (int)(p.x - h.x - 1) / 20));
+        int cx, bottom;
+        EditorRenderer::arp_step_geometry(*h.element, h.x, h.y, step, cx, bottom);
+        int vel = std::max(0, std::min(127, bottom - (int)p.y));
+        plugin_->ui_set("Arpeggiator User Pattern/Step " + std::to_string(step + 1) + " Velocity", h.part, vel);
+        invalid();
+    }
     int edit_part_ = 0;
     std::vector<CRect> meter_rects_; // the part strips' meters
     bool editing_search_ = false;
