@@ -8,6 +8,7 @@
 #include "device/memsync.h"
 #include "model/remotedevice.h"
 #include <cairo.h>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -211,6 +212,27 @@ int main(int argc, char **argv)
         return n;
     };
     r.render(canvas);
+    if (const char *bn = getenv("VTIRENDER_BENCH")) { // average render time over N repaints
+        int n = atoi(bn);
+        auto t0 = std::chrono::steady_clock::now();
+        for (int i = 0; i < n; i++)
+            r.render(canvas);
+        printf("render: %.2f ms\n", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count() / n);
+        struct Null : Canvas { // the same without drawing: the model/condition overhead alone
+            Canvas &real;
+            explicit Null(Canvas &c) : real(c) {}
+            void *image(const std::string &nm) override { return real.image(nm); }
+            int image_width(void *i) override { return real.image_width(i); }
+            int image_height(void *i) override { return real.image_height(i); }
+            void blit(void *, int, int, int, int, int, int, double) override {}
+            void fill(int, int, int, int, Rgba) override {}
+            void line(double, double, double, double, Rgba) override {}
+        } nc(canvas);
+        t0 = std::chrono::steady_clock::now();
+        for (int i = 0; i < n; i++)
+            r.render(nc);
+        printf("logic only: %.2f ms\n", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count() / n);
+    }
     if (getenv("VTIRENDER_LIST")) { // all controls of the page: type, parameter, position (4-pixel grid)
         std::map<const Element *, Hit> seen;
         for (int y = 0; y < layout.height; y += 4)

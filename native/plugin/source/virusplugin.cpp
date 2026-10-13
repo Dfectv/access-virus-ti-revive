@@ -871,11 +871,23 @@ bool VirusPlugin::browser_match(int bank, int program)
     }
     if (d.size() != 524)
         return false;
-    if (cat && single_template_) {
-        std::map<std::string, int> v;
-        std::string err;
-        dev_.decode_dump(*single_template_, d, v, err);
-        if (v["Categories/Category 1"] != cat && v["Categories/Category 2"] != cat)
+    if (cat && single_template_) { // categories of a stored patch, decoded once per dump (checksum)
+        std::array<int, 3> c{-1, 0, 0};
+        {
+            std::lock_guard<std::mutex> lk(values_mu_);
+            auto it = cat_cache_.find({bank, program});
+            if (it != cat_cache_.end() && it->second[0] == d[522])
+                c = it->second;
+        }
+        if (c[0] < 0) {
+            std::map<std::string, int> v;
+            std::string err;
+            dev_.decode_dump(*single_template_, d, v, err);
+            c = {d[522], v["Categories/Category 1"], v["Categories/Category 2"]};
+            std::lock_guard<std::mutex> lk(values_mu_);
+            cat_cache_[{bank, program}] = c;
+        }
+        if (c[1] != cat && c[2] != cat)
             return false;
     }
     if (!q.empty()) {

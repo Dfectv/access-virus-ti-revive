@@ -10,6 +10,7 @@
 #include "model/remotedevice.h"
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
 #include "public.sdk/source/vst/vstsinglecomponenteffect.h"
+#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <deque>
@@ -140,6 +141,7 @@ private:
     std::map<std::string, int> ui_state_;                   // editor-only parameters (VirusControl/SelectedPage ...)
     std::string lcd_param_, lcd_value_, lcd_part_;          // the last edited parameter for the LCD
     std::string search_;                                    // browser search text
+    std::map<std::pair<int, int>, std::array<int, 3>> cat_cache_; // (bank, program) -> checksum, category 1, 2
     std::atomic<bool> ui_dirty_{true};
     // automation values from process() for the part dumps (single producer / single consumer, lock-free)
     struct ParamUpdate {
