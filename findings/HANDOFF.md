@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-12 evening. Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-13 morning. Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E125), protocol: [spec.md](spec.md)._
 
 ## Status
@@ -44,7 +44,9 @@ Waiting: **Snow** (issue #3, bidmessmer) - the regular plug-in finds the Snow, t
 `tirevive-usbinfo.ps1` output after loading the Snow plug-in once (the vtiemu "device identity" line). Access'
 VirusUSB.inf also lists PID 0816 (unlikely the cause since TI Revive reaches the device).
 Stage 3 (native rewrite of the plug-in) is developed in the PRIVATE repo derpsn/virus-ti-native (~/virus-ti-native,
-plan docs/plan.md, status docs/status.md); TI Revive is its submodule.
+plan docs/plan.md, status docs/status.md); TI Revive is its submodule. State 2026-10-13: the native Linux VST3 plays the
+Virus through the TI Revive broker (notes, parameters, audio, the original's state format) and has a working editor
+drawn from the user's Access files; timing (F5 stamps) and the remaining editor controls are open.
 Deferred by the user: Windows MIDI ports (design-midi-ports.md), WDM sound card (design-wdm-bridge.md), latency
 measurements.
 
