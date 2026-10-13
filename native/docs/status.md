@@ -227,7 +227,11 @@ FILTER 2.70 % (mostly the big knob rings, which we show permanently).
   (selected part, part volume/pan, globals) are now kept in the state (9adf045) - user: works. (d) linked knob
   (LFO link) followed only on release -> repaint of changed params during drags (8bb3a5f). (e) LFO link lost after
   project reload -> editor-only link buttons saved as F0 7D 'VTN' records (ea08936). (f) notes hung while the
-  start-up bank sync ran -> sync pauses while the host plays (8119d36) - waiting for the user's retest of (e)/(f).
+  start-up bank sync ran -> sync pauses while the host plays (8119d36) - user: works. (g) editor drawing slow
+  (REAPER lag/dropouts) -> static layer cache + X pixmaps on Linux (7c045ea, c5c8645) - user: "snappy". (h) HyperSaw
+  display ignored Density -> lines = saws, re-captured and pixel-identical (5617ddf); waiting: does the Density knob
+  audibly change the sound (CC 17)? Note: after power cycles the original under Wine resyncs its memory (~10 min,
+  let vtihost exit normally so its cache is written) before captures work again.
 
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
