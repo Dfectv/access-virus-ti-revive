@@ -87,6 +87,44 @@ int main(int argc, char **argv)
             fclose(f);
         }
         printf("init patch %zu bytes, version %d -> %d%s\n", d.size(), v, d.size() > 9 ? d[9] : -1, ch ? "" : " (unchanged)");
+    } else if (cmd == "setdump" && args.size() >= 3) { // a single dump file with changed values: in out path=value...
+        FILE *f = fopen(args[0].c_str(), "rb");
+        if (!f) {
+            perror(args[0].c_str());
+            return 1;
+        }
+        std::vector<uint8_t> msg;
+        for (int c; (c = fgetc(f)) != EOF;)
+            msg.push_back((uint8_t)c);
+        fclose(f);
+        const vti::MidiMessage *m = dev.message("VirusTI_Singledump");
+        std::map<std::string, int> values;
+        std::string error;
+        if (!m || !dev.decode_dump(*m, msg, values, error)) {
+            fprintf(stderr, "vtimodel: %s\n", error.c_str());
+            return 1;
+        }
+        for (size_t i = 2; i < args.size(); i++) {
+            size_t eq = args[i].find('=');
+            if (eq == std::string::npos || !values.count(args[i].substr(0, eq))) {
+                fprintf(stderr, "vtimodel: unknown %s\n", args[i].c_str());
+                return 1;
+            }
+            values[args[i].substr(0, eq)] = atoi(args[i].c_str() + eq + 1);
+        }
+        dev.update_dump(*m, msg, values);
+        unsigned a = 0; // checksums
+        for (int i = 5; i < 265; i++)
+            a += msg[i];
+        msg[265] = a & 0x7F;
+        for (int i = 265; i < 522; i++)
+            a += msg[i];
+        msg[522] = a & 0x7F;
+        if (FILE *o = fopen(args[1].c_str(), "wb")) {
+            fwrite(msg.data(), 1, msg.size(), o);
+            fclose(o);
+        }
+        printf("wrote %s\n", args[1].c_str());
     } else if (cmd == "initmulti" && !args.empty()) { // the plug-in's embedded multi to a file
         auto d = files->init_multi();
         if (FILE *f = fopen(args[0].c_str(), "wb")) {

@@ -214,6 +214,16 @@ void EditorRenderer::filter_response(Canvas &c, const Element &e, int x, int y, 
 
 // classic oscillator display: sine (shape 0) -> saw (64) -> pulse (127, width from Pulsewidth); area between the wave
 // and the centre filled in ForeColor (182,200,228), wave line (91,100,114) - measured on the original
+// HyperSaw display: three 1-px lines over the full height in ForeColor, the outer two at +-w from the centre;
+// w depends only on DetuneSpread (measured on the original: ~2 px at 0 .. 7.5 px at 127; density does not change it)
+void EditorRenderer::osc_hypersaw(Canvas &c, const Element &e, int x, int y, int part)
+{
+    double spread = values(e.get("Parameter"), part); // "Oscillator N HyperSaw/DetuneSpread"
+    double w = 1.9 + spread * 5.6 / 127, mid = x + e.w / 2.0 - 0.25; // fits all 8 measured cases exactly
+    for (double off : {-w, 0.0, w})
+        c.fill((int)std::floor(mid + off + 0.5), y, 1, e.h, e.fore);
+}
+
 void EditorRenderer::osc_classic(Canvas &c, const Element &e, int x, int y, int part)
 {
     const std::string &pwp = e.get("Parameter"); // "Oscillator N/Pulsewidth"
@@ -313,6 +323,8 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
         filter_response(c, e, x, y, pt);
     if (e.type == "OscClassicShape" && !param.empty())
         osc_classic(c, e, x, y, pt);
+    if (e.type == "OscHypersawShape" && !param.empty())
+        osc_hypersaw(c, e, x, y, pt);
     if (e.type == "ADSTREnvelope" && !param.empty())
         envelope(c, e, x, y, pt, alpha);
     if (e.type == "PatchBrowser" && bank_patch && !param.empty()) {

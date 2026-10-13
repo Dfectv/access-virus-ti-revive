@@ -131,3 +131,6 @@ firmware.bin (next to Virus Control.dll / in the Mac Common folder) is an IFF FO
 ROM bank i = sectors P(064+2i) (programs 0-63) and P(065+2i) (64-127), 512 bytes per patch = page A + page B; the dump
 is header 10 <5+i> <prog>, page A, add7, page B, add7, F7. TI and TI2 ROMs differ -> model from the USB device
 descriptor (bcdDevice 0x100 = TI or Snow by product string, 0x300 = TI2). Banks V..Z of the TI2 are "Empty".
+- OscHypersawShape (OSC page, HyperSaw mode): three 1-px lines over the element's full height in ForeColor at
+  centre and +-w, w = 1.9 + DetuneSpread * 5.6 / 127, centre x + w/2 - 0.25, positions floor(c + off + 0.5);
+  density does not change the display (captured from the original for 8 value pairs, all identical).

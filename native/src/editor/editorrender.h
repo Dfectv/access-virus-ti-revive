@@ -75,6 +75,7 @@ private:
     void envelope(Canvas &c, const Element &e, int x, int y, int part, double alpha);
     void filter_response(Canvas &c, const Element &e, int x, int y, int part);
     void osc_classic(Canvas &c, const Element &e, int x, int y, int part);
+    void osc_hypersaw(Canvas &c, const Element &e, int x, int y, int part);
     void digits(Canvas &c, int number, int right, int top);
 };
 
