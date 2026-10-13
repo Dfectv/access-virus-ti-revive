@@ -180,7 +180,15 @@ private:
     struct Mapped {
         std::string path;
         int part = 0; // 0-based
+        int pending = -1; // automation throttle (audio thread): the latest value waiting to be sent
     };
+    // automation budget: a flood of parameter messages (stress test: 32 lanes per block, ~2750/s) hangs the
+    // Virus' audio until a power cycle - changes are coalesced per parameter and sent at <= AUTOMATION_RATE/s
+    static constexpr double AUTOMATION_RATE = 250; // 1000/s still hung together with 2750 notes/s
+    static constexpr int PENDING_MAX = 4096;
+    Steinberg::Vst::ParamID pending_ids_[PENDING_MAX];
+    int pending_head_ = 0, pending_count_ = 0;
+    double automation_budget_ = 0;
     RemoteDevice dev_, ed_;
     std::unique_ptr<AccessFiles> files_;
     EditorLayout layout_;

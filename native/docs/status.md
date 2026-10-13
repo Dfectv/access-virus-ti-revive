@@ -201,6 +201,20 @@ FILTER 2.70 % (mostly the big knob rings, which we show permanently).
 5. Big knob rings: shown permanently (user wanted them); the original under Wine shows them on hover only.
 6. Meta engine: tested reverb switch; LFO clock menus and filter/vocoder links untested with the Virus.
 
+## 2026-10-13 (night) - stress tests
+
+- Open/close 20x: every second re-open had no audio (broker refuses the start right after a session) -> retry
+  every 500 ms (eea2b7e). Endurance 10 min with notes: 0 drops, distance steady ~1000-1150 frames (no drift).
+- MIDI load (notes on 16 channels + 32 automated parameters per block = ~5500 msgs/s): the send queue starved ->
+  8 real-time messages then one queued (dedd4e0); bank sync completes under load.
+- Virus hang: the Virus' audio goes digitally silent (MIDI still answers, needs a power cycle) under a parameter
+  flood: unthrottled automation 32 lanes/block (~2750/s) hangs it within 4 min; notes alone at ~2750/s are fine;
+  automation throttled to 1000/s alone fine, but together with the notes it still hung (full-scale burst first).
+  Automation is now coalesced per parameter and sent within a budget (AUTOMATION_RATE, now 250/s) - retest of the
+  full load pending (user power-cycles the Virus).
+- Block sizes: 64 = 1 re-anchor in 30 s (click); 128/256 fine; 1024/2048 results invalid (taken while hung).
+- Tooling: nativehost --stress / --stress-notes / --stress-params / --block N; VTI_NATIVE_STATS.
+
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
   Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples

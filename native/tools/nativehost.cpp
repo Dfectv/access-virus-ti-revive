@@ -177,7 +177,7 @@ int main(int argc, char **argv)
         return 2;
     }
     const char *state = nullptr, *save = nullptr, *wav = nullptr;
-    bool notes = false, editor = false, stress = false;
+    bool notes = false, editor = false, stress = false, stress_notes = true, stress_params = true;
     int block = 512; // --block N: host block size
     struct Action {
         double t;
@@ -200,6 +200,10 @@ int main(int argc, char **argv)
             notes = true;
         else if (!strcmp(argv[i], "--stress")) // MIDI load: notes on 16 channels + 32 automated parameters per block
             stress = true;
+        else if (!strcmp(argv[i], "--stress-notes")) // only the notes of --stress
+            stress = true, stress_params = false;
+        else if (!strcmp(argv[i], "--stress-params")) // only the automation of --stress
+            stress = true, stress_notes = false;
         else if (!strcmp(argv[i], "--block") && i + 1 < argc)
             block = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--editor"))
@@ -332,7 +336,7 @@ int main(int argc, char **argv)
                     ev.addEvent(e);
                 }
         }
-        if (stress) { // every block: a note on/off pair on each of the 16 channels (cycling pitches)
+        if (stress && stress_notes) { // every block: a note on/off pair on each of the 16 channels (cycling pitches)
             for (int ch = 0; ch < 16; ch++) {
                 Event e{};
                 e.sampleOffset = ch * 30;
@@ -347,7 +351,7 @@ int main(int argc, char **argv)
         }
         data.inputEvents = &ev;
         pc.clearQueue();
-        if (stress && ctl) { // 32 automatable parameters moving every block
+        if (stress && stress_params && ctl) { // 32 automatable parameters moving every block
             static std::vector<ParamID> ids;
             if (ids.empty())
                 for (int32 k = 0; k < ctl->getParameterCount() && ids.size() < 32; k++) {
