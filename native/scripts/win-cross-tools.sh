@@ -9,7 +9,7 @@ mkdir -p "$OUT/obj"
 P=$(find build/_deps -name pugixml.cpp | head -1)
 [ -n "$P" ] || { echo "configure the Linux build first (FetchContent pugixml)"; exit 1; }
 CXX="x86_64-w64-mingw32-g++ -std=c++17 -O2 -Isrc -Iexternal/ti-revive/src/broker -I$(dirname "$P")"
-for f in src/access/accessfiles.cpp src/model/remotedevice.cpp src/device/broker.cpp src/device/memsync.cpp \
+for f in src/access/accessfiles.cpp src/access/firmware.cpp src/access/library.cpp src/model/remotedevice.cpp src/device/broker.cpp src/device/memsync.cpp \
          src/device/audioin.cpp src/editor/editormodel.cpp src/editor/editorrender.cpp "$P"; do
     $CXX -c "$f" -o "$OUT/obj/$(basename "$f").o"
 done

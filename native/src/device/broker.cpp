@@ -43,10 +43,77 @@ static bool io_all(intptr_t fd, void *p, size_t n, bool wr)
     return ok;
 }
 
+// vtibroker.exe like TI Revive's own clients (vticore_pipe.c): $VTI_BROKER, else InstallDir from
+// HKLM\SOFTWARE\TI Revive (written by the MSI), else %ProgramW6432%\TI Revive
+static bool broker_path(std::wstring &path)
+{
+    wchar_t buf[MAX_PATH + 32];
+    DWORD n = GetEnvironmentVariableW(L"VTI_BROKER", buf, MAX_PATH);
+    if (n && n < MAX_PATH && GetFileAttributesW(buf) != INVALID_FILE_ATTRIBUTES)
+        return path = buf, true;
+    wchar_t dir[MAX_PATH];
+    DWORD sz = sizeof dir;
+    if (!RegGetValueW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\TI Revive", L"InstallDir", RRF_RT_REG_SZ | RRF_SUBKEY_WOW6464KEY,
+                      nullptr, dir, &sz)) {
+        std::wstring d = dir;
+        if (!d.empty() && d.back() != L'\\')
+            d += L'\\';
+        if (GetFileAttributesW((d + L"vtibroker.exe").c_str()) != INVALID_FILE_ATTRIBUTES)
+            return path = d + L"vtibroker.exe", true;
+    }
+    n = GetEnvironmentVariableW(L"ProgramW6432", dir, MAX_PATH);
+    if (n && n < MAX_PATH) {
+        std::wstring p = std::wstring(dir) + L"\\TI Revive\\vtibroker.exe";
+        if (GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES)
+            return path = p, true;
+    }
+    return false;
+}
+
+// the broker is not started at logon: the first client that finds no pipe starts it, detached from the DAW (a DAW
+// may run plug-ins in a job object that is killed with it); it exits by itself when idle
+static bool start_broker()
+{
+    std::wstring path;
+    if (!broker_path(path))
+        return false;
+    std::wstring cmd = L"\"" + path + L"\"";
+    STARTUPINFOW si{};
+    si.cb = sizeof si;
+    PROCESS_INFORMATION pi{};
+    DWORD flags = DETACHED_PROCESS | CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP;
+    if (!CreateProcessW(path.c_str(), &cmd[0], nullptr, nullptr, FALSE, flags | CREATE_BREAKAWAY_FROM_JOB, nullptr,
+                        nullptr, &si, &pi) &&
+        !CreateProcessW(path.c_str(), &cmd[0], nullptr, nullptr, FALSE, flags, nullptr, nullptr, &si, &pi))
+        return false;
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    return true;
+}
+
 static intptr_t os_connect(std::string &error)
 {
-    HANDLE h = CreateFileA(VTI_PIPE_NAME, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
-                           FILE_FLAG_OVERLAPPED, nullptr);
+    HANDLE h = INVALID_HANDLE_VALUE;
+    bool started = false;
+    for (int i = 0; i < 40 && h == INVALID_HANDLE_VALUE; i++) { // up to ~4 s for a starting or busy broker
+        h = CreateFileA(VTI_PIPE_NAME, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED,
+                        nullptr);
+        if (h != INVALID_HANDLE_VALUE)
+            break;
+        DWORD e = GetLastError();
+        if (e == ERROR_PIPE_BUSY)
+            WaitNamedPipeA(VTI_PIPE_NAME, 100);
+        else if (e == ERROR_FILE_NOT_FOUND && !started) {
+            if (!(started = start_broker())) {
+                error = "vtibroker.exe not found (TI Revive not installed?)";
+                return -1;
+            }
+            Sleep(100);
+        } else if (e == ERROR_FILE_NOT_FOUND)
+            Sleep(100);
+        else
+            break;
+    }
     if (h == INVALID_HANDLE_VALUE) {
         error = "cannot connect to the TI Revive broker (" VTI_PIPE_NAME ", error " + std::to_string(GetLastError()) + ")";
         return -1;
