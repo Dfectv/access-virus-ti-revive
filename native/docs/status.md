@@ -133,6 +133,17 @@ category value, live search field at the layout position, VU = MIDI activity met
 per-channel max velocity, -1 per idle tick). Verified in nativehost/Xvfb (search "pi", meters part 1 only). Category
 popup itself not testable headless - waiting for the user's retest.
 
+## 2026-10-13 (afternoon) - browser like the original, performance
+
+- Search/category: one "Search Results" bank in the UPPER browser (Browser 0), sorted by name, pages of 128, the
+  original's titles; sources RAM + ROM + all Personal Libraries incl. subfolders, de-duplicated by page A[2:]
+  (reproduces the original's Piano list exactly: 70 entries, same 9 doubles). Libraries recursive, folders as
+  submenus. Category menu tick fixed (generic menu uses the menu value). LCD shows the category + [original value].
+- MIDI activity meters repainted 16x per tick -> REAPER sluggish while the editor was open; now one merged repaint
+  of the changed meters (31bf493). Waiting for the user's REAPER retest.
+- Open: generic Linux menus feel slower/bigger than the original's native menus (VSTGUI theme not configurable
+  on X11 without an SDK patch - own menu view possible); first category search decodes ~11k patches once.
+
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
   Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples
