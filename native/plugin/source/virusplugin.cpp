@@ -384,6 +384,9 @@ IPlugView *PLUGIN_API VirusPlugin::createView(FIDString name)
 
 int VirusPlugin::ui_value(const std::string &path, int part)
 {
+    if (const Parameter *p = cond_ ? cond_->find(path) : nullptr)
+        if (p->part == "none")
+            part = -1; // global parameters (Panel Part, globals) are not per part
     {
         auto it = ui_state_.find(path);
         if (it != ui_state_.end())
@@ -405,6 +408,9 @@ int VirusPlugin::ui_value(const std::string &path, int part)
 
 void VirusPlugin::ui_set(const std::string &path, int part, int value)
 {
+    if (const Parameter *p = cond_ ? cond_->find(path) : nullptr)
+        if (p->part == "none")
+            part = -1;
     if (ed_.find(path) && !dev_.find(path)) { // editor state (page selection, ...)
         ui_state_[path] = value;
         ui_dirty_ = true;
