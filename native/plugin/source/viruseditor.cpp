@@ -140,6 +140,8 @@ public:
         const std::string &param = e.get("Parameter");
         drag_ = h;
         drag_y_ = event.mousePosition.y;
+        drag_x_ = event.mousePosition.x;
+        dnd_ = false, dnd_prog_ = -1;
         drag_value_ = plugin_->ui_value(param, h.part);
         if (e.type == "NameEdit" && event.clickCount >= 2) { // rename the part's patch
             edit_name(h);
@@ -150,6 +152,7 @@ public:
             int prog = EditorRenderer::browser_entry(h, (int)event.mousePosition.x, (int)event.mousePosition.y);
             int bank = plugin_->ui_value(e.get("Parameter"), -1);
             if (prog >= 0) {
+                dnd_bank_ = bank, dnd_prog_ = prog; // may be dragged onto a part strip
                 renderer_.selected[bank] = prog;
                 if (event.clickCount >= 2)
                     plugin_->load_patch(bank, prog, plugin_->ui_value(plugin_->layout().frame_parameter, -1));
@@ -209,6 +212,16 @@ public:
         if (!drag_.element || !event.buttonState.isLeft())
             return;
         const Element &e = *drag_.element;
+        // drag and drop like the original: a part's patch name (or a browser entry) onto another part strip
+        if (e.type == "NameEdit" || (e.type == "PatchBrowser" && dnd_prog_ >= 0)) {
+            if (!dnd_ && std::hypot(event.mousePosition.x - drag_x_, event.mousePosition.y - drag_y_) > 4) {
+                dnd_ = true;
+                if (auto *f = getFrame())
+                    f->setCursor(kCursorCopy);
+            }
+            event.consumed = true;
+            return;
+        }
         if (e.type.find("Knob") == std::string::npos && e.type.find("Slider") == std::string::npos)
             return;
         const std::string &param = e.get("Parameter");
@@ -229,6 +242,17 @@ public:
 
     void onMouseUpEvent(MouseUpEvent &event) override
     {
+        if (dnd_ && drag_.element) { // dropped: onto a part strip (the part panel, x < 192)?
+            if (auto *f = getFrame())
+                f->setCursor(kCursorDefault);
+            Hit t = renderer_.hit_test((int)event.mousePosition.x, (int)event.mousePosition.y);
+            bool strip = t.element && event.mousePosition.x < 192 && t.part >= 0 && t.part < 16;
+            if (strip && drag_.element->type == "NameEdit")
+                plugin_->copy_part(drag_.part, t.part);
+            else if (strip && dnd_prog_ >= 0)
+                plugin_->load_patch(dnd_bank_, dnd_prog_, t.part);
+            dnd_ = false;
+        }
         drag_ = {};
         drag_rects_.clear();
         renderer_.pressed = nullptr;
@@ -500,7 +524,9 @@ private:
     Hit drag_;
     bool partial_ = false;
     std::vector<std::array<int, 4>> drag_rects_;
-    double drag_y_ = 0;
+    double drag_y_ = 0, drag_x_ = 0;
+    bool dnd_ = false;             // a patch is being dragged
+    int dnd_bank_ = 0, dnd_prog_ = -1;
     int drag_value_ = 0;
 };
 

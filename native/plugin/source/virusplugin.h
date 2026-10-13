@@ -103,6 +103,8 @@ public:
     std::string patch_name(int part);
     std::string bank_patch(int bank, int program); // stored patch name from the bank cache (RAM A..D)
     bool load_patch(int bank, int program, int part); // a stored patch into a part's edit buffer (and the state)
+    bool copy_part(int from, int to);                    // a part's patch onto another part (drag and drop)
+    bool load_dump(std::vector<uint8_t> d, int part);    // a single dump into a part's edit buffer
     bool rename_part(int part, const std::string &name); // the part's patch name (10 characters) -> dump + Virus
     bool store_patch(int part, int bank, int program);   // the part's patch into a RAM slot of the Virus (+ cache)
     // the part's patch into a personal library (slot = position, == size: append) - writes the library file

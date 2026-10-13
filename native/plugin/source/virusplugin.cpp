@@ -783,6 +783,30 @@ bool VirusPlugin::load_patch(int bank, int program, int part)
             return false;
         d = b->second[program];
     }
+    return load_dump(d, part);
+}
+
+// a part's patch onto another part (drag and drop between the part strips, like the original)
+bool VirusPlugin::copy_part(int from, int to)
+{
+    if (from == to || from < 0 || from > 15 || to < 0 || to > 15)
+        return false;
+    std::vector<uint8_t> d;
+    {
+        std::lock_guard<std::mutex> lk(state_mu_);
+        if (state_.empty())
+            state_ = default_;
+        for (auto &r : state_)
+            if (is_part_dump(r, from))
+                d = r;
+    }
+    return d.size() == 524 && load_dump(d, to);
+}
+
+bool VirusPlugin::load_dump(std::vector<uint8_t> d, int part)
+{
+    if (d.size() != 524 || part < 0 || part > 15)
+        return false;
     RemoteDevice::upgrade_single(d);
     d[7] = 0, d[8] = (uint8_t)part; // edit buffer of the part
     unsigned a = 0;
