@@ -13,8 +13,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <dirent.h>
-#include <sys/stat.h>
+#include <filesystem>
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -584,13 +583,30 @@ void VirusPlugin::ui_set(const std::string &path, int part, int value)
     set_part_value(part, path, value);
 }
 
+// our own bank cache: Linux ~/.local/share/virus-ti-native/cache, Mac ~/Library/Application Support/virus-ti-native/
+// cache, Windows %LOCALAPPDATA%\virus-ti-native\cache
+static std::string own_cache_dir()
+{
+#ifdef _WIN32
+    if (const char *la = getenv("LOCALAPPDATA"))
+        return std::string(la) + "/virus-ti-native/cache";
+#elif defined(__APPLE__)
+    if (const char *home = getenv("HOME"))
+        return std::string(home) + "/Library/Application Support/virus-ti-native/cache";
+#else
+    if (const char *home = getenv("HOME"))
+        return std::string(home) + "/.local/share/virus-ti-native/cache";
+#endif
+    return {};
+}
+
 // The Virus' RAM banks: our cache (tools/virussync, later the plug-in's own sync), else the original's Access cache
 // (read only) - Windows/Wine: ProgramData/Access Music/Virus TI/Cache/<device>, Mac: /Library/Application Support/...
 void VirusPlugin::load_banks()
 {
     std::vector<std::string> dirs;
-    if (const char *home = getenv("HOME"))
-        dirs.push_back(std::string(home) + "/.local/share/virus-ti-native/cache");
+    if (!own_cache_dir().empty())
+        dirs.push_back(own_cache_dir());
     if (const char *pd = getenv("ProgramData"))
         dirs.push_back(std::string(pd) + "/Access Music/Virus TI/Cache");
     if (const char *home = getenv("HOME"))
@@ -611,15 +627,10 @@ void VirusPlugin::load_banks()
         if (try_dir(d))
             return;
         // the Access cache has one subdirectory per device
-        DIR *dp = opendir(d.c_str());
-        if (!dp)
-            continue;
-        for (dirent *de; (de = readdir(dp));)
-            if (de->d_name[0] != '.' && try_dir(d + "/" + de->d_name)) {
-                closedir(dp);
+        std::error_code ec;
+        for (auto &sub : std::filesystem::directory_iterator(d, ec))
+            if (sub.is_directory(ec) && try_dir(sub.path().string()))
                 return;
-            }
-        closedir(dp);
     }
 }
 
@@ -628,13 +639,10 @@ void VirusPlugin::sync_banks()
     std::this_thread::sleep_for(std::chrono::seconds(4)); // after the start-up messages and the state
     if (!out_ || !out_->connected())
         return;
-    std::string dir;
-    if (const char *home = getenv("HOME")) {
-        dir = std::string(home) + "/.local/share/virus-ti-native/cache";
-        std::string mk;
-        for (size_t p = 0; (p = dir.find('/', p + 1)) != std::string::npos;)
-            mkdir(dir.substr(0, p).c_str(), 0755);
-        mkdir(dir.c_str(), 0755);
+    std::string dir = own_cache_dir();
+    if (!dir.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
     }
     for (int b = 0; b < 4; b++) {
         Bank bank;
