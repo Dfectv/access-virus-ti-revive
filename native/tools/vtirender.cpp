@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
@@ -75,9 +76,60 @@ struct Renderer {
         cairo_restore(cr);
     }
 
-    void draw(const Element &e, int ox, int oy)
+    std::function<std::string(int part)> patch_name;
+    const RemoteDevice *dev = nullptr, *ed = nullptr;
+
+    // bitmap font: vertical strip of 96 glyphs (ASCII 32..127), 6 x 9 pixels each
+    void text(const std::string &font, const std::string &str, int x, int y, int w, int h, const std::string &align)
     {
-        int pt = e.part() < 0 ? part : e.part();
+        cairo_surface_t *f = png.get(font);
+        if (!f || str.empty())
+            return;
+        const int gw = 6, gh = cairo_image_surface_get_height(f) / 96;
+        int tw = (int)str.size() * gw;
+        int tx = align.find("Left") != std::string::npos    ? x
+                 : align.find("Right") != std::string::npos ? x + w - tw
+                                                            : x + (w - tw) / 2;
+        int ty = align.find("Top") != std::string::npos      ? y
+                 : align.find("Bottom") != std::string::npos ? y + h - gh
+                                                             : y + (h - gh) / 2;
+        cairo_save(cr);
+        cairo_rectangle(cr, x, y, w, h);
+        cairo_clip(cr);
+        for (size_t i = 0; i < str.size(); i++) {
+            int c = (unsigned char)str[i];
+            if (c < 32 || c > 127)
+                c = '?';
+            cairo_save(cr);
+            cairo_rectangle(cr, tx + (int)i * gw, ty, gw, gh);
+            cairo_clip(cr);
+            cairo_set_source_surface(cr, f, tx + (int)i * gw, ty - (c - 32) * gh);
+            cairo_paint(cr);
+            cairo_restore(cr);
+        }
+        cairo_restore(cr);
+    }
+
+    std::string value_text(const std::string &param, int v)
+    {
+        const Parameter *p = cond.find(param);
+        if (!p)
+            return std::to_string(v);
+        for (const RemoteDevice *d : {dev, ed}) {
+            auto vl = d ? d->valuelists.find(p->valuelist) : decltype(dev->valuelists.end()){};
+            if (d && vl != d->valuelists.end()) {
+                std::string t = vl->second.text(v);
+                if (!t.empty())
+                    return t;
+            }
+        }
+        return std::to_string(v);
+    }
+
+    void draw(const Element &e, int ox, int oy, int inherited = -1)
+    {
+        // Part -1 = the enclosing container's part (patch containers per part), else the current part
+        int pt = e.part() >= 0 ? e.part() : inherited >= 0 ? inherited : part;
         if (!cond.eval(e.get("Condition"), values, pt)) {
             hidden++;
             return;
@@ -86,7 +138,7 @@ struct Renderer {
         if (getenv("VTIRENDER_AT")) { // debug: elements covering a point "x,y"
             int px = atoi(getenv("VTIRENDER_AT")), py = atoi(strchr(getenv("VTIRENDER_AT"), ',') + 1);
             if (px >= x && px < x + e.w && py >= y && py < y + e.h)
-                fprintf(stderr, "at: %s \"%s\" %s %s cond=%s\n", e.type.c_str(), e.get("Name").c_str(),
+                fprintf(stderr, "at: %s \"%s\" (%d,%d %dx%d) %s %s cond=%s\n", e.type.c_str(), e.get("Name").c_str(), x, y, e.w, e.h,
                         e.get("NormalBack").c_str(), e.get("Parameter").c_str(), e.get("Condition").c_str());
         }
         const std::string &param = e.get("Parameter");
@@ -101,17 +153,31 @@ struct Renderer {
                 int lo = p ? p->min : 0, hi = p ? p->max : 127;
                 index = hi > lo ? (int)std::lround((double)(v - lo) / (hi - lo) * (frames - 1)) : 0;
             } else if (e.type == "RadioButton") {
+                // 2-frame strips: frame 0 = off, frame 1 = selected; PressedBack only while the mouse is down
                 bool on = v == atoi(e.get("OnValue").c_str());
-                cairo_surface_t *pressed = png.get(e.get("PressedBack"));
-                if (on && pressed)
-                    normal = pressed; // 2-frame strips (normal / mouse-over); frame 0 = the plain state
-                else if (frames >= 2 && !pressed)
-                    index = on ? 1 : 0;
+                index = frames >= 2 && on ? 1 : 0;
             } else if (e.type == "Button" || e.type == "KickButton") {
                 index = frames >= 2 && v ? 1 : 0;
             }
             index = std::max(0, std::min(frames - 1, index));
-            if (frames > 1)
+            if (e.type == "VUSlider") { // level bar up to the value (the current part only), handle drawn below
+                normal = nullptr;
+                cairo_surface_t *bar = png.get(e.get("NormalBack"));
+                cairo_surface_t *hd = png.get(e.get("NormalHandle"));
+                int hw = hd ? cairo_image_surface_get_width(hd) : 0;
+                int lo = p ? p->min : 0, hi = p ? p->max : 127;
+                int pos = hi > lo ? (int)std::lround((double)(v - lo) / (hi - lo) * (e.w - hw)) : 0;
+                if (bar) { // 53-frame strip; the current part shows its volume, the others are dark
+                    int n = std::max(1, cairo_image_surface_get_height(bar) / e.h);
+                    int f = pt == part && hi > lo ? (int)std::lround((double)(v - lo) / (hi - lo) * (n - 1)) : 0;
+                    strip(bar, x, y, e.w, e.h, f);
+                }
+                if (hd) {
+                    cairo_set_source_surface(cr, hd, x + pos, y + (e.h - cairo_image_surface_get_height(hd)) / 2);
+                    cairo_paint(cr);
+                }
+                drawn++;
+            } else if (frames > 1)
                 strip(normal, x, y, e.w, e.h, index);
             else {
                 cairo_save(cr);
@@ -127,6 +193,17 @@ struct Renderer {
             cairo_rectangle(cr, x, y, e.w, e.h);
             cairo_fill(cr);
         }
+        const std::string &font = e.get("ControlFont");
+        if (!font.empty()) {
+            std::string str;
+            if (e.type == "StaticText")
+                str = e.get("Name");
+            else if (e.type == "NameEdit" && patch_name)
+                str = patch_name(pt);
+            else if ((e.type == "TextSlider" || e.type == "Menu") && !param.empty())
+                str = value_text(param, v);
+            text(font, str, x, y, e.w, e.h, e.get("Align"));
+        }
         if (outline && e.type != "Container") {
             cairo_set_source_rgba(cr, 1, 0, 1, 0.6);
             cairo_set_line_width(cr, 1);
@@ -134,7 +211,7 @@ struct Renderer {
             cairo_stroke(cr);
         }
         for (auto &c : e.children)
-            draw(c, x, y);
+            draw(c, x, y, e.part() >= 0 ? e.part() : inherited);
     }
 };
 
@@ -197,9 +274,13 @@ int main(int argc, char **argv)
                 set[a.substr(0, eq)] = atoi(a.c_str() + eq + 1);
         } else if (!strcmp(argv[i], "--state") && i + 1 < argc) {
             const MidiMessage *t = dev.message("VirusTI_Singledump");
-            for (auto &r : read_state(argv[++i]))
+            for (auto &r : read_state(argv[++i])) {
                 if (t && r.size() == 524 && r[6] == 0x10 && r[7] == 0)
                     dev.decode_dump(*t, r, parts[r[8]], err);
+                else // controllers / parameter SysEx of the state (e.g. CC7 volume per channel)
+                    for (auto &c : dev.decode(r))
+                        parts[c.part][c.path] = c.value;
+            }
         }
     }
     ValueFn values = [&](const std::string &path, int pt) {
@@ -222,6 +303,22 @@ int main(int argc, char **argv)
     cairo_paint(cr);
     PngCache png{*files, {}};
     Renderer r{cr, png, cond, values, part, outline};
+    r.dev = &dev, r.ed = &ed;
+    r.patch_name = [&](int pt) {
+        std::string n;
+        auto p = parts.find(pt);
+        if (p == parts.end())
+            return n;
+        for (int i = 1; i <= 10; i++) {
+            char k[48];
+            snprintf(k, sizeof k, "Single Patch Name/Character %02d", i);
+            auto c = p->second.find(k);
+            n += c == p->second.end() ? ' ' : (char)c->second;
+        }
+        while (!n.empty() && n.back() == ' ')
+            n.pop_back();
+        return n;
+    };
     for (auto &e : layout.elements)
         r.draw(e, 0, 0);
     cairo_surface_write_to_png(surf, argv[1]);
