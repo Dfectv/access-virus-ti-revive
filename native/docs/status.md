@@ -118,7 +118,10 @@
   libraries, saving into libraries, search display in the original
   (typing into the original under Wine did not reach the field), whether the original loads on double click.
 
-- CI (.github/workflows/build.yml): Windows (MSVC, VirusTINative.vst3 artifact) + Linux builds on every push.
+- CI (.github/workflows/build.yml): Windows (MSVC, VirusTINative.vst3 artifact) + Linux builds on every push - both
+  green (run 38367374934). The Windows build loads under Wine (vtihost: initialize, 3 out / 2 in buses, Access files
+  found, editor attached; drawing not visible under Wine = Direct2D); it cannot reach the Linux broker from Wine (pipe;
+  the Wine route is TCP + token like TI Revive's vticore_sock) - real test: the win11 VM with Virus passthrough.
 - Questions for the user (could not be captured from the original under Wine): how the original's search shows
   results; whether a double click in the browser loads the patch (ours: double click loads, click selects).
 
