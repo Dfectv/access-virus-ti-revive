@@ -129,9 +129,15 @@ static intptr_t os_connect(std::string &error)
     return (intptr_t)h;
 }
 
-static void os_close(intptr_t fd)
+// close in two steps: wake the reader (os_wake), and release the handle only after it has stopped (os_release),
+// so it never reads from a handle/fd number that has been reused
+static void os_wake(intptr_t fd)
 {
     CancelIoEx((HANDLE)fd, nullptr);
+}
+
+static void os_release(intptr_t fd)
+{
     CloseHandle((HANDLE)fd);
 }
 #else
@@ -208,9 +214,13 @@ static intptr_t os_connect(std::string &error)
     return fd;
 }
 
-static void os_close(intptr_t fd)
+static void os_wake(intptr_t fd)
 {
     ::shutdown((int)fd, SHUT_RDWR);
+}
+
+static void os_release(intptr_t fd)
+{
     ::close((int)fd);
 }
 #endif
@@ -223,7 +233,11 @@ bool Broker::open(std::string &error)
     uint32_t ver = VTI_PROTO_VERSION;
     send(VTIMSG_HELLO, &ver, 4);
     stop_ = false;
-    reader_ = std::thread([this] { read_loop(); });
+    reader_done_ = false;
+    reader_ = std::thread([this] {
+        read_loop();
+        reader_done_ = true;
+    });
     for (int i = 0; i < 100 && !present_; i++) // STATE arrives right after connecting
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     return true;
@@ -232,12 +246,17 @@ bool Broker::open(std::string &error)
 void Broker::close()
 {
     stop_ = true;
-    if (fd_ >= 0) {
-        os_close(fd_);
-        fd_ = -1;
-    }
+    if (fd_ >= 0 && reader_.joinable())
+        while (!reader_done_) { // repeated: on Windows a cancel does not stop a read that starts just after it
+            os_wake(fd_);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
     if (reader_.joinable())
         reader_.join();
+    if (fd_ >= 0) {
+        os_release(fd_);
+        fd_ = -1;
+    }
 }
 
 bool Broker::send(uint16_t type, const void *a, size_t alen, const void *b, size_t blen)

@@ -9,3 +9,4 @@ tools/uicompare/*.ppm
 tools/uicompare/*.comp
 tools/uicompare/*.syx
 build-tsan/
+build-asan/

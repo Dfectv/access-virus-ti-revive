@@ -45,7 +45,7 @@ private:
     std::condition_variable ctl_cv_;
     std::map<uint32_t, std::vector<uint8_t>> replies_; // seq -> i32 result + data
     uint32_t seq_ = 0;
-    std::atomic<bool> present_{false}, stop_{false};
+    std::atomic<bool> present_{false}, stop_{false}, reader_done_{true};
     RxHandler rx_;
     StateHandler state_;
     bool send(uint16_t type, const void *a, size_t alen, const void *b = nullptr, size_t blen = 0);
