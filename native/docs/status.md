@@ -158,6 +158,16 @@ popup itself not testable headless - waiting for the user's retest.
   symbols-windows), sound OK, UI draws correctly, menus/browser OK. Fixed after the test: sliders track the mouse,
   inactive controls locked. Open: retest of those two, timing check.
 
+## 2026-10-13 (evening) - macOS port
+
+- CI macOS job: universal VST3 (arm64 + x86_64) + tools. Core Audio input backend (Virus = class-compliant
+  "Virus TI", 6 in @ 44.1 kHz), broker started on demand (posix_spawn like libVirusUSB), double-connect bug fixed.
+- MacBook (macOS 26.6, arm64): plug-in installed in ~/Library/Audio/Plug-Ins/VST3; Access files, firmware ROM
+  (26 banks) and libraries found; notes reach the Virus, Core Audio frames advance but are all zero when run over
+  SSH - most likely macOS microphone permission (TCC). Waiting for the user's Ableton test on the Mac.
+- Afterwards: the Virus goes back to Linux (open Linux items need the original next to ours: Hypersaw display,
+  ArpEdit, FX2 menus, timing R5).
+
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
   Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples
