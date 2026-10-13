@@ -153,6 +153,11 @@ popup itself not testable headless - waiting for the user's retest.
   untested so far - nativehost has no editor on Windows).
 - Linux broker stopped for the VM test: afterwards `scripts/vm.sh detach`, `systemctl --user start tirevive-broker.socket`.
 
+- Windows user test (Ableton 11.3 in the VM): plug-in found after a rescan (first scan had crashed with an older
+  build; WER LocalDumps for "Ableton Plugin Scanner.exe" -> C:\dumps enabled, CI now uploads PDB + map as
+  symbols-windows), sound OK, UI draws correctly, menus/browser OK. Fixed after the test: sliders track the mouse,
+  inactive controls locked. Open: retest of those two, timing check.
+
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
   Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples
