@@ -106,6 +106,24 @@ int main(int argc, char **argv)
                 same += cache[p] == roms[b][p];
         }
         printf("identical to the cache: %d / %d dumps\n", same, total);
+    } else if (cmd == "librt" && args.size() >= 2) { // round trip: library folder args[0] -> written copies in args[1]
+        int ok = 0, n = 0;
+        for (auto &l : vti::load_libraries(args[0], files->default_page_b())) {
+            vti::PatchLibrary c = l;
+            c.path = args[1] + "/" + l.name + ".mid";
+            if (!vti::save_library(c, err))
+                continue;
+            for (auto &r : vti::load_libraries(args[1]))
+                if (r.name == l.name) {
+                    n++;
+                    bool same = r.dumps.size() == l.dumps.size();
+                    for (size_t i = 0; same && i < r.dumps.size(); i++)
+                        same = std::equal(r.dumps[i].begin() + 9, r.dumps[i].end(), l.dumps[i].begin() + 9);
+                    ok += same;
+                    printf("%-40s %3zu dumps %s\n", l.name.c_str(), l.dumps.size(), same ? "identical" : "DIFFERS");
+                }
+        }
+        printf("%d/%d libraries round-tripped\n", ok, n);
     } else if (cmd == "libs") { // personal libraries (patch files) incl. Virus C upgrades
         auto pb = files->default_page_b();
         printf("%s, default page B %zu bytes\n", vti::library_dir().c_str(), pb.size());

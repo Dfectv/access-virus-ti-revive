@@ -50,6 +50,57 @@ std::vector<PatchLibrary> load_libraries(const std::string &dir, const std::vect
     return out;
 }
 
+bool save_library(const PatchLibrary &lib, std::string &error)
+{
+    std::vector<uint8_t> trk;
+    auto varlen = [&](uint32_t v) {
+        uint8_t b[5];
+        int n = 0;
+        b[n++] = v & 0x7F;
+        while (v >>= 7)
+            b[n++] = (uint8_t)(0x80 | (v & 0x7F));
+        while (n)
+            trk.push_back(b[--n]);
+    };
+    for (size_t i = 0; i < lib.dumps.size() && i < 128; i++) {
+        std::vector<uint8_t> m = lib.dumps[i];
+        if (m.size() != 524)
+            continue;
+        m[7] = 1, m[8] = (uint8_t)i;
+        unsigned a = 0;
+        for (int k = 5; k < 265; k++)
+            a += m[k];
+        m[265] = a & 0x7F;
+        for (int k = 265; k < 522; k++)
+            a += m[k];
+        m[522] = a & 0x7F;
+        varlen(120);
+        trk.push_back(0xF0);
+        varlen((uint32_t)m.size() - 1);
+        trk.insert(trk.end(), m.begin() + 1, m.end());
+    }
+    varlen(120);
+    trk.insert(trk.end(), {0xFF, 0x2F, 0x00});
+    std::vector<uint8_t> f = {'M', 'T', 'h', 'd', 0, 0, 0, 6, 0, 0, 0, 1, 0, 0x60, 'M', 'T', 'r', 'k'};
+    for (int s = 24; s >= 0; s -= 8)
+        f.push_back((uint8_t)(trk.size() >> s));
+    f.insert(f.end(), trk.begin(), trk.end());
+    std::string tmp = lib.path + ".tmp";
+    {
+        std::ofstream o(tmp, std::ios::binary);
+        o.write((const char *)f.data(), (std::streamsize)f.size());
+        if (!o) {
+            error = "cannot write " + tmp;
+            return false;
+        }
+    }
+    std::error_code ec;
+    fs::rename(tmp, lib.path, ec);
+    if (ec)
+        error = ec.message();
+    return !ec;
+}
+
 std::string library_dir()
 {
     std::vector<std::string> c;

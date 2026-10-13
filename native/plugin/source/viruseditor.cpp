@@ -249,8 +249,8 @@ private:
         }
         menu->addEntry(dev, plugin_->device_name());
         dev->forget();
-        auto *lib = new COptionMenu(); // personal libraries (patch files): load only
-        if (save || plugin_->library_count() == 0)
+        auto *lib = new COptionMenu(); // personal libraries (patch files); SAVE can also append
+        if (plugin_->library_count() == 0)
             lib->addEntry("(none)", -1, CMenuItem::kDisabled);
         else
             for (int i = 0; i < plugin_->library_count(); i++) {
@@ -258,6 +258,11 @@ private:
                 for (int p = 0; p < plugin_->library_size(i); p++) {
                     char t[40];
                     snprintf(t, sizeof t, "%03d %s", p, plugin_->bank_patch(VirusPlugin::LIB_BASE + i, p).c_str());
+                    lm->addEntry(t);
+                }
+                if (save && plugin_->library_size(i) < 128) {
+                    char t[40];
+                    snprintf(t, sizeof t, "%03d (new)", plugin_->library_size(i));
                     lm->addEntry(t);
                 }
                 lib->addEntry(lm, plugin_->library_name(i));
@@ -273,7 +278,9 @@ private:
             auto it = banks->find(sub);
             if (it == banks->end() || idx < 0)
                 return;
-            if (save)
+            if (save && it->second >= VirusPlugin::LIB_BASE)
+                plugin_->store_to_library(part, it->second - VirusPlugin::LIB_BASE, idx);
+            else if (save)
                 plugin_->store_patch(part, it->second, idx);
             else
                 plugin_->load_patch(it->second, idx, part);

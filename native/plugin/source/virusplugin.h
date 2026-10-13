@@ -105,6 +105,8 @@ public:
     bool load_patch(int bank, int program, int part); // a stored patch into a part's edit buffer (and the state)
     bool rename_part(int part, const std::string &name); // the part's patch name (10 characters) -> dump + Virus
     bool store_patch(int part, int bank, int program);   // the part's patch into a RAM slot of the Virus (+ cache)
+    // the part's patch into a personal library (slot = position, == size: append) - writes the library file
+    bool store_to_library(int part, int library, int slot);
     bool browser_match(int bank, int program);          // category filter + search of the browser
     void set_search(const std::string &s);
     std::string search() { std::lock_guard<std::mutex> lk(values_mu_); return search_; }
@@ -180,7 +182,7 @@ private:
     std::atomic<size_t> pu_w_{0}, pu_r_{0};
     void drain_param_updates();
     std::map<int, std::vector<std::vector<uint8_t>>> banks_; // RAM A..D (bank cache, see load_banks), ROM, libraries
-    std::vector<std::string> lib_names_;
+    std::vector<std::string> lib_names_, lib_paths_;
     std::mutex banks_mu_;
     void load_banks();
     std::unique_ptr<MemorySync> sync_;

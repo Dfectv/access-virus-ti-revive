@@ -629,6 +629,7 @@ void VirusPlugin::load_banks()
     for (auto &lib : load_libraries(library_dir(), files_ ? files_->default_page_b() : std::vector<uint8_t>())) {
         banks_[LIB_BASE + (int)lib_names_.size()] = lib.dumps;
         lib_names_.push_back(lib.name);
+        lib_paths_.push_back(lib.path);
     }
     // like the original: only the plug-in's own cache; without one the first start syncs the whole RAM
     std::string d = own_cache_dir();
@@ -853,6 +854,41 @@ bool VirusPlugin::store_patch(int part, int bank, int program)
     }
     ui_dirty_ = true;
     return true;
+}
+
+bool VirusPlugin::store_to_library(int part, int library, int slot)
+{
+    std::vector<uint8_t> d;
+    {
+        std::lock_guard<std::mutex> lk(state_mu_);
+        if (state_.empty())
+            state_ = default_;
+        for (auto &r : state_)
+            if (is_part_dump(r, part))
+                d = r;
+    }
+    if (d.empty())
+        return false;
+    PatchLibrary lib;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        if (library < 0 || library >= (int)lib_paths_.size())
+            return false;
+        auto &b = banks_[LIB_BASE + library];
+        if (slot < 0 || slot > (int)b.size() || slot >= 128)
+            return false;
+        if (slot == (int)b.size())
+            b.push_back(d);
+        else
+            b[slot] = d;
+        lib.name = lib_names_[library], lib.path = lib_paths_[library], lib.dumps = b;
+    }
+    std::string err;
+    bool ok = save_library(lib, err);
+    if (!ok)
+        fprintf(stderr, "Virus TI native: %s\n", err.c_str());
+    ui_dirty_ = true;
+    return ok;
 }
 
 void VirusPlugin::set_search(const std::string &s)
