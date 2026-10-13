@@ -568,7 +568,7 @@ std::string VirusPlugin::live_text(const std::string &param)
         if (c == 0)
             return "";
         auto vl = dev_.valuelists.find("Val Name Categories");
-        return vl != dev_.valuelists.end() ? vl->second.text(c) : std::to_string(c);
+        return vl != dev_.valuelists.end() ? category_name_() : std::to_string(c);
     }
     if (param == "Repository Actions/Search")
         return search();
@@ -606,9 +606,9 @@ void VirusPlugin::ui_set(const std::string &path, int part, int value)
             for (const RemoteDevice *d : {&dev_, &ed_}) {
                 auto vl = d->valuelists.find(p->valuelist);
                 if (vl != d->valuelists.end())
-                    for (auto &en : vl->second.entries)
-                        if (en.index == val && !en.text.empty())
-                            v = en.text;
+                    if (const Valuelist::Entry *en = vl->second.find(val))
+                        if (!en->text.empty())
+                            v = en->text;
             }
             return v;
         };

@@ -14,6 +14,32 @@ static int frame_of(int v, int lo, int hi, int frames)
     return std::max(0, std::min(frames - 1, f));
 }
 
+std::vector<std::pair<int, std::string>> EditorRenderer::menu_entries(const std::string &param) const
+{
+    std::vector<std::pair<int, std::string>> out; // (value, text) in the list's menu order (index)
+    const Parameter *p = cond_.find(param);
+    if (!p)
+        return out;
+    for (const RemoteDevice *d : {&dev_, &ed_}) {
+        auto vl = d->valuelists.find(p->valuelist);
+        if (vl == d->valuelists.end())
+            continue;
+        std::vector<const Valuelist::Entry *> es;
+        for (auto &e : vl->second.entries)
+            es.push_back(&e);
+        std::stable_sort(es.begin(), es.end(), [](auto *a, auto *b) { return a->index < b->index; });
+        for (auto *e : es) {
+            int v = vl->second.value_of(*e);
+            if (v >= p->min && v <= p->max && !e->text.empty())
+                out.push_back({v, e->text});
+        }
+        return out;
+    }
+    for (int v = p->min; v <= p->max; v++) // no list: plain numbers
+        out.push_back({v, std::to_string(v)});
+    return out;
+}
+
 std::string EditorRenderer::value_text(const std::string &param, int v) const
 {
     const Parameter *p = cond_.find(param);
@@ -22,9 +48,8 @@ std::string EditorRenderer::value_text(const std::string &param, int v) const
     for (const RemoteDevice *d : {&dev_, &ed_}) {
         auto vl = d->valuelists.find(p->valuelist);
         if (vl != d->valuelists.end()) // an existing entry wins, even with empty text (live displays stay blank)
-            for (auto &en : vl->second.entries)
-                if (en.index == v)
-                    return en.text;
+            if (const Valuelist::Entry *en = vl->second.find(v))
+                return en->text;
     }
     return std::to_string(v);
 }

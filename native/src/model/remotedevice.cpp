@@ -14,12 +14,18 @@ static int num(const pugi::xml_node &n, const char *a, int def)
     return at ? std::atoi(at.value()) : def;
 }
 
-std::string Valuelist::text(int v) const
+const Valuelist::Entry *Valuelist::find(int v) const
 {
     for (auto &e : entries)
-        if (e.index == v)
-            return e.text;
-    return std::to_string(v);
+        if (value_of(e) == v)
+            return &e;
+    return nullptr;
+}
+
+std::string Valuelist::text(int v) const
+{
+    const Entry *e = find(v);
+    return e ? e->text : std::to_string(v);
 }
 
 bool RemoteDevice::load(const std::vector<uint8_t> &xml, std::string &error)

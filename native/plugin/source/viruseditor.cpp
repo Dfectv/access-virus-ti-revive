@@ -560,10 +560,7 @@ private:
         auto *menu = new COptionMenu();
         std::vector<int> values;
         int current = plugin_->ui_value(param, h.part), index = -1;
-        for (int v = p->min; v <= p->max; v++) {
-            std::string t = renderer_.value_text(param, v);
-            if (t.empty())
-                continue;
+        for (auto &[v, t] : renderer_.menu_entries(param)) { // the list's order (mapped lists: index, not value)
             if (v == current)
                 index = (int)values.size();
             menu->addEntry(t.c_str());

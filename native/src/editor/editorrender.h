@@ -60,6 +60,7 @@ public:
     static int browser_entry(const Hit &h, int x, int y);
     std::map<int, int> selected; // bank -> selected program in the browser (drawn inverted)
     std::string value_text(const std::string &param, int v) const;
+    std::vector<std::pair<int, std::string>> menu_entries(const std::string &param) const; // (value, text), menu order
 
 private:
     const EditorLayout &layout_;

@@ -30,6 +30,10 @@ struct Valuelist {
         std::string text;
     };
     std::vector<Entry> entries;
+    // the parameter value an entry stands for: mapped lists carry it in `value` (`index` is then the menu position,
+    // e.g. arp clock 1/16 = value 4 at position 8; categories Lead = value 1 at position 12), else `index`
+    int value_of(const Entry &e) const { return mapped && e.value >= 0 ? e.value : e.index; }
+    const Entry *find(int v) const; // the entry of parameter value v (nullptr if none)
     std::string text(int v) const;
 };
 
