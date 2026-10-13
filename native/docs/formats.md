@@ -101,7 +101,9 @@ load in the rewrite and vice versa.
   "Internal System Info/Display Recall Progress" (false outside a recall).
 - Category filter: menu = editordevice "Val Name Category Filter" (All + alphabetical); its entry value is the
   category byte stored in the patch (Piano = index 16, stored 18). Search: live, case-insensitive substring of the
-  patch name; non-matching entries are dimmed.
+  patch name. Like the original (decompile: repository "Search Results", URL search://), a search text and/or a
+  category fill a results bank with the matching patches of all banks (device, then libraries; first 128), shown in
+  browser 1 ("Browser 1/Selected Bank", the lower browser); clearing both returns browser 1 to its bank.
 - Inactive controls (the parameter's own `condition` false, e.g. Chorus Mix with chorus off, Live Mode while the
   sequencer runs; soft knobs without destination) are painted with alpha 0.4.
 - Text: bitmap fonts FNT_LCD_5x7_*.png = 96 glyphs (ASCII 32..127) of 6x9 in a vertical strip; StaticText shows its

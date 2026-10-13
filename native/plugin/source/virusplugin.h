@@ -108,6 +108,8 @@ public:
     // the part's patch into a personal library (slot = position, == size: append) - writes the library file
     bool store_to_library(int part, int library, int slot);
     bool browser_match(int bank, int program);          // category filter + search of the browser
+    static constexpr int SEARCH_BANK = 1000;             // "Search Results" (search://)
+    void update_results();
     void set_search(const std::string &s);
     std::string search() { std::lock_guard<std::mutex> lk(values_mu_); return search_; }
     // device banks 0..3 RAM, 4.. ROM; personal libraries from bank id 100 on
@@ -136,6 +138,8 @@ public:
     }
     std::string bank_title(int bank) // browser title
     {
+        if (bank == SEARCH_BANK)
+            return "Search Results";
         return bank >= LIB_BASE ? "Personal Libraries/" + library_name(bank - LIB_BASE) : device_name() + "/" + bank_name(bank);
     }
     static std::string bank_name(int bank) // 0..3 = RAM A..D, 4.. = ROM A..
@@ -174,6 +178,7 @@ private:
     std::map<std::string, int> ui_state_;                   // editor-only parameters (VirusControl/SelectedPage ...)
     std::string lcd_param_, lcd_value_, lcd_part_;          // the last edited parameter for the LCD
     std::string search_;                                    // browser search text
+    int results_return_ = 0;                                // browser 1's bank before the search results
     std::map<std::pair<int, int>, std::array<int, 3>> cat_cache_; // (bank, program) -> checksum, category 1, 2
     std::atomic<bool> ui_dirty_{true};
     std::atomic<int> meter_[16] = {};

@@ -80,7 +80,6 @@ public:
         renderer_.patch_name = [this](int part) { return plugin_->patch_name(part); };
         renderer_.bank_patch = [this](int bank, int prog) { return plugin_->bank_patch(bank, prog); };
         renderer_.live_text = [this](const std::string &p) { return plugin_->live_text(p); };
-        renderer_.browser_match = [this](int bank, int prog) { return plugin_->browser_match(bank, prog); };
         renderer_.meter = [this](int ch) { return plugin_->meter(ch); };
         // device changes (knobs on the Virus, automation) repaint the view
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) {
@@ -350,7 +349,7 @@ private:
                 menu->addEntry(en.text.c_str());
         else
             menu->addEntry("All");
-        menu->setCurrent(plugin_->ui_value("Repository Actions/Category Filter", -1));
+        menu->checkEntryAlone(plugin_->ui_value("Repository Actions/Category Filter", -1));
         menu->popup(getFrame(), where, [this](COptionMenu *m) {
             if (m->getLastResult() >= 0)
                 plugin_->ui_set("Repository Actions/Category Filter", -1, m->getLastResult());

@@ -575,6 +575,8 @@ void VirusPlugin::ui_set(const std::string &path, int part, int value)
     if (!dev_.find(path) && !ed_.find(path)) { // the original's internal parameters (browser state)
         ui_state_[path] = value;
         ui_dirty_ = true;
+        if (path == "Repository Actions/Category Filter")
+            update_results();
         return;
     }
     if (const Parameter *p = dev_.find(path)) { // LCD: name, value text and part of the edited parameter
@@ -916,8 +918,50 @@ bool VirusPlugin::tick_meters(int step)
 
 void VirusPlugin::set_search(const std::string &s)
 {
-    std::lock_guard<std::mutex> lk(values_mu_);
-    search_ = s;
+    {
+        std::lock_guard<std::mutex> lk(values_mu_);
+        search_ = s;
+    }
+    update_results();
+}
+
+// like the original: a search text or a category fills the "Search Results" bank (search://) with the matching
+// patches of all banks, and browser 1 shows it; with both cleared browser 1 returns to its bank
+void VirusPlugin::update_results()
+{
+    int cat = ui_value("Repository Actions/Category Filter", -1);
+    bool active = cat != 0 || !search().empty();
+    std::vector<int> ids;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        for (auto &kv : banks_)
+            if (kv.first != SEARCH_BANK)
+                ids.push_back(kv.first);
+    }
+    std::vector<std::vector<uint8_t>> found;
+    for (int b = 0; active && b < (int)ids.size() && found.size() < 128; b++)
+        for (int p = 0; p < 128 && found.size() < 128; p++) {
+            if (!browser_match(ids[b], p))
+                continue;
+            std::lock_guard<std::mutex> lk(banks_mu_);
+            auto it = banks_.find(ids[b]);
+            if (it != banks_.end() && p < (int)it->second.size())
+                found.push_back(it->second[p]);
+        }
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        if (active)
+            banks_[SEARCH_BANK] = std::move(found);
+        else
+            banks_.erase(SEARCH_BANK);
+    }
+    const std::string b1 = "Browser 1/Selected Bank";
+    int shown = ui_value(b1, -1);
+    if (active && shown != SEARCH_BANK) {
+        results_return_ = shown;
+        ui_state_[b1] = SEARCH_BANK;
+    } else if (!active && shown == SEARCH_BANK)
+        ui_state_[b1] = results_return_;
     ui_dirty_ = true;
 }
 
@@ -926,6 +970,8 @@ bool VirusPlugin::browser_match(int bank, int program)
     int cat = ui_value("Repository Actions/Category Filter", -1);
     std::string q = search();
     if (cat == 0 && q.empty())
+        return true;
+    if (bank == SEARCH_BANK)
         return true;
     std::vector<uint8_t> d;
     {
