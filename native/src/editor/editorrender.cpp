@@ -218,7 +218,7 @@ void EditorRenderer::osc_classic(Canvas &c, const Element &e, int x, int y, int 
         double saw = 1 - 2 * t;
         if (sh <= 64) {
             double a = sh / 64;
-            return (1 - a) * std::sin(2 * M_PI * t) + a * saw;
+            return (1 - a) * std::sin(2 * 3.14159265358979 * t) + a * saw;
         }
         double b = (sh - 64) / 63;
         return (1 - b) * saw + b * (t < pw ? 1.0 : -1.0);

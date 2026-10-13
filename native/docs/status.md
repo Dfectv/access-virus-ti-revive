@@ -100,6 +100,11 @@
   parameter (display name, value text, part). process() is now free of blocking locks (automation -> lock-free ring ->
   device worker updates the part dumps). Virus still off USB (E136 in TI Revive) - device tests wait for the user.
 
+- R6 start: device layer compiles for Windows (mingw, scripts/win-cross-tools.sh): broker client over the named
+  pipe (overlapped I/O, reader + writers concurrently), audio ring via the named mapping, named event for the
+  Windows broker's audio request. vtimodel.exe under Wine finds the Access installation (C:\Program Files\...).
+  Untested against the Windows broker. The plug-in for Windows needs MSVC (CI).
+
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
   Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples

@@ -1,25 +1,69 @@
-// broker.cpp - see broker.h (POSIX implementation; Windows pipe backend follows in R6).
+// broker.cpp - see broker.h (POSIX: Unix socket; Windows: the broker's named pipe, overlapped I/O).
 #include "broker.h"
 extern "C" {
 #include "vtiproto.h"
 }
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
-#include <algorithm>
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#endif
 
 namespace vti {
 
 Broker::~Broker() { close(); }
 
-static bool io_all(int fd, void *p, size_t n, bool wr)
+#ifdef _WIN32
+// \\.\pipe\vtibroker (byte mode), overlapped: the reader thread and writers use the handle at the same time
+static bool io_all(intptr_t fd, void *p, size_t n, bool wr)
+{
+    HANDLE h = (HANDLE)fd;
+    OVERLAPPED ov{};
+    ov.hEvent = CreateEventA(nullptr, TRUE, FALSE, nullptr);
+    bool ok = true;
+    for (auto *b = (uint8_t *)p; n && ok;) {
+        DWORD done = 0;
+        ResetEvent(ov.hEvent);
+        BOOL r = wr ? WriteFile(h, b, (DWORD)n, nullptr, &ov) : ReadFile(h, b, (DWORD)n, nullptr, &ov);
+        if (!r && GetLastError() != ERROR_IO_PENDING)
+            ok = false;
+        else if (!GetOverlappedResult(h, &ov, &done, TRUE) || done == 0)
+            ok = false;
+        b += done;
+        n -= done;
+    }
+    CloseHandle(ov.hEvent);
+    return ok;
+}
+
+static intptr_t os_connect(std::string &error)
+{
+    HANDLE h = CreateFileA(VTI_PIPE_NAME, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
+                           FILE_FLAG_OVERLAPPED, nullptr);
+    if (h == INVALID_HANDLE_VALUE) {
+        error = "cannot connect to the TI Revive broker (" VTI_PIPE_NAME ", error " + std::to_string(GetLastError()) + ")";
+        return -1;
+    }
+    return (intptr_t)h;
+}
+
+static void os_close(intptr_t fd)
+{
+    CancelIoEx((HANDLE)fd, nullptr);
+    CloseHandle((HANDLE)fd);
+}
+#else
+static bool io_all(intptr_t fd, void *p, size_t n, bool wr)
 {
     for (auto *b = (uint8_t *)p; n;) {
-        ssize_t r = wr ? ::send(fd, b, n, MSG_NOSIGNAL) : ::recv(fd, b, n, 0);
+        ssize_t r = wr ? ::send((int)fd, b, n, MSG_NOSIGNAL) : ::recv((int)fd, b, n, 0);
         if (r < 0 && errno == EINTR)
             continue;
         if (r <= 0)
@@ -30,19 +74,33 @@ static bool io_all(int fd, void *p, size_t n, bool wr)
     return true;
 }
 
-bool Broker::open(std::string &error)
+static intptr_t os_connect(std::string &error)
 {
     sockaddr_un sa{};
     sa.sun_family = AF_UNIX;
     snprintf(sa.sun_path, sizeof sa.sun_path, "/tmp/vtibroker-%u.sock", (unsigned)getuid());
-    fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd_ < 0 || ::connect(fd_, (sockaddr *)&sa, sizeof sa)) {
+    int fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0 || ::connect(fd, (sockaddr *)&sa, sizeof sa)) {
         error = std::string("cannot connect to the TI Revive broker at ") + sa.sun_path + ": " + strerror(errno);
-        if (fd_ >= 0)
-            ::close(fd_);
-        fd_ = -1;
-        return false;
+        if (fd >= 0)
+            ::close(fd);
+        return -1;
     }
+    return fd;
+}
+
+static void os_close(intptr_t fd)
+{
+    ::shutdown((int)fd, SHUT_RDWR);
+    ::close((int)fd);
+}
+#endif
+
+bool Broker::open(std::string &error)
+{
+    fd_ = os_connect(error);
+    if (fd_ < 0)
+        return false;
     uint32_t ver = VTI_PROTO_VERSION;
     send(VTIMSG_HELLO, &ver, 4);
     stop_ = false;
@@ -56,8 +114,7 @@ void Broker::close()
 {
     stop_ = true;
     if (fd_ >= 0) {
-        ::shutdown(fd_, SHUT_RDWR);
-        ::close(fd_);
+        os_close(fd_);
         fd_ = -1;
     }
     if (reader_.joinable())
@@ -119,7 +176,16 @@ int Broker::audio(bool on, int timeout_ms)
         audio_replied_ = false;
     }
     uint32_t v = on ? 1 : 0;
-    if (!send(VTIMSG_AUDIO, &v, 4, "", 1)) // u32 on + event name (unused on POSIX)
+    std::string name; // Windows: the broker signals a named event per block (we poll the ring; it must exist)
+#ifdef _WIN32
+    static HANDLE ev;
+    char nm[64];
+    snprintf(nm, sizeof nm, "Local\\vtinative_audio_%lu", (unsigned long)GetCurrentProcessId());
+    if (!ev)
+        ev = CreateEventA(nullptr, FALSE, FALSE, nm);
+    name = nm;
+#endif
+    if (!send(VTIMSG_AUDIO, &v, 4, name.c_str(), name.size() + 1)) // u32 on + event name
         return -1;
     std::unique_lock<std::mutex> l(ctl_);
     if (!ctl_cv_.wait_for(l, std::chrono::milliseconds(timeout_ms), [&] { return audio_replied_; }))

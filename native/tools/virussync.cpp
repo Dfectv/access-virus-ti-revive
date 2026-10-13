@@ -10,7 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
-#include <sys/stat.h>
+#include <filesystem>
 
 int main(int argc, char **argv)
 {
@@ -28,10 +28,8 @@ int main(int argc, char **argv)
             return 2;
         }
     }
-    std::string mk;
-    for (size_t p = 0; (p = cache.find('/', p + 1)) != std::string::npos;)
-        mkdir(cache.substr(0, p).c_str(), 0755);
-    mkdir(cache.c_str(), 0755);
+    std::error_code ec;
+    std::filesystem::create_directories(cache, ec);
 
     std::string err;
     vti::Broker broker;

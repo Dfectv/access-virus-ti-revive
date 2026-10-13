@@ -37,7 +37,7 @@ public:
     int audio(bool on, int timeout_ms = 3000);
 
 private:
-    int fd_ = -1;
+    intptr_t fd_ = -1; // POSIX socket / Windows pipe HANDLE (overlapped)
     int audio_reply_ = 0;
     bool audio_replied_ = false;
     std::thread reader_;

@@ -5,6 +5,9 @@ extern "C" {
 }
 #include <cstdio>
 #include <cstring>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #ifdef __linux__
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -36,16 +39,34 @@ bool AudioIn::open()
     }
     pos_ = -1;
     return true;
+#elif defined(_WIN32)
+    HANDLE m = OpenFileMappingA(FILE_MAP_READ | FILE_MAP_WRITE, FALSE, VTI_AUDIO_SHM_NAME);
+    if (!m)
+        return false;
+    void *p = MapViewOfFile(m, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, sizeof(vti_audio_shm));
+    CloseHandle(m); // the view keeps the mapping alive
+    if (!p)
+        return false;
+    map_ = p;
+    if (shm_->magic != VTI_AUDIO_MAGIC || shm_->ring_frames != VTI_AUDIO_RING || shm_->in_ch != VTI_AUDIO_IN_CH) {
+        close();
+        return false;
+    }
+    pos_ = -1;
+    return true;
 #else
-    return false; // macOS: Core Audio device; Windows: named mapping (R6)
+    return false; // macOS: Core Audio device (R6)
 #endif
 }
 
 void AudioIn::close()
 {
 #ifdef __linux__
-    if (shm_)
+    if (map_)
         munmap(map_, sizeof(vti_audio_shm));
+#elif defined(_WIN32)
+    if (map_)
+        UnmapViewOfFile(map_);
 #endif
     map_ = nullptr;
 }

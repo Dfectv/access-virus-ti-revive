@@ -16,9 +16,11 @@ extern "C" {
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#ifdef __linux__
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#endif
 #include <atomic>
 #include <map>
 #include <mutex>
@@ -73,6 +75,7 @@ int main(int argc, char **argv)
         printf("note %d %d ms\n", n, ms);
         return 0;
     }
+#ifdef __linux__
     if (cmd == "timing") {
         if (broker.audio(true) != 1) {
             fprintf(stderr, "virusctl: no audio stream\n");
@@ -170,6 +173,7 @@ int main(int argc, char **argv)
         broker.audio(false);
         return 0;
     }
+#endif
     if (cmd == "sysex" && argc >= 3) {
         std::vector<uint8_t> msg; // several messages may follow each other ("f0 .. f7 f0 .. f7")
         std::istringstream hex(argv[2]);
