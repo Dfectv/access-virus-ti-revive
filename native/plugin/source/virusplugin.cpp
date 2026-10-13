@@ -3,6 +3,7 @@
 #include "viruseditor.h"
 #include "access/accessfiles.h"
 #include "access/firmware.h"
+#include "access/library.h"
 #include "base/source/fstreamer.h"
 #include "device/usbmidi.h"
 #include "pluginterfaces/base/ibstream.h"
@@ -540,7 +541,7 @@ int VirusPlugin::ui_value(const std::string &path, int part)
 std::string VirusPlugin::live_text(const std::string &param)
 {
     if (param.rfind("Browser ", 0) == 0 && param.find("/Selected Bank") != std::string::npos) // the bank menu
-        return device_name() + "/" + bank_name(ui_value(param, -1));
+        return bank_title(ui_value(param, -1));
     if (param == "Repository Actions/Category Filter") {
         int c = ui_value(param, -1);
         if (c == 0)
@@ -625,6 +626,10 @@ static std::string own_cache_dir()
 // (read only) - Windows/Wine: ProgramData/Access Music/Virus TI/Cache/<device>, Mac: /Library/Application Support/...
 void VirusPlugin::load_banks()
 {
+    for (auto &lib : load_libraries(library_dir())) { // personal libraries (patch files)
+        banks_[LIB_BASE + (int)lib_names_.size()] = lib.dumps;
+        lib_names_.push_back(lib.name);
+    }
     // like the original: only the plug-in's own cache; without one the first start syncs the whole RAM
     std::string d = own_cache_dir();
     if (d.empty())
@@ -738,6 +743,7 @@ std::string VirusPlugin::bank_patch(int bank, int program)
     if (b == banks_.end() || program < 0 || program >= (int)b->second.size() || b->second[program].size() != 524)
         return {};
     return std::string(b->second[program].begin() + 249, b->second[program].begin() + 259);
+    // (library banks hold fewer than 128 patches: the rest of the browser stays empty)
 }
 
 bool VirusPlugin::load_patch(int bank, int program, int part)

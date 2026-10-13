@@ -249,8 +249,21 @@ private:
         }
         menu->addEntry(dev, plugin_->device_name());
         dev->forget();
-        auto *lib = new COptionMenu(); // personal libraries (patch files) - not supported yet
-        lib->addEntry("(none)", -1, CMenuItem::kDisabled);
+        auto *lib = new COptionMenu(); // personal libraries (patch files): load only
+        if (save || plugin_->library_count() == 0)
+            lib->addEntry("(none)", -1, CMenuItem::kDisabled);
+        else
+            for (int i = 0; i < plugin_->library_count(); i++) {
+                auto *lm = new COptionMenu();
+                for (int p = 0; p < plugin_->library_size(i); p++) {
+                    char t[40];
+                    snprintf(t, sizeof t, "%03d %s", p, plugin_->bank_patch(VirusPlugin::LIB_BASE + i, p).c_str());
+                    lm->addEntry(t);
+                }
+                lib->addEntry(lm, plugin_->library_name(i));
+                (*banks)[lm] = VirusPlugin::LIB_BASE + i;
+                lm->forget();
+            }
         menu->addEntry(lib, "Personal Libraries");
         lib->forget();
         int part = h.part;
@@ -278,16 +291,22 @@ private:
             dev->addEntry(VirusPlugin::bank_name(b));
         menu->addEntry(dev, plugin_->device_name());
         auto *lib = new COptionMenu();
-        lib->addEntry("(none)", -1, CMenuItem::kDisabled);
+        if (plugin_->library_count() == 0)
+            lib->addEntry("(none)", -1, CMenuItem::kDisabled);
+        for (int i = 0; i < plugin_->library_count(); i++)
+            lib->addEntry(plugin_->library_name(i));
         menu->addEntry(lib, "Personal Libraries");
-        lib->forget();
         std::string param = h.element->get("Parameter");
-        menu->popup(getFrame(), where, [this, param, dev](COptionMenu *m) {
+        menu->popup(getFrame(), where, [this, param, dev, lib](COptionMenu *m) {
             int32_t idx = -1;
-            if (m->getLastItemMenu(idx) == dev && idx >= 0)
+            COptionMenu *sub = m->getLastItemMenu(idx);
+            if (sub == dev && idx >= 0)
                 plugin_->ui_set(param, -1, idx);
+            else if (sub == lib && idx >= 0 && plugin_->library_count())
+                plugin_->ui_set(param, -1, VirusPlugin::LIB_BASE + idx);
             invalid();
         });
+        lib->forget();
         dev->forget();
         menu->forget();
     }

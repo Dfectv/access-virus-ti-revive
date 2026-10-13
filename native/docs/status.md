@@ -113,7 +113,9 @@
   identical to the original's cache; Virus display message + LCD progress); ROM A-Z from firmware.bin by model;
   browser / LOAD / SAVE / bank menu rebuilt after screenshots of the original (work/orig-ui: device > RAM/ROM banks,
   Personal Libraries, "000 Name", selection frame, category menu with check); big rings visible again; editor lag:
-  partial repaints (~8 ms per drag step). Open: Personal Libraries (patch files), search display in the original
+  partial repaints (~8 ms per drag step). Personal Libraries: the .mid patch files in Documents/Access Music/Virus TI/Patches (src/access/library; Linux
+  ~/Documents/..., else the Wine prefix's) in the bank menu, LOAD menu and browser. Open: Virus C (267-byte) dumps in
+  libraries, saving into libraries, search display in the original
   (typing into the original under Wine did not reach the field), whether the original loads on double click.
 
 ## Next

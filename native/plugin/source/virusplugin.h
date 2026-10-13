@@ -108,11 +108,33 @@ public:
     bool browser_match(int bank, int program);          // category filter + search of the browser
     void set_search(const std::string &s);
     std::string search() { std::lock_guard<std::mutex> lk(values_mu_); return search_; }
-    int bank_count() { std::lock_guard<std::mutex> lk(banks_mu_); return banks_.empty() ? 4 : banks_.rbegin()->first + 1; }
+    // device banks 0..3 RAM, 4.. ROM; personal libraries from bank id 100 on
+    static constexpr int LIB_BASE = 100;
+    int bank_count() // device banks only
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        int n = 4;
+        for (auto &kv : banks_)
+            if (kv.first < LIB_BASE)
+                n = std::max(n, kv.first + 1);
+        return n;
+    }
+    int library_count() { std::lock_guard<std::mutex> lk(banks_mu_); return (int)lib_names_.size(); }
+    std::string library_name(int i) { std::lock_guard<std::mutex> lk(banks_mu_); return i < (int)lib_names_.size() ? lib_names_[i] : ""; }
+    int library_size(int i)
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto b = banks_.find(LIB_BASE + i);
+        return b == banks_.end() ? 0 : (int)b->second.size();
+    }
     std::string device_name() const // as the original shows it in the browser and the menus
     {
         return model_ == 1 ? "Virus TI (Virus TI Desktop)" : model_ == 2 ? "Virus TI Snow (Virus TI Snow)"
                                                                           : "Virus TI2 (Virus TI2 Desktop)";
+    }
+    std::string bank_title(int bank) // browser title
+    {
+        return bank >= LIB_BASE ? "Personal Libraries/" + library_name(bank - LIB_BASE) : device_name() + "/" + bank_name(bank);
     }
     static std::string bank_name(int bank) // 0..3 = RAM A..D, 4.. = ROM A..
     {
@@ -157,7 +179,8 @@ private:
     ParamUpdate pu_[PU_SLOTS];
     std::atomic<size_t> pu_w_{0}, pu_r_{0};
     void drain_param_updates();
-    std::map<int, std::vector<std::vector<uint8_t>>> banks_; // RAM A..D (bank cache, see load_banks)
+    std::map<int, std::vector<std::vector<uint8_t>>> banks_; // RAM A..D (bank cache, see load_banks), ROM, libraries
+    std::vector<std::string> lib_names_;
     std::mutex banks_mu_;
     void load_banks();
     std::unique_ptr<MemorySync> sync_;
