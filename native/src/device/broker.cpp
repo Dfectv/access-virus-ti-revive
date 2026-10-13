@@ -189,17 +189,17 @@ static intptr_t os_connect(std::string &error)
     sa.sun_family = AF_UNIX;
     snprintf(sa.sun_path, sizeof sa.sun_path, "/tmp/vtibroker-%u.sock", (unsigned)getuid());
     int fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
+    bool ok = fd >= 0 && !::connect(fd, (sockaddr *)&sa, sizeof sa);
 #ifdef __APPLE__
-    if (fd >= 0 && ::connect(fd, (sockaddr *)&sa, sizeof sa) && start_broker())
-        for (int i = 0; i < 40; i++) { // up to ~4 s for the broker to listen
+    if (fd >= 0 && !ok && start_broker())
+        for (int i = 0; i < 40 && !ok; i++) { // up to ~4 s for the broker to listen
             usleep(100000);
             ::close(fd);
             fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
-            if (fd < 0 || !::connect(fd, (sockaddr *)&sa, sizeof sa))
-                return fd < 0 ? -1 : fd;
+            ok = fd >= 0 && !::connect(fd, (sockaddr *)&sa, sizeof sa);
         }
 #endif
-    if (fd < 0 || ::connect(fd, (sockaddr *)&sa, sizeof sa)) {
+    if (!ok) {
         error = std::string("cannot connect to the TI Revive broker at ") + sa.sun_path + ": " + strerror(errno);
         if (fd >= 0)
             ::close(fd);
