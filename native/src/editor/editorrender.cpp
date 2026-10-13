@@ -31,7 +31,7 @@ std::string EditorRenderer::value_text(const std::string &param, int v) const
 
 // bitmap font: vertical strip of 96 glyphs (ASCII 32..127), 6 pixels wide
 void EditorRenderer::text(Canvas &c, const std::string &font, const std::string &str, int x, int y, int w, int h,
-                          const std::string &align)
+                          const std::string &align, double alpha)
 {
     void *f = c.image(font);
     if (!f || str.empty())
@@ -43,7 +43,7 @@ void EditorRenderer::text(Canvas &c, const std::string &font, const std::string 
                                                         : x + (w - tw) / 2;
     int ty = align.find("Top") != std::string::npos      ? y
              : align.find("Bottom") != std::string::npos ? y + h - gh
-                                                         : y + (h - gh) / 2;
+                                                         : y + (h - gh - 1) / 2;
     for (size_t i = 0; i < str.size(); i++) {
         int ch = (unsigned char)str[i];
         if (ch < 32 || ch > 127)
@@ -52,7 +52,7 @@ void EditorRenderer::text(Canvas &c, const std::string &font, const std::string 
         int gx = tx + (int)i * gw, x0 = std::max(gx, x), x1 = std::min(gx + gw, x + w);
         int y0 = std::max(ty, y), y1 = std::min(ty + gh, y + h);
         if (x1 > x0 && y1 > y0)
-            c.blit(f, x0 - gx, (ch - 32) * gh + (y0 - ty), x0, y0, x1 - x0, y1 - y0, 1.0);
+            c.blit(f, x0 - gx, (ch - 32) * gh + (y0 - ty), x0, y0, x1 - x0, y1 - y0, alpha);
     }
 }
 
@@ -139,13 +139,16 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
             str = e.get("Name");
         else if (e.type == "NameEdit" && patch_name)
             str = patch_name(pt);
-        else if ((e.type == "TextSlider" || e.type == "Menu") && !param.empty())
+        else if ((e.type == "TextSlider" || e.type == "Menu") && !param.empty()) {
             str = value_text(param, v);
+            if (e.type == "Menu") // valuelists indent entries for the popup (" Mod Wheel"); the control shows them trimmed
+                str.erase(0, str.find_first_not_of(' ') == std::string::npos ? str.size() : str.find_first_not_of(' '));
+        }
         int tl = 0, tr = 0;
         auto t = layout_.tiles.find(e.get("NormalBack"));
         if (t != layout_.tiles.end())
             tl = t->second.left, tr = t->second.right;
-        text(c, font, str, x + tl, y, e.w - tl - tr, e.h, e.get("Align"));
+        text(c, font, str, x + tl, y, e.w - tl - tr, e.h, e.get("Align"), alpha);
     }
     for (auto &ch : e.children)
         draw(c, ch, x, y, e.part() >= 0 ? e.part() : inherited);

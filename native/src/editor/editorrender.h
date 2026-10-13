@@ -50,7 +50,7 @@ private:
     // a frame (sy..sy+fh) of `img`, nine-part tiled to w x h when the bitmap is marked tiled
     void image(Canvas &c, const std::string &name, void *img, int sy, int fh, int x, int y, int w, int h, double alpha);
     void text(Canvas &c, const std::string &font, const std::string &str, int x, int y, int w, int h,
-              const std::string &align);
+              const std::string &align, double alpha = 1.0);
     bool hit(const Element &e, int ox, int oy, int inherited, int px, int py, Hit &out) const;
 };
 
