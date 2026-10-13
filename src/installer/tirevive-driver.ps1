@@ -50,6 +50,16 @@ if ($Action -eq 'install') {
     $out = pnputil /add-driver (Join-Path $stage 'vti_winusb.inf') /install | Out-String
     $out
     if ($out -match '(oem\d+\.inf)') { Set-ItemProperty $reg DriverPackage $Matches[1] }
+    # a Virus still running on the Access USB driver (service VIRUSUSB, e.g. Access software installed or repaired
+    # after TI Revive) keeps it until the device is re-detected: remove those device nodes, the rescan below brings
+    # the Virus back on the generic composite driver with our WinUSB interfaces (issue #3, Snow)
+    Get-PnpDevice -ErrorAction SilentlyContinue | Where-Object InstanceId -match 'VID_133E' | ForEach-Object {
+        $svc = (Get-PnpDeviceProperty -InstanceId $_.InstanceId -KeyName 'DEVPKEY_Device_Service' -ErrorAction SilentlyContinue).Data
+        if ($svc -eq 'VIRUSUSB') {
+            "re-detecting $($_.InstanceId) (was on the Access USB driver)"
+            pnputil /remove-device $_.InstanceId | Out-String
+        }
+    }
     pnputil /scan-devices | Out-Null
     Remove-Item $stage -Recurse -Force
     & (Join-Path $here 'tirevive-shortcuts.ps1') install # if the Access software is already installed
