@@ -211,6 +211,18 @@ int main(int argc, char **argv)
         return n;
     };
     r.render(canvas);
+    if (getenv("VTIRENDER_LIST")) { // all controls of the page: type, parameter, position (4-pixel grid)
+        std::map<const Element *, Hit> seen;
+        for (int y = 0; y < layout.height; y += 4)
+            for (int x = 0; x < layout.width; x += 4) {
+                Hit h = r.hit_test(x, y);
+                if (h.element && !seen.count(h.element))
+                    seen[h.element] = h;
+            }
+        for (auto &kv : seen)
+            printf("ctl %-16s %-50s part %2d at %3d,%3d %dx%d\n", kv.first->type.c_str(), kv.first->get("Parameter").c_str(),
+                   kv.second.part, kv.second.x, kv.second.y, kv.first->w, kv.first->h);
+    }
     if (const char *at = getenv("VTIRENDER_AT")) { // debug: the control under a point "x,y"
         Hit h = r.hit_test(atoi(at), atoi(strchr(at, ',') + 1));
         if (h.element)

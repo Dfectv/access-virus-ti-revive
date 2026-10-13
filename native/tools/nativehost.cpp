@@ -200,10 +200,11 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--editor"))
             editor = true;
         else if ((!strcmp(argv[i], "--click") || !strcmp(argv[i], "--drag") || !strcmp(argv[i], "--shot") ||
-                  !strcmp(argv[i], "--twice") || !strcmp(argv[i], "--type")) && i + 1 < argc) {
+                  !strcmp(argv[i], "--twice") || !strcmp(argv[i], "--type") || !strcmp(argv[i], "--move")) &&
+                 i + 1 < argc) {
             // --click x,y@t  --drag x,y,dy@t  --shot file.ppm@t
             Action a{};
-            a.kind = !strcmp(argv[i], "--type") ? 'y' : argv[i][2];
+            a.kind = !strcmp(argv[i], "--type") ? 'y' : !strcmp(argv[i], "--move") ? 'm' : argv[i][2];
             std::string v = argv[++i];
             size_t at = v.rfind('@');
             a.t = at == std::string::npos ? 1 : atof(v.c_str() + at + 1);
@@ -410,6 +411,11 @@ int main(int argc, char **argv)
                     Window child;
                     XTranslateCoordinates(dpy, win, DefaultRootWindow(dpy), a.x, a.y, &wx, &wy, &child);
                     XTestFakeMotionEvent(dpy, -1, wx, wy, 0);
+                    if (a.kind == 'm') { // hover only
+                        XFlush(dpy);
+                        printf("move %d,%d at %.1f s\n", a.x, a.y, now);
+                        continue;
+                    }
                     XTestFakeButtonEvent(dpy, 1, True, 0);
                     XFlush(dpy);
                     for (int k = 1; a.kind == 'd' && k <= 10; k++) { // drag in 10 steps

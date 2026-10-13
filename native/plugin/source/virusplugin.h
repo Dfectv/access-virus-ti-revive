@@ -98,6 +98,11 @@ public:
     std::string bank_patch(int bank, int program); // stored patch name from the bank cache (RAM A..D)
     bool load_patch(int bank, int program, int part); // a stored patch into a part's edit buffer (and the state)
     bool rename_part(int part, const std::string &name); // the part's patch name (10 characters) -> dump + Virus
+    bool store_patch(int part, int bank, int program);   // the part's patch into a RAM slot of the Virus (+ cache)
+    bool browser_match(int bank, int program);          // category filter + search of the browser
+    void set_search(const std::string &s);
+    std::string search() { std::lock_guard<std::mutex> lk(values_mu_); return search_; }
+    int bank_count() { std::lock_guard<std::mutex> lk(banks_mu_); return (int)banks_.size(); }
     bool ui_changed() { return ui_dirty_.exchange(false); }
     std::string live_text(const std::string &param); // LCD texts of the last edited parameter
 
@@ -125,6 +130,7 @@ private:
     std::map<int, std::map<std::string, int>> part_values_; // decoded part dumps + controllers, per part (-1 = global)
     std::map<std::string, int> ui_state_;                   // editor-only parameters (VirusControl/SelectedPage ...)
     std::string lcd_param_, lcd_value_, lcd_part_;          // the last edited parameter for the LCD
+    std::string search_;                                    // browser search text
     std::atomic<bool> ui_dirty_{true};
     // automation values from process() for the part dumps (single producer / single consumer, lock-free)
     struct ParamUpdate {

@@ -111,7 +111,8 @@ void EditorRenderer::patch_browser(Canvas &c, const Element &e, int x, int y, in
         digits(c, p, nx - 5, ny + 4);
         auto sel = selected.find(bank);
         bool on = sel != selected.end() && sel->second == p && !e.get("SelectedFont").empty();
-        text(c, on ? e.get("SelectedFont") : font, bank_patch(bank, p), nx, ny, 60, 9, "Top Left");
+        bool match = !browser_match || browser_match(bank, p);
+        text(c, on ? e.get("SelectedFont") : font, bank_patch(bank, p), nx, ny, 60, 9, "Top Left", match ? 1.0 : 0.3);
     }
 }
 
@@ -261,10 +262,6 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
     int lo = p ? p->min : 0, hi = p ? p->max : 127;
 
     void *normal = c.image(e.get("NormalBack"));
-    // the big rotating rings (MaskedKnob with KNB_*_Rot_* strips around the displays) are invisible at rest in the
-    // original - shown while the control is held
-    if (e.type == "MaskedKnob" && e.get("NormalBack").find("_Rot_") != std::string::npos && &e != pressed)
-        normal = nullptr;
     // inactive controls with a DisabledBack strip use it at full opacity (the translucent "_Trs" look)
     bool use_disabled = alpha < 1.0 && normal && c.image(e.get("DisabledBack"));
     if (use_disabled) {
@@ -305,11 +302,7 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
     if (e.type == "ADSTREnvelope" && !param.empty())
         envelope(c, e, x, y, pt, alpha);
     if (e.type == "PatchBrowser" && bank_patch && !param.empty()) {
-        // "Browser N/Selected Bank" (internal to the original): browser N shows RAM bank N by default
-        int bank = values(param, pt);
-        if (bank == cond_.default_value(param) && !cond_.find(param))
-            bank = param.size() > 8 ? param[8] - '0' : 0;
-        patch_browser(c, e, x, y, bank);
+        patch_browser(c, e, x, y, values(param, pt)); // "Browser N/Selected Bank" (the host side keeps it)
     }
     const std::string &font = e.get("ControlFont");
     if (!font.empty() && e.type != "PatchBrowser") {
@@ -318,11 +311,14 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
             str = e.get("Name");
         else if (e.type == "NameEdit" && patch_name)
             str = patch_name(pt);
-        else if ((e.type == "TextSlider" || e.type == "Menu") && !param.empty()) {
+        else if ((e.type == "TextSlider" || e.type == "Menu" || e.type == "HierarchicMenu" || e.type == "SearchEdit") &&
+                 !param.empty()) {
             str = live_text ? live_text(param) : std::string();
             if (str.empty())
                 str = value_text(param, v);
-            if (e.type == "Menu") // valuelists indent entries for the popup (" Mod Wheel"); the control shows them trimmed
+            if (e.type == "SearchEdit" && str == value_text(param, v))
+                str.clear();
+            if (e.type != "TextSlider") // valuelists indent entries for the popup (" Mod Wheel"); the control shows them trimmed
                 str.erase(0, str.find_first_not_of(' ') == std::string::npos ? str.size() : str.find_first_not_of(' '));
         }
         int tl = 0, tr = 0;

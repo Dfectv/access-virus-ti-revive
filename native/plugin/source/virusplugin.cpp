@@ -510,6 +510,10 @@ IPlugView *PLUGIN_API VirusPlugin::createView(FIDString name)
 
 int VirusPlugin::ui_value(const std::string &path, int part)
 {
+    // the original's internal browser parameters: browser N shows RAM bank N until changed
+    if (path.rfind("Browser ", 0) == 0 && path.find("/Selected Bank") != std::string::npos &&
+        !ui_state_.count(path))
+        return path[8] - '0';
     if (const Parameter *p = cond_ ? cond_->find(path) : nullptr)
         if (p->part == "none")
             part = -1; // global parameters (Panel Part, globals) are not per part
@@ -534,6 +538,17 @@ int VirusPlugin::ui_value(const std::string &path, int part)
 
 std::string VirusPlugin::live_text(const std::string &param)
 {
+    if (param.rfind("Browser ", 0) == 0 && param.find("/Selected Bank") != std::string::npos) // the bank menu
+        return std::string("Virus TI/RAM ") + (char)('A' + ui_value(param, -1));
+    if (param == "Repository Actions/Category Filter") {
+        int c = ui_value(param, -1);
+        if (c == 0)
+            return "";
+        auto vl = dev_.valuelists.find("Val Name Categories");
+        return vl != dev_.valuelists.end() ? vl->second.text(c) : std::to_string(c);
+    }
+    if (param == "Repository Actions/Search")
+        return search();
     std::lock_guard<std::mutex> lk(values_mu_);
     if (param == "VirusControl/Display Parameter")
         return lcd_param_;
@@ -546,6 +561,11 @@ std::string VirusPlugin::live_text(const std::string &param)
 
 void VirusPlugin::ui_set(const std::string &path, int part, int value)
 {
+    if (!dev_.find(path) && !ed_.find(path)) { // the original's internal parameters (browser state)
+        ui_state_[path] = value;
+        ui_dirty_ = true;
+        return;
+    }
     if (const Parameter *p = dev_.find(path)) { // LCD: name, value text and part of the edited parameter
         std::string v = std::to_string(value);
         for (const RemoteDevice *d : {&dev_, &ed_}) {
@@ -741,6 +761,92 @@ bool VirusPlugin::rename_part(int part, const std::string &name)
     if (out_)
         out_->send(d);
     apply_state_to_params();
+    return true;
+}
+
+bool VirusPlugin::store_patch(int part, int bank, int program)
+{
+    if (bank < 0 || bank > 3 || program < 0 || program > 127)
+        return false;
+    std::vector<uint8_t> d;
+    {
+        std::lock_guard<std::mutex> lk(state_mu_);
+        if (state_.empty())
+            state_ = default_;
+        for (auto &r : state_)
+            if (is_part_dump(r, part))
+                d = r;
+    }
+    if (d.empty())
+        return false;
+    d[7] = (uint8_t)(bank + 1), d[8] = (uint8_t)program; // a dump into RAM bank 1..4 = store
+    unsigned a = 0;
+    for (int i = 5; i < 265; i++)
+        a += d[i];
+    d[265] = a & 0x7F;
+    for (int i = 265; i < 522; i++)
+        a += d[i];
+    d[522] = a & 0x7F;
+    if (out_)
+        out_->send(d);
+    Bank cache;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto &b = banks_[bank];
+        b.resize(128);
+        b[program] = d;
+        for (int p = 0; p < 128; p++)
+            cache[p] = b[p];
+    }
+    std::string dir = own_cache_dir();
+    if (!dir.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+        save_bank_file(dir + "/RAM " + (char)('A' + bank), cache);
+    }
+    ui_dirty_ = true;
+    return true;
+}
+
+void VirusPlugin::set_search(const std::string &s)
+{
+    std::lock_guard<std::mutex> lk(values_mu_);
+    search_ = s;
+    ui_dirty_ = true;
+}
+
+bool VirusPlugin::browser_match(int bank, int program)
+{
+    int cat = ui_value("Repository Actions/Category Filter", -1);
+    std::string q = search();
+    if (cat == 0 && q.empty())
+        return true;
+    std::vector<uint8_t> d;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto b = banks_.find(bank);
+        if (b == banks_.end() || program >= (int)b->second.size())
+            return false;
+        d = b->second[program];
+    }
+    if (d.size() != 524)
+        return false;
+    if (cat && single_template_) {
+        std::map<std::string, int> v;
+        std::string err;
+        dev_.decode_dump(*single_template_, d, v, err);
+        if (v["Categories/Category 1"] != cat && v["Categories/Category 2"] != cat)
+            return false;
+    }
+    if (!q.empty()) {
+        std::string name(d.begin() + 249, d.begin() + 259), a = name, b = q;
+        for (auto &ch : a)
+            ch = (char)tolower(ch);
+        for (auto &ch : b)
+            ch = (char)tolower(ch);
+        if (a.find(b) == std::string::npos)
+            return false;
+    }
     return true;
 }
 

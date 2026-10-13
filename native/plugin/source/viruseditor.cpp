@@ -78,6 +78,7 @@ public:
         renderer_.patch_name = [this](int part) { return plugin_->patch_name(part); };
         renderer_.bank_patch = [this](int bank, int prog) { return plugin_->bank_patch(bank, prog); };
         renderer_.live_text = [this](const std::string &p) { return plugin_->live_text(p); };
+        renderer_.browser_match = [this](int bank, int prog) { return plugin_->browser_match(bank, prog); };
         // device changes (knobs on the Virus, automation) repaint the view
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) {
             if (plugin_->ui_changed())
@@ -116,8 +117,7 @@ public:
         }
         if (e.type == "PatchBrowser") { // click selects, double click loads into the current part
             int prog = EditorRenderer::browser_entry(h, (int)event.mousePosition.x, (int)event.mousePosition.y);
-            const std::string &bp = e.get("Parameter");
-            int bank = bp.size() > 8 ? bp[8] - '0' : 0;
+            int bank = plugin_->ui_value(e.get("Parameter"), -1);
             if (prog >= 0) {
                 renderer_.selected[bank] = prog;
                 if (event.clickCount >= 2)
@@ -127,8 +127,33 @@ public:
             event.consumed = true;
             return;
         }
-        if (e.type == "Menu" || e.type == "HierarchicMenu") {
-            popup_menu(h, event.mousePosition);
+        if (e.type == "IncButton" || e.type == "DecButton") { // step the value (browser banks, categories ...)
+            int lo = 0, hi = 3;
+            if (const Parameter *p = plugin_->conditions().find(param))
+                lo = p->min, hi = p->max;
+            else if (param == "Repository Actions/Category Filter")
+                hi = 22;
+            int v = drag_value_ + (e.type == "IncButton" ? 1 : -1);
+            plugin_->ui_set(param, h.part, std::max(lo, std::min(hi, v)));
+            renderer_.pressed = &e;
+            invalid();
+            event.consumed = true;
+            return;
+        }
+        if (e.type == "SearchEdit" || (e.type == "RadioButton" && param == "Repository Actions/Search")) {
+            edit_search(h);
+            event.consumed = true;
+            return;
+        }
+        if (e.type == "Menu" || e.type == "HierarchicMenu" || e.type == "PatchSaveMenu") {
+            if (param == "Repository Actions/Current Patch" || param == "Repository Actions/Current Patch Save Action")
+                patch_menu(h, event.mousePosition, param == "Repository Actions/Current Patch Save Action");
+            else if (param.rfind("Browser ", 0) == 0)
+                bank_menu(h, event.mousePosition);
+            else if (param == "Repository Actions/Category Filter")
+                category_menu(h, event.mousePosition);
+            else
+                popup_menu(h, event.mousePosition);
             event.consumed = true;
             return;
         }
@@ -171,7 +196,10 @@ public:
     {
         if (auto *te = dynamic_cast<CTextEdit *>(c)) {
             std::string t = te->getText().getString();
-            plugin_->rename_part(edit_part_, t);
+            if (editing_search_)
+                plugin_->set_search(t);
+            else
+                plugin_->rename_part(edit_part_, t);
             if (auto *f = getFrame()) // remove the edit field after the current event
                 f->doAfterEventProcessing([f, te]() { f->removeView(te); });
             invalid();
@@ -180,12 +208,97 @@ public:
 
 private:
     int edit_part_ = 0;
+    bool editing_search_ = false;
+
+    // LOAD: RAM A..D -> patch -> into the part; SAVE: RAM A..D -> slot -> store the part's patch there
+    void patch_menu(const Hit &h, const CPoint &where, bool save)
+    {
+        // RAM A..D > 0-15, 16-31, ... > patches (a 128-entry list would not fit on the screen)
+        auto *menu = new COptionMenu();
+        auto groups = std::make_shared<std::map<COptionMenu *, std::pair<int, int>>>(); // submenu -> bank, first
+        for (int b = 0; b < 4; b++) {
+            auto *bm = new COptionMenu();
+            for (int g = 0; g < 8; g++) {
+                auto *gm = new COptionMenu();
+                for (int p = g * 16; p < g * 16 + 16; p++) {
+                    char t[40];
+                    snprintf(t, sizeof t, "%3d  %s", p, plugin_->bank_patch(b, p).c_str());
+                    gm->addEntry(t);
+                }
+                char gt[16];
+                snprintf(gt, sizeof gt, "%d - %d", g * 16, g * 16 + 15);
+                bm->addEntry(gm, gt);
+                (*groups)[gm] = {b, g * 16};
+                gm->forget();
+            }
+            menu->addEntry(bm, std::string("RAM ") + (char)('A' + b));
+            bm->forget();
+        }
+        int part = h.part;
+        menu->popup(getFrame(), where, [this, part, save, groups](COptionMenu *m) {
+            int32_t idx = -1;
+            COptionMenu *sub = m->getLastItemMenu(idx);
+            auto it = groups->find(sub);
+            if (it == groups->end() || idx < 0)
+                return;
+            int bank = it->second.first, prog = it->second.second + idx;
+            if (save)
+                plugin_->store_patch(part, bank, prog);
+            else
+                plugin_->load_patch(bank, prog, part);
+            invalid();
+        });
+        menu->forget();
+    }
+
+    void bank_menu(const Hit &h, const CPoint &where)
+    {
+        auto *menu = new COptionMenu();
+        for (int b = 0; b < 4; b++)
+            menu->addEntry(std::string("RAM ") + (char)('A' + b));
+        std::string param = h.element->get("Parameter");
+        menu->popup(getFrame(), where, [this, param](COptionMenu *m) {
+            if (m->getLastResult() >= 0)
+                plugin_->ui_set(param, -1, m->getLastResult());
+            invalid();
+        });
+        menu->forget();
+    }
+
+    void category_menu(const Hit &h, const CPoint &where)
+    {
+        auto *menu = new COptionMenu();
+        menu->addEntry("All");
+        for (int c = 1; c <= 22; c++)
+            menu->addEntry(renderer_.value_text("Categories/Category 1", c).c_str());
+        menu->popup(getFrame(), where, [this](COptionMenu *m) {
+            if (m->getLastResult() >= 0)
+                plugin_->ui_set("Repository Actions/Category Filter", -1, m->getLastResult());
+            invalid();
+        });
+        menu->forget();
+    }
+
+    void edit_search(const Hit &h)
+    {
+        auto *f = getFrame();
+        if (!f)
+            return;
+        editing_search_ = true;
+        CRect r(h.x, h.y, h.x + std::max(120, h.element->w), h.y + h.element->h);
+        auto *te = new CTextEdit(r, this, 0, plugin_->search().c_str());
+        te->setBackColor(CColor(20, 30, 60, 255));
+        te->setFontColor(CColor(255, 255, 255, 255));
+        f->addView(te);
+        te->takeFocus();
+    }
     void edit_name(const Hit &h)
     {
         auto *f = getFrame();
         if (!f)
             return;
         edit_part_ = h.part;
+        editing_search_ = false;
         CRect r(h.x, h.y, h.x + h.element->w, h.y + h.element->h);
         auto *te = new CTextEdit(r, this, 0, plugin_->patch_name(h.part).c_str());
         te->setBackColor(CColor(20, 30, 60, 255));
