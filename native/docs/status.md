@@ -118,6 +118,10 @@
   libraries, saving into libraries, search display in the original
   (typing into the original under Wine did not reach the field), whether the original loads on double click.
 
+- CI (.github/workflows/build.yml): Windows (MSVC, VirusTINative.vst3 artifact) + Linux builds on every push.
+- Questions for the user (could not be captured from the original under Wine): how the original's search shows
+  results; whether a double click in the browser loads the patch (ours: double click loads, click selects).
+
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
   Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples
