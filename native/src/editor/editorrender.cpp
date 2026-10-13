@@ -206,6 +206,36 @@ void EditorRenderer::filter_response(Canvas &c, const Element &e, int x, int y, 
                c.image_width(hd), c.image_height(hd), 1.0);
 }
 
+// classic oscillator display: sine (shape 0) -> saw (64) -> pulse (127, width from Pulsewidth); area between the wave
+// and the centre filled in ForeColor (182,200,228), wave line (91,100,114) - measured on the original
+void EditorRenderer::osc_classic(Canvas &c, const Element &e, int x, int y, int part)
+{
+    const std::string &pwp = e.get("Parameter"); // "Oscillator N/Pulsewidth"
+    std::string g = pwp.substr(0, pwp.rfind('/') + 1);
+    double sh = values(g + "Shape", part), pw = 0.5 + values(pwp, part) / 127.0 * 0.5;
+    double mid = y + (e.h - 1) / 2.0, amp = (e.h - 2) / 2.0;
+    auto wave = [&](double t) {
+        double saw = 1 - 2 * t;
+        if (sh <= 64) {
+            double a = sh / 64;
+            return (1 - a) * std::sin(2 * M_PI * t) + a * saw;
+        }
+        double b = (sh - 64) / 63;
+        return (1 - b) * saw + b * (t < pw ? 1.0 : -1.0);
+    };
+    Rgba fillc{182, 200, 228, 255}, linec{91, 100, 114, 255};
+    double prev = 0;
+    for (int i = 0; i < e.w; i++) {
+        double t = (double)i / (e.w - 1), yy = mid - wave(t) * amp;
+        int a = (int)std::lround(std::min(yy, mid)), b = (int)std::lround(std::max(yy, mid));
+        c.fill(x + i, a, 1, b - a + 1, fillc);
+        if (i > 0)
+            c.line(x + i - 1 + 0.5, prev + 0.5, x + i + 0.5, yy + 0.5, linec);
+        prev = yy;
+    }
+    c.line(x + e.w - 1 + 0.5, prev + 0.5, x + e.w - 1 + 0.5, mid + 0.5, linec); // closing edge
+}
+
 void EditorRenderer::render(Canvas &c)
 {
     for (auto &e : layout_.elements)
@@ -262,6 +292,8 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
 
     if (e.type.size() == 11 && e.type.compare(3, 8, "Response") == 0 && !param.empty())
         filter_response(c, e, x, y, pt);
+    if (e.type == "OscClassicShape" && !param.empty())
+        osc_classic(c, e, x, y, pt);
     if (e.type == "ADSTREnvelope" && !param.empty())
         envelope(c, e, x, y, pt, alpha);
     if (e.type == "PatchBrowser" && bank_patch && !param.empty()) {
