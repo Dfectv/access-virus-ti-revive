@@ -657,6 +657,37 @@ bool VirusPlugin::load_patch(int bank, int program, int part)
     return true;
 }
 
+bool VirusPlugin::rename_part(int part, const std::string &name)
+{
+    std::vector<uint8_t> d;
+    {
+        std::lock_guard<std::mutex> lk(state_mu_);
+        if (state_.empty())
+            state_ = default_;
+        for (auto &r : state_)
+            if (is_part_dump(r, part)) {
+                for (int i = 0; i < 10; i++) { // printable ASCII, padded with spaces
+                    char ch = i < (int)name.size() ? name[i] : ' ';
+                    r[249 + i] = (uint8_t)(ch >= 32 && ch < 127 ? ch : ' ');
+                }
+                unsigned a = 0;
+                for (int i = 5; i < 265; i++)
+                    a += r[i];
+                r[265] = a & 0x7F;
+                for (int i = 265; i < 522; i++)
+                    a += r[i];
+                r[522] = a & 0x7F;
+                d = r;
+            }
+    }
+    if (d.empty())
+        return false;
+    if (out_)
+        out_->send(d);
+    apply_state_to_params();
+    return true;
+}
+
 std::string VirusPlugin::patch_name(int part)
 {
     std::string n;

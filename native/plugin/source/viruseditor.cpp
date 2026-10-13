@@ -5,6 +5,7 @@
 #include "vstgui/lib/cdrawcontext.h"
 #include "vstgui/lib/cframe.h"
 #include "vstgui/lib/controls/coptionmenu.h"
+#include "vstgui/lib/controls/ctextedit.h"
 #include "vstgui/lib/cvstguitimer.h"
 #include "vstgui/lib/events.h"
 #include "vstgui/lib/platform/platformfactory.h"
@@ -67,7 +68,7 @@ private:
     std::map<std::string, SharedPointer<CBitmap>> &cache_;
 };
 
-class EditorCanvasView : public CView {
+class EditorCanvasView : public CView, public IControlListener {
 public:
     EditorCanvasView(VirusPlugin *plugin, const CRect &r)
         : CView(r), plugin_(plugin), renderer_(plugin->layout(), plugin->conditions(), plugin->device(), plugin->editor_device()),
@@ -107,6 +108,11 @@ public:
         drag_ = h;
         drag_y_ = event.mousePosition.y;
         drag_value_ = plugin_->ui_value(param, h.part);
+        if (e.type == "NameEdit" && event.clickCount >= 2) { // rename the part's patch
+            edit_name(h);
+            event.consumed = true;
+            return;
+        }
         if (e.type == "PatchBrowser") { // click selects, double click loads into the current part
             int prog = EditorRenderer::browser_entry(h, (int)event.mousePosition.x, (int)event.mousePosition.y);
             const std::string &bp = e.get("Parameter");
@@ -159,7 +165,34 @@ public:
         event.consumed = true;
     }
 
+    // IControlListener: the name edit was committed
+    void valueChanged(CControl *c) override
+    {
+        if (auto *te = dynamic_cast<CTextEdit *>(c)) {
+            std::string t = te->getText().getString();
+            plugin_->rename_part(edit_part_, t);
+            if (auto *f = getFrame()) // remove the edit field after the current event
+                f->doAfterEventProcessing([f, te]() { f->removeView(te); });
+            invalid();
+        }
+    }
+
 private:
+    int edit_part_ = 0;
+    void edit_name(const Hit &h)
+    {
+        auto *f = getFrame();
+        if (!f)
+            return;
+        edit_part_ = h.part;
+        CRect r(h.x, h.y, h.x + h.element->w, h.y + h.element->h);
+        auto *te = new CTextEdit(r, this, 0, plugin_->patch_name(h.part).c_str());
+        te->setBackColor(CColor(20, 30, 60, 255));
+        te->setFontColor(CColor(255, 255, 255, 255));
+        f->addView(te);
+        te->takeFocus();
+    }
+
     // a parameter's valuelist as a popup at the click position; the choice sets the parameter
     void popup_menu(const Hit &h, const CPoint &where)
     {

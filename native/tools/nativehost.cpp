@@ -16,6 +16,7 @@
 #ifdef __linux__
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <X11/keysym.h>
 #include <X11/extensions/XTest.h>
 #include <poll.h>
 #endif
@@ -199,15 +200,15 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--editor"))
             editor = true;
         else if ((!strcmp(argv[i], "--click") || !strcmp(argv[i], "--drag") || !strcmp(argv[i], "--shot") ||
-                  !strcmp(argv[i], "--twice")) && i + 1 < argc) {
+                  !strcmp(argv[i], "--twice") || !strcmp(argv[i], "--type")) && i + 1 < argc) {
             // --click x,y@t  --drag x,y,dy@t  --shot file.ppm@t
             Action a{};
-            a.kind = argv[i][2];
+            a.kind = !strcmp(argv[i], "--type") ? 'y' : argv[i][2];
             std::string v = argv[++i];
             size_t at = v.rfind('@');
             a.t = at == std::string::npos ? 1 : atof(v.c_str() + at + 1);
             v = v.substr(0, at);
-            if (a.kind == 's')
+            if (a.kind == 's' || a.kind == 'y') // --shot file, --type text
                 a.file = v;
             else
                 sscanf(v.c_str(), "%d,%d,%d", &a.x, &a.y, &a.dy);
@@ -379,6 +380,30 @@ int main(int argc, char **argv)
                     if (a.kind == 's') {
                         save_window_ppm(dpy, win, a.file.c_str());
                         printf("screenshot %s at %.1f s\n", a.file.c_str(), now);
+                        continue;
+                    }
+                    if (a.kind == 'y') { // type text + Return through XTest
+                        auto key = [&](KeySym ks, bool shift) {
+                            KeyCode kc = XKeysymToKeycode(dpy, ks), sh = XKeysymToKeycode(dpy, XK_Shift_L);
+                            if (shift)
+                                XTestFakeKeyEvent(dpy, sh, True, 0);
+                            XTestFakeKeyEvent(dpy, kc, True, 0);
+                            XTestFakeKeyEvent(dpy, kc, False, 0);
+                            if (shift)
+                                XTestFakeKeyEvent(dpy, sh, False, 0);
+                            XFlush(dpy);
+                            for (int k = 0; k < 3; k++) {
+                                runloop.pump();
+                                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                            }
+                        };
+                        for (char ch : a.file) {
+                            char nm[2] = {ch, 0};
+                            KeySym ks = ch == ' ' ? XK_space : XStringToKeysym(nm);
+                            key(ks, ch >= 'A' && ch <= 'Z');
+                        }
+                        key(XK_Return, false);
+                        printf("typed \"%s\" at %.1f s\n", a.file.c_str(), now);
                         continue;
                     }
                     int wx, wy;

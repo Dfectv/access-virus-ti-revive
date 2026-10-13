@@ -94,6 +94,7 @@ public:
     std::string patch_name(int part);
     std::string bank_patch(int bank, int program); // stored patch name from the bank cache (RAM A..D)
     bool load_patch(int bank, int program, int part); // a stored patch into a part's edit buffer (and the state)
+    bool rename_part(int part, const std::string &name); // the part's patch name (10 characters) -> dump + Virus
     bool ui_changed() { return ui_dirty_.exchange(false); }
 
     // IMidiMapping: channel aftertouch / pitch bend -> the original's per-channel parameters
