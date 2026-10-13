@@ -4,3 +4,7 @@ build/
 *.wav
 *.trace
 build-win/
+tools/uicompare/*.png
+tools/uicompare/*.ppm
+tools/uicompare/*.comp
+tools/uicompare/*.syx
