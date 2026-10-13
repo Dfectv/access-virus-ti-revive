@@ -8,6 +8,7 @@
 #include <thread>
 #include <cstdio>
 #include <memory>
+#include <filesystem>
 
 namespace vti {
 
@@ -51,7 +52,11 @@ bool save_bank_file(const std::string &path, const Bank &bank)
         ok = ok && fwrite(l, 1, 4, f) == 4 && fwrite(d.data(), 1, d.size(), f) == d.size();
     }
     ok = fclose(f) == 0 && ok;
-    return ok && rename(tmp.c_str(), path.c_str()) == 0;
+    // std::filesystem::rename replaces an existing file on Windows too (C rename() fails there)
+    std::error_code ec;
+    if (ok)
+        std::filesystem::rename(tmp, path, ec);
+    return ok && !ec;
 }
 
 MemorySync::MemorySync(Broker &broker, int device_id) : broker_(&broker), dev_(device_id)
