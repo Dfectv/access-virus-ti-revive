@@ -108,17 +108,21 @@ int main(int argc, char **argv)
         std::atomic<bool> clk_stop{false};
         std::mutex wmu;
         std::thread clk;
+        // continuous stamped clock like the original: every ~10 ms a tick stamped at (newest frame - S), S = VTI_S
+        int S = getenv("VTI_S") ? atoi(getenv("VTI_S")) : 5000;
         if (getenv("VTI_CLOCK")) {
             clk = std::thread([&] {
-                double next = (double)a.newest_frame();
                 while (!clk_stop) {
-                    int64_t now = a.newest_frame();
-                    while (next < now + 2048) { // keep ticks ~46 ms ahead
+                    {
                         std::lock_guard<std::mutex> lk(wmu);
-                        stamp((int64_t)next, {0xF8});
-                        next += 918.75;
+                        if (getenv("VTI_F5ONLY")) { // a bare time stamp (cable 5) without a clock tick
+                            int64_t f = a.newest_frame() - S;
+                            auto pk = vti::usbmidi_pack({0xF5, (uint8_t)(f & 0x7F), (uint8_t)((f >> 7) & 0x7F)}, 5);
+                            broker.write(EP_PLUGIN_OUT, pk.data(), pk.size());
+                        } else
+                            stamp(a.newest_frame() - S, {0xF8});
                     }
-                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 }
             });
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -136,23 +140,26 @@ int main(int argc, char **argv)
             for (int d = -8000; d <= 8000; d += 1000)
                 ds.push_back(d);
         for (int d : ds) {
-            int64_t now = a.newest_frame(), t = now + d;
+            int64_t now = a.newest_frame(), t = now - S + d;
             {
                 std::lock_guard<std::mutex> lk(wmu);
                 stamp(t, {0x90, 60, 100});
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(getenv("VTI_WAIT") ? atoi(getenv("VTI_WAIT")) : 400));
+            std::this_thread::sleep_for(std::chrono::milliseconds(300)); // the ring holds ~370 ms: scan now
+            int64_t onset = -1, end = a.newest_frame();
+            int quiet = 0; // the first loud frame after at least 1000 quiet ones
+            for (int64_t f = std::max<int64_t>(now - 3000, end - VTI_AUDIO_RING + 1); f < end && onset < 0; f++) {
+                const int16_t *fr = shm->in + (f & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_IN_CH;
+                bool loud = std::abs(fr[2]) > 600 || std::abs(fr[3]) > 600;
+                if (loud && quiet >= 1000)
+                    onset = f;
+                quiet = loud ? 0 : quiet + 1;
+            }
             {
                 std::lock_guard<std::mutex> lk(wmu);
-                stamp(a.newest_frame() + 2048, {0x80, 60, 0});
+                stamp(a.newest_frame() - S, {0x80, 60, 0});
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            int64_t onset = -1, end = a.newest_frame();
-            for (int64_t f = now - 2000; f < end && onset < 0; f++) {
-                const int16_t *fr = shm->in + (f & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_IN_CH;
-                if (std::abs(fr[2]) > 600 || std::abs(fr[3]) > 600)
-                    onset = f;
-            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(getenv("VTI_GAP") ? atoi(getenv("VTI_GAP")) : 800));
             printf("D %5d: stamp %lld (sent at ring frame %lld), onset %lld -> onset - stamp %lld, onset - send %lld\n", d,
                    (long long)t, (long long)now, (long long)onset, (long long)(onset - t), (long long)(onset - now));
             fflush(stdout);

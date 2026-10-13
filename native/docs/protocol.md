@@ -79,3 +79,12 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   counter at an anchor rather than the ring frame, the USB control-request handshake. Note: the Virus needs the
   GlobalInit AND the multi dump (after every broker restart) before it plays plug-in notes - virusctl timing sends only
   the globals, so run it right after the plug-in (nativehost) or extend it.
+- Timing measurements 2026-10-13 (broker VTI_TRACE + VTI_RECORD while the ORIGINAL plays a note per second under
+  Wine): the original's stamps run ~5000 frames behind the ring's newest frame (sawtooth 4790..5231 = its block
+  grid) and every note starts EXACTLY 8315 frames after its stamp (18/18 notes; onset 3265..3528 frames after
+  sending) -> the Virus honours stamps on a timeline it derives from the plug-in's stream of F5 stamps.
+  Our experiments (virusctl timing, VTI_CLOCK/VTI_S/VTI_F5ONLY): with a continuous stamped stream (F8 or bare F5
+  every 10 ms at newest-S) stamps are sometimes honoured (onset follows D, offset depends on S and the session),
+  otherwise executed "immediately" (12-17 ms after sending, vs 66-157 ms without a stream); results change between
+  sessions -> the Virus keeps timeline state (PLL-like). The exact rule (0x1800a8420 + device time + the anchor
+  from audio markers 0x1800a8900, and how the original measures K = 8315) is the R5 work item.
