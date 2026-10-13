@@ -1,5 +1,5 @@
 /* xclick - click at absolute screen coordinates via XTest (test helper for editor comparisons on Xvfb).
-   usage: xclick x y [button]          build: cc -o xclick xclick.c -lX11 -lXtst */
+   usage: xclick x y [button, 0 = move only]   build: cc -o xclick xclick.c -lX11 -lXtst */
 #include <X11/Xlib.h>
 #include <X11/extensions/XTest.h>
 #include <stdio.h>
@@ -19,6 +19,10 @@ int main(int argc, char **argv)
     XTestFakeMotionEvent(d, -1, atoi(argv[1]), atoi(argv[2]), 0);
     XFlush(d);
     usleep(50000);
+    if (b == 0) { /* button 0: move only (hover) */
+        XCloseDisplay(d);
+        return 0;
+    }
     XTestFakeButtonEvent(d, b, True, 0);
     XFlush(d);
     usleep(80000);

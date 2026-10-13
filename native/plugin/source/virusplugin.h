@@ -109,6 +109,11 @@ public:
     void set_search(const std::string &s);
     std::string search() { std::lock_guard<std::mutex> lk(values_mu_); return search_; }
     int bank_count() { std::lock_guard<std::mutex> lk(banks_mu_); return banks_.empty() ? 4 : banks_.rbegin()->first + 1; }
+    std::string device_name() const // as the original shows it in the browser and the menus
+    {
+        return model_ == 1 ? "Virus TI (Virus TI Desktop)" : model_ == 2 ? "Virus TI Snow (Virus TI Snow)"
+                                                                          : "Virus TI2 (Virus TI2 Desktop)";
+    }
     static std::string bank_name(int bank) // 0..3 = RAM A..D, 4.. = ROM A..
     {
         return bank < 4 ? std::string("RAM ") + (char)('A' + bank) : std::string("ROM ") + (char)('A' + bank - 4);
@@ -161,6 +166,7 @@ private:
     void sync_banks(); // brings the bank cache up to date with the Virus (background thread)
     void load_rom_banks(); // ROM A.. from the user's firmware.bin for the connected model
     std::atomic<bool> syncing_{false};
+    std::atomic<int> model_{0}; // 0 = TI2, 1 = TI, 2 = Snow (from the device descriptor)
     std::map<Steinberg::Vst::ParamID, Mapped> params_;
     std::map<std::pair<std::string, int>, Steinberg::Vst::ParamID> ids_; // (path, part 0-based) -> id
     std::mutex pending_mu_;

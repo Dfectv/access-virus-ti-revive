@@ -540,7 +540,7 @@ int VirusPlugin::ui_value(const std::string &path, int part)
 std::string VirusPlugin::live_text(const std::string &param)
 {
     if (param.rfind("Browser ", 0) == 0 && param.find("/Selected Bank") != std::string::npos) // the bank menu
-        return "Virus TI/" + bank_name(ui_value(param, -1));
+        return device_name() + "/" + bank_name(ui_value(param, -1));
     if (param == "Repository Actions/Category Filter") {
         int c = ui_value(param, -1);
         if (c == 0)
@@ -649,6 +649,7 @@ void VirusPlugin::load_rom_banks()
         for (int i = 2; i + 1 < n; i += 2)
             product += (char)sd[i];
         model = bcd >= 0x300 ? VirusModel::TI2 : product.find("Snow") != std::string::npos ? VirusModel::Snow : VirusModel::TI;
+        model_ = model == VirusModel::TI2 ? 0 : model == VirusModel::TI ? 1 : 2;
         fprintf(stderr, "Virus TI native: device bcdDevice %04x \"%s\"\n", bcd, product.c_str());
     }
     std::string err;

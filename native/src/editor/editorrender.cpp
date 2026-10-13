@@ -110,9 +110,14 @@ void EditorRenderer::patch_browser(Canvas &c, const Element &e, int x, int y, in
         int nx = x + 21 + (p / 16) * 84, ny = y + 1 + (p % 16) * 11;
         digits(c, p, nx - 5, ny + 4);
         auto sel = selected.find(bank);
-        bool on = sel != selected.end() && sel->second == p && !e.get("SelectedFont").empty();
+        bool on = sel != selected.end() && sel->second == p;
         bool match = !browser_match || browser_match(bank, p);
-        text(c, on ? e.get("SelectedFont") : font, bank_patch(bank, p), nx, ny, 60, 9, "Top Left", match ? 1.0 : 0.3);
+        text(c, font, bank_patch(bank, p), nx, ny, 60, 9, "Top Left", match ? 1.0 : 0.3);
+        if (on) { // the original frames the selected entry (1 px, measured colour)
+            const Rgba fc{65, 111, 204, 255};
+            double l = nx - 2.5, t = ny - 0.5, r = nx + 60.5, b = ny + 10.5;
+            c.line(l, t, r, t, fc), c.line(r, t, r, b, fc), c.line(r, b, l, b, fc), c.line(l, b, l, t, fc);
+        }
     }
 }
 

@@ -230,66 +230,75 @@ private:
     bool editing_search_ = false;
 
     // LOAD: RAM A..D -> patch -> into the part; SAVE: RAM A..D -> slot -> store the part's patch there
+    // LOAD / SAVE like the original: "<device> > RAM A.. (SAVE: RAM only) > 000 Name" and "Personal Libraries"
     void patch_menu(const Hit &h, const CPoint &where, bool save)
     {
-        // RAM A..D > 0-15, 16-31, ... > patches (a 128-entry list would not fit on the screen)
         auto *menu = new COptionMenu();
-        auto groups = std::make_shared<std::map<COptionMenu *, std::pair<int, int>>>(); // submenu -> bank, first
-        for (int b = 0; b < (save ? 4 : plugin_->bank_count()); b++) { // SAVE: RAM only
+        auto *dev = new COptionMenu();
+        auto banks = std::make_shared<std::map<COptionMenu *, int>>(); // submenu -> bank
+        for (int b = 0; b < (save ? 4 : plugin_->bank_count()); b++) {
             auto *bm = new COptionMenu();
-            for (int g = 0; g < 8; g++) {
-                auto *gm = new COptionMenu();
-                for (int p = g * 16; p < g * 16 + 16; p++) {
-                    char t[40];
-                    snprintf(t, sizeof t, "%3d  %s", p, plugin_->bank_patch(b, p).c_str());
-                    gm->addEntry(t);
-                }
-                char gt[16];
-                snprintf(gt, sizeof gt, "%d - %d", g * 16, g * 16 + 15);
-                bm->addEntry(gm, gt);
-                (*groups)[gm] = {b, g * 16};
-                gm->forget();
+            for (int p = 0; p < 128; p++) {
+                char t[40];
+                snprintf(t, sizeof t, "%03d %s", p, plugin_->bank_patch(b, p).c_str());
+                bm->addEntry(t);
             }
-            menu->addEntry(bm, VirusPlugin::bank_name(b));
+            dev->addEntry(bm, VirusPlugin::bank_name(b));
+            (*banks)[bm] = b;
             bm->forget();
         }
+        menu->addEntry(dev, plugin_->device_name());
+        dev->forget();
+        auto *lib = new COptionMenu(); // personal libraries (patch files) - not supported yet
+        lib->addEntry("(none)", -1, CMenuItem::kDisabled);
+        menu->addEntry(lib, "Personal Libraries");
+        lib->forget();
         int part = h.part;
-        menu->popup(getFrame(), where, [this, part, save, groups](COptionMenu *m) {
+        menu->popup(getFrame(), where, [this, part, save, banks](COptionMenu *m) {
             int32_t idx = -1;
             COptionMenu *sub = m->getLastItemMenu(idx);
-            auto it = groups->find(sub);
-            if (it == groups->end() || idx < 0)
+            auto it = banks->find(sub);
+            if (it == banks->end() || idx < 0)
                 return;
-            int bank = it->second.first, prog = it->second.second + idx;
             if (save)
-                plugin_->store_patch(part, bank, prog);
+                plugin_->store_patch(part, it->second, idx);
             else
-                plugin_->load_patch(bank, prog, part);
+                plugin_->load_patch(it->second, idx, part);
             invalid();
         });
         menu->forget();
     }
 
+    // the browser's bank selector: "<device> > RAM A .. ROM Z" and "Personal Libraries"
     void bank_menu(const Hit &h, const CPoint &where)
     {
         auto *menu = new COptionMenu();
+        auto *dev = new COptionMenu();
         for (int b = 0; b < plugin_->bank_count(); b++)
-            menu->addEntry(VirusPlugin::bank_name(b));
+            dev->addEntry(VirusPlugin::bank_name(b));
+        menu->addEntry(dev, plugin_->device_name());
+        auto *lib = new COptionMenu();
+        lib->addEntry("(none)", -1, CMenuItem::kDisabled);
+        menu->addEntry(lib, "Personal Libraries");
+        lib->forget();
         std::string param = h.element->get("Parameter");
-        menu->popup(getFrame(), where, [this, param](COptionMenu *m) {
-            if (m->getLastResult() >= 0)
-                plugin_->ui_set(param, -1, m->getLastResult());
+        menu->popup(getFrame(), where, [this, param, dev](COptionMenu *m) {
+            int32_t idx = -1;
+            if (m->getLastItemMenu(idx) == dev && idx >= 0)
+                plugin_->ui_set(param, -1, idx);
             invalid();
         });
+        dev->forget();
         menu->forget();
     }
 
     void category_menu(const Hit &h, const CPoint &where)
     {
-        auto *menu = new COptionMenu();
+        auto *menu = new COptionMenu(CRect(), nullptr, -1, nullptr, nullptr, COptionMenu::kCheckStyle);
         menu->addEntry("All");
         for (int c = 1; c <= 22; c++)
             menu->addEntry(renderer_.value_text("Categories/Category 1", c).c_str());
+        menu->setCurrent(plugin_->ui_value("Repository Actions/Category Filter", -1));
         menu->popup(getFrame(), where, [this](COptionMenu *m) {
             if (m->getLastResult() >= 0)
                 plugin_->ui_set("Repository Actions/Category Filter", -1, m->getLastResult());
@@ -320,8 +329,9 @@ private:
         editing_search_ = false;
         CRect r(h.x, h.y, h.x + h.element->w, h.y + h.element->h);
         auto *te = new CTextEdit(r, this, 0, plugin_->patch_name(h.part).c_str());
-        te->setBackColor(CColor(20, 30, 60, 255));
-        te->setFontColor(CColor(255, 255, 255, 255));
+        te->setBackColor(CColor(255, 255, 255, 255)); // the original: white field, system font
+        te->setFontColor(CColor(0, 0, 0, 255));
+        te->setFrameColor(CColor(255, 255, 255, 255));
         f->addView(te);
         te->takeFocus();
     }
