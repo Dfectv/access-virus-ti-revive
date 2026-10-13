@@ -2,6 +2,7 @@
 #include "virusplugin.h"
 #include "viruseditor.h"
 #include "access/accessfiles.h"
+#include "access/firmware.h"
 #include "base/source/fstreamer.h"
 #include "device/usbmidi.h"
 #include "pluginterfaces/base/ibstream.h"
@@ -539,7 +540,7 @@ int VirusPlugin::ui_value(const std::string &path, int part)
 std::string VirusPlugin::live_text(const std::string &param)
 {
     if (param.rfind("Browser ", 0) == 0 && param.find("/Selected Bank") != std::string::npos) // the bank menu
-        return std::string("Virus TI/RAM ") + (char)('A' + ui_value(param, -1));
+        return "Virus TI/" + bank_name(ui_value(param, -1));
     if (param == "Repository Actions/Category Filter") {
         int c = ui_value(param, -1);
         if (c == 0)
@@ -624,34 +625,42 @@ static std::string own_cache_dir()
 // (read only) - Windows/Wine: ProgramData/Access Music/Virus TI/Cache/<device>, Mac: /Library/Application Support/...
 void VirusPlugin::load_banks()
 {
-    std::vector<std::string> dirs;
-    if (!own_cache_dir().empty())
-        dirs.push_back(own_cache_dir());
-    if (const char *pd = getenv("ProgramData"))
-        dirs.push_back(std::string(pd) + "/Access Music/Virus TI/Cache");
-    if (const char *home = getenv("HOME"))
-        dirs.push_back(std::string(home) + "/.wine/drive_c/ProgramData/Access Music/Virus TI/Cache");
-    dirs.push_back("/Library/Application Support/Access Music/Virus TI/Cache");
-    auto try_dir = [&](const std::string &d) {
-        int found = 0;
-        for (int b = 0; b < 4; b++) {
-            Bank bank;
-            if (load_bank_file(d + "/RAM " + (char)('A' + b), bank)) {
-                banks_[b].assign(bank.begin(), bank.end());
-                found++;
-            }
-        }
-        return found > 0;
-    };
-    for (auto &d : dirs) {
-        if (try_dir(d))
-            return;
-        // the Access cache has one subdirectory per device
-        std::error_code ec;
-        for (auto &sub : std::filesystem::directory_iterator(d, ec))
-            if (sub.is_directory(ec) && try_dir(sub.path().string()))
-                return;
+    // like the original: only the plug-in's own cache; without one the first start syncs the whole RAM
+    std::string d = own_cache_dir();
+    if (d.empty())
+        return;
+    for (int b = 0; b < 4; b++) {
+        Bank bank;
+        if (load_bank_file(d + "/RAM " + (char)('A' + b), bank))
+            banks_[b].assign(bank.begin(), bank.end());
     }
+}
+
+void VirusPlugin::load_rom_banks()
+{
+    // the model decides the firmware image: bcdDevice 0x100 = TI (Snow if the product string says so), 0x300 = TI2
+    VirusModel model = VirusModel::TI2;
+    uint8_t dd[18] = {0};
+    if (out_ && out_->control(0x80, 6, 0x0100, 0, dd, sizeof dd) >= 14) {
+        uint16_t bcd = (uint16_t)(dd[12] | dd[13] << 8);
+        std::string product;
+        uint8_t sd[256] = {0};
+        int n = dd[15] ? out_->control(0x80, 6, (uint16_t)(0x0300 | dd[15]), 0x0409, sd, 255) : -1;
+        for (int i = 2; i + 1 < n; i += 2)
+            product += (char)sd[i];
+        model = bcd >= 0x300 ? VirusModel::TI2 : product.find("Snow") != std::string::npos ? VirusModel::Snow : VirusModel::TI;
+        fprintf(stderr, "Virus TI native: device bcdDevice %04x \"%s\"\n", bcd, product.c_str());
+    }
+    std::string err;
+    auto roms = vti::load_rom_banks(firmware_path(files_ ? files_->source() : std::string()), model, err);
+    if (roms.empty()) {
+        fprintf(stderr, "Virus TI native: no ROM banks (%s)\n", err.c_str());
+        return;
+    }
+    std::lock_guard<std::mutex> lk(banks_mu_);
+    for (size_t i = 0; i < roms.size(); i++)
+        banks_[4 + (int)i] = std::move(roms[i]);
+    ui_dirty_ = true;
 }
 
 void VirusPlugin::sync_banks()
@@ -664,6 +673,17 @@ void VirusPlugin::sync_banks()
         std::error_code ec;
         std::filesystem::create_directories(dir, ec);
     }
+    load_rom_banks();
+    syncing_ = true;
+    // the original keeps "synchronising" on the Virus display while it syncs (74 01 7E 07 about once a second)
+    std::atomic<bool> rise{true};
+    std::thread riser([this, &rise] {
+        while (rise) {
+            out_->send({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x74, 0x01, 0x7E, 0x07, 0xF7});
+            for (int i = 0; i < 10 && rise; i++)
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    });
     for (int b = 0; b < 4; b++) {
         Bank bank;
         {
@@ -673,13 +693,24 @@ void VirusPlugin::sync_banks()
                 for (size_t p = 0; p < 128 && p < it->second.size(); p++)
                     bank[p] = it->second[p];
         }
-        int n = sync_->sync_bank(b + 1, bank, [this](int, bool fetched) {
-            if (fetched)
-                ui_dirty_ = true;
+        int n = sync_->sync_bank(b + 1, bank, [this, b, &bank](int p, bool fetched) {
+            {
+                std::lock_guard<std::mutex> lk(values_mu_); // progress on the LCD
+                lcd_param_ = "Synchronizing " + bank_name(b);
+                lcd_value_ = std::to_string(p + 1) + " / 128";
+                lcd_part_.clear();
+            }
+            if (fetched) {
+                std::lock_guard<std::mutex> lk(banks_mu_);
+                auto &v = banks_[b];
+                v.resize(128);
+                v[p] = bank[p];
+            }
+            ui_dirty_ = true;
         });
         fprintf(stderr, "Virus TI native: RAM %c sync: %d fetched\n", 'A' + b, n);
         if (n < 0)
-            return;
+            break;
         {
             std::lock_guard<std::mutex> lk(banks_mu_);
             banks_[b].assign(bank.begin(), bank.end());
@@ -688,6 +719,15 @@ void VirusPlugin::sync_banks()
             save_bank_file(dir + "/RAM " + (char)('A' + b), bank);
         ui_dirty_ = true;
     }
+    rise = false;
+    riser.join();
+    syncing_ = false;
+    {
+        std::lock_guard<std::mutex> lk(values_mu_);
+        lcd_param_ = "Synchronization done";
+        lcd_value_.clear();
+    }
+    ui_dirty_ = true;
 }
 
 std::string VirusPlugin::bank_patch(int bank, int program)

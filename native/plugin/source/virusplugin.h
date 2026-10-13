@@ -36,7 +36,12 @@ public:
     // `stamp` = frame on the Virus timeline (F5 time stamp before the message), -1 = the latest timeline position
     bool send_rt(const uint8_t *msg, size_t n, int64_t stamp = -1);
     std::atomic<int64_t> timeline{-1};
-    bool busy() const { return queued_.load() > 0; } // non-realtime messages (state upload) still waiting // the latest timeline position (process() block start), for unstamped messages
+    bool busy() const { return queued_.load() > 0; } // non-realtime messages (state upload) still waiting
+    // USB control request through the broker (device descriptor / strings)
+    int control(uint8_t rt, uint8_t req, uint16_t value, uint16_t index, uint8_t *data, uint16_t len)
+    {
+        return broker_.control(rt, req, value, index, data, len);
+    } // the latest timeline position (process() block start), for unstamped messages
     // messages from the Virus' panel (EP 0x86 cable 2: knob moves as CC / poly pressure / parameter SysEx)
     void on_panel(std::function<void(const std::vector<uint8_t> &)> h) { panel_ = std::move(h); }
     // SysEx replies (dumps, bank info): EP 0x86 cable 3 in a plug-in session, EP 0x85 cable 1 otherwise
@@ -102,7 +107,11 @@ public:
     bool browser_match(int bank, int program);          // category filter + search of the browser
     void set_search(const std::string &s);
     std::string search() { std::lock_guard<std::mutex> lk(values_mu_); return search_; }
-    int bank_count() { std::lock_guard<std::mutex> lk(banks_mu_); return (int)banks_.size(); }
+    int bank_count() { std::lock_guard<std::mutex> lk(banks_mu_); return banks_.empty() ? 4 : banks_.rbegin()->first + 1; }
+    static std::string bank_name(int bank) // 0..3 = RAM A..D, 4.. = ROM A..
+    {
+        return bank < 4 ? std::string("RAM ") + (char)('A' + bank) : std::string("ROM ") + (char)('A' + bank - 4);
+    }
     bool ui_changed() { return ui_dirty_.exchange(false); }
     std::string live_text(const std::string &param); // LCD texts of the last edited parameter
 
@@ -148,6 +157,8 @@ private:
     std::thread sync_thread_;
     std::atomic<bool> sync_started_{false};
     void sync_banks(); // brings the bank cache up to date with the Virus (background thread)
+    void load_rom_banks(); // ROM A.. from the user's firmware.bin for the connected model
+    std::atomic<bool> syncing_{false};
     std::map<Steinberg::Vst::ParamID, Mapped> params_;
     std::map<std::pair<std::string, int>, Steinberg::Vst::ParamID> ids_; // (path, part 0-based) -> id
     std::mutex pending_mu_;

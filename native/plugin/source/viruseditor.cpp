@@ -128,7 +128,7 @@ public:
             return;
         }
         if (e.type == "IncButton" || e.type == "DecButton") { // step the value (browser banks, categories ...)
-            int lo = 0, hi = 3;
+            int lo = 0, hi = plugin_->bank_count() - 1;
             if (const Parameter *p = plugin_->conditions().find(param))
                 lo = p->min, hi = p->max;
             else if (param == "Repository Actions/Category Filter")
@@ -216,7 +216,7 @@ private:
         // RAM A..D > 0-15, 16-31, ... > patches (a 128-entry list would not fit on the screen)
         auto *menu = new COptionMenu();
         auto groups = std::make_shared<std::map<COptionMenu *, std::pair<int, int>>>(); // submenu -> bank, first
-        for (int b = 0; b < 4; b++) {
+        for (int b = 0; b < (save ? 4 : plugin_->bank_count()); b++) { // SAVE: RAM only
             auto *bm = new COptionMenu();
             for (int g = 0; g < 8; g++) {
                 auto *gm = new COptionMenu();
@@ -231,7 +231,7 @@ private:
                 (*groups)[gm] = {b, g * 16};
                 gm->forget();
             }
-            menu->addEntry(bm, std::string("RAM ") + (char)('A' + b));
+            menu->addEntry(bm, VirusPlugin::bank_name(b));
             bm->forget();
         }
         int part = h.part;
@@ -254,8 +254,8 @@ private:
     void bank_menu(const Hit &h, const CPoint &where)
     {
         auto *menu = new COptionMenu();
-        for (int b = 0; b < 4; b++)
-            menu->addEntry(std::string("RAM ") + (char)('A' + b));
+        for (int b = 0; b < plugin_->bank_count(); b++)
+            menu->addEntry(VirusPlugin::bank_name(b));
         std::string param = h.element->get("Parameter");
         menu->popup(getFrame(), where, [this, param](COptionMenu *m) {
             if (m->getLastResult() >= 0)
