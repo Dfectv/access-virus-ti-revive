@@ -1,4 +1,36 @@
-# RESUME HERE (paused 2026-10-13 late evening, CLI restart)
+# RESUME HERE (night 2026-10-13/14: stability + performance plan worked off without the Virus)
+
+State: all committed and pushed. The Virus was switched off by the user during the night, so everything below that
+needs the device is on the "tomorrow" list. No CI run triggered (manual only; Windows/macOS compile the new code
+and the tests with their next build).
+
+Done tonight (details: "Plan: stability and performance" below, commit messages):
+- P1.1 ui_state_ race (own mutex) - P1.2 note-offs never dropped (event buffer 256, insertion sort, no allocation)
+- P1.3 sanitizers: TSan found a broker close race (fd closed while the reader was in recv) -> fixed; TSan and
+  ASan/UBSan runs of nativehost --stress(-params) --notes --editor clean
+- P2.4 worker woken per block (1 ms poll gone) + P2.5 env flags read once: idle 5 % -> 1.4 %, stress 19 % -> 2.9 %
+- P2.6 meta engine index - P2.7 partial repaints for value changes (56 -> 4 full repaints in 4 s of automation,
+  all pages pixel-identical to full repaints) + displays clipped to their element (long envelopes drew onto the
+  panel) - P2.8 one broker write per block
+- page switch: static layers of 8 pages cached, bitmaps preloaded on idle: first visit 27-52 ms -> 10-13 ms
+- P2b.9 unit tests: vtitests/ctest, 25 tests (USB-MIDI, state, conditions, dumps, automation limit incl. the
+  3-LFO case, library, Access-file tests that skip without the files); in CI for all platforms
+
+Tomorrow (needs the Virus / the user):
+1. REAPER smoke test on Linux: sound, notes timing (batched broker writes, per-block wake), automation, editor
+   (partial repaints, page switches), project save/load, link buttons.
+2. nativehost --stress-params --notes with the Virus (4 min): no hang, CPU numbers with the device.
+3. Long envelopes: compare the clipped envelope display with the original (tools/uicompare capa.py, Envelope
+   Attack/Decay/Release 127).
+4. M4L test: 3+ LFOs on Virus parameters for ~1 h in Ableton (Windows VM and/or Mac) - needs a CI build
+   (gh workflow run build -f platforms=windows or macos).
+5. Then: UI to-do list (needs captures of the original), timing R5 + getLatencySamples, Snow issues #3/#4.
+
+Known limit: the automation -> state ring (pu_, 4096) drops values only if the worker stalls for seconds; then the
+saved state could keep an older value until the next change.
+
+# Earlier resume notes (2026-10-13 late evening)
+
 
 State: all work committed and pushed (private + public). Native VST3 runs on Linux (REAPER), Windows (Ableton,
 win11 VM) and macOS (Ableton 12, M3). Virus is on the Linux PC (broker socket active); win11 VM may still be running
@@ -298,7 +330,8 @@ P2b - tests
    state container save/load, automation throttle/coalescing, event ordering in process(), SMF libraries, ROM banks
    (skipped when no Access files are present).
 
-Progress: P1.1, P1.2 done (b9df2d6); P1.3 sanitizers done on Linux (TSan found a broker close race, fixed 040ea29;
+Progress (night 2026-10-14): all of P1 (except the Ableton M4L test) and P2 done, unit tests in place - see
+RESUME HERE. Earlier progress note: P1.1, P1.2 done (b9df2d6); P1.3 sanitizers done on Linux (TSan found a broker close race, fixed 040ea29;
 ASan/UBSan clean) - the Ableton M4L test is still open. P2.4 + P2.5 done: idle 5 % -> 1.4 % CPU, worker wake-ups
 1000/s -> ~220/s; --stress-params --notes 19 % -> 2.9 %.
 

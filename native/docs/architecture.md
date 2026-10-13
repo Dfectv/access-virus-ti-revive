@@ -63,13 +63,27 @@ original Virus TI software must be installed (it can stay unused). These are the
 - The same renderer runs in the plug-in (VSTGUI canvas) and in `tools/vtirender` (cairo, for pixel comparisons
   against screenshots of the original).
 - Repaints are partial: a knob drag repaints only its controls and the LCD, and the meters repaint only the
-  channels that changed.
+  channels that changed. Every full repaint records which parameters each element reads (`EditorRenderer::Deps`);
+  automation and knob moves on the Virus then repaint only those elements. A parameter that decides what is shown
+  (a show/hide condition, the panel part) still repaints everything. `VTI_NATIVE_NO_PARTIAL=1` switches this off.
+- The displays (envelope, filter, oscillators, arpeggiator) are clipped to their element, like VSTGUI views.
+- The static layer (backgrounds, panels, labels) of the last 8 page states is cached; the skin bitmaps are decoded
+  (and on Linux uploaded as X pixmaps) on idle ticks after the editor opens, so a page switch costs ~10 ms.
 
 ### Plug-in: `plugin/source/virusplugin.*`
 - **VST3 `SingleComponentEffect`:** stereo out, MIDI in, 224 automatable parameters with the original's IDs and an
   identical project-state format. The state is a "MIDI" container holding the multi, 16 part dumps, globals and CCs.
 - **Real-time path:** notes and automation are stamped on a sample timeline. A MIDI clock and song-position markers
   are sent alongside, and a worker thread hands everything to the broker.
+  - `process()` never allocates or locks: events go into a fixed buffer (256, notes always keep 100+ slots so no
+    note-off is lost), are ordered by an insertion sort (stable: automation before notes at the same stamp) and
+    pass a lock-free ring to the worker, which `process()` wakes once per block.
+  - Automation is rate limited (`src/device/automation.h`): coalesced per parameter, at most 250 messages/s,
+    oldest parameter first. A flood of parameter messages hangs the Virus' audio until a power cycle; with the
+    limit, three LFOs on every block still give each parameter ~80 updates/s.
+  - The worker writes a block's events in one broker message, and keeps the project state current off the audio
+    thread (latest value per parameter, every 5 ms; a field index updates one value of a 524-byte part dump in
+    ~0.4 us).
 - **Audio:** read from the broker's shared-memory ring, drift-corrected, with latency compensation.
 - **Banks:**
   - RAM A–D: synced from the Virus on first start, then cached.
@@ -132,6 +146,15 @@ TI2 detected, audio streaming with notes, bank sync (cancellable when the plug-i
 | Personal Libraries | `~/Documents/Access Music/Virus TI/Patches` |
 
 ## 4. Building and testing
+
+- **Unit tests:** `ctest --test-dir build` (`tests/`, a small built-in harness, no Virus needed): USB-MIDI packing,
+  state container, editor records, meta mapping, conditions and dumps on a hand-written device description, the
+  automation rate limit, library files. Tests on the user's Access files (every parameter's encoding, the real
+  single dump, editor rendering) are skipped where the files are missing (CI). CI runs them on all platforms.
+- **Sanitizers:** configure a separate build with `-fsanitize=thread` (or `address,undefined`) for compiler and
+  linker and run `nativehost --stress-params --notes --editor` (2026-10-14: no findings left).
+- **Partial repaint check:** `tools/uicompare/partialcmp.sh` compares every page after automation, once with partial
+  repaints and once with `VTI_NATIVE_NO_PARTIAL=1`; the screenshots must be identical.
 
 - **Build:** see the [README](../README.md). It needs the VST3 SDK 3.8 (submodule) and CMake. The tools also need
   X11/Xtst (nativehost) and cairo (vtirender).

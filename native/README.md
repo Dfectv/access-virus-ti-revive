@@ -35,6 +35,8 @@ cp -r build/VST3/Release/VirusTINative.vst3 ~/.vst3/
 
 Windows: the CI artifact `VirusTINative-windows` from `.github/workflows/build.yml`.
 
+Unit tests (no Virus needed): `ctest --test-dir build`.
+
 ## Using it in REAPER (Linux)
 
 1. Close every other program that uses the Virus: only one session can own it.
@@ -56,7 +58,7 @@ Windows: the CI artifact `VirusTINative-windows` from `.github/workflows/build.y
 Environment settings for testing:
 - **Timing:** `VTI_NATIVE_S` (stamp offset, default 5000), `VTI_NATIVE_M` (FE/F2 lead, default 1024),
   `VTI_NATIVE_PING`, `VTI_NATIVE_K`. See docs/status.md, R5.
-- **Repaint log:** `VTI_NATIVE_DRAWTIME`.
+- **Repaint log:** `VTI_NATIVE_DRAWTIME`. **Full repaints only** (fallback): `VTI_NATIVE_NO_PARTIAL`.
 
 ## Source layout
 
@@ -68,6 +70,7 @@ Environment settings for testing:
 | `src/device` | broker client, shared-memory audio ring, memory sync, USB-MIDI packing |
 | `plugin/source` | the VST3 plug-in (`VirusPlugin`) and its VSTGUI editor (`VirusEditor`) |
 | `tools` | developer tools, see below |
+| `tests` | unit tests (`vtitests`, run by ctest) |
 
 ## Tools
 
