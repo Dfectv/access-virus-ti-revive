@@ -534,14 +534,17 @@ int VirusPlugin::ui_value(const std::string &path, int part)
     if (path.rfind("Browser ", 0) == 0 && path.find("/Selected Bank") != std::string::npos &&
         !ui_state_.count(path))
         return path[8] - '0';
-    if (const Parameter *p = cond_ ? cond_->find(path) : nullptr)
-        if (p->part == "none")
-            part = -1; // global parameters (Panel Part, globals) are not per part
+    const Parameter *param = cond_ ? cond_->find(path) : nullptr;
+    if (param && param->part == "none")
+        part = -1; // global parameters (Panel Part, globals) are not per part
     {
         auto it = ui_state_.find(path);
         if (it != ui_state_.end())
             return it->second;
     }
+    // stored values outside the parameter's range (e.g. Vocoder/Bands 127 of 0..31 in old patches) are clamped like
+    // the original shows them
+    auto clamp = [param](int v) { return param && param->max > param->min ? std::max(param->min, std::min(param->max, v)) : v; };
     {
         std::lock_guard<std::mutex> lk(values_mu_);
         for (int p : {part, -1}) {
@@ -549,7 +552,7 @@ int VirusPlugin::ui_value(const std::string &path, int part)
             if (pv != part_values_.end()) {
                 auto v = pv->second.find(path);
                 if (v != pv->second.end())
-                    return v->second;
+                    return clamp(v->second);
             }
         }
     }

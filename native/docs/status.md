@@ -168,6 +168,16 @@ popup itself not testable headless - waiting for the user's retest.
 - Afterwards: the Virus goes back to Linux (open Linux items need the original next to ours: Hypersaw display,
   ArpEdit, FX2 menus, timing R5).
 
+## 2026-10-13 (night) - remaining displays
+
+- HyperSaw display (3 lines, spacing from DetuneSpread) and the arpeggiator user pattern (ArpEdit: bars, span over
+  off steps, mouse editing of velocity/length) - both pixel-identical to the original (captures via vtihost +
+  VTI_LOADSTATE with states built by `vtimodel setdump`; scripts in the session scratchpad, procedure: base state
+  from VTI_SAVESTATE, change part 0's dump, load, click the tab with xclick, ImageGrab).
+- Stored values outside a parameter's range are clamped on display (Vocoder/Bands 127 -> 32 like the original).
+- FX2 "Reverb/Type" active with Reverb/Send 0 in the original while Reverb/Mode (same condition) is greyed: an
+  inconsistency of the original (no special case in the decompile); ours follows the XML condition for both.
+
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
   Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples
