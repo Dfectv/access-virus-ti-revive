@@ -231,6 +231,10 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
     int lo = p ? p->min : 0, hi = p ? p->max : 127;
 
     void *normal = c.image(e.get("NormalBack"));
+    // the big rotating rings (MaskedKnob with KNB_*_Rot_* strips around the displays) are invisible at rest in the
+    // original - shown while the control is held
+    if (e.type == "MaskedKnob" && e.get("NormalBack").find("_Rot_") != std::string::npos && &e != pressed)
+        normal = nullptr;
     if (&e == pressed && c.image(e.get("PressedBack")))
         normal = c.image(e.get("PressedBack"));
     if (normal && e.w > 0 && e.h > 0) {
