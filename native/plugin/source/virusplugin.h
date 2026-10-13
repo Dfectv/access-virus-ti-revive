@@ -221,7 +221,7 @@ private:
     void meta_retrigger(int part, bool full);
     void meta_init();
     bool meta_cond(const Parameter &m, int part);
-    void set_editor_value(const std::string &path, int part, int value);
+    void set_editor_value(const std::string &path, int part, int value, bool persist = false);
     std::string lcd_param_, lcd_value_, lcd_part_, lcd_orig_; // the last edited parameter for the LCD
     void set_lcd(const std::string &param, const std::string &value, const std::string &part, const std::string &before);
     std::string search_;                                    // browser search text

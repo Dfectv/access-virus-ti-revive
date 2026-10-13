@@ -794,7 +794,7 @@ void VirusPlugin::ui_set(const std::string &path, int part, int value)
             meta_set(*ep, part < 0 ? 0 : part, std::max(ep->min, std::min(ep->max, value)), std::string(), true);
             meta_retrigger(part < 0 ? 0 : part, true);
         } else if (ep->part == "all") { // per-part editor values (FX switches, link buttons, helpers)
-            set_editor_value(path, part, value);
+            set_editor_value(path, part, value, true);
             std::lock_guard<std::recursive_mutex> mk(meta_mu_);
             meta_source(path, part < 0 ? 0 : part, value, true);
         } else
@@ -829,13 +829,62 @@ void VirusPlugin::ui_set(const std::string &path, int part, int value)
 // "retrigger" metas fire again when their condition becomes true (FX switch on/off, LFO clock switch).
 // full = false (changes reported by the Virus, loaded states): only editor-side clients are updated.
 
-void VirusPlugin::set_editor_value(const std::string &path, int part, int value)
+// editor-only per-part settings (LFO link buttons, ...) have no Virus message: they are kept in the state as
+// F0 7D 'V' 'T' 'N' 01 <part> <path ASCII> 00 <value> F7 (7D = non-commercial ID: the original and the Virus ignore it)
+static std::vector<uint8_t> editor_record(const std::string &path, int part, int value)
 {
-    std::lock_guard<std::mutex> lk(values_mu_);
-    ed_part_[{path, part < 0 ? 0 : part}] = value;
-    if (changed_.size() < 256)
-        changed_.insert(path);
-    ui_dirty_ = true;
+    std::vector<uint8_t> m = {0xF0, 0x7D, 'V', 'T', 'N', 0x01, (uint8_t)(part & 0x7F)};
+    for (char ch : path)
+        m.push_back((uint8_t)ch & 0x7F);
+    m.push_back(0);
+    m.push_back((uint8_t)(value & 0x7F));
+    m.push_back(0xF7);
+    return m;
+}
+
+static bool parse_editor_record(const std::vector<uint8_t> &m, std::string &path, int &part, int &value)
+{
+    if (m.size() < 11 || m[0] != 0xF0 || m[1] != 0x7D || m[2] != 'V' || m[3] != 'T' || m[4] != 'N' || m[5] != 0x01)
+        return false;
+    part = m[6];
+    size_t i = 7;
+    path.clear();
+    while (i < m.size() && m[i] != 0)
+        path += (char)m[i++];
+    if (i + 2 >= m.size())
+        return false;
+    value = m[i + 1];
+    return true;
+}
+
+void VirusPlugin::set_editor_value(const std::string &path, int part, int value, bool persist)
+{
+    part = part < 0 ? 0 : part;
+    {
+        std::lock_guard<std::mutex> lk(values_mu_);
+        ed_part_[{path, part}] = value;
+        if (changed_.size() < 256)
+            changed_.insert(path);
+        ui_dirty_ = true;
+    }
+    // persist the user's own settings (link buttons, clicked in the editor); values the meta engine derives from
+    // the patch (Filter Link from Filters/Select, FX switches) are not stored
+    const Parameter *p = ed_.find(path);
+    if (!persist || !p || p->group != "VirusControl Links")
+        return;
+    std::lock_guard<std::mutex> lk(state_mu_);
+    if (state_.empty())
+        state_ = default_;
+    auto rec = editor_record(path, part, value);
+    for (auto &r : state_) {
+        std::string rp;
+        int rpart, rv;
+        if (parse_editor_record(r, rp, rpart, rv) && rp == path && rpart == part) {
+            r = rec;
+            return;
+        }
+    }
+    state_.push_back(rec);
 }
 
 bool VirusPlugin::meta_cond(const Parameter &m, int part)
@@ -1527,6 +1576,7 @@ void VirusPlugin::apply_state_to_params()
     if (!single_template_)
         return;
     std::map<int, std::map<std::string, int>> parts;
+    std::vector<std::pair<std::pair<std::string, int>, int>> editor_vals;
     {
         std::lock_guard<std::mutex> lk(state_mu_);
         for (auto &r : state_) {
@@ -1537,6 +1587,12 @@ void VirusPlugin::apply_state_to_params()
                     dev_.decode_dump(*single_template_, r, parts[p], err);
                     dump = true;
                 }
+            std::string ep;
+            int epart, ev;
+            if (!dump && parse_editor_record(r, ep, epart, ev)) { // editor-only settings (link buttons)
+                editor_vals.push_back({{ep, epart}, ev});
+                continue;
+            }
             if (!dump) // controllers and parameter SysEx of the state (volume, pan, globals)
                 for (auto &c : dev_.decode(r))
                     parts[state_part(c.path, c.part)][c.path] = c.value;
@@ -1545,6 +1601,11 @@ void VirusPlugin::apply_state_to_params()
     {
         std::lock_guard<std::mutex> lk(values_mu_);
         part_values_ = parts;
+        for (auto &kv : ed_part_) // link buttons come from the state (default off)
+            if (const Parameter *p = ed_.find(kv.first.first); p && p->group == "VirusControl Links")
+                kv.second = p->def;
+        for (auto &e : editor_vals)
+            ed_part_[e.first] = e.second;
     }
     ui_dirty_ = true;
     for (auto &kv : params_) {
@@ -1564,7 +1625,7 @@ void VirusPlugin::send_state()
         return;
     std::lock_guard<std::mutex> lk(state_mu_);
     for (auto &r : state_)
-        if (!r.empty())
+        if (!r.empty() && !(r.size() > 2 && r[0] == 0xF0 && r[1] == 0x7D)) // not our editor-only records
             out_->send(r);
 }
 
