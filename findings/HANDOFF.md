@@ -40,6 +40,9 @@ PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `ti
     Optional later: editor mirror copies only changed frames.
 7. macOS: Control Center replacement (Access app is 32-bit) - biggest item.
 
+8. Linux: watch for E136 (Virus hung after rapid give-back resets during tests on 2026-10-13); if it repeats,
+   rate-limit the reset in vti_close.
+
 Waiting: **Snow** (issue #3, bidmessmer) - the regular plug-in finds the Snow, the Snow plug-in does not; asked for
 `tirevive-usbinfo.ps1` output after loading the Snow plug-in once (the vtiemu "device identity" line). Access'
 VirusUSB.inf also lists PID 0816 (unlikely the cause since TI Revive reaches the device).
