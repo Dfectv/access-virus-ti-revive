@@ -125,6 +125,19 @@ void DeviceOut::run()
         }
         if (idle_)
             idle_();
+        // the broker may refuse the audio start right after another session ended (stress test: every second
+        // quick re-open had no sound): retry every 500 ms while connected without audio
+        if (!audio_ok_ && std::chrono::steady_clock::now() >= audio_retry_) {
+            audio_retry_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
+#ifdef __APPLE__
+            int r = 1;
+#else
+            int r = broker_.audio(true);
+#endif
+            audio_ok_ = r == 1 && audio_.open();
+            if (audio_ok_)
+                fprintf(stderr, "Virus TI native: audio streaming (retry)\n");
+        }
         if (msg.empty())
             continue;
         // channel messages and clock ticks carry a time stamp: F5 lo hi on cable 5 = the frame on the Virus timeline
