@@ -86,8 +86,11 @@ public:
         renderer_.meter = [this](int ch) { return plugin_->meter(ch); };
         // device changes (knobs on the Virus, automation) repaint the view
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) {
-            if (plugin_->ui_changed() && !partial_) // during a drag the drag repaints its own area
+            plugin_->diag_report();
+            if (plugin_->ui_changed() && !partial_) { // during a drag the drag repaints its own area
+                plugin_->diag.dirty_ticks++;
                 invalid();
+            }
             else if (int changed = plugin_->tick_meters(2)) { // the original: -1 per ~25 ms idle tick; 2 per 50 ms
                 // repaint only the changed meters, merged into one area (a repaint per meter made hosts sluggish)
                 if (meter_rects_.empty()) { // the VU sliders (one per part), top to bottom = part 1..16
@@ -122,6 +125,11 @@ public:
         renderer_.clip_x1 = (int)std::ceil(r.right), renderer_.clip_y1 = (int)std::ceil(r.bottom);
         auto t0 = std::chrono::steady_clock::now();
         renderer_.render(canvas_);
+        {
+            long us = (long)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - t0).count();
+            plugin_->diag.draw_us += us;
+            (r.getWidth() >= getViewSize().getWidth() - 1 ? plugin_->diag.full_draws : plugin_->diag.part_draws)++;
+        }
         if (getenv("VTI_NATIVE_DRAWTIME"))
             fprintf(stderr, "editor draw %dx%d: %.2f ms\n", (int)r.getWidth(), (int)r.getHeight(),
                     std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());

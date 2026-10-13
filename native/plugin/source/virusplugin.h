@@ -165,6 +165,13 @@ public:
         return bank < 4 ? std::string("RAM ") + (char)('A' + bank) : std::string("ROM ") + (char)('A' + bank - 4);
     }
     bool ui_changed() { return ui_dirty_.exchange(false); }
+    // field diagnostics (file ~/.local/share/virus-ti-native/diag.on enables a log every 10 s in diag.log)
+    struct Diag {
+        std::atomic<long> full_draws{0}, part_draws{0}, draw_us{0}, dirty_ticks{0}, process_calls{0};
+        std::atomic<long> process_max_us{0}, process_over{0}; // over = longer than the block's real time
+    } diag;
+    bool diag_enabled();
+    void diag_report(); // editor timer thread
     // MIDI activity meters of the part strips (note-on velocity per MIDI channel, like the original's
     // "ShowMIDIActivityMeters"): tick_meters() decays them and returns the channels whose shown value changed (bits)
     int tick_meters(int step);

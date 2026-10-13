@@ -1,5 +1,6 @@
 // virusplugin.cpp - see virusplugin.h.
 #include "virusplugin.h"
+#include <ctime>
 #include <set>
 #include "viruseditor.h"
 #include "access/accessfiles.h"
@@ -437,8 +438,53 @@ void VirusPlugin::set_part_value(int part, const std::string &path, int value)
     state_.push_back(msg);
 }
 
+static std::string own_cache_dir();
+
+bool VirusPlugin::diag_enabled()
+{
+    static int on = -1;
+    if (on < 0) {
+        std::error_code ec;
+        on = std::filesystem::exists(own_cache_dir() + "/../diag.on", ec) ? 1 : 0;
+    }
+    return on == 1;
+}
+
+void VirusPlugin::diag_report()
+{
+    static auto next = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    if (!diag_enabled() || std::chrono::steady_clock::now() < next)
+        return;
+    next += std::chrono::seconds(10);
+    if (FILE *f = fopen((own_cache_dir() + "/../diag.log").c_str(), "a")) {
+        fprintf(f, "%ld s: draws full %ld partial %ld, draw time %ld ms, dirty ticks %ld, process calls %ld max %ld us,"
+                   " over block time %ld, audio %d drops %lld, queued %d\n",
+                (long)std::time(nullptr), diag.full_draws.exchange(0), diag.part_draws.exchange(0),
+                diag.draw_us.exchange(0) / 1000, diag.dirty_ticks.exchange(0), diag.process_calls.exchange(0),
+                diag.process_max_us.exchange(0), diag.process_over.exchange(0),
+                out_ ? (int)out_->audio_ready() : -1, (long long)(out_ && out_->audio_ready() ? out_->audio().drops() : -1),
+                out_ ? (int)out_->busy() : -1);
+        fclose(f);
+    }
+}
+
 tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
 {
+    struct ProcessTimer { // field diagnostics: duration of every process() call
+        VirusPlugin *p;
+        int samples;
+        std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+        ~ProcessTimer()
+        {
+            long us = (long)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - t0).count();
+            p->diag.process_calls++;
+            long m = p->diag.process_max_us.load();
+            while (us > m && !p->diag.process_max_us.compare_exchange_weak(m, us)) {
+            }
+            if (us > (long)(samples * 1000000.0 / (p->rate_ > 0 ? p->rate_ : 44100)))
+                p->diag.process_over++;
+        }
+    } process_timer{this, data.numSamples};
     // the Virus timeline: block start = newest ring frame - S, continued by the block size, re-anchored on drift
     static const int S = getenv("VTI_NATIVE_S") ? atoi(getenv("VTI_NATIVE_S")) : 5000;
     const double ratio = 44100.0 / rate_; // Virus frames per host sample
@@ -1450,6 +1496,15 @@ std::string VirusPlugin::patch_name(int part)
 
 void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
 {
+    if (getenv("VTI_NATIVE_PANELLOG")) {
+        static int n;
+        if (n++ < 40) {
+            fprintf(stderr, "panel:");
+            for (auto b : msg)
+                fprintf(stderr, " %02x", b);
+            fprintf(stderr, "\n");
+        }
+    }
     for (auto &c : dev_.decode(msg)) {
         if (c.part > 15)
             continue; // globals are not plug-in parameters
