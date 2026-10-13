@@ -62,6 +62,11 @@
   (X11 window + IRunLoop + XEmbed mapping, --click/--drag via XTest, --shot): click OSC -> OSC page; drag Oscillator
   volume +60 px -> 64 -> 102, "+38" shown, part dump byte 45 + checksums updated.
 
+- Editor fidelity vs screenshots of the original (vtihost under Xvfb, tabs clicked with tools/xclick.c): identical
+  pixels per page: Easy 97.0, Browser 89.3, OSC 90.3, Filter 93.7, LFO 97.5, Matrix 86.6, Arp 97.0, FX 93.3, Common
+  95.9, FX2 (page 11) 93.6 % (mean 93.4 %). Missing: custom displays (envelopes 0x180039df0.., filter curves,
+  osc shapes, patch browser), some menus/popups state. Menus pop up with the valuelist and switch layouts.
+
 ## Next
 - R3: device -> host (knobs on the Virus change parameters: decode incoming CC/poly pressure/SysEx with
   remotedevice.xml, update the part dumps, notify the host), realtime-safe event queue, exact F5 stamps (R5 rule).
