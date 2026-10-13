@@ -4,6 +4,7 @@
 #include "vstgui/lib/cbitmap.h"
 #include "vstgui/lib/cdrawcontext.h"
 #include "vstgui/lib/cframe.h"
+#include "vstgui/lib/controls/coptionmenu.h"
 #include "vstgui/lib/cvstguitimer.h"
 #include "vstgui/lib/events.h"
 #include "vstgui/lib/platform/platformfactory.h"
@@ -99,6 +100,11 @@ public:
         drag_ = h;
         drag_y_ = event.mousePosition.y;
         drag_value_ = plugin_->ui_value(param, h.part);
+        if (e.type == "Menu" || e.type == "HierarchicMenu") {
+            popup_menu(h, event.mousePosition);
+            event.consumed = true;
+            return;
+        }
         if (e.type == "RadioButton")
             plugin_->ui_set(param, h.part, atoi(e.get("OnValue").c_str()));
         else if (e.type == "Button" || e.type == "KickButton")
@@ -134,6 +140,39 @@ public:
     }
 
 private:
+    // a parameter's valuelist as a popup at the click position; the choice sets the parameter
+    void popup_menu(const Hit &h, const CPoint &where)
+    {
+        const std::string param = h.element->get("Parameter");
+        const Parameter *p = plugin_->conditions().find(param);
+        if (!p)
+            return;
+        auto *menu = new COptionMenu();
+        std::vector<int> values;
+        int current = plugin_->ui_value(param, h.part), index = -1;
+        for (int v = p->min; v <= p->max; v++) {
+            std::string t = renderer_.value_text(param, v);
+            if (t.empty())
+                continue;
+            if (v == current)
+                index = (int)values.size();
+            menu->addEntry(t.c_str());
+            values.push_back(v);
+        }
+        if (index >= 0)
+            menu->setCurrent(index);
+        int part = h.part;
+        CPoint loc(where);
+        menu->popup(getFrame(), loc, [this, param, part, values](COptionMenu *m) {
+            int r = m->getLastResult();
+            if (r >= 0 && r < (int)values.size()) {
+                plugin_->ui_set(param, part, values[r]);
+                invalid();
+            }
+        });
+        menu->forget();
+    }
+
     VirusPlugin *plugin_;
     EditorRenderer renderer_;
     std::map<std::string, SharedPointer<CBitmap>> bitmaps_;
