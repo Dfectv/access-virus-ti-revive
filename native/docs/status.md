@@ -5,7 +5,7 @@ win11 VM) and macOS (Ableton 12, M3). Virus is on the Linux PC (broker socket ac
 (Virus detached, Ableton was open there). Diagnostics off (no ~/.local/share/virus-ti-native/diag.on).
 
 Waiting for the user:
-1. HyperSaw: does turning the big Density knob audibly change the sound (CC 17)? Display now matches the original.
+1. (done 2026-10-14: HyperSaw sound + display confirmed by the user)
 2. Snow issues #3 (Windows: Access kernel driver) / #4 (macOS: MIDIServer driver) - answers posted, waiting for
    the testers.
 
@@ -15,7 +15,8 @@ Next (own tasks):
 - Timing R5 + reporting the plug-in latency to the host (getLatencySamples).
 - Start-up sync has priority again (user, 2026-10-14): the original's start-up page (InitialSyncProgress 0..126,
   progress bar) covers the editor and note-ons are held back while the bank check/sync runs (a few s; first start
-  ~8 min). The "pause while playing" variant (8119d36) is gone.
+  ~8 min). The "pause while playing" variant (8119d36) is gone. User (2026-10-14): everything working (sync screen,
+  Ctrl/double-click reset, HyperSaw).
 - Optional: skip the start-up bank check if the last one was recent (user asked; recommended to keep as is).
 - Tools: nativehost --stress/--block, VTI_NATIVE_STATS, diag.on/diag.log, tools/uicompare (capture the original).
 
