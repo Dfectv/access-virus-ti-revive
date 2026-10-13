@@ -1018,29 +1018,44 @@ void VirusPlugin::meta_source(const std::string &path, int part, int value, bool
 {
     if (meta_depth_ > 6)
         return;
+    meta_index();
+    auto src = meta_sources_.find(path);
+    if (src != meta_sources_.end())
+        for (auto [m, c] : src->second) {
+            if (!m->catch_always && !meta_cond(*m, part))
+                continue;
+            int mv;
+            if (!client_to_meta(*c, value, mv))
+                continue;
+            mv = std::max(m->min, std::min(m->max, mv));
+            meta_set(*m, part, mv, path, full);
+        }
+    meta_retrigger(part, full);
+}
+
+// path -> (meta, client) of the source clients, and the retrigger metas (meta_mu_; built once - meta_source ran
+// through all editor-device parameters on every change before)
+void VirusPlugin::meta_index()
+{
+    if (meta_indexed_)
+        return;
     for (auto &m : ed_.parameters) {
         if (!m.meta)
             continue;
-        for (auto &c : m.clients) {
-            if (c.path != path || c.nosource)
-                continue;
-            if (!m.catch_always && !meta_cond(m, part))
-                continue;
-            int mv;
-            if (!client_to_meta(c, value, mv))
-                continue;
-            mv = std::max(m.min, std::min(m.max, mv));
-            meta_set(m, part, mv, path, full);
-        }
+        for (auto &c : m.clients)
+            if (!c.nosource)
+                meta_sources_[c.path].push_back({&m, &c});
+        if (m.retrigger)
+            meta_retriggers_.push_back(&m);
     }
-    meta_retrigger(part, full);
+    meta_indexed_ = true;
 }
 
 void VirusPlugin::meta_retrigger(int part, bool full)
 {
-    for (auto &m : ed_.parameters) {
-        if (!m.meta || !m.retrigger)
-            continue;
+    meta_index();
+    for (const Parameter *mp : meta_retriggers_) {
+        const Parameter &m = *mp;
         bool now = meta_cond(m, part), before;
         {
             std::lock_guard<std::mutex> lk(values_mu_);

@@ -245,6 +245,10 @@ private:
     std::map<std::pair<std::string, int>, int> ed_part_, meta_vals_;
     std::map<std::pair<std::string, int>, bool> meta_cond_;
     std::recursive_mutex meta_mu_;
+    void meta_index();
+    bool meta_indexed_ = false; // meta_mu_
+    std::unordered_map<std::string, std::vector<std::pair<const Parameter *, const MetaClient *>>> meta_sources_;
+    std::vector<const Parameter *> meta_retriggers_;
     int meta_depth_ = 0; // > 0 while the engine sets linked parameters (no LCD update for those)
     void meta_source(const std::string &path, int part, int value, bool full);
     void meta_set(const Parameter &m, int part, int mv, const std::string &except, bool full);
