@@ -175,6 +175,13 @@ popup itself not testable headless - waiting for the user's retest.
   VTI_LOADSTATE with states built by `vtimodel setdump`; scripts in the session scratchpad, procedure: base state
   from VTI_SAVESTATE, change part 0's dump, load, click the tab with xclick, ImageGrab).
 - Stored values outside a parameter's range are clamped on display (Vocoder/Bands 127 -> 32 like the original).
+- Page diff against the original (all tabs, same state): LFO, MATRIX, COMMON, FX1 identical; ARP/FX2 < 0.1 %
+  (inactive menu text brightness differs in some places - the original is inconsistent there); EASY/OSC/FILTER
+  ~2-3 % = mostly the big knob rings (shown permanently since the user's feedback; the original under Wine shows
+  them only on hover), plus the curves below.
+- OSC classic display: default saw pixel-identical (1 px per column at floor(y), 2:1 steps, extra column);
+  mixed shapes (sine..saw, pulse) still differ: the original interpolates 64-point wave tables from the DLL
+  (FUN_180048470, DAT_1801ac340) - to do: read those tables at runtime.
 - FX2 "Reverb/Type" active with Reverb/Send 0 in the original while Reverb/Mode (same condition) is greyed: an
   inconsistency of the original (no special case in the decompile); ours follows the XML condition for both.
 
