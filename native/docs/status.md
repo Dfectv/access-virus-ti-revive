@@ -1,3 +1,21 @@
+# RESUME HERE (paused 2026-10-13 late evening, CLI restart)
+
+State: all work committed and pushed (private + public). Native VST3 runs on Linux (REAPER), Windows (Ableton,
+win11 VM) and macOS (Ableton 12, M3). Virus is on the Linux PC (broker socket active); win11 VM may still be running
+(Virus detached, Ableton was open there). Diagnostics off (no ~/.local/share/virus-ti-native/diag.on).
+
+Waiting for the user:
+1. HyperSaw: does turning the big Density knob audibly change the sound (CC 17)? Display now matches the original.
+2. Snow issues #3 (Windows: Access kernel driver) / #4 (macOS: MIDIServer driver) - answers posted, waiting for
+   the testers.
+
+Next (own tasks):
+- UI to-do list below ("UI to-do"): OSC classic mixed shapes (DLL wave tables), HP filter resonance, envelope 1 px,
+  big rings on hover?, page-switch cost (cache rebuild 30-45 ms).
+- Timing R5 + reporting the plug-in latency to the host (getLatencySamples).
+- Optional: skip the start-up bank check if the last one was recent (user asked; recommended to keep as is).
+- Tools: nativehost --stress/--block, VTI_NATIVE_STATS, diag.on/diag.log, tools/uicompare (capture the original).
+
 # Status
 
 ## 2026-10-12 (night)
