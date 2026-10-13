@@ -50,6 +50,10 @@ add_executable(nativehost tools/nativehost.cpp ${_h}/common/memorystream.cpp ${_
     $<$<PLATFORM_ID:Linux>:${_h}/vst/hosting/module_linux.cpp> $<$<PLATFORM_ID:Darwin>:${_h}/vst/hosting/module_mac.mm>
     $<$<PLATFORM_ID:Windows>:${_h}/vst/hosting/module_win32.cpp>)
 target_link_libraries(nativehost PRIVATE sdk_hosting $<$<PLATFORM_ID:Linux>:X11> $<$<PLATFORM_ID:Linux>:Xtst>)
+if(APPLE)
+    set_source_files_properties(${_h}/vst/hosting/module_mac.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+    target_link_libraries(nativehost PRIVATE "-framework Cocoa")
+endif()
 
 # offscreen render of the original editor layout (R4 checks)
 find_package(PkgConfig)
