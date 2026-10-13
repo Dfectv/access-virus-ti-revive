@@ -353,6 +353,14 @@ bool EditorRenderer::param_active(const std::string &param, int part) const
     return true;
 }
 
+// an element's own part: controls with Part >= 0 are bound to that part (the part strips: Part 0..15); containers'
+// Part is not passed on - the original's page and frame containers carry Part="0" while their controls follow the
+// selected part (user report: OSC sync of part 1 shown for part 2)
+int EditorRenderer::own_part(const Element &e)
+{
+    return e.type == "Container" ? -1 : e.part();
+}
+
 void EditorRenderer::render(Canvas &c)
 {
     for (auto &e : layout_.elements)
@@ -362,7 +370,7 @@ void EditorRenderer::render(Canvas &c)
 void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inherited)
 {
     // Part -1 = the enclosing patch container's part, else the current part
-    int pt = e.part() >= 0 ? e.part() : inherited >= 0 ? inherited : part;
+    int pt = own_part(e) >= 0 ? own_part(e) : inherited >= 0 ? inherited : part;
     if (!cond_.eval(e.get("Condition"), values, pt))
         return;
     int x = ox + e.x, y = oy + e.y;
@@ -449,12 +457,12 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
         text(c, font, str, x + tl, y + tt, e.w - tl - tr, e.h - tt - tb, e.get("Align"), alpha);
     }
     for (auto &ch : e.children)
-        draw(c, ch, x, y, e.part() >= 0 ? e.part() : inherited);
+        draw(c, ch, x, y, own_part(e) >= 0 ? own_part(e) : inherited);
 }
 
 bool EditorRenderer::hit(const Element &e, int ox, int oy, int inherited, int px, int py, Hit &out) const
 {
-    int pt = e.part() >= 0 ? e.part() : inherited >= 0 ? inherited : part;
+    int pt = own_part(e) >= 0 ? own_part(e) : inherited >= 0 ? inherited : part;
     if (!cond_.eval(e.get("Condition"), values, pt))
         return false;
     int x = ox + e.x, y = oy + e.y;
@@ -464,7 +472,7 @@ bool EditorRenderer::hit(const Element &e, int ox, int oy, int inherited, int px
         out.x = x, out.y = y, out.part = pt;
     }
     for (auto &ch : e.children)
-        hit(ch, x, y, e.part() >= 0 ? e.part() : inherited, px, py, out);
+        hit(ch, x, y, own_part(e) >= 0 ? own_part(e) : inherited, px, py, out);
     return out.element != nullptr;
 }
 

@@ -66,6 +66,7 @@ private:
     const EditorLayout &layout_;
     const Conditions &cond_;
     const RemoteDevice &dev_, &ed_;
+    static int own_part(const Element &e);
     void draw(Canvas &c, const Element &e, int ox, int oy, int inherited);
     // a frame (sy..sy+fh) of `img`, nine-part tiled to w x h when the bitmap is marked tiled
     void image(Canvas &c, const std::string &name, void *img, int sy, int fh, int x, int y, int w, int h, double alpha);

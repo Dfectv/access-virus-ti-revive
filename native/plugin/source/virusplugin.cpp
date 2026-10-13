@@ -698,6 +698,9 @@ void VirusPlugin::ui_set(const std::string &path, int part, int value)
             out_->send(msg);
     }
     set_part_value(part, path, value);
+    if (getenv("VTI_NATIVE_DEBUG"))
+        fprintf(stderr, "ui_set %s part %d = %d -> parts 0..2: %d %d %d\n", path.c_str(), part, value,
+                ui_value(path, 0), ui_value(path, 1), ui_value(path, 2));
     if (part >= 0) { // linked parameters (filter link, FX switches, LFO clocks)
         std::lock_guard<std::recursive_mutex> mk(meta_mu_);
         meta_source(path, part, value, true);
