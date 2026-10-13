@@ -51,6 +51,9 @@ plan docs/plan.md, status docs/status.md); TI Revive is its submodule. State 202
 Virus through the TI Revive broker (notes, parameters, audio, the original's state format) and has a working editor
 drawn from the user's Access files; timing (F5 stamps) and the remaining editor controls are open. First REAPER
 test by the user (2026-10-13): working, latency fine, minor UI issues.
+Kemper (2026-10-13, reply to the user's request): the Virus TI software will not be open-sourced, no plans; the
+wish is forwarded to management. -> stage 3 stays on its rule: no Access material in any repo, everything loaded
+from the user's own installation.
 Deferred by the user: Windows MIDI ports (design-midi-ports.md), WDM sound card (design-wdm-bridge.md), latency
 measurements.
 
