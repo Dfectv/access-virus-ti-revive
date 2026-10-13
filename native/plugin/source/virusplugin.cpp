@@ -1,5 +1,6 @@
 // virusplugin.cpp - see virusplugin.h.
 #include "virusplugin.h"
+#include "viruseditor.h"
 #include "access/accessfiles.h"
 #include "base/source/fstreamer.h"
 #include "device/usbmidi.h"
@@ -181,7 +182,8 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
     addAudioOutput(STR16("Out 3"), SpeakerArr::kStereo, BusTypes::kMain, 0);
 
     std::string err;
-    auto files = AccessFiles::open("", err);
+    files_ = AccessFiles::open("", err);
+    auto &files = files_;
     std::vector<AutomationEntry> autom;
     if (!files || !dev_.load(files->get("remotedevice.xml"), err) || !load_automation(files->get("automation.xml"), autom, err)) {
         // without the user's Access installation there is nothing to show; the host still gets a valid instance
@@ -189,6 +191,10 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
         return kResultOk;
     }
     single_template_ = dev_.message("VirusTI_Singledump");
+    if (ed_.load(files->get("editordevice.xml"), err) && layout_.load(files->get("editor.xml"), err))
+        cond_ = std::make_unique<Conditions>(dev_, ed_);
+    else
+        fprintf(stderr, "Virus TI native: no editor (%s)\n", err.c_str());
     // a new instance's state like the original's: empty record, the fixed multi, 16 parts = the init patch,
     // Output Control 2/3 globals, 14 controllers x 16 channels (formats.md)
     auto multi = files->init_multi();
@@ -280,6 +286,11 @@ tresult PLUGIN_API VirusPlugin::getMidiControllerAssignment(int32 bus, int16 cha
 
 void VirusPlugin::set_part_value(int part, const std::string &path, int value)
 {
+    {
+        std::lock_guard<std::mutex> lk(values_mu_);
+        part_values_[part][path] = value;
+    }
+    ui_dirty_ = true;
     if (!single_template_)
         return;
     std::lock_guard<std::mutex> lk(state_mu_);
@@ -364,6 +375,74 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
     return kResultOk;
 }
 
+IPlugView *PLUGIN_API VirusPlugin::createView(FIDString name)
+{
+    if (FIDStringsEqual(name, ViewType::kEditor) && files_ && cond_)
+        return new VirusEditor(this);
+    return nullptr;
+}
+
+int VirusPlugin::ui_value(const std::string &path, int part)
+{
+    {
+        auto it = ui_state_.find(path);
+        if (it != ui_state_.end())
+            return it->second;
+    }
+    {
+        std::lock_guard<std::mutex> lk(values_mu_);
+        for (int p : {part, -1}) {
+            auto pv = part_values_.find(p);
+            if (pv != part_values_.end()) {
+                auto v = pv->second.find(path);
+                if (v != pv->second.end())
+                    return v->second;
+            }
+        }
+    }
+    return cond_ ? cond_->default_value(path) : 0;
+}
+
+void VirusPlugin::ui_set(const std::string &path, int part, int value)
+{
+    if (ed_.find(path) && !dev_.find(path)) { // editor state (page selection, ...)
+        ui_state_[path] = value;
+        ui_dirty_ = true;
+        return;
+    }
+    auto id = ids_.find({path, part});
+    if (id != ids_.end()) { // automatable: through the host, which hands it to process()
+        ParamValue n = value / 127.0;
+        beginEdit(id->second);
+        setParamNormalized(id->second, n);
+        performEdit(id->second, n);
+        endEdit(id->second);
+    } else if (out_) { // not automatable (menus, globals): straight to the Virus
+        auto msg = dev_.encode(path, value, part < 0 ? 0 : part);
+        if (!msg.empty())
+            out_->send(msg);
+    }
+    set_part_value(part, path, value);
+}
+
+std::string VirusPlugin::patch_name(int part)
+{
+    std::string n;
+    std::lock_guard<std::mutex> lk(values_mu_);
+    auto p = part_values_.find(part);
+    if (p == part_values_.end())
+        return n;
+    for (int i = 1; i <= 10; i++) {
+        char k[48];
+        snprintf(k, sizeof k, "Single Patch Name/Character %02d", i);
+        auto c = p->second.find(k);
+        n += c == p->second.end() ? ' ' : (char)c->second;
+    }
+    while (!n.empty() && n.back() == ' ')
+        n.pop_back();
+    return n;
+}
+
 void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
 {
     for (auto &c : dev_.decode(msg)) {
@@ -385,13 +464,24 @@ void VirusPlugin::apply_state_to_params()
     std::map<int, std::map<std::string, int>> parts;
     {
         std::lock_guard<std::mutex> lk(state_mu_);
-        for (auto &r : state_)
+        for (auto &r : state_) {
+            bool dump = false;
             for (int p = 0; p < 16; p++)
                 if (is_part_dump(r, p)) {
                     std::string err;
                     dev_.decode_dump(*single_template_, r, parts[p], err);
+                    dump = true;
                 }
+            if (!dump) // controllers and parameter SysEx of the state (volume, pan, globals)
+                for (auto &c : dev_.decode(r))
+                    parts[c.part > 15 ? -1 : c.part][c.path] = c.value;
+        }
     }
+    {
+        std::lock_guard<std::mutex> lk(values_mu_);
+        part_values_ = parts;
+    }
+    ui_dirty_ = true;
     for (auto &kv : params_) {
         auto part = parts.find(kv.second.part);
         if (part == parts.end())

@@ -56,10 +56,16 @@
   (MaskedKnob KNB_Cutoff_Rot_Uni) is not drawn by the original at rest - open why (other MaskedKnobs are).
 - Device -> host knob feedback, realtime-safe event ring (R3).
 
+- R4: the plug-in has its EDITOR on Linux (VSTGUI): the original layout from the user's files via the shared renderer,
+  page switching by the header tabs, knob drags (vertical, full range over 200 px) -> performEdit for automatable
+  parameters / direct SysEx otherwise, part dumps updated, repaint on device changes. tools/nativehost --editor
+  (X11 window + IRunLoop + XEmbed mapping, --click/--drag via XTest, --shot): click OSC -> OSC page; drag Oscillator
+  volume +60 px -> 64 -> 102, "+38" shown, part dump byte 45 + checksums updated.
+
 ## Next
 - R3: device -> host (knobs on the Virus change parameters: decode incoming CC/poly pressure/SysEx with
   remotedevice.xml, update the part dumps, notify the host), realtime-safe event queue, exact F5 stamps (R5 rule).
 - REAPER test with the user: "Virus TI (native)" instance (Linux VST3), and a project saved with the original
   (VTI_NATIVE_DROPIN build) - needs the user at the PC.
-- R4: text rendering (bitmap fonts), custom displays (filter/envelope/osc shape), then the VSTGUI view in the plug-in
-  (same drawing code, interaction: knob drags, radio/menu clicks, page switching).
+- R4: menus (popup with the valuelist), text edit (patch name), patch browser, custom displays (filter response,
+  envelopes, osc shapes, arp step editor), part selection, LCD info panel (parameter name/value while dragging).

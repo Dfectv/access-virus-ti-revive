@@ -1,6 +1,8 @@
 smtg_add_vst3plugin(VirusTINative
     source/entry.cpp
     source/virusplugin.cpp
+    source/viruseditor.cpp
+    ${vst3sdk_SOURCE_DIR}/public.sdk/source/vst/vstguieditor.cpp
     ${vst3sdk_SOURCE_DIR}/public.sdk/source/vst/vstsinglecomponenteffect.cpp
 )
 target_link_libraries(VirusTINative PRIVATE sdk vstgui_support vticore)

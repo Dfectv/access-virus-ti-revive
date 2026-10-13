@@ -11,7 +11,14 @@
 #include "public.sdk/source/vst/hosting/processdata.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
+#include "pluginterfaces/gui/iplugview.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
+#ifdef __linux__
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/extensions/XTest.h>
+#include <poll.h>
+#endif
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -25,6 +32,110 @@
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
+
+#ifdef __linux__
+// Minimal Linux host side of the VST3 editor: IPlugFrame + IRunLoop (fd handlers, timers), pumped from main().
+struct RunLoop : Steinberg::Linux::IRunLoop, IPlugFrame {
+    struct Fd {
+        Steinberg::Linux::IEventHandler *h;
+        int fd;
+    };
+    struct Tm {
+        Steinberg::Linux::ITimerHandler *h;
+        int ms;
+        std::chrono::steady_clock::time_point next;
+    };
+    std::vector<Fd> fds;
+    std::vector<Tm> timers;
+    tresult PLUGIN_API queryInterface(const TUID iid, void **obj) override
+    {
+        if (FUnknownPrivate::iidEqual(iid, Steinberg::Linux::IRunLoop::iid)) {
+            *obj = static_cast<Steinberg::Linux::IRunLoop *>(this);
+            return kResultOk;
+        }
+        if (FUnknownPrivate::iidEqual(iid, IPlugFrame::iid) || FUnknownPrivate::iidEqual(iid, FUnknown::iid)) {
+            *obj = static_cast<IPlugFrame *>(this);
+            return kResultOk;
+        }
+        *obj = nullptr;
+        return kNoInterface;
+    }
+    uint32 PLUGIN_API addRef() override { return 1; }
+    uint32 PLUGIN_API release() override { return 1; }
+    tresult PLUGIN_API registerEventHandler(Steinberg::Linux::IEventHandler *h, Steinberg::Linux::FileDescriptor fd) override
+    {
+        fds.push_back({h, fd});
+        fprintf(stderr, "nativehost: fd handler %d registered\n", fd);
+        return kResultOk;
+    }
+    tresult PLUGIN_API unregisterEventHandler(Steinberg::Linux::IEventHandler *h) override
+    {
+        fds.erase(std::remove_if(fds.begin(), fds.end(), [&](const Fd &f) { return f.h == h; }), fds.end());
+        return kResultOk;
+    }
+    tresult PLUGIN_API registerTimer(Steinberg::Linux::ITimerHandler *h, Steinberg::Linux::TimerInterval ms) override
+    {
+        timers.push_back({h, (int)ms, std::chrono::steady_clock::now() + std::chrono::milliseconds(ms)});
+        fprintf(stderr, "nativehost: timer %d ms registered\n", (int)ms);
+        return kResultOk;
+    }
+    tresult PLUGIN_API unregisterTimer(Steinberg::Linux::ITimerHandler *h) override
+    {
+        timers.erase(std::remove_if(timers.begin(), timers.end(), [&](const Tm &t) { return t.h == h; }), timers.end());
+        return kResultOk;
+    }
+    tresult PLUGIN_API resizeView(IPlugView *view, ViewRect *r) override { return view->onSize(r); }
+    void pump()
+    {
+        for (size_t i = 0; i < fds.size(); i++) {
+            pollfd p{fds[i].fd, POLLIN, 0};
+            if (poll(&p, 1, 0) > 0)
+                fds[i].h->onFDIsSet(fds[i].fd);
+        }
+        auto now = std::chrono::steady_clock::now();
+        for (size_t i = 0; i < timers.size(); i++)
+            if (now >= timers[i].next) {
+                timers[i].next = now + std::chrono::milliseconds(timers[i].ms);
+                timers[i].h->onTimer();
+            }
+    }
+};
+
+static void save_window_ppm(Display *d, Window w, const char *path)
+{
+    XWindowAttributes a;
+    XGetWindowAttributes(d, w, &a);
+    XImage *img = XGetImage(d, w, 0, 0, a.width, a.height, AllPlanes, ZPixmap);
+    if (!img)
+        return;
+    if (FILE *f = fopen(path, "wb")) {
+        fprintf(f, "P6\n%d %d\n255\n", a.width, a.height);
+        for (int y = 0; y < a.height; y++)
+            for (int x = 0; x < a.width; x++) {
+                unsigned long px = XGetPixel(img, x, y);
+                unsigned char rgb[3] = {(unsigned char)(px >> 16), (unsigned char)(px >> 8), (unsigned char)px};
+                fwrite(rgb, 1, 3, f);
+            }
+        fclose(f);
+    }
+    XDestroyImage(img);
+}
+#endif
+
+#ifdef __linux__
+struct LinuxHost : HostApplication {
+    RunLoop *loop = nullptr;
+    tresult PLUGIN_API queryInterface(const TUID iid, void **obj) override
+    {
+        if (loop && FUnknownPrivate::iidEqual(iid, Steinberg::Linux::IRunLoop::iid)) {
+            fprintf(stderr, "nativehost: run loop requested\n");
+            *obj = static_cast<Steinberg::Linux::IRunLoop *>(loop);
+            return kResultOk;
+        }
+        return HostApplication::queryInterface(iid, obj);
+    }
+};
+#endif
 
 static std::vector<uint8_t> read_file(const char *path)
 {
@@ -65,7 +176,15 @@ int main(int argc, char **argv)
         return 2;
     }
     const char *state = nullptr, *save = nullptr, *wav = nullptr;
-    bool notes = false;
+    bool notes = false, editor = false;
+    struct Action {
+        double t;
+        char kind; // c = click, d = drag, s = screenshot
+        int x, y, dy;
+        std::string file;
+        bool done = false;
+    };
+    std::vector<Action> actions;
     double seconds = 1;
     std::vector<std::pair<ParamID, double>> changes;
     for (int i = 2; i < argc; i++) {
@@ -77,6 +196,22 @@ int main(int argc, char **argv)
             wav = argv[++i];
         else if (!strcmp(argv[i], "--notes"))
             notes = true;
+        else if (!strcmp(argv[i], "--editor"))
+            editor = true;
+        else if ((!strcmp(argv[i], "--click") || !strcmp(argv[i], "--drag") || !strcmp(argv[i], "--shot")) && i + 1 < argc) {
+            // --click x,y@t  --drag x,y,dy@t  --shot file.ppm@t
+            Action a{};
+            a.kind = argv[i][2];
+            std::string v = argv[++i];
+            size_t at = v.rfind('@');
+            a.t = at == std::string::npos ? 1 : atof(v.c_str() + at + 1);
+            v = v.substr(0, at);
+            if (a.kind == 's')
+                a.file = v;
+            else
+                sscanf(v.c_str(), "%d,%d,%d", &a.x, &a.y, &a.dy);
+            actions.push_back(a);
+        }
         else if (!strcmp(argv[i], "--seconds") && i + 1 < argc)
             seconds = atof(argv[++i]);
         else if (!strcmp(argv[i], "--param") && i + 1 < argc) {
@@ -91,7 +226,15 @@ int main(int argc, char **argv)
         fprintf(stderr, "nativehost: %s\n", err.c_str());
         return 1;
     }
+#ifdef __linux__
+    static RunLoop runloop;
+    auto *host = new LinuxHost;
+    host->loop = &runloop;
+#else
+    auto *host = new HostApplication;
+#endif
     auto factory = module->getFactory();
+    factory.setHostContext(host);
     auto infos = factory.classInfos();
     VST3::Hosting::ClassInfo audio;
     for (auto &ci : infos) {
@@ -104,7 +247,6 @@ int main(int argc, char **argv)
         fprintf(stderr, "nativehost: createInstance failed\n");
         return 1;
     }
-    auto *host = new HostApplication;
     printf("initialize -> %d\n", (int)comp->initialize(host));
     FUnknownPtr<IAudioProcessor> proc(comp);
     FUnknownPtr<IEditController> ctl(comp);
@@ -120,6 +262,37 @@ int main(int argc, char **argv)
         printf("getState: %zu bytes, %s\n", out.size(), out == in ? "IDENTICAL to the loaded state" : "differs");
     }
 
+#ifdef __linux__
+    Display *dpy = nullptr;
+    Window win = 0;
+    IPlugView *view = nullptr;
+    if (editor && ctl) {
+        dpy = XOpenDisplay(nullptr);
+        view = ctl->createView(ViewType::kEditor);
+        if (!dpy || !view) {
+            fprintf(stderr, "nativehost: no display or no editor\n");
+            return 1;
+        }
+        ViewRect r{};
+        view->getSize(&r);
+        win = XCreateSimpleWindow(dpy, DefaultRootWindow(dpy), 0, 0, r.getWidth(), r.getHeight(), 0, 0, 0);
+        XMapWindow(dpy, win);
+        XFlush(dpy);
+        view->setFrame(&runloop);
+        printf("editor %dx%d attached -> %d\n", r.getWidth(), r.getHeight(),
+               (int)view->attached((void *)(uintptr_t)win, kPlatformTypeX11EmbedWindowID));
+        // XEmbed: the embedder maps the plug-in's window (real hosts do this)
+        Window root_ret, parent_ret, *kids = nullptr;
+        unsigned nkids = 0;
+        if (XQueryTree(dpy, win, &root_ret, &parent_ret, &kids, &nkids)) {
+            for (unsigned k = 0; k < nkids; k++)
+                XMapWindow(dpy, kids[k]);
+            if (kids)
+                XFree(kids);
+        }
+        XFlush(dpy);
+    }
+#endif
     ProcessSetup ps{kRealtime, kSample32, 512, 44100};
     proc->setupProcessing(ps);
     comp->setActive(true);
@@ -196,6 +369,37 @@ int main(int argc, char **argv)
             peak = 0;
         }
         t_next += std::chrono::microseconds(11610); // real time: 512 frames at 44.1 kHz
+#ifdef __linux__
+        if (view) {
+            double now = (b + 1) * 512 / 44100.0;
+            for (auto &a : actions)
+                if (!a.done && now >= a.t) {
+                    a.done = true;
+                    if (a.kind == 's') {
+                        save_window_ppm(dpy, win, a.file.c_str());
+                        printf("screenshot %s at %.1f s\n", a.file.c_str(), now);
+                        continue;
+                    }
+                    int wx, wy;
+                    Window child;
+                    XTranslateCoordinates(dpy, win, DefaultRootWindow(dpy), a.x, a.y, &wx, &wy, &child);
+                    XTestFakeMotionEvent(dpy, -1, wx, wy, 0);
+                    XTestFakeButtonEvent(dpy, 1, True, 0);
+                    XFlush(dpy);
+                    for (int k = 1; a.kind == 'd' && k <= 10; k++) { // drag in 10 steps
+                        runloop.pump();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(15));
+                        XTestFakeMotionEvent(dpy, -1, wx, wy - a.dy * k / 10, 0);
+                        XFlush(dpy);
+                    }
+                    runloop.pump();
+                    XTestFakeButtonEvent(dpy, 1, False, 0);
+                    XFlush(dpy);
+                    printf("%s %d,%d at %.1f s\n", a.kind == 'c' ? "click" : "drag", a.x, a.y, now);
+                }
+            runloop.pump();
+        }
+#endif
         std::this_thread::sleep_until(t_next);
     }
     if (wav) {
@@ -212,6 +416,14 @@ int main(int argc, char **argv)
     }
     proc->setProcessing(false);
     comp->setActive(false);
+#ifdef __linux__
+    if (view) {
+        view->removed();
+        view->release();
+        XDestroyWindow(dpy, win);
+        XCloseDisplay(dpy);
+    }
+#endif
     if (save) {
         auto out = get_state(comp);
         if (FILE *f = fopen(save, "wb")) {

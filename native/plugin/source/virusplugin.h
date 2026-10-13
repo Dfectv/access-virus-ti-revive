@@ -2,7 +2,9 @@
 // (automation.xml + 32 MIDI-mapping targets) and the same state format (docs/formats.md), talking to the Virus
 // through the TI Revive broker. Audio and editor follow in later steps.
 #pragma once
+#include "access/accessfiles.h"
 #include "device/audioin.h"
+#include "editor/editormodel.h"
 #include "device/broker.h"
 #include "model/remotedevice.h"
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
@@ -71,6 +73,19 @@ public:
     Steinberg::tresult PLUGIN_API setState(Steinberg::IBStream *state) override;
     Steinberg::tresult PLUGIN_API getState(Steinberg::IBStream *state) override;
 
+    Steinberg::IPlugView *PLUGIN_API createView(Steinberg::FIDString name) override;
+
+    // editor support (viruseditor.cpp)
+    const AccessFiles &files() const { return *files_; }
+    const EditorLayout &layout() const { return layout_; }
+    const Conditions &conditions() const { return *cond_; }
+    const RemoteDevice &device() const { return dev_; }
+    const RemoteDevice &editor_device() const { return ed_; }
+    int ui_value(const std::string &path, int part);              // device, controller or editor-state value
+    void ui_set(const std::string &path, int part, int value);    // a change made in the editor
+    std::string patch_name(int part);
+    bool ui_changed() { return ui_dirty_.exchange(false); }
+
     // IMidiMapping: channel aftertouch / pitch bend -> the original's per-channel parameters
     Steinberg::tresult PLUGIN_API getMidiControllerAssignment(Steinberg::int32 busIndex, Steinberg::int16 channel,
                                                               Steinberg::Vst::CtrlNumber midiControllerNumber,
@@ -87,7 +102,14 @@ private:
         std::string path;
         int part = 0; // 0-based
     };
-    RemoteDevice dev_;
+    RemoteDevice dev_, ed_;
+    std::unique_ptr<AccessFiles> files_;
+    EditorLayout layout_;
+    std::unique_ptr<Conditions> cond_;
+    std::mutex values_mu_;
+    std::map<int, std::map<std::string, int>> part_values_; // decoded part dumps + controllers, per part (-1 = global)
+    std::map<std::string, int> ui_state_;                   // editor-only parameters (VirusControl/SelectedPage ...)
+    std::atomic<bool> ui_dirty_{true};
     std::map<Steinberg::Vst::ParamID, Mapped> params_;
     std::map<std::pair<std::string, int>, Steinberg::Vst::ParamID> ids_; // (path, part 0-based) -> id
     std::mutex pending_mu_;
