@@ -177,7 +177,7 @@ int main(int argc, char **argv)
         return 2;
     }
     const char *state = nullptr, *save = nullptr, *wav = nullptr;
-    bool notes = false, editor = false;
+    bool notes = false, editor = false, stress = false;
     struct Action {
         double t;
         char kind; // c = click, d = drag, s = screenshot
@@ -197,6 +197,8 @@ int main(int argc, char **argv)
             wav = argv[++i];
         else if (!strcmp(argv[i], "--notes"))
             notes = true;
+        else if (!strcmp(argv[i], "--stress")) // MIDI load: notes on 16 channels + 32 automated parameters per block
+            stress = true;
         else if (!strcmp(argv[i], "--editor"))
             editor = true;
         else if ((!strcmp(argv[i], "--click") || !strcmp(argv[i], "--drag") || !strcmp(argv[i], "--shot") ||
@@ -327,8 +329,35 @@ int main(int argc, char **argv)
                     ev.addEvent(e);
                 }
         }
+        if (stress) { // every block: a note on/off pair on each of the 16 channels (cycling pitches)
+            for (int ch = 0; ch < 16; ch++) {
+                Event e{};
+                e.sampleOffset = ch * 30;
+                e.type = Event::kNoteOffEvent;
+                e.noteOff = {(int16)ch, (int16)(48 + (b + ch) % 24), 0.f, -1, 0};
+                ev.addEvent(e);
+                e.sampleOffset = ch * 30 + 5;
+                e.type = Event::kNoteOnEvent;
+                e.noteOn = {(int16)ch, (int16)(48 + (b + ch + 1) % 24), 0, 0.7f, 0, -1};
+                ev.addEvent(e);
+            }
+        }
         data.inputEvents = &ev;
         pc.clearQueue();
+        if (stress && ctl) { // 32 automatable parameters moving every block
+            static std::vector<ParamID> ids;
+            if (ids.empty())
+                for (int32 k = 0; k < ctl->getParameterCount() && ids.size() < 32; k++) {
+                    ParameterInfo pi{};
+                    if (ctl->getParameterInfo(k, pi) == kResultOk && (pi.flags & ParameterInfo::kCanAutomate))
+                        ids.push_back(pi.id);
+                }
+            for (size_t k = 0; k < ids.size(); k++) {
+                int32 idx;
+                if (auto *q = pc.addParameterData(ids[k], idx))
+                    q->addPoint((int32)(k * 15), 0.5 + 0.4 * std::sin((b + k * 7) * 0.05), idx);
+            }
+        }
         if (b == 1)
             for (auto &c : changes) {
                 int32 idx;

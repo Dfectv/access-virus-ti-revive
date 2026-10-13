@@ -67,6 +67,7 @@ private:
     static constexpr size_t RT_SLOTS = 1024;
     Slot rt_[RT_SLOTS];
     std::atomic<size_t> rt_w_{0}, rt_r_{0};
+    int rt_run_ = 0; // real-time messages sent in a row (worker thread)
     std::atomic<bool> stop_{false};
     bool open_ = false;
     AudioIn audio_;

@@ -112,12 +112,17 @@ void DeviceOut::run()
             if (stop_)
                 break;
             size_t r = rt_r_.load(std::memory_order_relaxed);
-            if (r != rt_w_.load(std::memory_order_acquire)) { // events from process() first
+            // events from process() first, but after 8 in a row one queued message (state, dumps, sync requests),
+            // else dense MIDI starves the queue (stress test: queue stuck, bank sync timed out)
+            bool rt = r != rt_w_.load(std::memory_order_acquire) && !(rt_run_ >= 8 && !queue_.empty());
+            if (rt) {
                 const Slot &sl = rt_[r % RT_SLOTS];
                 msg.assign(sl.data, sl.data + sl.len);
                 stamp = sl.stamp;
                 rt_r_.store(r + 1, std::memory_order_release);
+                rt_run_++;
             } else if (!queue_.empty()) {
+                rt_run_ = 0;
                 msg = std::move(queue_.front());
                 queue_.pop_front();
                 pending_send_ = true; // counted down after the write, so busy() covers the transfer
