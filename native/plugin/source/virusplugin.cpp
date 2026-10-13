@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <dirent.h>
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -191,6 +192,7 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
         return kResultOk;
     }
     single_template_ = dev_.message("VirusTI_Singledump");
+    load_banks();
     if (ed_.load(files->get("editordevice.xml"), err) && layout_.load(files->get("editor.xml"), err))
         cond_ = std::make_unique<Conditions>(dev_, ed_);
     else
@@ -429,6 +431,53 @@ void VirusPlugin::ui_set(const std::string &path, int part, int value)
             out_->send(msg);
     }
     set_part_value(part, path, value);
+}
+
+// The Virus' RAM banks: our cache (tools/virussync, later the plug-in's own sync), else the original's Access cache
+// (read only) - Windows/Wine: ProgramData/Access Music/Virus TI/Cache/<device>, Mac: /Library/Application Support/...
+void VirusPlugin::load_banks()
+{
+    std::vector<std::string> dirs;
+    if (const char *home = getenv("HOME"))
+        dirs.push_back(std::string(home) + "/.local/share/virus-ti-native/cache");
+    if (const char *pd = getenv("ProgramData"))
+        dirs.push_back(std::string(pd) + "/Access Music/Virus TI/Cache");
+    if (const char *home = getenv("HOME"))
+        dirs.push_back(std::string(home) + "/.wine/drive_c/ProgramData/Access Music/Virus TI/Cache");
+    dirs.push_back("/Library/Application Support/Access Music/Virus TI/Cache");
+    auto try_dir = [&](const std::string &d) {
+        int found = 0;
+        for (int b = 0; b < 4; b++) {
+            Bank bank;
+            if (load_bank_file(d + "/RAM " + (char)('A' + b), bank)) {
+                banks_[b].assign(bank.begin(), bank.end());
+                found++;
+            }
+        }
+        return found > 0;
+    };
+    for (auto &d : dirs) {
+        if (try_dir(d))
+            return;
+        // the Access cache has one subdirectory per device
+        DIR *dp = opendir(d.c_str());
+        if (!dp)
+            continue;
+        for (dirent *de; (de = readdir(dp));)
+            if (de->d_name[0] != '.' && try_dir(d + "/" + de->d_name)) {
+                closedir(dp);
+                return;
+            }
+        closedir(dp);
+    }
+}
+
+std::string VirusPlugin::bank_patch(int bank, int program)
+{
+    auto b = banks_.find(bank);
+    if (b == banks_.end() || program < 0 || program >= (int)b->second.size() || b->second[program].size() != 524)
+        return {};
+    return std::string(b->second[program].begin() + 249, b->second[program].begin() + 259);
 }
 
 std::string VirusPlugin::patch_name(int part)

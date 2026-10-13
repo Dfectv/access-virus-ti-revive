@@ -6,6 +6,7 @@
 #include "device/audioin.h"
 #include "editor/editormodel.h"
 #include "device/broker.h"
+#include "device/memsync.h"
 #include "model/remotedevice.h"
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
 #include "public.sdk/source/vst/vstsinglecomponenteffect.h"
@@ -84,6 +85,7 @@ public:
     int ui_value(const std::string &path, int part);              // device, controller or editor-state value
     void ui_set(const std::string &path, int part, int value);    // a change made in the editor
     std::string patch_name(int part);
+    std::string bank_patch(int bank, int program); // stored patch name from the bank cache (RAM A..D)
     bool ui_changed() { return ui_dirty_.exchange(false); }
 
     // IMidiMapping: channel aftertouch / pitch bend -> the original's per-channel parameters
@@ -110,6 +112,8 @@ private:
     std::map<int, std::map<std::string, int>> part_values_; // decoded part dumps + controllers, per part (-1 = global)
     std::map<std::string, int> ui_state_;                   // editor-only parameters (VirusControl/SelectedPage ...)
     std::atomic<bool> ui_dirty_{true};
+    std::map<int, std::vector<std::vector<uint8_t>>> banks_; // RAM A..D (bank cache, see load_banks)
+    void load_banks();
     std::map<Steinberg::Vst::ParamID, Mapped> params_;
     std::map<std::pair<std::string, int>, Steinberg::Vst::ParamID> ids_; // (path, part 0-based) -> id
     std::mutex pending_mu_;
