@@ -216,6 +216,11 @@ FILTER 2.70 % (mostly the big knob rings, which we show permanently).
   128..2048 fine. Open (R5): the plug-in reports no latency to the host yet (getLatencySamples) - needs the real
   note-to-audio latency (variable K), else delay compensation would be wrong.
 - Tooling: nativehost --stress / --stress-notes / --stress-params / --block N; VTI_NATIVE_STATS.
+- User tests in REAPER: (a) pages showed part 1's values for every part (containers' Part="0" was inherited) ->
+  fixed (bbfb44b); (b) USB unplug during playback not detected, no sound after reconnect -> the worker follows the
+  broker's device state: "Virus disconnected" on the LCD, on return start-up messages + state again, audio retry,
+  timeline re-anchor (a64743b) - waiting for the user's retest. Still to test by the user: project save/reload and
+  quick project switching.
 
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
