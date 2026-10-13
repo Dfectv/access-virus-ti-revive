@@ -42,6 +42,12 @@ static bool env_debug()
     return on;
 }
 
+static bool env_no_partial() // fallback / test reference: value changes repaint everything (as before 2026-10-14)
+{
+    static const bool on = getenv("VTI_NATIVE_NO_PARTIAL") != nullptr;
+    return on;
+}
+
 static bool env_drawtime()
 {
     static const bool on = getenv("VTI_NATIVE_DRAWTIME") != nullptr; // read once (called on hot paths)
@@ -152,10 +158,27 @@ public:
         ctx->setLineWidth(1);
         ctx->drawLine(CPoint(x0, y0), CPoint(x1, y1));
     }
+    void push_clip(int x, int y, int w, int h) override
+    {
+        CRect old;
+        ctx->getClipRect(old);
+        clips_.push_back(old);
+        CRect r(x, y, x + w, y + h);
+        r.bound(old);
+        ctx->setClipRect(r);
+    }
+    void pop_clip() override
+    {
+        if (!clips_.empty()) {
+            ctx->setClipRect(clips_.back());
+            clips_.pop_back();
+        }
+    }
 
 private:
     const AccessFiles &files_;
     std::map<std::string, SharedPointer<CBitmap>> &cache_;
+    std::vector<CRect> clips_;
 };
 
 class EditorCanvasView : public CView, public IControlListener, public TextEditListenerAdapter {
@@ -175,7 +198,30 @@ public:
             if (plugin_->ui_changed() && !partial_) { // during a drag the drag repaints its own area
                 plugin_->diag.dirty_ticks++;
                 plugin_->lcd_changed();
+                plugin_->values_changed();
+                plugin_->take_changed();
                 invalid();
+            } else if (!partial_ && plugin_->values_changed()) {
+                // automation / Virus panel: repaint the elements that read the changed values in the last full
+                // repaint (deps_), and everything when a value decides what is shown (conditions, the panel part)
+                bool overflow = false, full = deps_.rects.empty() || env_no_partial();
+                auto changed = plugin_->take_changed(&overflow);
+                for (auto &p : changed)
+                    if (deps_.cond.count(p) || p == plugin_->layout().frame_parameter)
+                        full = true;
+                if (full || overflow) {
+                    plugin_->diag.dirty_ticks++;
+                    invalid();
+                } else {
+                    for (auto &p : changed) {
+                        auto it = deps_.rects.find(p);
+                        if (it != deps_.rects.end())
+                            for (auto &rc : it->second)
+                                invalidRect(CRect(rc[0] - 2, rc[1] - 2, rc[0] + rc[2] + 2, rc[1] + rc[3] + 2));
+                    }
+                    if (plugin_->lcd_changed())
+                        invalidRect(CRect(200, 470, 560, 512));
+                }
             } else if (plugin_->lcd_changed() && !partial_)
                 invalidRect(CRect(200, 470, 560, 512)); // the LCD only
             else if (int changed = plugin_->tick_meters(2)) { // the original: -1 per ~25 ms idle tick; 2 per 50 ms
@@ -250,7 +296,13 @@ public:
             renderer_.layer = 2;
         } else
             renderer_.layer = 0;
+        if (full_update) { // record what the controls read, for partial repaints of value changes
+            deps_.cond.clear();
+            deps_.rects.clear();
+            renderer_.deps = &deps_;
+        }
         renderer_.render(canvas_);
+        renderer_.deps = nullptr;
         {
             long us = (long)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - t0).count();
             plugin_->diag.draw_us += us;
@@ -505,6 +557,7 @@ private:
     }
     int edit_part_ = 0;
     std::vector<CRect> meter_rects_; // the part strips' meters
+    EditorRenderer::Deps deps_;      // what the controls read (filled by full repaints)
     SharedPointer<CBitmap> static_bg_;              // cached static layer
     std::vector<const Element *> static_key_;       // its visible conditional static elements
     bool editing_search_ = false;

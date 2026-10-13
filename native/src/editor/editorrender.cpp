@@ -394,19 +394,44 @@ std::vector<const Element *> EditorRenderer::static_signature() const
     return out;
 }
 
+void EditorRenderer::dep_read(const std::string &path)
+{
+    if (dep_cond_)
+        deps->cond.insert(path);
+    else if (dep_rect_[2] > 0) {
+        auto &v = deps->rects[path];
+        if (v.empty() || v.back() != dep_rect_)
+            v.push_back(dep_rect_);
+    }
+}
+
 void EditorRenderer::render(Canvas &c)
 {
     if (layer == 1)
         static_key.clear();
+    ValueFn plain;
+    if (deps) { // record the reads (conditions and drawing helpers all go through `values`)
+        plain = values;
+        values = [this, &plain](const std::string &path, int pt) {
+            dep_read(path);
+            return plain(path, pt);
+        };
+        dep_cond_ = false, dep_rect_ = {};
+    }
     for (auto &e : layout_.elements)
         draw(c, e, 0, 0, -1);
+    if (deps)
+        values = plain;
 }
 
 void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inherited)
 {
     // Part -1 = the enclosing patch container's part, else the current part
     int pt = own_part(e) >= 0 ? own_part(e) : inherited >= 0 ? inherited : part;
-    if (!cond_.eval(e.get("Condition"), values, pt))
+    dep_cond_ = true;
+    bool shown = cond_.eval(e.get("Condition"), values, pt);
+    dep_cond_ = false;
+    if (!shown)
         return;
     int x = ox + e.x, y = oy + e.y;
     if (e.w > 0 && e.h > 0 && (x >= clip_x1 || y >= clip_y1 || x + e.w <= clip_x0 || y + e.h <= clip_y0))
@@ -418,6 +443,7 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
     if (layer == 1 && param.empty() && !e.get("Condition").empty())
         static_key.push_back(&e); // visible conditional static elements: the cache's identity
     if (!skip_self) {
+    dep_rect_ = {x, y, e.w, e.h};
     const Parameter *p = param.empty() ? nullptr : cond_.find(param);
     int v = param.empty() ? 0 : values(param, pt);
     // inactive controls (the parameter's own condition is false; soft knobs without destination) are translucent
@@ -459,6 +485,10 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
     } else if (e.get("Transparent") == "false" && e.back.a)
         c.fill(x, y, e.w, e.h, e.back);
 
+    bool display = (e.type.size() == 11 && e.type.compare(3, 8, "Response") == 0) || e.type == "OscClassicShape" ||
+                   e.type == "OscHypersawShape" || e.type == "ArpEdit" || e.type == "ADSTREnvelope";
+    if (display)
+        c.push_clip(x, y, e.w, e.h);
     if (e.type.size() == 11 && e.type.compare(3, 8, "Response") == 0 && !param.empty())
         filter_response(c, e, x, y, pt);
     if (e.type == "OscClassicShape" && !param.empty())
@@ -469,6 +499,8 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
         arp_edit(c, e, x, y, pt);
     if (e.type == "ADSTREnvelope" && !param.empty())
         envelope(c, e, x, y, pt, alpha);
+    if (display)
+        c.pop_clip();
     if (e.type == "PatchBrowser" && bank_patch && !param.empty()) {
         patch_browser(c, e, x, y, values(param, pt)); // "Browser N/Selected Bank" (the host side keeps it)
     }
@@ -498,6 +530,7 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
         text(c, font, str, x + tl, y + tt, e.w - tl - tr, e.h - tt - tb, e.get("Align"), alpha);
     }
     }
+    dep_rect_ = {};
     for (auto &ch : e.children)
         draw(c, ch, x, y, own_part(e) >= 0 ? own_part(e) : inherited);
 }

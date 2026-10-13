@@ -439,8 +439,10 @@ void VirusPlugin::set_part_value(int part, const std::string &path, int value)
         part_values_[part][path] = value;
         if (changed_.size() < 256)
             changed_.insert(path);
+        else
+            changed_overflow_ = true;
     }
-    ui_dirty_ = true;
+    values_dirty_ = true; // a partial repaint of the controls showing it (was a full repaint per change)
     if (!single_template_)
         return;
     std::lock_guard<std::mutex> lk(state_mu_);
@@ -933,7 +935,9 @@ void VirusPlugin::set_editor_value(const std::string &path, int part, int value,
         ed_part_[{path, part}] = value;
         if (changed_.size() < 256)
             changed_.insert(path);
-        ui_dirty_ = true;
+        else
+            changed_overflow_ = true;
+        values_dirty_ = true;
     }
     // persist the user's own settings (link buttons, clicked in the editor); values the meta engine derives from
     // the patch (Filter Link from Filters/Select, FX switches) are not stored

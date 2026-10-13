@@ -81,6 +81,13 @@ struct CairoCanvas : Canvas {
         cairo_rectangle(cr, x, y, w, h);
         cairo_fill(cr);
     }
+    void push_clip(int x, int y, int w, int h) override
+    {
+        cairo_save(cr);
+        cairo_rectangle(cr, x, y, w, h);
+        cairo_clip(cr);
+    }
+    void pop_clip() override { cairo_restore(cr); }
     void line(double x0, double y0, double x1, double y1, Rgba c) override
     {
         cairo_set_source_rgba(cr, c.r / 255., c.g / 255., c.b / 255., c.a / 255.);

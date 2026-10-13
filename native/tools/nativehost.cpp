@@ -178,6 +178,7 @@ int main(int argc, char **argv)
     }
     const char *state = nullptr, *save = nullptr, *wav = nullptr;
     bool notes = false, editor = false, stress = false, stress_notes = true, stress_params = true;
+    double stress_stop = 1e9;
     int block = 512; // --block N: host block size
     struct Action {
         double t;
@@ -204,6 +205,8 @@ int main(int argc, char **argv)
             stress = true, stress_params = false;
         else if (!strcmp(argv[i], "--stress-params")) // only the automation of --stress
             stress = true, stress_notes = false;
+        else if (!strcmp(argv[i], "--stress-stop") && i + 1 < argc) // the automation of --stress ends after N s
+            stress_stop = atof(argv[++i]);
         else if (!strcmp(argv[i], "--block") && i + 1 < argc)
             block = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--editor"))
@@ -351,7 +354,7 @@ int main(int argc, char **argv)
         }
         data.inputEvents = &ev;
         pc.clearQueue();
-        if (stress && stress_params && ctl) { // 32 automatable parameters moving every block
+        if (stress && stress_params && ctl && b * (double)block < stress_stop * 44100.0) { // 32 automatable parameters moving every block
             static std::vector<ParamID> ids;
             if (ids.empty())
                 for (int32 k = 0; k < ctl->getParameterCount() && ids.size() < 32; k++) {

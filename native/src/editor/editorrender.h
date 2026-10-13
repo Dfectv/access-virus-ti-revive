@@ -5,6 +5,8 @@
 #include "editormodel.h"
 #include <array>
 #include <functional>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <map>
 #include <string>
@@ -21,6 +23,10 @@ public:
     virtual void blit(void *img, int sx, int sy, int dx, int dy, int w, int h, double alpha) = 0;
     virtual void fill(int x, int y, int w, int h, Rgba c) = 0;
     virtual void line(double x0, double y0, double x1, double y1, Rgba c) = 0; // 1 pixel wide
+    // drawing limited to a rectangle (inside the current clip) until pop_clip; like VSTGUI views, the displays
+    // (envelope, filter, oscillators) never draw outside their element
+    virtual void push_clip(int x, int y, int w, int h) { (void)x, (void)y, (void)w, (void)h; }
+    virtual void pop_clip() {}
 };
 
 struct Hit {
@@ -51,6 +57,14 @@ public:
     // the element held down by the mouse (drawn with PressedBack)
     const Element *pressed = nullptr;
 
+    // which parameters the last full render read, for partial repaints of value changes (automation, Virus panel):
+    // `cond` = read by a show/hide condition (a change can alter the structure -> full repaint), `rects` = the areas
+    // of the elements that read it while drawing (knobs, displays, texts). Filled by render() when `deps` is set.
+    struct Deps {
+        std::unordered_set<std::string> cond;
+        std::unordered_map<std::string, std::vector<std::array<int, 4>>> rects;
+    };
+    Deps *deps = nullptr;
     void render(Canvas &c);
     // repaint area: elements outside it are skipped (with their children); default = everything
     int clip_x0 = -100000, clip_y0 = -100000, clip_x1 = 100000, clip_y1 = 100000;
@@ -71,6 +85,9 @@ private:
     const Conditions &cond_;
     const RemoteDevice &dev_, &ed_;
     static int own_part(const Element &e);
+    bool dep_cond_ = false;           // render(): values are read by a condition
+    std::array<int, 4> dep_rect_{};   // render(): the element drawing itself right now (w = 0: none)
+    void dep_read(const std::string &path);
     void draw(Canvas &c, const Element &e, int ox, int oy, int inherited);
     // a frame (sy..sy+fh) of `img`, nine-part tiled to w x h when the bitmap is marked tiled
     void image(Canvas &c, const std::string &name, void *img, int sy, int fh, int x, int y, int w, int h, double alpha);

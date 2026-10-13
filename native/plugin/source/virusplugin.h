@@ -313,16 +313,23 @@ private:
     int state_part(const std::string &path, int part) const;
 public:
     // parameters changed since the last call (the editor repaints linked controls while a knob is dragged)
-    std::vector<std::string> take_changed()
+    std::vector<std::string> take_changed(bool *overflow = nullptr)
     {
         std::lock_guard<std::mutex> lk(values_mu_);
         std::vector<std::string> v(changed_.begin(), changed_.end());
         changed_.clear();
+        if (overflow)
+            *overflow = changed_overflow_;
+        changed_overflow_ = false;
         return v;
     }
+    // only parameter values changed (automation, Virus panel): the editor repaints the controls that show them
+    bool values_changed() { return values_dirty_.exchange(false); }
 
 private:
     std::set<std::string> changed_; // values_mu_
+    bool changed_overflow_ = false; // values_mu_: more than 256 changes, the editor repaints everything
+    std::atomic<bool> values_dirty_{false};
     bool state_loaded_ = false;                // setState or the default state was applied
     std::vector<std::vector<uint8_t>> default_; // a new instance's state (from the user's plug-in binary)
 
