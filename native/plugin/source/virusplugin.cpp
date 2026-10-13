@@ -286,7 +286,7 @@ tresult PLUGIN_API VirusPlugin::terminate()
 {
     stop_warm_ = true;
     if (sync_thread_.joinable())
-        sync_thread_.join(); // TODO: make the sync cancellable (up to ~10 min on an empty cache)
+        sync_thread_.join(); // stop_warm_ also cancels the bank sync between two requests (<= ~1 s)
     out_.reset();
     return SingleComponentEffect::terminate();
 }
@@ -699,8 +699,9 @@ void VirusPlugin::load_rom_banks()
 
 void VirusPlugin::sync_banks()
 {
-    std::this_thread::sleep_for(std::chrono::seconds(4)); // after the start-up messages and the state
-    if (!out_ || !out_->connected())
+    for (int i = 0; i < 40 && !stop_warm_; i++) // 4 s: after the start-up messages and the state
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    if (stop_warm_ || !out_ || !out_->connected())
         return;
     std::string dir = own_cache_dir();
     if (!dir.empty()) {
@@ -742,8 +743,10 @@ void VirusPlugin::sync_banks()
                 v[p] = bank[p];
             }
             ui_dirty_ = true;
-        });
+        }, &stop_warm_);
         fprintf(stderr, "Virus TI native: RAM %c sync: %d fetched\n", 'A' + b, n);
+        if (n == -2 && !dir.empty()) // closed while syncing: keep what was fetched, the next start continues
+            save_bank_file(dir + "/RAM " + (char)('A' + b), bank);
         if (n < 0)
             break;
         {

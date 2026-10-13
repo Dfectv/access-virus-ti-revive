@@ -6,6 +6,7 @@
 // Cache files use the original's format, so an existing Access cache can be imported: "MIDI" 00 01 08 00, then
 // 128 x (u32 big-endian length 524, single dump).
 #pragma once
+#include <atomic>
 #include "broker.h"
 #include <array>
 #include <condition_variable>
@@ -41,7 +42,9 @@ public:
 
     // Brings `cache` up to date for RAM bank 1..4; progress(program, fetched) is called per fetched program.
     // Returns the number of fetched programs, -1 on failure.
-    int sync_bank(int bank, Bank &cache, const std::function<void(int, bool)> &progress = nullptr);
+    // `stop` (optional) cancels between two requests: returns -2, `cache` keeps what was fetched so far.
+    int sync_bank(int bank, Bank &cache, const std::function<void(int, bool)> &progress = nullptr,
+                  const std::atomic<bool> *stop = nullptr);
 
 private:
     Broker *broker_ = nullptr;
