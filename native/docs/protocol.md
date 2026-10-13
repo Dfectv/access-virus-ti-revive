@@ -102,3 +102,10 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   ~105 ms), M=2000/3000 immediate (~340 frames; an earlier M=3000 run honoured with K 4133), M=4000 honoured (K ~8300,
   ~140 ms). The Virus' acceptance window is not a fixed function of M -> default M=1024 (lowest latency observed);
   sample accuracy still needs K at runtime (R5).
+- Sync marker (decompile 0x1800a8880/8aa0/8900/8f60): the original waits for 1 s of silence on input channels 2-5,
+  sends the sync ping `F0 00 20 33 01 10 73 00 22 00 F7` (global id 0x22, not in remotedevice.xml; in the traces with
+  the fixed stamp 3072, next to FE + F2) and then scans channels 0/1 for a sample beyond +-0x300000 (int16 << 16 under
+  TI Revive = +-48 in the ring) to set its stamp anchor. Measured: neither the original (vtihost under Wine) nor the
+  native plug-in (VTI_NATIVE_PING[3072]) gets such a sample on ring channels 0/1 - the original's accurate timing
+  (E121) does not depend on the marker under TI Revive. Next idea for R5: read the original's latency/K constant
+  (its reported plug-in latency, getLatencySamples) and the stamp computation at 0x1800a8420 with the anchor unset.

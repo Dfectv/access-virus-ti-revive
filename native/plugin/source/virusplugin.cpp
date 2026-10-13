@@ -132,7 +132,8 @@ void DeviceOut::run()
         if (getenv("VTI_NATIVE_DEBUG"))
             fprintf(stderr, "send %02x stamp %lld newest %lld\n", msg[0], (long long)stamp,
                     (long long)(audio_ok_ ? audio_.newest_frame() : -1));
-        if (stamp >= 0 && ((msg[0] >= 0x80 && msg[0] < 0xF0) || msg[0] == 0xF8 || msg[0] == 0xFE || msg[0] == 0xF2))
+        if (stamp >= 0 && ((msg[0] >= 0x80 && msg[0] < 0xF0) || msg[0] == 0xF8 || msg[0] == 0xFE || msg[0] == 0xF2 ||
+                           (msg.size() == 11 && msg[6] == 0x73 && msg[8] == 0x22)))
             pk = usbmidi_pack({0xF5, (uint8_t)(stamp & 0x7F), (uint8_t)((stamp >> 7) & 0x7F)}, CABLE_TIME);
         auto ev = usbmidi_pack(msg, CABLE_PLUGIN);
         pk.insert(pk.end(), ev.begin(), ev.end());
@@ -386,6 +387,11 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             spp = (int)std::max(0.0, data.processContext->projectTimeMusic * 4.0);
         uint8_t f2[3] = {0xF2, (uint8_t)(spp & 0x7F), (uint8_t)((spp >> 7) & 0x7F)};
         add(tl_ - M, f2, 3);
+        if (getenv("VTI_NATIVE_PING")) { // the original's sync ping (73 00 22 00): the Virus marks it in input ch 0/1
+            static const uint8_t ping[11] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x22, 0x00, 0xF7};
+            add(getenv("VTI_NATIVE_PING3072") ? 3072 : tl_, ping, 11);
+            fprintf(stderr, "Virus TI native: sync ping stamped %lld (newest %lld)\n", (long long)tl_, (long long)newest);
+        }
     }
     if (tl_valid_) { // MIDI clock at the host tempo (120 BPM without a process context), 24 ticks per quarter
         double tempo = data.processContext && (data.processContext->state & ProcessContext::kTempoValid)
