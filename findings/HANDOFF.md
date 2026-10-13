@@ -47,10 +47,10 @@ Waiting: **Snow** (issue #3, bidmessmer) - the regular plug-in finds the Snow, t
 `tirevive-usbinfo.ps1` output after loading the Snow plug-in once (the vtiemu "device identity" line). Access'
 VirusUSB.inf also lists PID 0816 (unlikely the cause since TI Revive reaches the device).
 Stage 3 (native rewrite of the plug-in) is developed in the PRIVATE repo derpsn/virus-ti-native (~/virus-ti-native,
-plan docs/plan.md, status docs/status.md); TI Revive is its submodule. State 2026-10-13: the native Linux VST3 plays the
-Virus through the TI Revive broker (notes, parameters, audio, the original's state format) and has a working editor
-drawn from the user's Access files; timing (F5 stamps) and the remaining editor controls are open. First REAPER
-test by the user (2026-10-13): working, latency fine, minor UI issues.
+plan docs/plan.md, status docs/status.md); TI Revive is its submodule. State 2026-10-13 (evening): the native VST3 works on Linux (REAPER),
+Windows (Ableton 11, win11 VM) and macOS (Ableton 12 on the M3, universal, Core Audio input) - user tests: sound,
+timing, editor from the user's Access files, browser/search like the original. Open there: a few displays, timing R5.
+Broker side from it: Mac broker logs "MDR ring full" once per episode (079904d, next release).
 Kemper (2026-10-13, reply to the user's request): the Virus TI software will not be open-sourced, no plans; the
 wish is forwarded to management. -> stage 3 stays on its rule: no Access material in any repo, everything loaded
 from the user's own installation.
