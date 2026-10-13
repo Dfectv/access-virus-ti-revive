@@ -97,3 +97,8 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   Information Events (73 00 54 01) when our timeline re-anchors at the start. Open (R5): stable start (anchor once the
   audio runs), the offset at runtime (needed to read the audio aligned = sample accuracy; the original anchors on
   audio markers, 0x1800a8900), latency reporting to the host.
+- Margin sweep 2026-10-13 (song position stamped M frames before the timeline, S=2000, clean start after the upload,
+  0 sync reports in all runs): M=1024 honoured (K 3097/3498, notes 23-32 ms after sending; an earlier run: K 6832,
+  ~105 ms), M=2000/3000 immediate (~340 frames; an earlier M=3000 run honoured with K 4133), M=4000 honoured (K ~8300,
+  ~140 ms). The Virus' acceptance window is not a fixed function of M -> default M=1024 (lowest latency observed);
+  sample accuracy still needs K at runtime (R5).
