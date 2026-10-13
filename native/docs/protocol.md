@@ -88,3 +88,12 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   otherwise executed "immediately" (12-17 ms after sending, vs 66-157 ms without a stream); results change between
   sessions -> the Virus keeps timeline state (PLL-like). The exact rule (0x1800a8420 + device time + the anchor
   from audio markers 0x1800a8900, and how the original measures K = 8315) is the R5 work item.
+- BREAKTHROUGH (native plug-in, 2026-10-13): the original's stream = MIDI clock F8 at the host tempo (24 ppqn, 918.75
+  frames at 120 BPM), each tick stamped with its frame, events stamped on the same timeline, and at the start
+  `F5 t FE` + `F5 t F2 <song position>`. With the stamped song position + stamped clock the Virus HONOURS the stamps
+  with a constant per-session offset: S=5000 (stamp = newest-5000) -> onset = stamp + 10445 (onset ~5500 frames after
+  sending), S=2000 -> stamp + 5683 (~3700 after sending); the original: stamp + 8315 (~3300 after sending). Without the
+  F2 the stamps are ignored (immediate, 7-17 ms, or 66-157 ms with no stream at all). The Virus sends Sync
+  Information Events (73 00 54 01) when our timeline re-anchors at the start. Open (R5): stable start (anchor once the
+  audio runs), the offset at runtime (needed to read the audio aligned = sample accuracy; the original anchors on
+  audio markers, 0x1800a8900), latency reporting to the host.

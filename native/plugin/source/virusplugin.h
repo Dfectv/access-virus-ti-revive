@@ -33,7 +33,9 @@ public:
     ~DeviceOut();
     void send(std::vector<uint8_t> msg); // a complete MIDI message (SysEx or channel message); not from process()
     // from process() only (single producer, lock-free): a message of up to 16 bytes; false if the ring is full
-    bool send_rt(const uint8_t *msg, size_t n);
+    // `stamp` = frame on the Virus timeline (F5 time stamp before the message), -1 = the latest timeline position
+    bool send_rt(const uint8_t *msg, size_t n, int64_t stamp = -1);
+    std::atomic<int64_t> timeline{-1}; // the latest timeline position (process() block start), for unstamped messages
     // messages from the Virus' panel (EP 0x86 cable 2: knob moves as CC / poly pressure / parameter SysEx)
     void on_panel(std::function<void(const std::vector<uint8_t> &)> h) { panel_ = std::move(h); }
     // SysEx replies (dumps, bank info): EP 0x86 cable 3 in a plug-in session, EP 0x85 cable 1 otherwise
@@ -49,6 +51,7 @@ private:
     std::deque<std::vector<uint8_t>> queue_;
     struct Slot {
         uint8_t len, data[16];
+        int64_t stamp;
     };
     static constexpr size_t RT_SLOTS = 1024;
     Slot rt_[RT_SLOTS];
@@ -131,6 +134,11 @@ private:
     std::mutex state_mu_;
     std::unique_ptr<DeviceOut> out_;
     int block_ = 512;
+    double rate_ = 44100;
+    // the Virus timeline (docs/protocol.md "timing"): frames of the synth, stamped on every clock tick and event
+    int64_t tl_ = 0;
+    bool tl_valid_ = false, anchored_ = false;
+    double next_tick_ = 0;
     bool state_loaded_ = false;                // setState or the default state was applied
     std::vector<std::vector<uint8_t>> default_; // a new instance's state (from the user's plug-in binary)
 

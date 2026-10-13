@@ -54,6 +54,21 @@ bool AudioIn::streaming() const { return shm_ && shm_->streaming; }
 
 int64_t AudioIn::newest_frame() const { return streaming() ? __atomic_load_n(&shm_->in_frames, __ATOMIC_ACQUIRE) : -1; }
 
+void AudioIn::read_at(float *l1, float *r1, float *l2, float *r2, int n, int64_t pos)
+{
+    int64_t newest = streaming() ? __atomic_load_n(&shm_->in_frames, __ATOMIC_ACQUIRE) : -1;
+    const float k = 1.0f / 32768.0f;
+    for (int i = 0; i < n; i++) {
+        int64_t f = pos + i;
+        if (newest < 0 || f >= newest || f < newest - VTI_AUDIO_RING + 1024) {
+            l1[i] = r1[i] = l2[i] = r2[i] = 0;
+            continue;
+        }
+        const int16_t *fr = shm_->in + (f & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_IN_CH;
+        l1[i] = fr[2] * k, r1[i] = fr[3] * k, l2[i] = fr[4] * k, r2[i] = fr[5] * k;
+    }
+}
+
 void AudioIn::read(float *l1, float *r1, float *l2, float *r2, int n, int latency)
 {
     auto silence = [&](int from) {

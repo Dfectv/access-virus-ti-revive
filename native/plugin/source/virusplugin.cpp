@@ -48,13 +48,14 @@ void DeviceOut::send(std::vector<uint8_t> msg)
     cv_.notify_one();
 }
 
-bool DeviceOut::send_rt(const uint8_t *msg, size_t n)
+bool DeviceOut::send_rt(const uint8_t *msg, size_t n, int64_t stamp)
 {
     size_t w = rt_w_.load(std::memory_order_relaxed);
     if (n > sizeof rt_[0].data || w - rt_r_.load(std::memory_order_acquire) >= RT_SLOTS)
         return false;
     Slot &s = rt_[w % RT_SLOTS];
     s.len = (uint8_t)n;
+    s.stamp = stamp;
     memcpy(s.data, msg, n);
     rt_w_.store(w + 1, std::memory_order_release);
     return true;
@@ -90,6 +91,7 @@ void DeviceOut::run()
             }
         }
         std::vector<uint8_t> msg;
+        int64_t stamp = -1;
         {
             std::unique_lock<std::mutex> lk(mu_);
             // the realtime ring cannot signal; poll it every millisecond
@@ -102,6 +104,7 @@ void DeviceOut::run()
             if (r != rt_w_.load(std::memory_order_acquire)) { // events from process() first
                 const Slot &sl = rt_[r % RT_SLOTS];
                 msg.assign(sl.data, sl.data + sl.len);
+                stamp = sl.stamp;
                 rt_r_.store(r + 1, std::memory_order_release);
             } else if (!queue_.empty()) {
                 msg = std::move(queue_.front());
@@ -110,15 +113,18 @@ void DeviceOut::run()
         }
         if (msg.empty())
             continue;
-        // channel messages carry a time stamp: F5 lo hi on cable 5 = the synth frame (14 bit) at which the Virus
-        // executes the next event (docs/protocol.md). Without one the Virus ignores notes. For now "now"; R5 adds
-        // sample-accurate stamps from the block position.
+        // channel messages and clock ticks carry a time stamp: F5 lo hi on cable 5 = the frame on the Virus timeline
+        // (docs/protocol.md "timing"); process() stamps its events, other threads use the latest timeline position
         std::vector<uint8_t> pk;
-        int64_t now = audio_ok_ ? audio_.newest_frame() : -1;
+        if (stamp < 0)
+            stamp = timeline.load();
+        if (stamp < 0 && audio_ok_)
+            stamp = audio_.newest_frame();
         if (getenv("VTI_NATIVE_DEBUG"))
-            fprintf(stderr, "send %02x now %lld\n", msg.empty() ? 0 : msg[0], (long long)now);
-        if (now >= 0 && !msg.empty() && msg[0] >= 0x80 && msg[0] < 0xF0)
-            pk = usbmidi_pack({0xF5, (uint8_t)(now & 0x7F), (uint8_t)((now >> 7) & 0x7F)}, CABLE_TIME);
+            fprintf(stderr, "send %02x stamp %lld newest %lld\n", msg[0], (long long)stamp,
+                    (long long)(audio_ok_ ? audio_.newest_frame() : -1));
+        if (stamp >= 0 && ((msg[0] >= 0x80 && msg[0] < 0xF0) || msg[0] == 0xF8 || msg[0] == 0xFE || msg[0] == 0xF2))
+            pk = usbmidi_pack({0xF5, (uint8_t)(stamp & 0x7F), (uint8_t)((stamp >> 7) & 0x7F)}, CABLE_TIME);
         auto ev = usbmidi_pack(msg, CABLE_PLUGIN);
         pk.insert(pk.end(), ev.begin(), ev.end());
         if (!broker_.write(EP_PLUGIN_OUT, pk.data(), pk.size())) {
@@ -286,6 +292,7 @@ tresult PLUGIN_API VirusPlugin::setActive(TBool state)
 tresult PLUGIN_API VirusPlugin::setupProcessing(ProcessSetup &setup)
 {
     block_ = setup.maxSamplesPerBlock;
+    rate_ = setup.sampleRate;
     return SingleComponentEffect::setupProcessing(setup);
 }
 
@@ -316,7 +323,55 @@ void VirusPlugin::set_part_value(int part, const std::string &path, int value)
 
 tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
 {
-    // TODO(R3): realtime-safe queue instead of DeviceOut's mutex; sample-accurate timing with F5 stamps (R5)
+    // the Virus timeline: block start = newest ring frame - S, continued by the block size, re-anchored on drift
+    static const int S = getenv("VTI_NATIVE_S") ? atoi(getenv("VTI_NATIVE_S")) : 5000;
+    const double ratio = 44100.0 / rate_; // Virus frames per host sample
+    int64_t newest = out_ && out_->audio_ready() ? out_->audio().newest_frame() : -1;
+    if (newest >= 0) {
+        int64_t target = newest - S;
+        if (!tl_valid_ || std::llabs(target - tl_) > 2048) {
+            tl_ = target;
+            next_tick_ = (double)tl_;
+            tl_valid_ = true;
+            anchored_ = true; // FE + song position at the new anchor, like the original's start
+        }
+    }
+    struct Ev {
+        int64_t stamp;
+        uint8_t n, m[16];
+    };
+    Ev evs[128];
+    int nev = 0;
+    auto add = [&](int64_t stamp, const uint8_t *m, size_t n) {
+        if (nev < 128 && n <= 16) {
+            evs[nev].stamp = stamp, evs[nev].n = (uint8_t)n;
+            memcpy(evs[nev].m, m, n);
+            nev++;
+        }
+    };
+    int64_t block_frames = (int64_t)std::lround(data.numSamples * ratio);
+    if (anchored_) {
+        anchored_ = false;
+        static const uint8_t fe = 0xFE;
+        add(tl_, &fe, 1);
+        int spp = 0; // song position (sixteenths) from the host, else 0
+        if (data.processContext && (data.processContext->state & ProcessContext::kProjectTimeMusicValid))
+            spp = (int)std::max(0.0, data.processContext->projectTimeMusic * 4.0);
+        uint8_t f2[3] = {0xF2, (uint8_t)(spp & 0x7F), (uint8_t)((spp >> 7) & 0x7F)};
+        add(tl_, f2, 3);
+    }
+    if (tl_valid_) { // MIDI clock at the host tempo (120 BPM without a process context), 24 ticks per quarter
+        double tempo = data.processContext && (data.processContext->state & ProcessContext::kTempoValid)
+                           ? data.processContext->tempo
+                           : 120.0;
+        double per_tick = 44100.0 * 60.0 / (tempo * 24.0);
+        static const uint8_t f8 = 0xF8;
+        while (next_tick_ < (double)(tl_ + block_frames)) {
+            add((int64_t)std::lround(next_tick_), &f8, 1);
+            next_tick_ += per_tick;
+        }
+    }
+    auto at = [&](int32 offset) { return tl_valid_ ? tl_ + (int64_t)std::lround(offset * ratio) : -1; };
     if (data.inputParameterChanges && out_) {
         for (int32 i = 0; i < data.inputParameterChanges->getParameterCount(); i++) {
             IParamValueQueue *q = data.inputParameterChanges->getParameterData(i);
@@ -329,11 +384,11 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
                 uint8_t ch = (uint8_t)(((id - MIDI_MAP_BASE) >> 12) & 15);
                 if ((id & 0xFFF) == 0x80) {
                     uint8_t m[2] = {(uint8_t)(0xD0 | ch), (uint8_t)std::lround(v * 127)};
-                    out_->send_rt(m, 2);
+                    add(at(offset), m, 2);
                 } else {
                     int pb = (int)std::lround(v * 16383);
                     uint8_t m[3] = {(uint8_t)(0xE0 | ch), (uint8_t)(pb & 0x7F), (uint8_t)(pb >> 7)};
-                    out_->send_rt(m, 3);
+                    add(at(offset), m, 3);
                 }
                 continue;
             }
@@ -346,7 +401,7 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             uint8_t m[16];
             size_t n = dev_.encode_into(it->second.path, value, it->second.part, m, sizeof m);
             if (n)
-                out_->send_rt(m, n);
+                add(at(offset), m, n);
             set_part_value(it->second.part, it->second.path, value); // TODO(R3): move off the audio thread
         }
     }
@@ -358,13 +413,23 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             if (e.type == Event::kNoteOnEvent) {
                 uint8_t m[3] = {(uint8_t)(0x90 | (e.noteOn.channel & 15)), (uint8_t)e.noteOn.pitch,
                                 (uint8_t)std::max(1L, std::lround(e.noteOn.velocity * 127))};
-                out_->send_rt(m, 3);
+                add(at(e.sampleOffset), m, 3);
             } else if (e.type == Event::kNoteOffEvent) {
                 uint8_t m[3] = {(uint8_t)(0x80 | (e.noteOff.channel & 15)), (uint8_t)e.noteOff.pitch,
                                 (uint8_t)std::lround(e.noteOff.velocity * 127)};
-                out_->send_rt(m, 3);
+                add(at(e.sampleOffset), m, 3);
             }
         }
+    }
+    // to the Virus in time order (clock ticks and events share the timeline)
+    std::sort(evs, evs + nev, [](const Ev &a, const Ev &b) { return a.stamp < b.stamp; });
+    for (int i = 0; out_ && i < nev; i++)
+        out_->send_rt(evs[i].m, evs[i].n, evs[i].stamp);
+    int64_t block_start = tl_;
+    if (tl_valid_) {
+        tl_ += block_frames;
+        if (out_)
+            out_->timeline = tl_;
     }
     // device -> host: knob moves on the Virus as output parameter changes (the host updates the controller)
     if (data.outputParameterChanges && pending_mu_.try_lock()) {
@@ -385,7 +450,13 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         data.outputs[1].numChannels >= 2 && data.numSamples > 0) {
         float **o1 = data.outputs[0].channelBuffers32, **o2 = data.outputs[1].channelBuffers32;
         if (o1 && o2)
-            out_->audio().read(o1[0], o1[1], o2[0], o2[1], data.numSamples, 2 * block_ + 256);
+        {
+            static const char *k = getenv("VTI_NATIVE_K"); // read at timeline + K (stamp-aligned audio), test
+            if (k && tl_valid_)
+                out_->audio().read_at(o1[0], o1[1], o2[0], o2[1], data.numSamples, block_start + atoi(k));
+            else
+                out_->audio().read(o1[0], o1[1], o2[0], o2[1], data.numSamples, 2 * block_ + 256);
+        }
     }
     return kResultOk;
 }

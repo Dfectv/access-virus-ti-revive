@@ -77,6 +77,11 @@
   ~/.local/share/virus-ti-native/cache (initially imported from the Access cache). Verified: corrupted RAM C program
   -> 1 fetched -> file identical to the original's cache again.
 
+- Timing: the plug-in keeps a Virus timeline (newest ring frame - S), sends stamped MIDI clock at the host tempo, a
+  stamped FE + song position at each anchor and stamps every event on the timeline; the Virus then honours the stamps
+  with a constant per-session offset (measured with broker trace + raw recording, scratch measure.py). Open: runtime
+  offset, clean start, host latency.
+
 ## Next
 - R3: device -> host (knobs on the Virus change parameters: decode incoming CC/poly pressure/SysEx with
   remotedevice.xml, update the part dumps, notify the host), realtime-safe event queue, exact F5 stamps (R5 rule).
