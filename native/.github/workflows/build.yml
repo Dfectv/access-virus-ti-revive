@@ -39,3 +39,21 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libx11-dev libxtst-dev libxcb1-dev libxcb-util-dev libxcb-cursor-dev libxcb-xkb-dev libxcb-keysyms1-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libcairo2-dev libgtkmm-3.0-dev libsqlite3-dev libpango1.0-dev ninja-build
       - name: build
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: configure
+        run: cmake -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+      - name: build
+        run: cmake --build build --config Release --target VirusTINative vtimodel nativehost -- -quiet
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VirusTINative-macos
+          path: build/VST3/Release/VirusTINative.vst3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tools-macos
+          path: build/bin/Release/*
