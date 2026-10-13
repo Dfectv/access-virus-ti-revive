@@ -200,7 +200,8 @@ FILTER 2.70 % (mostly the big knob rings, which we show permanently).
 4. Inactive menu text brightness differs in some places (ARP/FX2 vs MATRIX - the original is inconsistent).
 5. Editor speed in REAPER (field diagnostics, diag.on): a full repaint costs ~77 ms in REAPER (20 ms in nativehost
    on Xvfb), a partial ~5 ms; knob drags used up to 25 % of REAPER's main thread. LCD-only changes now repaint
-   only the LCD. To do: cache the static background (offscreen bitmap) so full repaints become cheap.
+   only the LCD. Done (2026-10-13): static layer cache + X pixmap copies of all bitmaps on Linux -> full repaint
+   1-7 ms, knob step < 1 ms on XWayland (was ~70 / ~5 ms); page switch 30-45 ms (cache rebuild, CPU render).
 6. Big knob rings: shown permanently (user wanted them); the original under Wine shows them on hover only.
 7. Meta engine: tested reverb switch; LFO clock menus and filter/vocoder links untested with the Virus.
 

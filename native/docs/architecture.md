@@ -96,6 +96,7 @@ original Virus TI software must be installed (it can stay unused). These are the
 | plug-in format | VST3 bundle `~/.vst3/VirusTINative.vst3` (`x86_64-linux`) |
 | UI | VSTGUI on X11; uses the host's `IRunLoop` (from the plug frame or host context) and `X11::FrameConfig`; the host maps the XEmbed window |
 | menus | VSTGUI's generic (in-window) menu with a compact light theme and no fade-in, because X11 has no native menus |
+| drawing speed | VSTGUI keeps bitmaps as CPU (cairo image) surfaces and uploads their pixels on every draw into the X back buffer - ~70 ms per full repaint on a real X server/XWayland. The editor keeps X pixmap copies of all bitmaps (`cairo_surface_create_similar` on the frame window) and caches the static layer (backgrounds, panels, labels) as a pixmap; repaints become server-side composites (GPU with glamor): full repaint ~1-7 ms, knob step < 1 ms. `VTI_NATIVE_NO_PIXMAPS=1` disables the copies |
 | broker | systemd user socket `/tmp/vtibroker-<uid>.sock` (starts on demand, exits after 30 s idle) |
 | audio ring | `/dev/shm/tirevive-audio-<uid>` |
 | cache | `~/.local/share/virus-ti-native/cache` (`RAM A`..`RAM D`) |

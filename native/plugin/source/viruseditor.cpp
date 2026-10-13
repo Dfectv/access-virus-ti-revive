@@ -15,6 +15,15 @@
 #include <chrono>
 #include <cmath>
 #if SMTG_OS_LINUX
+// server-side (X pixmap) copies of the bitmaps: VSTGUI keeps CPU image surfaces and uploads their pixels on every
+// draw into the X back buffer (~67 ms per full repaint on a real X server / XWayland vs ~8 ms on Xvfb). Cairo::Bitmap
+// has no way to wrap another surface, so its members are opened up for this file only.
+#define private public
+#include "vstgui/lib/platform/linux/cairobitmap.h"
+#undef private
+#include "vstgui/lib/platform/linux/x11platform.h"
+#include <cairo/cairo-xcb.h>
+#include <xcb/xcb.h>
 #include "public.sdk/source/vst/vstgui_linux_runloop_support.h"
 #include "vstgui/lib/platform/platform_x11.h"
 #include "vstgui/lib/platform/linux/linuxfactory.h"
@@ -28,6 +37,57 @@ using namespace VSTGUI;
 namespace vti {
 
 // Canvas on a VSTGUI draw context; bitmaps are created once from the user's PNGs.
+#if SMTG_OS_LINUX
+// an X pixmap copy of `bmp` for drawing into the frame's window (server-side composite, GPU with glamor)
+static SharedPointer<CBitmap> server_bitmap(CFrame *frame, CBitmap *bmp)
+{
+    if (!frame || !bmp || getenv("VTI_NATIVE_NO_PIXMAPS"))
+        return nullptr;
+    auto *cb = dynamic_cast<Cairo::Bitmap *>(bmp->getPlatformBitmap().get());
+    if (!cb || !cb->surface || cairo_surface_get_type(cb->surface) != CAIRO_SURFACE_TYPE_IMAGE)
+        return nullptr;
+    static cairo_surface_t *ref = nullptr; // a 1x1 surface on the frame's window: create_similar makes pixmaps
+    if (!ref) {
+        auto *conn = X11::RunLoop::instance().getXcbConnection();
+        auto win = (xcb_window_t)(uintptr_t)frame->getPlatformFrame()->getPlatformRepresentation();
+        if (!conn || !win)
+            return nullptr;
+        auto *attr = xcb_get_window_attributes_reply(conn, xcb_get_window_attributes(conn, win), nullptr);
+        if (!attr)
+            return nullptr;
+        xcb_visualtype_t *vt = nullptr;
+        for (auto sc = xcb_setup_roots_iterator(xcb_get_setup(conn)); sc.rem && !vt; xcb_screen_next(&sc))
+            for (auto d = xcb_screen_allowed_depths_iterator(sc.data); d.rem && !vt; xcb_depth_next(&d))
+                for (auto v = xcb_depth_visuals_iterator(d.data); v.rem; xcb_visualtype_next(&v))
+                    if (v.data->visual_id == attr->visual) {
+                        vt = v.data;
+                        break;
+                    }
+        free(attr);
+        if (!vt)
+            return nullptr;
+        ref = cairo_xcb_surface_create(conn, win, vt, 1, 1);
+    }
+    int w = cairo_image_surface_get_width(cb->surface), h = cairo_image_surface_get_height(cb->surface);
+    cairo_surface_t *srv = cairo_surface_create_similar(ref, CAIRO_CONTENT_COLOR_ALPHA, w, h);
+    if (cairo_surface_status(srv) != CAIRO_STATUS_SUCCESS) {
+        cairo_surface_destroy(srv);
+        return nullptr;
+    }
+    cairo_t *cr = cairo_create(srv);
+    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+    cairo_set_source_surface(cr, cb->surface, 0, 0);
+    cairo_paint(cr);
+    cairo_destroy(cr);
+    cairo_surface_flush(srv);
+    auto nb = makeOwned<Cairo::Bitmap>();
+    nb->surface = Cairo::SurfaceHandle(srv);
+    nb->size = CPoint(w, h);
+    nb->scaleFactor = cb->scaleFactor;
+    return makeOwned<CBitmap>(nb);
+}
+#endif
+
 class VstguiCanvas : public Canvas {
 public:
     VstguiCanvas(const AccessFiles &files, std::map<std::string, SharedPointer<CBitmap>> &cache)
@@ -35,6 +95,8 @@ public:
     {
     }
     CDrawContext *ctx = nullptr;
+    CFrame *frame = nullptr; // set: drawing into the window - use the server-side copies (Linux)
+    std::map<std::string, SharedPointer<CBitmap>> server_; // X pixmap copies
 
     void *image(const std::string &name) override
     {
@@ -49,6 +111,15 @@ public:
                     bmp = makeOwned<CBitmap>(pb);
             it = cache_.emplace(name, bmp).first;
         }
+#if SMTG_OS_LINUX
+        if (frame && it->second) {
+            auto sv = server_.find(name);
+            if (sv == server_.end())
+                sv = server_.emplace(name, server_bitmap(frame, it->second.get())).first;
+            if (sv->second)
+                return sv->second.get();
+        }
+#endif
         return it->second.get();
     }
     int image_width(void *i) override { return (int)((CBitmap *)i)->getWidth(); }
@@ -140,6 +211,7 @@ public:
             if (auto off = COffscreenContext::create(CPoint(full.getWidth(), full.getHeight()))) {
                 off->beginDraw();
                 canvas_.ctx = off;
+                canvas_.frame = nullptr; // CPU images into the CPU offscreen
                 int c0 = renderer_.clip_x0, c1 = renderer_.clip_y0, c2 = renderer_.clip_x1, c3 = renderer_.clip_y1;
                 renderer_.clip_x0 = renderer_.clip_y0 = -100000;
                 renderer_.clip_x1 = renderer_.clip_y1 = 100000;
@@ -148,12 +220,17 @@ public:
                 renderer_.clip_x0 = c0, renderer_.clip_y0 = c1, renderer_.clip_x1 = c2, renderer_.clip_y1 = c3;
                 off->endDraw();
                 static_bg_ = off->getBitmap();
+#if SMTG_OS_LINUX
+                if (auto sb = server_bitmap(getFrame(), static_bg_))
+                    static_bg_ = sb; // the cache as an X pixmap too
+#endif
                 static_key_ = sig;
                 canvas_.ctx = ctx;
                 if (getenv("VTI_NATIVE_DRAWTIME"))
                     fprintf(stderr, "static layer rebuilt\n");
             }
         }
+        canvas_.frame = getFrame(); // into the window: server-side bitmaps (Linux)
         if (static_bg_ && full_update) { // small areas: drawing their few elements directly is cheaper on X11
             CRect dst(update);
             static_bg_->draw(ctx, dst, CPoint(dst.left - getViewSize().left, dst.top - getViewSize().top));
