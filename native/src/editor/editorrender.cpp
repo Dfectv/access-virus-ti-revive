@@ -421,11 +421,13 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
             if (e.type != "TextSlider") // valuelists indent entries for the popup (" Mod Wheel"); the control shows them trimmed
                 str.erase(0, str.find_first_not_of(' ') == std::string::npos ? str.size() : str.find_first_not_of(' '));
         }
-        int tl = 0, tr = 0;
+        // text inside the bitmap's tile insets (horizontal and vertical: DSP_Menu.png top 2 / bottom 1 puts the
+        // text of the 13 px menus 1 px lower, like the original)
+        int tl = 0, tr = 0, tt = 0, tb = 0;
         auto t = layout_.tiles.find(e.get("NormalBack"));
         if (t != layout_.tiles.end())
-            tl = t->second.left, tr = t->second.right;
-        text(c, font, str, x + tl, y, e.w - tl - tr, e.h, e.get("Align"), alpha);
+            tl = t->second.left, tr = t->second.right, tt = t->second.top, tb = t->second.bottom;
+        text(c, font, str, x + tl, y + tt, e.w - tl - tr, e.h - tt - tb, e.get("Align"), alpha);
     }
     for (auto &ch : e.children)
         draw(c, ch, x, y, e.part() >= 0 ? e.part() : inherited);
