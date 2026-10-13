@@ -82,6 +82,14 @@
   with a constant per-session offset (measured with broker trace + raw recording, scratch measure.py). Open: runtime
   offset, clean start, host latency.
 
+- Timing start (2026-10-13 05:20): the timeline anchors only after the state upload has drained (DeviceOut::busy) and
+  0.5 s of steady audio, then follows drift by 1 frame/block -> sync reports 13 -> 1. Without stale start-up messages
+  the stamps count as "late" (immediate, ~340 frames) - with a stale start they were honoured (K 3982, ~2000 frames
+  after sending). Hypothesis: the Virus anchors on the song position's ARRIVAL; the F2/FE are now stamped M frames
+  early (VTI_NATIVE_M, default 1024) so later events lie M frames in its future. UNTESTED: the Virus dropped off USB
+  at 05:22 (port 1-8: resets, "device not accepting address, error -71") right after a broker give-back -> needs a
+  power cycle by the user. Watch whether this repeats (broker reset at exit, or our stream hanging the firmware).
+
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
   Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples

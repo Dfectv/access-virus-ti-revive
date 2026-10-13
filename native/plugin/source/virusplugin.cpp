@@ -45,6 +45,7 @@ void DeviceOut::send(std::vector<uint8_t> msg)
 {
     std::lock_guard<std::mutex> lk(mu_);
     queue_.push_back(std::move(msg));
+    queued_++;
     cv_.notify_one();
 }
 
@@ -109,6 +110,7 @@ void DeviceOut::run()
             } else if (!queue_.empty()) {
                 msg = std::move(queue_.front());
                 queue_.pop_front();
+                pending_send_ = true; // counted down after the write, so busy() covers the transfer
             }
         }
         if (msg.empty())
@@ -127,7 +129,12 @@ void DeviceOut::run()
             pk = usbmidi_pack({0xF5, (uint8_t)(stamp & 0x7F), (uint8_t)((stamp >> 7) & 0x7F)}, CABLE_TIME);
         auto ev = usbmidi_pack(msg, CABLE_PLUGIN);
         pk.insert(pk.end(), ev.begin(), ev.end());
-        if (!broker_.write(EP_PLUGIN_OUT, pk.data(), pk.size())) {
+        bool ok = broker_.write(EP_PLUGIN_OUT, pk.data(), pk.size());
+        if (pending_send_) {
+            pending_send_ = false;
+            queued_--;
+        }
+        if (!ok) {
             audio_ok_ = false;
             audio_.close();
             broker_.close();
@@ -328,12 +335,21 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
     const double ratio = 44100.0 / rate_; // Virus frames per host sample
     int64_t newest = out_ && out_->audio_ready() ? out_->audio().newest_frame() : -1;
     if (newest >= 0) {
-        int64_t target = newest - S;
-        if (!tl_valid_ || std::llabs(target - tl_) > 2048) {
+        // anchor once the stream has run for ~0.5 s (the first blocks arrive in bursts), then follow drift gently:
+        // one frame per block, re-anchor (new song position) only on a large jump (DAW or USB stall)
+        if (stream_start_ < 0)
+            stream_start_ = newest;
+        int64_t target = newest - S, err = target - tl_;
+        if (!tl_valid_ && out_->busy())
+            stream_start_ = newest; // wait until the start-up messages and the state are through
+        if (!tl_valid_ ? newest - stream_start_ > 22050 : std::llabs(err) > 8192) {
             tl_ = target;
             next_tick_ = (double)tl_;
             tl_valid_ = true;
             anchored_ = true; // FE + song position at the new anchor, like the original's start
+        } else if (tl_valid_ && std::llabs(err) > 256) {
+            tl_ += err > 0 ? 1 : -1;
+            next_tick_ += err > 0 ? 1 : -1;
         }
     }
     struct Ev {
@@ -352,13 +368,16 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
     int64_t block_frames = (int64_t)std::lround(data.numSamples * ratio);
     if (anchored_) {
         anchored_ = false;
+        // the Virus anchors its timeline on the song position's arrival: stamping it M frames early puts every later
+        // event M frames into the Virus' future, so the stamps are honoured (constant latency) instead of "late"
+        static const int M = getenv("VTI_NATIVE_M") ? atoi(getenv("VTI_NATIVE_M")) : 1024;
         static const uint8_t fe = 0xFE;
-        add(tl_, &fe, 1);
+        add(tl_ - M, &fe, 1);
         int spp = 0; // song position (sixteenths) from the host, else 0
         if (data.processContext && (data.processContext->state & ProcessContext::kProjectTimeMusicValid))
             spp = (int)std::max(0.0, data.processContext->projectTimeMusic * 4.0);
         uint8_t f2[3] = {0xF2, (uint8_t)(spp & 0x7F), (uint8_t)((spp >> 7) & 0x7F)};
-        add(tl_, f2, 3);
+        add(tl_ - M, f2, 3);
     }
     if (tl_valid_) { // MIDI clock at the host tempo (120 BPM without a process context), 24 ticks per quarter
         double tempo = data.processContext && (data.processContext->state & ProcessContext::kTempoValid)
