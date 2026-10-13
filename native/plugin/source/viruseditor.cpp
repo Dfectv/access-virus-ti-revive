@@ -269,6 +269,14 @@ public:
             event.consumed = true;
             return;
         }
+        // knobs and sliders: Ctrl+click or double click = back to the parameter's default value
+        if ((e.type.find("Knob") != std::string::npos || e.type.find("Slider") != std::string::npos) &&
+            (event.modifiers.has(ModifierKey::Control) || event.clickCount >= 2)) {
+            plugin_->ui_set(param, h.part, plugin_->conditions().default_value(param));
+            invalid();
+            event.consumed = true;
+            return;
+        }
         drag_ = h;
         plugin_->take_changed(); // start collecting the changes of this drag
         drag_y_ = event.mousePosition.y;
