@@ -67,6 +67,7 @@ private:
     Broker broker_;
     std::mutex mu_;
     std::condition_variable cv_;
+    std::vector<uint8_t> pk_; // worker: the packets of one broker write
     std::deque<std::vector<uint8_t>> queue_;
     std::atomic<int> queued_{0};
     struct Slot {

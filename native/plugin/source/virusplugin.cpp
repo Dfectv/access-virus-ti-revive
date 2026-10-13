@@ -199,20 +199,40 @@ void DeviceOut::run()
             continue;
         // channel messages and clock ticks carry a time stamp: F5 lo hi on cable 5 = the frame on the Virus timeline
         // (docs/protocol.md "timing"); process() stamps its events, other threads use the latest timeline position
-        std::vector<uint8_t> pk;
-        if (stamp < 0)
-            stamp = timeline.load();
-        if (stamp < 0 && audio_ok_)
-            stamp = audio_.newest_frame();
-        if (env_debug())
-            fprintf(stderr, "send %02x stamp %lld newest %lld\n", msg[0], (long long)stamp,
-                    (long long)(audio_ok_ ? audio_.newest_frame() : -1));
-        if (stamp >= 0 && ((msg[0] >= 0x80 && msg[0] < 0xF0) || msg[0] == 0xF8 || msg[0] == 0xFE || msg[0] == 0xF2 ||
-                           (msg.size() == 11 && msg[6] == 0x73 && msg[8] == 0x22)))
-            pk = usbmidi_pack({0xF5, (uint8_t)(stamp & 0x7F), (uint8_t)((stamp >> 7) & 0x7F)}, CABLE_TIME);
-        auto ev = usbmidi_pack(msg, CABLE_PLUGIN);
-        pk.insert(pk.end(), ev.begin(), ev.end());
-        bool ok = broker_.write(EP_PLUGIN_OUT, pk.data(), pk.size());
+        pk_.clear();
+        auto pack = [&](const std::vector<uint8_t> &m, int64_t st) {
+            if (st < 0)
+                st = timeline.load();
+            if (st < 0 && audio_ok_)
+                st = audio_.newest_frame();
+            if (env_debug())
+                fprintf(stderr, "send %02x stamp %lld newest %lld\n", m[0], (long long)st,
+                        (long long)(audio_ok_ ? audio_.newest_frame() : -1));
+            if (st >= 0 && ((m[0] >= 0x80 && m[0] < 0xF0) || m[0] == 0xF8 || m[0] == 0xFE || m[0] == 0xF2 ||
+                            (m.size() == 11 && m[6] == 0x73 && m[8] == 0x22))) {
+                auto t = usbmidi_pack({0xF5, (uint8_t)(st & 0x7F), (uint8_t)((st >> 7) & 0x7F)}, CABLE_TIME);
+                pk_.insert(pk_.end(), t.begin(), t.end());
+            }
+            auto ev = usbmidi_pack(m, CABLE_PLUGIN);
+            pk_.insert(pk_.end(), ev.begin(), ev.end());
+        };
+        pack(msg, stamp);
+        // the rest of a block's events in the same write (one broker message instead of one per event); the
+        // fairness rule stays: after 8 in a row the queue gets its turn in the next round
+        if (stamp >= 0 && !pending_send_) {
+            std::lock_guard<std::mutex> lk(mu_);
+            for (size_t r = rt_r_.load(std::memory_order_relaxed);
+                 r != rt_w_.load(std::memory_order_acquire) && pk_.size() < 3072 && !(rt_run_ >= 8 && !queue_.empty());
+                 r = rt_r_.load(std::memory_order_relaxed)) {
+                const Slot &sl = rt_[r % RT_SLOTS];
+                msg.assign(sl.data, sl.data + sl.len);
+                int64_t st = sl.stamp;
+                rt_r_.store(r + 1, std::memory_order_release);
+                rt_run_++;
+                pack(msg, st);
+            }
+        }
+        bool ok = broker_.write(EP_PLUGIN_OUT, pk_.data(), pk_.size());
         if (pending_send_) {
             pending_send_ = false;
             queued_--;
