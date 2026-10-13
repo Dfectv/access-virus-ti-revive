@@ -36,6 +36,8 @@ public:
     ValueFn values;                                 // (path, part) -> value
     std::function<std::string(int part)> patch_name; // a part's patch name
     std::function<std::string(int bank, int program)> bank_patch; // a stored patch's name (bank 0..3 = RAM A..D)
+    // live texts (LCD: "VirusControl/Display Parameter" / "Display Value" / "Display Part"); empty = valuelist
+    std::function<std::string(const std::string &param)> live_text;
     int part = 0;                                    // the current (panel) part
     double disabled_alpha = 0.4;
     // the element held down by the mouse (drawn with PressedBack)

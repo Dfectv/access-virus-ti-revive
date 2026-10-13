@@ -96,6 +96,7 @@ public:
     bool load_patch(int bank, int program, int part); // a stored patch into a part's edit buffer (and the state)
     bool rename_part(int part, const std::string &name); // the part's patch name (10 characters) -> dump + Virus
     bool ui_changed() { return ui_dirty_.exchange(false); }
+    std::string live_text(const std::string &param); // LCD texts of the last edited parameter
 
     // IMidiMapping: channel aftertouch / pitch bend -> the original's per-channel parameters
     Steinberg::tresult PLUGIN_API getMidiControllerAssignment(Steinberg::int32 busIndex, Steinberg::int16 channel,
@@ -120,6 +121,7 @@ private:
     std::mutex values_mu_;
     std::map<int, std::map<std::string, int>> part_values_; // decoded part dumps + controllers, per part (-1 = global)
     std::map<std::string, int> ui_state_;                   // editor-only parameters (VirusControl/SelectedPage ...)
+    std::string lcd_param_, lcd_value_, lcd_part_;          // the last edited parameter for the LCD
     std::atomic<bool> ui_dirty_{true};
     std::map<int, std::vector<std::vector<uint8_t>>> banks_; // RAM A..D (bank cache, see load_banks)
     std::mutex banks_mu_;

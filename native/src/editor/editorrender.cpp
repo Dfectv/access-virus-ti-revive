@@ -319,7 +319,9 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
         else if (e.type == "NameEdit" && patch_name)
             str = patch_name(pt);
         else if ((e.type == "TextSlider" || e.type == "Menu") && !param.empty()) {
-            str = value_text(param, v);
+            str = live_text ? live_text(param) : std::string();
+            if (str.empty())
+                str = value_text(param, v);
             if (e.type == "Menu") // valuelists indent entries for the popup (" Mod Wheel"); the control shows them trimmed
                 str.erase(0, str.find_first_not_of(' ') == std::string::npos ? str.size() : str.find_first_not_of(' '));
         }

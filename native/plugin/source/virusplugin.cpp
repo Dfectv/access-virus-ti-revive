@@ -511,8 +511,34 @@ int VirusPlugin::ui_value(const std::string &path, int part)
     return cond_ ? cond_->default_value(path) : 0;
 }
 
+std::string VirusPlugin::live_text(const std::string &param)
+{
+    std::lock_guard<std::mutex> lk(values_mu_);
+    if (param == "VirusControl/Display Parameter")
+        return lcd_param_;
+    if (param == "VirusControl/Display Value")
+        return lcd_value_;
+    if (param == "VirusControl/Display Part")
+        return lcd_part_;
+    return {};
+}
+
 void VirusPlugin::ui_set(const std::string &path, int part, int value)
 {
+    if (const Parameter *p = dev_.find(path)) { // LCD: name, value text and part of the edited parameter
+        std::string v = std::to_string(value);
+        for (const RemoteDevice *d : {&dev_, &ed_}) {
+            auto vl = d->valuelists.find(p->valuelist);
+            if (vl != d->valuelists.end())
+                for (auto &en : vl->second.entries)
+                    if (en.index == value && !en.text.empty())
+                        v = en.text;
+        }
+        std::lock_guard<std::mutex> lk(values_mu_);
+        lcd_param_ = p->displayname.empty() ? path : p->displayname;
+        lcd_value_ = v;
+        lcd_part_ = p->part == "none" ? std::string() : "Part " + std::to_string(part + 1);
+    }
     if (const Parameter *p = cond_ ? cond_->find(path) : nullptr)
         if (p->part == "none")
             part = -1;

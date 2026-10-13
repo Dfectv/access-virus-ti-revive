@@ -77,6 +77,7 @@ public:
         renderer_.values = [this](const std::string &path, int part) { return plugin_->ui_value(path, part); };
         renderer_.patch_name = [this](int part) { return plugin_->patch_name(part); };
         renderer_.bank_patch = [this](int bank, int prog) { return plugin_->bank_patch(bank, prog); };
+        renderer_.live_text = [this](const std::string &p) { return plugin_->live_text(p); };
         // device changes (knobs on the Virus, automation) repaint the view
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) {
             if (plugin_->ui_changed())
