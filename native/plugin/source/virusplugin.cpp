@@ -620,9 +620,8 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             if (const Parameter *p = dev_.find(it->second.path))
                 value = std::min(std::max(value, p->min), p->max);
             // coalesce: only the latest value per parameter waits for the budget below
-            if (it->second.pending < 0 && pending_count_ < PENDING_MAX)
-                pending_ids_[(pending_head_ + pending_count_++) % PENDING_MAX] = id;
-            it->second.pending = value;
+            if (it->second.pending >= 0 || automation_.push(id))
+                it->second.pending = value;
             size_t w = pu_w_.load(std::memory_order_relaxed); // part dump update: off the audio thread
             if (w - pu_r_.load(std::memory_order_acquire) < PU_SLOTS) {
                 pu_[w % PU_SLOTS] = {id, value};
@@ -631,22 +630,20 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         }
     }
     // send waiting automation within the budget, oldest first (at the block start)
-    automation_budget_ = std::min(64.0, automation_budget_ + AUTOMATION_RATE * data.numSamples / rate_);
-    while (out_ && pending_count_ > 0 && automation_budget_ >= 1 && nev < 96) {
-        ParamID id = pending_ids_[pending_head_];
-        pending_head_ = (pending_head_ + 1) % PENDING_MAX;
-        pending_count_--;
-        auto it = params_.find(id);
-        if (it == params_.end() || it->second.pending < 0)
-            continue;
-        int value = it->second.pending;
-        it->second.pending = -1;
-        uint8_t m[16];
-        size_t n = dev_.encode_into(it->second.path, value, it->second.part, m, sizeof m);
-        if (n)
-            add(at(0), m, n);
-        automation_budget_ -= 1;
-    }
+    automation_.refill(data.numSamples, rate_);
+    if (out_)
+        automation_.drain(96 - nev, [&](uint32_t id) {
+            auto it = params_.find(id);
+            if (it == params_.end() || it->second.pending < 0)
+                return false;
+            int value = it->second.pending;
+            it->second.pending = -1;
+            uint8_t m[16];
+            size_t n = dev_.encode_into(it->second.path, value, it->second.part, m, sizeof m);
+            if (n)
+                add(at(0), m, n);
+            return true;
+        });
     if (data.inputEvents && out_) {
         for (int32 i = 0; i < data.inputEvents->getEventCount(); i++) {
             Event e;
