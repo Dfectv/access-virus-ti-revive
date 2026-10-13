@@ -139,3 +139,10 @@ descriptor (bcdDevice 0x100 = TI or Snow by product string, 0x300 = TI2). Banks 
   Width: right frame at cell + r, r = table(Length) (0:0 8:2 16:3 24:4 32:5 40:6 48:7 56:8 64:10 72:11 80:12 88:13
   96:14 112:16 120:18 127:18, interpolated) times the span (the step plus the following steps that are off).
   Matches the original pixel for pixel (test pattern with 16 lengths + the default alternating pattern).
+- Meta parameters (editordevice.xml meta="true", 26 of them): filter link (Filters/Select 2 <-> VirusControl Links/
+  Filter Link via maps) and its linked knobs, vocoder/LFO links, the FX delay/reverb on/off switches (Switch, Helper,
+  Trigger On/Off with retrigger + catchAlways=false), the LFO clock menus (LFO n Clock/Divider). Engine: a source
+  client (no nosource) sets the meta value (maps or (v-b)/a), the meta passes it to its trigger clients (no
+  notrigger; maps or a*m+b, clamped) while its condition holds; retrigger metas fire when their condition becomes
+  true; catchAlways="false" metas only catch while their condition holds. Changes from the Virus and loaded states
+  update only the editor side; UI/host changes also go to the Virus. "part all" editor parameters are per part.

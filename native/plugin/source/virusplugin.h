@@ -184,6 +184,18 @@ private:
     std::mutex values_mu_;
     std::map<int, std::map<std::string, int>> part_values_; // decoded part dumps + controllers, per part (-1 = global)
     std::map<std::string, int> ui_state_;                   // editor-only parameters (VirusControl/SelectedPage ...)
+    // meta parameters (editordevice.xml meta="true", e.g. filter link, FX switches, LFO clocks): per-part editor values
+    // of "part all" editor parameters, meta values, last condition state of retrigger metas (values_mu_)
+    std::map<std::pair<std::string, int>, int> ed_part_, meta_vals_;
+    std::map<std::pair<std::string, int>, bool> meta_cond_;
+    std::recursive_mutex meta_mu_;
+    int meta_depth_ = 0; // > 0 while the engine sets linked parameters (no LCD update for those)
+    void meta_source(const std::string &path, int part, int value, bool full);
+    void meta_set(const Parameter &m, int part, int mv, const std::string &except, bool full);
+    void meta_retrigger(int part, bool full);
+    void meta_init();
+    bool meta_cond(const Parameter &m, int part);
+    void set_editor_value(const std::string &path, int part, int value);
     std::string lcd_param_, lcd_value_, lcd_part_, lcd_orig_; // the last edited parameter for the LCD
     void set_lcd(const std::string &param, const std::string &value, const std::string &part, const std::string &before);
     std::string search_;                                    // browser search text

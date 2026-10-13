@@ -64,6 +64,20 @@ bool RemoteDevice::load(const std::vector<uint8_t> &xml, std::string &error)
             q.displayname = p.attribute("displayname").value();
             q.automatable = std::string(p.attribute("automatable").value()) == "true";
             q.performance = (bool)p.attribute("performanceCtrl");
+            q.meta = std::string(p.attribute("meta").value()) == "true";
+            q.retrigger = std::string(p.attribute("retrigger").value()) == "true";
+            q.catch_always = std::string(p.attribute("catchAlways").value()) != "false";
+            for (auto c : p.children("Client")) {
+                MetaClient mc;
+                mc.path = c.attribute("name").value();
+                mc.a = c.attribute("a").as_double(1);
+                mc.b = c.attribute("b").as_double(0);
+                mc.notrigger = std::string(c.attribute("notrigger").value()) == "true";
+                mc.nosource = std::string(c.attribute("nosource").value()) == "true";
+                for (auto m : c.children("Map"))
+                    mc.maps.push_back({num(m, "clientval", 0), num(m, "metaval", 0)});
+                q.clients.push_back(mc);
+            }
             index_[q.path] = parameters.size();
             parameters.push_back(q);
         }

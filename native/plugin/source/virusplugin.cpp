@@ -537,6 +537,12 @@ int VirusPlugin::ui_value(const std::string &path, int part)
     const Parameter *param = cond_ ? cond_->find(path) : nullptr;
     if (param && param->part == "none")
         part = -1; // global parameters (Panel Part, globals) are not per part
+    if (param && !dev_.find(path) && param->part == "all") { // per-part editor values and meta parameters
+        std::lock_guard<std::mutex> lk(values_mu_);
+        auto &store = param->meta ? meta_vals_ : ed_part_;
+        auto it = store.find({path, part < 0 ? 0 : part});
+        return it != store.end() ? it->second : param->def;
+    }
     {
         auto it = ui_state_.find(path);
         if (it != ui_state_.end())
@@ -600,7 +606,7 @@ void VirusPlugin::ui_set(const std::string &path, int part, int value)
         ui_dirty_ = true;
         return;
     }
-    if (const Parameter *p = dev_.find(path)) { // LCD: name, value text and part of the edited parameter
+    if (const Parameter *p = meta_depth_ ? nullptr : dev_.find(path)) { // LCD: the edited parameter (not linked ones)
         auto text = [&](int val) {
             std::string v = std::to_string(val);
             for (const RemoteDevice *d : {&dev_, &ed_}) {
@@ -619,8 +625,17 @@ void VirusPlugin::ui_set(const std::string &path, int part, int value)
     if (const Parameter *p = cond_ ? cond_->find(path) : nullptr)
         if (p->part == "none")
             part = -1;
-    if (ed_.find(path) && !dev_.find(path)) { // editor state (page selection, ...)
-        ui_state_[path] = value;
+    if (const Parameter *ep = ed_.find(path); ep && !dev_.find(path)) {
+        if (ep->meta) { // e.g. the LFO clock menus: set the meta value and pass it to its clients
+            std::lock_guard<std::recursive_mutex> mk(meta_mu_);
+            meta_set(*ep, part < 0 ? 0 : part, std::max(ep->min, std::min(ep->max, value)), std::string(), true);
+            meta_retrigger(part < 0 ? 0 : part, true);
+        } else if (ep->part == "all") { // per-part editor values (FX switches, link buttons, helpers)
+            set_editor_value(path, part, value);
+            std::lock_guard<std::recursive_mutex> mk(meta_mu_);
+            meta_source(path, part < 0 ? 0 : part, value, true);
+        } else
+            ui_state_[path] = value; // editor state (page selection, ...)
         ui_dirty_ = true;
         return;
     }
@@ -637,6 +652,145 @@ void VirusPlugin::ui_set(const std::string &path, int part, int value)
             out_->send(msg);
     }
     set_part_value(part, path, value);
+    if (part >= 0) { // linked parameters (filter link, FX switches, LFO clocks)
+        std::lock_guard<std::recursive_mutex> mk(meta_mu_);
+        meta_source(path, part, value, true);
+    }
+}
+
+// ---- meta parameters (editordevice.xml): a source client sets the meta value (client value -> meta through the
+// maps or (v - b) / a), the meta passes it to its trigger clients (maps or a * meta + b) while its condition holds;
+// "retrigger" metas fire again when their condition becomes true (FX switch on/off, LFO clock switch).
+// full = false (changes reported by the Virus, loaded states): only editor-side clients are updated.
+
+void VirusPlugin::set_editor_value(const std::string &path, int part, int value)
+{
+    std::lock_guard<std::mutex> lk(values_mu_);
+    ed_part_[{path, part < 0 ? 0 : part}] = value;
+    ui_dirty_ = true;
+}
+
+bool VirusPlugin::meta_cond(const Parameter &m, int part)
+{
+    if (m.condition.empty() || !cond_)
+        return true;
+    return cond_->eval(m.condition, [this](const std::string &p, int pt) { return ui_value(p, pt); }, part);
+}
+
+static int meta_to_client(const MetaClient &c, int mv)
+{
+    for (auto &m : c.maps)
+        if (m.second == mv)
+            return m.first;
+    return (int)std::lround(c.a * mv + c.b);
+}
+
+static bool client_to_meta(const MetaClient &c, int cv, int &mv)
+{
+    for (auto &m : c.maps)
+        if (m.first == cv)
+            return mv = m.second, true;
+    if (!c.maps.empty() || c.a == 0)
+        return false;
+    mv = (int)std::lround((cv - c.b) / c.a);
+    return true;
+}
+
+void VirusPlugin::meta_set(const Parameter &m, int part, int mv, const std::string &except, bool full)
+{
+    {
+        std::lock_guard<std::mutex> lk(values_mu_);
+        meta_vals_[{m.path, part}] = mv;
+    }
+    if (meta_depth_ > 6 || !meta_cond(m, part))
+        return;
+    meta_depth_++;
+    for (auto &c : m.clients) {
+        if (c.notrigger || c.path == except)
+            continue;
+        const Parameter *cp = cond_ ? cond_->find(c.path) : nullptr;
+        int cv = meta_to_client(c, mv);
+        if (cp)
+            cv = std::max(cp->min, std::min(cp->max, cv));
+        if (ui_value(c.path, part) == cv)
+            continue;
+        if (dev_.find(c.path)) {
+            if (full)
+                ui_set(c.path, part, cv); // to the Virus (and on to further metas)
+            else
+                set_part_value(part, c.path, cv);
+        } else if (cp && cp->meta) {
+            meta_set(*cp, part, cv, std::string(), full);
+        } else {
+            set_editor_value(c.path, part, cv);
+            meta_source(c.path, part, cv, full);
+        }
+    }
+    meta_depth_--;
+}
+
+void VirusPlugin::meta_source(const std::string &path, int part, int value, bool full)
+{
+    if (meta_depth_ > 6)
+        return;
+    for (auto &m : ed_.parameters) {
+        if (!m.meta)
+            continue;
+        for (auto &c : m.clients) {
+            if (c.path != path || c.nosource)
+                continue;
+            if (!m.catch_always && !meta_cond(m, part))
+                continue;
+            int mv;
+            if (!client_to_meta(c, value, mv))
+                continue;
+            mv = std::max(m.min, std::min(m.max, mv));
+            meta_set(m, part, mv, path, full);
+        }
+    }
+    meta_retrigger(part, full);
+}
+
+void VirusPlugin::meta_retrigger(int part, bool full)
+{
+    for (auto &m : ed_.parameters) {
+        if (!m.meta || !m.retrigger)
+            continue;
+        bool now = meta_cond(m, part), before;
+        {
+            std::lock_guard<std::mutex> lk(values_mu_);
+            auto it = meta_cond_.find({m.path, part});
+            before = it == meta_cond_.end() ? now : it->second;
+            meta_cond_[{m.path, part}] = now;
+        }
+        if (now && !before)
+            meta_set(m, part, ui_value(m.path, part), std::string(), full);
+    }
+}
+
+// after loading a state: meta values from their first source client, passed to the editor-side clients only
+void VirusPlugin::meta_init()
+{
+    std::lock_guard<std::recursive_mutex> mk(meta_mu_);
+    for (int part = 0; part < 16; part++) {
+        for (auto &m : ed_.parameters) {
+            if (!m.meta || (!m.catch_always && !meta_cond(m, part))) // e.g. "Trigger On" keeps its default (64)
+                continue;
+            for (auto &c : m.clients) {
+                int mv;
+                if (c.nosource || !client_to_meta(c, ui_value(c.path, part), mv))
+                    continue;
+                meta_set(m, part, std::max(m.min, std::min(m.max, mv)), c.path, false);
+                break;
+            }
+        }
+        for (auto &m : ed_.parameters) // the retrigger metas start from the loaded state's conditions
+            if (m.meta && m.retrigger) {
+                bool c = meta_cond(m, part);
+                std::lock_guard<std::mutex> lk(values_mu_);
+                meta_cond_[{m.path, part}] = c;
+            }
+    }
 }
 
 // our own bank cache: Linux ~/.local/share/virus-ti-native/cache, Mac ~/Library/Application Support/virus-ti-native/
@@ -1178,6 +1332,10 @@ void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
         if (c.part > 15)
             continue; // globals are not plug-in parameters
         set_part_value(c.part, c.path, c.value);
+        {
+            std::lock_guard<std::recursive_mutex> mk(meta_mu_);
+            meta_source(c.path, c.part, c.value, false); // e.g. the FX switches follow the send knobs on the Virus
+        }
         auto it = ids_.find({c.path, c.part});
         if (it != ids_.end()) {
             std::lock_guard<std::mutex> lk(pending_mu_);
@@ -1219,6 +1377,7 @@ void VirusPlugin::apply_state_to_params()
         if (v != part->second.end())
             setParamNormalized(kv.first, v->second / 127.0);
     }
+    meta_init();
 }
 
 void VirusPlugin::send_state()

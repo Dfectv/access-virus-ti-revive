@@ -13,12 +13,24 @@
 
 namespace vti {
 
+// a meta parameter's client (editordevice.xml <Client>): client = a * meta + b, or through value maps
+struct MetaClient {
+    std::string path;
+    double a = 1, b = 0;
+    std::vector<std::pair<int, int>> maps; // (client value, meta value)
+    bool notrigger = false; // the meta value is not passed to this client
+    bool nosource = false;  // changes of this client do not set the meta value
+};
+
 struct Parameter {
     std::string group, name, path; // path = "group/name", the key used everywhere in the XML
     int min = 0, max = 127, def = 0;
     std::string valuelist, part, condition, message, shortname, displayname;
     int controller = -1; // controllerindex
     bool automatable = false, performance = false;
+    // meta parameters (editordevice.xml meta="true"): link other parameters (filter link, FX switches, LFO clocks)
+    bool meta = false, retrigger = false, catch_always = true;
+    std::vector<MetaClient> clients;
 };
 
 struct Valuelist {
