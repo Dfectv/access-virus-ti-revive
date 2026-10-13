@@ -537,10 +537,13 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         int64_t stamp;
         uint8_t n, m[16];
     };
-    Ev evs[128];
+    // automation takes at most 96 slots and clock/bend/aftertouch a few dozen, so notes always keep 100+ (a dropped
+    // note-off would hang a note)
+    constexpr int EV_MAX = 256;
+    Ev evs[EV_MAX];
     int nev = 0;
     auto add = [&](int64_t stamp, const uint8_t *m, size_t n) {
-        if (nev < 128 && n <= 16) {
+        if (nev < EV_MAX && n <= 16) {
             evs[nev].stamp = stamp, evs[nev].n = (uint8_t)n;
             memcpy(evs[nev].m, m, n);
             nev++;
@@ -652,8 +655,12 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             }
         }
     }
-    // to the Virus in time order (clock ticks and events share the timeline)
-    std::sort(evs, evs + nev, [](const Ev &a, const Ev &b) { return a.stamp < b.stamp; });
+    // to the Virus in time order (clock ticks and events share the timeline); stable: at the same stamp automation
+    // stays before the notes, so a note starts with the new values (insertion sort: stable, no allocation on the
+    // audio thread, and the events come nearly in order)
+    for (int i = 1; i < nev; i++)
+        for (int j = i; j > 0 && evs[j].stamp < evs[j - 1].stamp; j--)
+            std::swap(evs[j], evs[j - 1]);
     for (int i = 0; out_ && i < nev; i++)
         out_->send_rt(evs[i].m, evs[i].n, evs[i].stamp);
     int64_t block_start = tl_;
@@ -723,9 +730,10 @@ IPlugView *PLUGIN_API VirusPlugin::createView(FIDString name)
 
 int VirusPlugin::ui_value(const std::string &path, int part)
 {
+    int browser_bank;
     // the original's internal browser parameters: browser N shows RAM bank N until changed
     if (path.rfind("Browser ", 0) == 0 && path.find("/Selected Bank") != std::string::npos &&
-        !ui_state_.count(path))
+        !ui_state_get(path, browser_bank))
         return path[8] - '0';
     const Parameter *param = cond_ ? cond_->find(path) : nullptr;
     if (param && param->part == "none")
@@ -736,11 +744,8 @@ int VirusPlugin::ui_value(const std::string &path, int part)
         auto it = store.find({path, part < 0 ? 0 : part});
         return it != store.end() ? it->second : param->def;
     }
-    {
-        auto it = ui_state_.find(path);
-        if (it != ui_state_.end())
-            return it->second;
-    }
+    if (int v; ui_state_get(path, v))
+        return v;
     // stored values outside the parameter's range (e.g. Vocoder/Bands 127 of 0..31 in old patches) are clamped like
     // the original shows them
     auto clamp = [param](int v) { return param && param->max > param->min ? std::max(param->min, std::min(param->max, v)) : v; };
@@ -788,14 +793,14 @@ void VirusPlugin::ui_set(const std::string &path, int part, int value)
     if (!dev_.find(path) && !ed_.find(path)) { // the original's internal parameters (browser state)
         if (path == "Repository Actions/Category Filter") { // the original shows it on the LCD like a parameter
             std::string before = category_name_();
-            ui_state_[path] = value;
+            ui_state_set(path, value);
             std::string name = path;
             std::replace(name.begin(), name.end(), '/', ' ');
             set_lcd(name, category_name_(), "Part " + std::to_string(ui_value(layout_.frame_parameter, -1) + 1), before);
             update_results();
             return;
         }
-        ui_state_[path] = value;
+        ui_state_set(path, value);
         ui_dirty_ = true;
         return;
     }
@@ -828,7 +833,7 @@ void VirusPlugin::ui_set(const std::string &path, int part, int value)
             std::lock_guard<std::recursive_mutex> mk(meta_mu_);
             meta_source(path, part < 0 ? 0 : part, value, true);
         } else
-            ui_state_[path] = value; // editor state (page selection, ...)
+            ui_state_set(path, value); // editor state (page selection, ...)
         ui_dirty_ = true;
         return;
     }
@@ -1108,11 +1113,8 @@ void VirusPlugin::load_rom_banks()
 void VirusPlugin::set_sync_progress(int v)
 {
     const std::string path = "VirusControl/InitialSyncProgress";
-    auto it = ui_state_.find(path);
-    if (it != ui_state_.end() && it->second == v)
-        return;
-    ui_state_[path] = v;
-    ui_dirty_ = true;
+    if (ui_state_set(path, v))
+        ui_dirty_ = true;
 }
 
 bool VirusPlugin::wait_until_quiet()
@@ -1464,9 +1466,9 @@ void VirusPlugin::update_results()
     int shown = ui_value(b0, -1);
     if (active && shown != SEARCH_BANK) {
         results_return_ = shown;
-        ui_state_[b0] = SEARCH_BANK;
+        ui_state_set(b0, SEARCH_BANK);
     } else if (!active && shown == SEARCH_BANK)
-        ui_state_[b0] = results_return_;
+        ui_state_set(b0, results_return_);
     ui_dirty_ = true;
 }
 

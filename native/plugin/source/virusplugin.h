@@ -219,6 +219,25 @@ private:
     std::mutex values_mu_;
     std::map<int, std::map<std::string, int>> part_values_; // decoded part dumps + controllers, per part (-1 = global)
     std::map<std::string, int> ui_state_;                   // editor-only parameters (VirusControl/SelectedPage ...)
+    std::mutex ui_state_mu_; // ui_state_ is used by the UI, worker (meta conditions) and sync threads
+    bool ui_state_get(const std::string &path, int &v)
+    {
+        std::lock_guard<std::mutex> lk(ui_state_mu_);
+        auto it = ui_state_.find(path);
+        if (it == ui_state_.end())
+            return false;
+        v = it->second;
+        return true;
+    }
+    bool ui_state_set(const std::string &path, int v) // false: unchanged
+    {
+        std::lock_guard<std::mutex> lk(ui_state_mu_);
+        auto [it, added] = ui_state_.emplace(path, v);
+        if (!added && it->second == v)
+            return false;
+        it->second = v;
+        return true;
+    }
     // meta parameters (editordevice.xml meta="true", e.g. filter link, FX switches, LFO clocks): per-part editor values
     // of "part all" editor parameters, meta values, last condition state of retrigger metas (values_mu_)
     std::map<std::pair<std::string, int>, int> ed_part_, meta_vals_;
