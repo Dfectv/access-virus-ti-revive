@@ -8,6 +8,9 @@ extern "C" {
 #ifdef _WIN32
 #include <windows.h>
 #endif
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 #ifdef __linux__
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -17,6 +20,18 @@ extern "C" {
 namespace vti {
 
 #define shm_ ((vti_audio_shm *)map_)
+
+// the broker publishes in_frames after the data (release); read it with acquire semantics
+static inline int64_t load_acquire(volatile int64_t *p)
+{
+#ifdef _MSC_VER
+    int64_t v = *p; // aligned 64-bit loads are atomic on x64; the barrier keeps later reads after it
+    _ReadWriteBarrier();
+    return v;
+#else
+    return __atomic_load_n(p, __ATOMIC_ACQUIRE);
+#endif
+}
 
 AudioIn::~AudioIn() { close(); }
 
@@ -73,11 +88,11 @@ void AudioIn::close()
 
 bool AudioIn::streaming() const { return shm_ && shm_->streaming; }
 
-int64_t AudioIn::newest_frame() const { return streaming() ? __atomic_load_n(&shm_->in_frames, __ATOMIC_ACQUIRE) : -1; }
+int64_t AudioIn::newest_frame() const { return streaming() ? load_acquire(&shm_->in_frames) : -1; }
 
 void AudioIn::read_at(float *l1, float *r1, float *l2, float *r2, int n, int64_t pos)
 {
-    int64_t newest = streaming() ? __atomic_load_n(&shm_->in_frames, __ATOMIC_ACQUIRE) : -1;
+    int64_t newest = streaming() ? load_acquire(&shm_->in_frames) : -1;
     const float k = 1.0f / 32768.0f;
     for (int i = 0; i < n; i++) {
         int64_t f = pos + i;
@@ -100,7 +115,7 @@ void AudioIn::read(float *l1, float *r1, float *l2, float *r2, int n, int latenc
         silence(0);
         return;
     }
-    int64_t newest = __atomic_load_n(&shm_->in_frames, __ATOMIC_ACQUIRE);
+    int64_t newest = load_acquire(&shm_->in_frames);
     int64_t fill = newest - pos_;
     // (re)anchor when starting, after an underrun or when far behind (DAW stalled)
     if (pos_ < 0 || fill < n || fill > VTI_AUDIO_RING / 2) {
