@@ -90,6 +90,12 @@
   at 05:22 (port 1-8: resets, "device not accepting address, error -71") right after a broker give-back -> needs a
   power cycle by the user. Watch whether this repeats (broker reset at exit, or our stream hanging the firmware).
 
+- Editor displays: ADSTR envelopes, filter responses (LP/HP/BP/BS), classic oscillator shape (all measured on the
+  original), big rotating rings only while held, inactive controls use their DisabledBack strip. Pixel match per page:
+  Easy 98.3, Browser 97.3, OSC 97.4, Filter 97.4, LFO 99.0, Matrix 96.2, Arp 97.4, FX 95.9, Common 98.9, FX2 94.1
+  (mean 97.2 %). Open: FX2 menus that the original shows active although our state says inactive (Reverb Send 0 -
+  the original probably uses the Virus' upgraded edit buffer values), Hypersaw/Wavetable displays, step sequencer.
+
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
   Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples
