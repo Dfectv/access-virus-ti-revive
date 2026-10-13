@@ -143,6 +143,10 @@ public:
         return bank < 4 ? std::string("RAM ") + (char)('A' + bank) : std::string("ROM ") + (char)('A' + bank - 4);
     }
     bool ui_changed() { return ui_dirty_.exchange(false); }
+    // MIDI activity meters of the part strips (note-on velocity per MIDI channel, like the original's
+    // "ShowMIDIActivityMeters"): tick_meters() decays them and says whether the shown values changed
+    bool tick_meters(int step);
+    int meter(int channel) const { return channel >= 0 && channel < 16 ? meter_shown_[channel] : 0; }
     std::string live_text(const std::string &param); // LCD texts of the last edited parameter
 
     // IMidiMapping: channel aftertouch / pitch bend -> the original's per-channel parameters
@@ -172,6 +176,8 @@ private:
     std::string search_;                                    // browser search text
     std::map<std::pair<int, int>, std::array<int, 3>> cat_cache_; // (bank, program) -> checksum, category 1, 2
     std::atomic<bool> ui_dirty_{true};
+    std::atomic<int> meter_[16] = {};
+    int meter_shown_[16] = {}; // editor thread
     // automation values from process() for the part dumps (single producer / single consumer, lock-free)
     struct ParamUpdate {
         Steinberg::Vst::ParamID id;

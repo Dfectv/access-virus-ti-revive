@@ -384,6 +384,14 @@ int main(int argc, char **argv)
                         continue;
                     }
                     if (a.kind == 'y') { // type text + Return through XTest
+                        { // keyboard focus to the (VSTGUI child) window under the pointer - no window manager here
+                            Window root, child = win, w = win;
+                            int rx, ry, wx, wy;
+                            unsigned mask;
+                            while (XQueryPointer(dpy, w, &root, &child, &rx, &ry, &wx, &wy, &mask) && child)
+                                w = child;
+                            XSetInputFocus(dpy, w, RevertToPointerRoot, CurrentTime);
+                        }
                         auto key = [&](KeySym ks, bool shift) {
                             KeyCode kc = XKeysymToKeycode(dpy, ks), sh = XKeysymToKeycode(dpy, XK_Shift_L);
                             if (shift)

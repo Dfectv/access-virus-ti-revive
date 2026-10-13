@@ -41,6 +41,7 @@ public:
     std::function<bool(int bank, int program)> browser_match;     // category filter / search (false = dimmed)
     // live texts (LCD: "VirusControl/Display Parameter" / "Display Value" / "Display Part"); empty = valuelist
     std::function<std::string(const std::string &param)> live_text;
+    std::function<int(int channel)> meter;           // MIDI activity 0..127 per channel (part strip VU meters)
     int part = 0;                                    // the current (panel) part
     double disabled_alpha = 0.4;
     // the element held down by the mouse (drawn with PressedBack)

@@ -92,8 +92,16 @@ load in the rewrite and vice versa.
 ## editor rendering rules (verified against a screenshot of the original, Easy page 97.0 % identical pixels)
 - Knob/slider bitmaps are vertical filmstrips: frames = bitmap height / control height, frame = (v-min)/(max-min).
 - RadioButton/Button: NormalBack is a 2-frame strip (0 = off, 1 = selected); PressedBack only while held.
-- VUSlider (part strip): NormalBack = 53-frame level strip (lit for the current part up to its volume), NormalHandle
-  at (w - handle width) * value; children of a PatchContainer inherit its Part.
+- VUSlider (part strip): NormalBack = 53-frame MIDI activity meter (frame 0 empty .. 52 full; the original's
+  "ShowMIDIActivityMeters": per MIDI channel the highest note-on velocity, -1 per editor idle tick; the plug-in's
+  fixed multi maps part n to channel n), NormalHandle at (w - handle width) * volume; children of a PatchContainer
+  inherit its Part.
+- Align="No Label": no text (the bitmap carries it, e.g. CATEGORY, LOAD/SAVE).
+- Conditions the original evaluates in code: "VirusControl/Browser/Category Filter (Not) Selected" (filter != 0),
+  "Internal System Info/Display Recall Progress" (false outside a recall).
+- Category filter: menu = editordevice "Val Name Category Filter" (All + alphabetical); its entry value is the
+  category byte stored in the patch (Piano = index 16, stored 18). Search: live, case-insensitive substring of the
+  patch name; non-matching entries are dimmed.
 - Inactive controls (the parameter's own `condition` false, e.g. Chorus Mix with chorus off, Live Mode while the
   sequencer runs; soft knobs without destination) are painted with alpha 0.4.
 - Text: bitmap fonts FNT_LCD_5x7_*.png = 96 glyphs (ASCII 32..127) of 6x9 in a vertical strip; StaticText shows its

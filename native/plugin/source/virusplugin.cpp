@@ -451,6 +451,9 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
                 uint8_t m[3] = {(uint8_t)(0x90 | (e.noteOn.channel & 15)), (uint8_t)e.noteOn.pitch,
                                 (uint8_t)std::max(1L, std::lround(e.noteOn.velocity * 127))};
                 add(at(e.sampleOffset), m, 3);
+                auto &mt = meter_[e.noteOn.channel & 15]; // MIDI activity meter: the highest velocity, decays in tick_meters
+                if (mt.load(std::memory_order_relaxed) < m[2])
+                    mt.store(m[2], std::memory_order_relaxed);
             } else if (e.type == Event::kNoteOffEvent) {
                 uint8_t m[3] = {(uint8_t)(0x80 | (e.noteOff.channel & 15)), (uint8_t)e.noteOff.pitch,
                                 (uint8_t)std::lround(e.noteOff.velocity * 127)};
@@ -897,6 +900,20 @@ bool VirusPlugin::store_to_library(int part, int library, int slot)
     return ok;
 }
 
+bool VirusPlugin::tick_meters(int step)
+{
+    bool changed = false;
+    for (int ch = 0; ch < 16; ch++) {
+        int v = meter_[ch].load(std::memory_order_relaxed);
+        if (v != meter_shown_[ch])
+            changed = true;
+        meter_shown_[ch] = v;
+        if (v > 0) // the original lowers every channel by 1 per editor idle tick
+            meter_[ch].compare_exchange_strong(v, std::max(0, v - step), std::memory_order_relaxed);
+    }
+    return changed;
+}
+
 void VirusPlugin::set_search(const std::string &s)
 {
     std::lock_guard<std::mutex> lk(values_mu_);
@@ -936,7 +953,14 @@ bool VirusPlugin::browser_match(int bank, int program)
             std::lock_guard<std::mutex> lk(values_mu_);
             cat_cache_[{bank, program}] = c;
         }
-        if (c[1] != cat && c[2] != cat)
+        // the filter menu lists the categories alphabetically ("Val Name Category Filter": index -> stored value)
+        int want = cat;
+        auto vl = ed_.valuelists.find("Val Name Category Filter");
+        if (vl != ed_.valuelists.end())
+            for (auto &en : vl->second.entries)
+                if (en.index == cat && en.value >= 0)
+                    want = en.value;
+        if (c[1] != want && c[2] != want)
             return false;
     }
     if (!q.empty()) {

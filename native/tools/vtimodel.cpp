@@ -87,6 +87,13 @@ int main(int argc, char **argv)
             fclose(f);
         }
         printf("init patch %zu bytes, version %d -> %d%s\n", d.size(), v, d.size() > 9 ? d[9] : -1, ch ? "" : " (unchanged)");
+    } else if (cmd == "initmulti" && !args.empty()) { // the plug-in's embedded multi to a file
+        auto d = files->init_multi();
+        if (FILE *f = fopen(args[0].c_str(), "wb")) {
+            fwrite(d.data(), 1, d.size(), f);
+            fclose(f);
+        }
+        printf("init multi %zu bytes\n", d.size());
     } else if (cmd == "decode" && !args.empty()) { // a message from the Virus (hex bytes) -> parameter changes
         std::vector<uint8_t> m;
         for (auto &a : args)

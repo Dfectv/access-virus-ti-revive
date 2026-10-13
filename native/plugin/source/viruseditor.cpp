@@ -6,6 +6,7 @@
 #include "vstgui/lib/cframe.h"
 #include "vstgui/lib/controls/coptionmenu.h"
 #include "vstgui/lib/controls/ctextedit.h"
+#include "vstgui/lib/controls/itexteditlistener.h"
 #include "vstgui/lib/cvstguitimer.h"
 #include "vstgui/lib/events.h"
 #include "vstgui/lib/platform/platformfactory.h"
@@ -69,7 +70,7 @@ private:
     std::map<std::string, SharedPointer<CBitmap>> &cache_;
 };
 
-class EditorCanvasView : public CView, public IControlListener {
+class EditorCanvasView : public CView, public IControlListener, public TextEditListenerAdapter {
 public:
     EditorCanvasView(VirusPlugin *plugin, const CRect &r)
         : CView(r), plugin_(plugin), renderer_(plugin->layout(), plugin->conditions(), plugin->device(), plugin->editor_device()),
@@ -80,10 +81,17 @@ public:
         renderer_.bank_patch = [this](int bank, int prog) { return plugin_->bank_patch(bank, prog); };
         renderer_.live_text = [this](const std::string &p) { return plugin_->live_text(p); };
         renderer_.browser_match = [this](int bank, int prog) { return plugin_->browser_match(bank, prog); };
+        renderer_.meter = [this](int ch) { return plugin_->meter(ch); };
         // device changes (knobs on the Virus, automation) repaint the view
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) {
             if (plugin_->ui_changed() && !partial_) // during a drag the drag repaints its own area
                 invalid();
+            else if (plugin_->tick_meters(2)) { // the original: -1 per ~25 ms idle tick; here 2 per 50 ms
+                if (meter_rects_.empty())
+                    meter_rects_ = renderer_.param_rects("Internal MIDI Standard Parameters/07 Volume");
+                for (auto &rc : meter_rects_)
+                    invalidRect(CRect(rc[0], rc[1], rc[0] + rc[2], rc[1] + rc[3]));
+            }
         }, 50);
     }
 
@@ -215,19 +223,33 @@ public:
     {
         if (auto *te = dynamic_cast<CTextEdit *>(c)) {
             std::string t = te->getText().getString();
-            if (editing_search_)
+            if (editing_search_) { // live search: every change filters; the field goes away with the focus
                 plugin_->set_search(t);
-            else
-                plugin_->rename_part(edit_part_, t);
+                invalid();
+                return;
+            }
+            plugin_->rename_part(edit_part_, t);
             if (auto *f = getFrame()) // remove the edit field after the current event
                 f->doAfterEventProcessing([f, te]() { f->removeView(te); });
             invalid();
         }
     }
 
+    // ITextEditListener: the search field lost the focus (return, click elsewhere)
+    void onTextEditPlatformControlLostFocus(CTextEdit *te) override
+    {
+        te->unregisterTextEditListener(this);
+        editing_search_ = false;
+        if (auto *f = getFrame())
+            f->doAfterEventProcessing([f, te]() { f->removeView(te); });
+        invalid();
+    }
+
 private:
     int edit_part_ = 0;
+    std::vector<std::array<int, 4>> meter_rects_;
     bool editing_search_ = false;
+    CRect search_rect_;
 
     // LOAD: RAM A..D -> patch -> into the part; SAVE: RAM A..D -> slot -> store the part's patch there
     // LOAD / SAVE like the original: "<device> > RAM A.. (SAVE: RAM only) > 000 Name" and "Personal Libraries"
@@ -321,9 +343,13 @@ private:
     void category_menu(const Hit &h, const CPoint &where)
     {
         auto *menu = new COptionMenu(CRect(), nullptr, -1, nullptr, nullptr, COptionMenu::kCheckStyle);
-        menu->addEntry("All");
-        for (int c = 1; c <= 22; c++)
-            menu->addEntry(renderer_.value_text("Categories/Category 1", c).c_str());
+        // the original's list: "All" + the categories in alphabetical order (editordevice "Val Name Category Filter")
+        auto vl = plugin_->editor_device().valuelists.find("Val Name Category Filter");
+        if (vl != plugin_->editor_device().valuelists.end())
+            for (auto &en : vl->second.entries)
+                menu->addEntry(en.text.c_str());
+        else
+            menu->addEntry("All");
         menu->setCurrent(plugin_->ui_value("Repository Actions/Category Filter", -1));
         menu->popup(getFrame(), where, [this](COptionMenu *m) {
             if (m->getLastResult() >= 0)
@@ -338,11 +364,26 @@ private:
         auto *f = getFrame();
         if (!f)
             return;
+        if (editing_search_)
+            return;
         editing_search_ = true;
-        CRect r(h.x, h.y, h.x + std::max(120, h.element->w), h.y + h.element->h);
+        // the field of the layout (the magnifier button left of it opens the same field)
+        const Element *field = h.element;
+        if (field->type != "SearchEdit")
+            for (auto &rc : renderer_.param_rects("Repository Actions/Search"))
+                if (rc[2] > rc[3] * 2) { // the wide one is the text field
+                    search_rect_ = CRect(rc[0], rc[1], rc[0] + rc[2], rc[1] + rc[3]);
+                    field = nullptr;
+                }
+        CRect r = field ? CRect(h.x, h.y, h.x + field->w, h.y + field->h) : search_rect_;
         auto *te = new CTextEdit(r, this, 0, plugin_->search().c_str());
-        te->setBackColor(CColor(20, 30, 60, 255));
-        te->setFontColor(CColor(255, 255, 255, 255));
+        te->setBackColor(CColor(224, 232, 240, 255)); // close to the LCD field, system font like the name edit
+        te->setFrameColor(CColor(224, 232, 240, 255));
+        te->setFontColor(CColor(20, 40, 120, 255));
+        te->setFont(kNormalFontSmall);
+        te->setHoriAlign(kLeftText);
+        te->setImmediateTextChange(true);
+        te->registerTextEditListener(this);
         f->addView(te);
         te->takeFocus();
     }

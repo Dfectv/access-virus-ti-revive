@@ -279,11 +279,12 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
         normal = c.image(e.get("PressedBack"));
     if (normal && e.w > 0 && e.h > 0) {
         int frames = std::max(1, c.image_height(normal) / e.h), index = 0;
-        if (e.type == "VUSlider") { // level strip (lit for the current part up to its volume) + handle
+        if (e.type == "VUSlider") { // MIDI activity of the part's channel (level strip) + volume handle
             void *hd = c.image(e.get("NormalHandle"));
             int hw = hd ? c.image_width(hd) : 0;
             int pos = hi > lo ? (int)std::lround((double)(v - lo) / (hi - lo) * (e.w - hw)) : 0;
-            c.blit(normal, 0, (pt == part ? frame_of(v, lo, hi, frames) : 0) * e.h, x, y, e.w, e.h, alpha);
+            int act = meter ? meter(pt) : 0; // the plug-in's fixed multi: part n listens on channel n
+            c.blit(normal, 0, frame_of(act, 0, 127, frames) * e.h, x, y, e.w, e.h, alpha);
             if (hd)
                 c.blit(hd, 0, 0, x + pos, y + (e.h - c.image_height(hd)) / 2, hw, c.image_height(hd), alpha);
         } else {
@@ -312,7 +313,7 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
         patch_browser(c, e, x, y, values(param, pt)); // "Browser N/Selected Bank" (the host side keeps it)
     }
     const std::string &font = e.get("ControlFont");
-    if (!font.empty() && e.type != "PatchBrowser") {
+    if (!font.empty() && e.type != "PatchBrowser" && e.get("Align") != "No Label") { // "No Label": the bitmap has it
         std::string str;
         if (e.type == "StaticText")
             str = e.get("Name");
