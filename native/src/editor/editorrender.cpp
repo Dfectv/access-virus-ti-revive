@@ -179,6 +179,33 @@ void EditorRenderer::envelope(Canvas &c, const Element &e, int x, int y, int par
     }
 }
 
+// filter response displays (LP4/HP4/BP4/BS4Response): measured on the original - line (0,25,65) at the base level
+// h/2 - 3, handle (NormalHandle) at x = 3 + cutoff/127 * (w - 17), slope 3 px per px; resonance lifts the handle
+void EditorRenderer::filter_response(Canvas &c, const Element &e, int x, int y, int part)
+{
+    const std::string &cut = e.get("Parameter"); // "Filter N/Cutoff"
+    std::string res = cut.substr(0, cut.rfind('/') + 1) + "Resonance";
+    int cv = values(cut, part), rv = values(res, part);
+    const Rgba col{0, 25, 65, 255};
+    double left = x + 3, right = x + e.w - 3, top = y + 4, bottom = y + e.h - 1;
+    double base = y + e.h / 2 - 3, hx = x + 3 + cv / 127.0 * (e.w - 17), hy = base - rv / 127.0 * (base - top - 6);
+    double drop = (bottom - base) / 3;
+    auto ln = [&](double a, double b, double c2, double d) { c.line(a + 0.5, b + 0.5, c2 + 0.5, d + 0.5, col); };
+    if (e.type == "LP4Response") {
+        ln(left, base, hx - 4, base), ln(hx - 4, base, hx, hy), ln(hx, hy, std::min(right, hx + drop), bottom);
+    } else if (e.type == "HP4Response") {
+        ln(std::max(left, hx - drop), bottom, hx, hy), ln(hx, hy, hx + 4, base), ln(hx + 4, base, right, base);
+    } else if (e.type == "BP4Response") {
+        ln(std::max(left, hx - drop), bottom, hx, hy), ln(hx, hy, std::min(right, hx + drop), bottom);
+    } else { // BS4Response: flat with a notch at the cutoff
+        ln(left, base, hx - drop / 2, base), ln(hx - drop / 2, base, hx, bottom), ln(hx, bottom, hx + drop / 2, base);
+        ln(hx + drop / 2, base, right, base);
+    }
+    if (void *hd = c.image(e.get("NormalHandle")))
+        c.blit(hd, 0, 0, (int)std::lround(hx) - c.image_width(hd) / 2, (int)std::lround(hy) - c.image_height(hd) / 2,
+               c.image_width(hd), c.image_height(hd), 1.0);
+}
+
 void EditorRenderer::render(Canvas &c)
 {
     for (auto &e : layout_.elements)
@@ -229,6 +256,8 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
     } else if (e.get("Transparent") == "false" && e.back.a)
         c.fill(x, y, e.w, e.h, e.back);
 
+    if (e.type.size() == 11 && e.type.compare(3, 8, "Response") == 0 && !param.empty())
+        filter_response(c, e, x, y, pt);
     if (e.type == "ADSTREnvelope" && !param.empty())
         envelope(c, e, x, y, pt, alpha);
     if (e.type == "PatchBrowser" && bank_patch && !param.empty()) {

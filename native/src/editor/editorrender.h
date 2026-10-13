@@ -60,6 +60,7 @@ private:
     bool hit(const Element &e, int ox, int oy, int inherited, int px, int py, Hit &out) const;
     void patch_browser(Canvas &c, const Element &e, int x, int y, int bank);
     void envelope(Canvas &c, const Element &e, int x, int y, int part, double alpha);
+    void filter_response(Canvas &c, const Element &e, int x, int y, int part);
     void digits(Canvas &c, int number, int right, int top);
 };
 
