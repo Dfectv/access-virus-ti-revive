@@ -75,9 +75,12 @@ bool RemoteDevice::load(const std::vector<uint8_t> &xml, std::string &error)
         k.name = c.attribute("name").value();
         k.any = std::string(c.attribute("operand").value()) != "and";
         k.invert = std::string(c.attribute("result").value()) == "invert";
-        for (auto t : c.children("Test"))
-            k.tests.push_back({std::string(t.attribute("type").value()) == "inside", num(t, "minvalue", 0),
-                               num(t, "maxvalue", 0), t.attribute("param").value()});
+        for (auto t : c.children("Test")) {
+            std::string type = t.attribute("type").value();
+            auto kind = type == "inside" ? Condition::Test::Inside
+                        : type == "outside" ? Condition::Test::Outside : Condition::Test::Equals;
+            k.tests.push_back({kind, num(t, "minvalue", 0), num(t, "maxvalue", 0), t.attribute("param").value()});
+        }
         conditions.emplace(k.name, k);
     }
     for (auto m : root.child("MIDIMessages").children("MIDIMessage")) {

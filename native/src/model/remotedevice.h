@@ -38,9 +38,13 @@ struct Condition {
     bool any = true;     // operand "or" (true) / "and"
     bool invert = false; // result "invert"
     struct Test {
-        bool inside = true; // "inside" min..max, "equals" == min
+        enum Kind { Equals, Inside, Outside } kind = Equals; // "equals"/"equal": == min, "inside"/"outside" min..max
         int min = 0, max = 0;
         std::string param;
+        bool holds(int v) const
+        {
+            return kind == Equals ? v == min : kind == Inside ? (v >= min && v <= max) : (v < min || v > max);
+        }
     };
     std::vector<Test> tests;
 };

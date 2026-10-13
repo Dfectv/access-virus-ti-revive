@@ -49,9 +49,17 @@
   default state, parts differ in 17 legacy bytes (same sound). Plays without any loaded state (nativehost).
 - Decompile findings: stamp rule + audio sync markers (protocol.md), patch format versions 1..12 (upgrade_single).
 
+- R4 started: src/editor (EditorLayout from editor.xml, Conditions over remotedevice + editordevice incl. "outside"
+  tests), tools/vtirender (cairo offscreen render with knob filmstrips / radio states / conditions). Easy page vs a
+  screenshot of the original (Xvfb + PIL): 92-93 % identical pixels; missing: text (bitmap fonts FNT_*.png, patch
+  names, value displays), filter curve displays (LP4Response etc.), part strip details; the big Filter 1 cutoff ring
+  (MaskedKnob KNB_Cutoff_Rot_Uni) is not drawn by the original at rest - open why (other MaskedKnobs are).
+- Device -> host knob feedback, realtime-safe event ring (R3).
+
 ## Next
 - R3: device -> host (knobs on the Virus change parameters: decode incoming CC/poly pressure/SysEx with
   remotedevice.xml, update the part dumps, notify the host), realtime-safe event queue, exact F5 stamps (R5 rule).
 - REAPER test with the user: "Virus TI (native)" instance (Linux VST3), and a project saved with the original
   (VTI_NATIVE_DROPIN build) - needs the user at the PC.
-- R4 editor: editor.xml + PNGs from the user's installation (VSTGUI), the largest remaining part.
+- R4: text rendering (bitmap fonts), custom displays (filter/envelope/osc shape), then the VSTGUI view in the plug-in
+  (same drawing code, interaction: knob drags, radio/menu clicks, page switching).
