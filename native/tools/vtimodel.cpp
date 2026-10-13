@@ -110,7 +110,14 @@ int main(int argc, char **argv)
                 fprintf(stderr, "vtimodel: unknown %s\n", args[i].c_str());
                 return 1;
             }
-            values[args[i].substr(0, eq)] = atoi(args[i].c_str() + eq + 1);
+            std::string path = args[i].substr(0, eq);
+            int v = atoi(args[i].c_str() + eq + 1);
+            values[path] = v;
+            // parameters sharing the byte (e.g. Oscillator 1/Shape = HyperSaw/Density) get the same value
+            if (const vti::Parameter *p = dev.find(path))
+                for (auto &q : dev.parameters)
+                    if (q.message == p->message && q.controller == p->controller && values.count(q.path))
+                        values[q.path] = v;
         }
         dev.update_dump(*m, msg, values);
         unsigned a = 0; // checksums

@@ -1,11 +1,16 @@
 # Build check of the native plug-in on Windows (MSVC) and Linux; artifacts for manual tests. No releases from here.
 name: build
+# Manual only (Actions minutes of a private repo are limited; Linux is built locally): start it when a Windows or
+# macOS build is needed - `gh workflow run build -f platforms=windows` (windows | macos | linux | all).
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      platforms:
+        description: "windows, macos, linux or all"
+        default: "all"
 jobs:
   windows:
+    if: inputs.platforms == 'all' || inputs.platforms == 'windows'
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +35,7 @@ jobs:
             build/**/VirusTINative.map
             build/**/VirusTINative.pdb
   linux:
+    if: inputs.platforms == 'all' || inputs.platforms == 'linux'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -40,6 +46,7 @@ jobs:
       - name: build
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build
   macos:
+    if: inputs.platforms == 'all' || inputs.platforms == 'macos'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4

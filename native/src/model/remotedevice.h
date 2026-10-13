@@ -25,8 +25,8 @@ struct Valuelist {
     std::string name;
     bool mapped = false;
     struct Entry {
-        int index = 0;  // value of the parameter
-        int value = -1; // mapped lists: display order / alternate value
+        int index = 0;  // plain lists: the parameter value; mapped lists: the menu position
+        int value = -1; // mapped lists: the parameter value (see value_of)
         std::string text;
     };
     std::vector<Entry> entries;

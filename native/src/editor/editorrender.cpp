@@ -301,7 +301,10 @@ void EditorRenderer::osc_classic(Canvas &c, const Element &e, int x, int y, int 
     const std::string &pwp = e.get("Parameter"); // "Oscillator N/Pulsewidth"
     std::string g = pwp.substr(0, pwp.rfind('/') + 1);
     double sh = values(g + "Shape", part), pw = 0.5 + values(pwp, part) / 127.0 * 0.5;
-    double mid = y + (e.h - 1) / 2.0, amp = (e.h - 2) / 2.0;
+    // measured on the original: steps of 1 / (w - 2) per column, centre y + (h - 2) / 2 and amplitude (h - 2) / 2, the fill above the centre stops one
+    // row short of it
+    double mid = y + (e.h - 2) / 2.0, amp = (e.h - 2) / 2.0;
+    const int w = e.w - 1;
     auto wave = [&](double t) {
         double saw = 1 - 2 * t;
         if (sh <= 64) {
@@ -313,15 +316,27 @@ void EditorRenderer::osc_classic(Canvas &c, const Element &e, int x, int y, int 
     };
     Rgba fillc{182, 200, 228, 255}, linec{91, 100, 114, 255};
     double prev = 0;
-    for (int i = 0; i < e.w; i++) {
-        double t = (double)i / (e.w - 1), yy = mid - wave(t) * amp;
-        int a = (int)std::lround(std::min(yy, mid)), b = (int)std::lround(std::max(yy, mid));
-        c.fill(x + i, a, 1, b - a + 1, fillc);
-        if (i > 0)
-            c.line(x + i - 1 + 0.5, prev + 0.5, x + i + 0.5, yy + 0.5, linec);
-        prev = yy;
+    // one curve pixel per column at floor(y) (the original's 2:1 saw shows pixel pairs), fill between curve and centre
+    int midrow = (int)std::lround(mid), r = midrow, prev_ry = midrow;
+    for (int i = 0; i <= w; i++) { // the curve runs one column past the closing edge
+        double t = (double)i / (w - 1), yy = mid - wave(t) * amp;
+        int ry = (int)std::floor(yy);
+        if (i < w) { // the extra column carries only the curve pixel
+            r = ry;
+            if (r < midrow)
+                c.fill(x + i, r + 1, 1, midrow - r - 1, fillc);
+            else if (r > midrow)
+                c.fill(x + i, midrow, 1, r - midrow, fillc);
+        }
+        c.fill(x + i, ry, 1, 1, linec);
+        if (i > 0 && std::abs(ry - prev_ry) > 1) // steep parts (pulse edges): connect vertically
+            c.fill(x + i, std::min(ry, prev_ry) + 1, 1, std::abs(ry - prev_ry) - 1, linec);
+        prev_ry = ry;
     }
-    c.line(x + e.w - 1 + 0.5, prev + 0.5, x + e.w - 1 + 0.5, mid + 0.5, linec); // closing edge
+    if (r > midrow) // closing edge
+        c.fill(x + w - 1, midrow, 1, r - midrow, linec);
+    else if (r < midrow)
+        c.fill(x + w - 1, r, 1, midrow - r, linec);
 }
 
 bool EditorRenderer::param_active(const std::string &param, int part) const
