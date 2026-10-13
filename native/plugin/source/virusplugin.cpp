@@ -125,6 +125,13 @@ void DeviceOut::run()
         }
         if (idle_)
             idle_();
+        if (getenv("VTI_NATIVE_STATS") && std::chrono::steady_clock::now() >= stats_next_) { // endurance tests
+            stats_next_ = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+            int64_t newest = audio_ok_ ? audio_.newest_frame() : -1, pos = audio_ok_ ? audio_.position() : -1;
+            fprintf(stderr, "stats: audio %d drops %lld distance %lld queued %d\n", (int)audio_ok_.load(),
+                    (long long)(audio_ok_ ? audio_.drops() : -1), (long long)(newest >= 0 && pos >= 0 ? newest - pos : -1),
+                    queued_.load());
+        }
         // the broker may refuse the audio start right after another session ended (stress test: every second
         // quick re-open had no sound): retry every 500 ms while connected without audio
         if (!audio_ok_ && std::chrono::steady_clock::now() >= audio_retry_) {

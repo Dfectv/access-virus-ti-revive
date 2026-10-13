@@ -72,6 +72,7 @@ private:
     AudioIn audio_;
     std::atomic<bool> audio_ok_{false};
     std::chrono::steady_clock::time_point audio_retry_{}; // next audio start attempt (worker thread)
+    std::chrono::steady_clock::time_point stats_next_{};  // VTI_NATIVE_STATS output
     std::function<void(const std::vector<uint8_t> &)> panel_, reply_;
     std::function<void()> idle_;
     bool rx_set_ = false, pending_send_ = false;
