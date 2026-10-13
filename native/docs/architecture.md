@@ -103,12 +103,20 @@ original Virus TI software must be installed (it can stay unused). These are the
 | Personal Libraries | the Wine prefix's Documents folder; Wine links it to the XDG documents folder (e.g. `~/Dokumente`) |
 | audio setup | PipeWire with JACK; the host runs at 44.1 kHz (`pw-metadata -n settings 0 clock.force-rate 44100`) |
 
-### Windows (builds in CI, real-device test pending)
-- **Build:** MSVC via `.github/workflows/build.yml`; artifact `VirusTINative-windows`.
-- **Broker:** named pipe `\\.\pipe\vtibroker`; audio mapping `Local\vtibroker_audio` with a per-process event.
-- **Cache and data:** cache in `%LOCALAPPDATA%`; Access files and libraries come from the normal Access
-  installation.
-- **Menus:** native Win32 menus.
+### Windows (CI build, device-tested in a Win11 VM; DAW test pending)
+| topic | how |
+|---|---|
+| plug-in format | VST3 bundle in `C:\Program Files\Common Files\VST3\VirusTINative.vst3` (`x86_64-win`), built with MSVC in CI (`.github/workflows/build.yml`, artifacts `VirusTINative-windows` + `tools-windows`) |
+| UI | VSTGUI with Direct2D; native Win32 menus |
+| broker | named pipe `\\.\pipe\vtibroker`; like TI Revive's own clients the plug-in starts `vtibroker.exe` on demand (path from `HKLM\SOFTWARE\TI Revive\InstallDir`, else `%ProgramW6432%\TI Revive`), detached from the DAW's job object; the broker exits by itself when idle |
+| USB | TI Revive's WinUSB binding (MSI); no Access driver |
+| audio ring | file mapping `Local\vtibroker_audio`, plus a named event per plug-in process |
+| cache | `%LOCALAPPDATA%\virus-ti-native\cache` |
+| Access files | the normal Access installation (`C:\Program Files\Access Music\Virus TI\Common\Virus Control.dll`, `firmware.bin`) |
+| Personal Libraries | `%USERPROFILE%\Documents\Access Music\Virus TI\Patches` |
+
+Verified in the VM (TI Revive 0.7.4, Access 5.1.7): Access files and libraries found, broker started on demand,
+TI2 detected, audio streaming with notes, bank sync (cancellable when the plug-in closes).
 
 ### macOS (planned)
 - Universal binary, so it runs on Apple Silicon without Rosetta.

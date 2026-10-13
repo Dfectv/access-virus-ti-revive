@@ -7,7 +7,7 @@ plug-in, Wine or Rosetta. The Virus is reached through the TI Revive broker (USB
 | platform | status |
 |---|---|
 | Linux (x86_64, X11) | **working**; tested in REAPER: sound, automation, browser, LOAD/SAVE, libraries, sync |
-| Windows | builds in CI; real-device test pending |
+| Windows | CI build; tested with the Virus in a Win11 VM (sound, sync); DAW test pending |
 | macOS | planned |
 
 **How it works:** [docs/architecture.md](docs/architecture.md). More detail: protocol in
