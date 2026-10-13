@@ -22,7 +22,7 @@ FetchContent_Declare(pugixml GIT_REPOSITORY https://github.com/zeux/pugixml.git 
 FetchContent_MakeAvailable(pugixml)
 
 # core library: Access files + device model (no Access material in this repo; loaded at runtime)
-add_library(vticore STATIC src/access/accessfiles.cpp src/model/remotedevice.cpp src/device/broker.cpp src/device/memsync.cpp src/device/audioin.cpp src/editor/editormodel.cpp src/editor/editorrender.cpp src/access/firmware.cpp src/access/library.cpp)
+add_library(vticore STATIC src/access/accessfiles.cpp src/model/remotedevice.cpp src/model/state.cpp src/device/broker.cpp src/device/memsync.cpp src/device/audioin.cpp src/editor/editormodel.cpp src/editor/editorrender.cpp src/access/firmware.cpp src/access/library.cpp)
 target_include_directories(vticore PUBLIC src external/ti-revive/src/broker)
 find_package(Threads REQUIRED)
 target_link_libraries(vticore PUBLIC Threads::Threads $<$<PLATFORM_ID:Linux>:rt>)
@@ -40,6 +40,13 @@ add_executable(virussync tools/virussync.cpp)
 target_link_libraries(virussync PRIVATE vticore)
 
 add_subdirectory(plugin)
+
+# unit tests (no Virus needed; tests on the Access files skip without them): ctest --test-dir build
+enable_testing()
+add_executable(vtitests tests/main.cpp tests/test_usbmidi.cpp tests/test_state.cpp tests/test_model.cpp
+               tests/test_access.cpp)
+target_link_libraries(vtitests PRIVATE vticore)
+add_test(NAME vtitests COMMAND vtitests)
 
 # test host for the native plug-in (R3 checks)
 if(NOT TARGET sdk_hosting)
