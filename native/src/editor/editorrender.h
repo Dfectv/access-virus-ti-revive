@@ -51,6 +51,9 @@ public:
     // repaint area: elements outside it are skipped (with their children); default = everything
     int clip_x0 = -100000, clip_y0 = -100000, clip_x1 = 100000, clip_y1 = 100000;
     Hit hit_test(int x, int y) const;
+    // false for inactive controls (the parameter's own condition is false; soft knobs without destination): they are
+    // drawn translucent and ignore the mouse
+    bool param_active(const std::string &param, int part) const;
     // absolute rectangles (x, y, w, h) of all elements bound to `param` (for partial repaints)
     std::vector<std::array<int, 4>> param_rects(const std::string &param) const;
     // the browser entry (program 0..127) under a point inside a PatchBrowser hit, or -1

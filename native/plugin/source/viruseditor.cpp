@@ -141,6 +141,10 @@ public:
             return;
         const Element &e = *h.element;
         const std::string &param = e.get("Parameter");
+        if (!param.empty() && !renderer_.param_active(param, h.part)) { // greyed out: locked like in the original
+            event.consumed = true;
+            return;
+        }
         drag_ = h;
         drag_y_ = event.mousePosition.y;
         drag_x_ = event.mousePosition.x;
@@ -230,8 +234,21 @@ public:
         const std::string &param = e.get("Parameter");
         const Parameter *p = plugin_->conditions().find(param);
         int lo = p ? p->min : 0, hi = p ? p->max : 127;
-        double per_pixel = (hi - lo) / 200.0; // full range over 200 pixels, like a VSTGUI knob
-        int v = (int)std::lround(drag_value_ + (drag_y_ - event.mousePosition.y) * per_pixel);
+        // knobs and text sliders: full range over 200 pixels upwards, like a VSTGUI knob; sliders follow the mouse
+        // 1:1 along their track (the handle stays under the cursor)
+        double delta = (drag_y_ - event.mousePosition.y) * (hi - lo) / 200.0;
+        if (e.type == "HorizontalSlider" || e.type == "VUSlider") {
+            int hw = 0;
+            if (void *hd = canvas_.image(e.get("NormalHandle")))
+                hw = canvas_.image_width(hd);
+            delta = (event.mousePosition.x - drag_x_) * (hi - lo) / std::max(1.0, (double)(e.w - hw));
+        } else if (e.type == "VerticalSlider") {
+            int hh = 0;
+            if (void *hd = canvas_.image(e.get("NormalHandle")))
+                hh = canvas_.image_height(hd);
+            delta = (drag_y_ - event.mousePosition.y) * (hi - lo) / std::max(1.0, (double)(e.h - hh));
+        }
+        int v = (int)std::lround(drag_value_ + delta);
         plugin_->ui_set(param, drag_.part, std::max(lo, std::min(hi, v)));
         // repaint only the control and the LCD (bottom info panel); value-dependent layouts change on release
         if (drag_rects_.empty())

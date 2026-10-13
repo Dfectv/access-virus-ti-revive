@@ -242,6 +242,16 @@ void EditorRenderer::osc_classic(Canvas &c, const Element &e, int x, int y, int 
     c.line(x + e.w - 1 + 0.5, prev + 0.5, x + e.w - 1 + 0.5, mid + 0.5, linec); // closing edge
 }
 
+bool EditorRenderer::param_active(const std::string &param, int part) const
+{
+    const Parameter *p = cond_.find(param);
+    if (p && !p->condition.empty() && !cond_.eval(p->condition, values, part))
+        return false;
+    if (param.rfind("Softknobs/Softknob ", 0) == 0 && values("Soft Knobs/Destination " + param.substr(19), part) == 0)
+        return false;
+    return true;
+}
+
 void EditorRenderer::render(Canvas &c)
 {
     for (auto &e : layout_.elements)
@@ -261,11 +271,7 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
     const Parameter *p = param.empty() ? nullptr : cond_.find(param);
     int v = param.empty() ? 0 : values(param, pt);
     // inactive controls (the parameter's own condition is false; soft knobs without destination) are translucent
-    double alpha = 1.0;
-    if (p && !p->condition.empty() && !cond_.eval(p->condition, values, pt))
-        alpha = disabled_alpha;
-    if (param.rfind("Softknobs/Softknob ", 0) == 0 && values("Soft Knobs/Destination " + param.substr(19), pt) == 0)
-        alpha = disabled_alpha;
+    double alpha = param.empty() || param_active(param, pt) ? 1.0 : disabled_alpha;
     int lo = p ? p->min : 0, hi = p ? p->max : 127;
 
     void *normal = c.image(e.get("NormalBack"));
