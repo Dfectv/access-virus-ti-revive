@@ -118,10 +118,16 @@ original Virus TI software must be installed (it can stay unused). These are the
 Verified in the VM (TI Revive 0.7.4, Access 5.1.7): Access files and libraries found, broker started on demand,
 TI2 detected, audio streaming with notes, bank sync (cancellable when the plug-in closes).
 
-### macOS (planned)
-- Universal binary, so it runs on Apple Silicon without Rosetta.
-- Broker through the TI Revive Mac helper.
-- Native Cocoa menus.
+### macOS (CI build universal arm64 + x86_64; device test pending)
+| topic | how |
+|---|---|
+| plug-in format | VST3 bundle `~/Library/Audio/Plug-Ins/VST3/VirusTINative.vst3`, universal (runs natively on Apple Silicon, no Rosetta), built with Xcode in CI (artifacts `VirusTINative-macos`, `tools-macos`) |
+| UI | VSTGUI with Cocoa / CoreGraphics; native menus |
+| broker | same program and protocol as on Linux (`/tmp/vtibroker-<uid>.sock`); no socket activation on macOS, so the plug-in starts `/Library/Application Support/TI Revive/vtibroker` itself when nobody answers (like TI Revive's libVirusUSB; `$TIREVIVE_BROKER` overrides) |
+| audio | **not** through the broker: the Virus' USB audio function is class compliant, so Core Audio offers it as an input device. The plug-in finds it (name contains "Virus", 6 inputs), sets 44.1 kHz and fills the same ring structure (`vti_audio_shm`) from an IOProc in its own memory; drift handling and latency are shared with the other platforms |
+| cache | `~/Library/Application Support/virus-ti-native/cache` |
+| Access files | `/Library/Application Support/Access Music/Virus TI/Common/Virus Control.bundle/Contents/Resources` (+ `firmware.bin` next to it); only read, the Intel-only Access plug-in is never loaded |
+| Personal Libraries | `~/Documents/Access Music/Virus TI/Patches` |
 
 ## 4. Building and testing
 
