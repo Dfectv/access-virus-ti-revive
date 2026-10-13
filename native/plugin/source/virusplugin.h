@@ -264,6 +264,18 @@ private:
     bool device_seen_ = false; // the Virus was present once (worker thread)
     std::set<std::string> dump_paths_; // parameters stored in a part's single dump (the rest: single messages)
     int state_part(const std::string &path, int part) const;
+public:
+    // parameters changed since the last call (the editor repaints linked controls while a knob is dragged)
+    std::vector<std::string> take_changed()
+    {
+        std::lock_guard<std::mutex> lk(values_mu_);
+        std::vector<std::string> v(changed_.begin(), changed_.end());
+        changed_.clear();
+        return v;
+    }
+
+private:
+    std::set<std::string> changed_; // values_mu_
     bool state_loaded_ = false;                // setState or the default state was applied
     std::vector<std::vector<uint8_t>> default_; // a new instance's state (from the user's plug-in binary)
 

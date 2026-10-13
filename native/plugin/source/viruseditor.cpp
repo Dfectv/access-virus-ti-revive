@@ -149,6 +149,7 @@ public:
             return;
         }
         drag_ = h;
+        plugin_->take_changed(); // start collecting the changes of this drag
         drag_y_ = event.mousePosition.y;
         drag_x_ = event.mousePosition.x;
         dnd_ = false, dnd_prog_ = -1;
@@ -291,6 +292,10 @@ public:
             drag_rects_ = renderer_.param_rects(param);
         for (auto &rc : drag_rects_) // every control of this parameter (knob + value display ...)
             invalidRect(CRect(rc[0] - 2, rc[1] - 2, rc[0] + rc[2] + 2, rc[1] + rc[3] + 2));
+        for (auto &other : plugin_->take_changed()) // linked parameters (LFO/filter links) move along
+            if (other != param)
+                for (auto &rc : renderer_.param_rects(other))
+                    invalidRect(CRect(rc[0] - 2, rc[1] - 2, rc[0] + rc[2] + 2, rc[1] + rc[3] + 2));
         invalidRect(CRect(200, 470, 560, 512));
         partial_ = true;
         event.consumed = true;

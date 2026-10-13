@@ -404,6 +404,8 @@ void VirusPlugin::set_part_value(int part, const std::string &path, int value)
     {
         std::lock_guard<std::mutex> lk(values_mu_);
         part_values_[part][path] = value;
+        if (changed_.size() < 256)
+            changed_.insert(path);
     }
     ui_dirty_ = true;
     if (!single_template_)
@@ -785,6 +787,8 @@ void VirusPlugin::set_editor_value(const std::string &path, int part, int value)
 {
     std::lock_guard<std::mutex> lk(values_mu_);
     ed_part_[{path, part < 0 ? 0 : part}] = value;
+    if (changed_.size() < 256)
+        changed_.insert(path);
     ui_dirty_ = true;
 }
 
