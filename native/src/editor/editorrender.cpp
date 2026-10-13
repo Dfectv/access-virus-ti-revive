@@ -250,6 +250,8 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
     if (!cond_.eval(e.get("Condition"), values, pt))
         return;
     int x = ox + e.x, y = oy + e.y;
+    if (e.w > 0 && e.h > 0 && (x >= clip_x1 || y >= clip_y1 || x + e.w <= clip_x0 || y + e.h <= clip_y0))
+        return; // outside the repaint area (children lie inside their parent)
     const std::string &param = e.get("Parameter");
     const Parameter *p = param.empty() ? nullptr : cond_.find(param);
     int v = param.empty() ? 0 : values(param, pt);
@@ -355,6 +357,21 @@ int EditorRenderer::browser_entry(const Hit &h, int x, int y)
     if (col < 0 || col > 7 || row < 0 || row > 15)
         return -1;
     return col * 16 + row;
+}
+
+std::vector<std::array<int, 4>> EditorRenderer::param_rects(const std::string &param) const
+{
+    std::vector<std::array<int, 4>> out;
+    std::function<void(const Element &, int, int)> walk = [&](const Element &e, int ox, int oy) {
+        int x = ox + e.x, y = oy + e.y;
+        if (e.get("Parameter") == param)
+            out.push_back({x, y, e.w, e.h});
+        for (auto &c : e.children)
+            walk(c, x, y);
+    };
+    for (auto &e : layout_.elements)
+        walk(e, 0, 0);
+    return out;
 }
 
 Hit EditorRenderer::hit_test(int px, int py) const

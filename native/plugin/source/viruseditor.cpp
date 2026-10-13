@@ -10,6 +10,7 @@
 #include "vstgui/lib/events.h"
 #include "vstgui/lib/platform/platformfactory.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #if SMTG_OS_LINUX
 #include "public.sdk/source/vst/vstgui_linux_runloop_support.h"
@@ -81,16 +82,26 @@ public:
         renderer_.browser_match = [this](int bank, int prog) { return plugin_->browser_match(bank, prog); };
         // device changes (knobs on the Virus, automation) repaint the view
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) {
-            if (plugin_->ui_changed())
+            if (plugin_->ui_changed() && !partial_) // during a drag the drag repaints its own area
                 invalid();
         }, 50);
     }
 
-    void draw(CDrawContext *ctx) override
+    void draw(CDrawContext *ctx) override { drawRect(ctx, getViewSize()); }
+
+    void drawRect(CDrawContext *ctx, const CRect &update) override
     {
         renderer_.part = plugin_->ui_value(plugin_->layout().frame_parameter, -1);
         canvas_.ctx = ctx;
+        CRect r(update);
+        r.offset(-getViewSize().left, -getViewSize().top);
+        renderer_.clip_x0 = (int)std::floor(r.left), renderer_.clip_y0 = (int)std::floor(r.top);
+        renderer_.clip_x1 = (int)std::ceil(r.right), renderer_.clip_y1 = (int)std::ceil(r.bottom);
+        auto t0 = std::chrono::steady_clock::now();
         renderer_.render(canvas_);
+        if (getenv("VTI_NATIVE_DRAWTIME"))
+            fprintf(stderr, "editor draw %dx%d: %.2f ms\n", (int)r.getWidth(), (int)r.getHeight(),
+                    std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
         if (getenv("VTI_NATIVE_DEBUG")) {
             int ok = 0, missing = 0;
             for (auto &b : bitmaps_)
@@ -179,14 +190,22 @@ public:
         double per_pixel = (hi - lo) / 200.0; // full range over 200 pixels, like a VSTGUI knob
         int v = (int)std::lround(drag_value_ + (drag_y_ - event.mousePosition.y) * per_pixel);
         plugin_->ui_set(param, drag_.part, std::max(lo, std::min(hi, v)));
-        invalid();
+        // repaint only the control and the LCD (bottom info panel); value-dependent layouts change on release
+        if (drag_rects_.empty())
+            drag_rects_ = renderer_.param_rects(param);
+        for (auto &rc : drag_rects_) // every control of this parameter (knob + value display ...)
+            invalidRect(CRect(rc[0] - 2, rc[1] - 2, rc[0] + rc[2] + 2, rc[1] + rc[3] + 2));
+        invalidRect(CRect(200, 470, 560, 512));
+        partial_ = true;
         event.consumed = true;
     }
 
     void onMouseUpEvent(MouseUpEvent &event) override
     {
         drag_ = {};
+        drag_rects_.clear();
         renderer_.pressed = nullptr;
+        partial_ = false;
         invalid();
         event.consumed = true;
     }
@@ -346,6 +365,8 @@ private:
     VstguiCanvas canvas_;
     SharedPointer<CVSTGUITimer> timer_;
     Hit drag_;
+    bool partial_ = false;
+    std::vector<std::array<int, 4>> drag_rects_;
     double drag_y_ = 0;
     int drag_value_ = 0;
 };

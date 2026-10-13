@@ -3,7 +3,9 @@
 // Rendering rules: docs/formats.md "editor rendering rules".
 #pragma once
 #include "editormodel.h"
+#include <array>
 #include <functional>
+#include <vector>
 #include <map>
 #include <string>
 
@@ -45,7 +47,11 @@ public:
     const Element *pressed = nullptr;
 
     void render(Canvas &c);
+    // repaint area: elements outside it are skipped (with their children); default = everything
+    int clip_x0 = -100000, clip_y0 = -100000, clip_x1 = 100000, clip_y1 = 100000;
     Hit hit_test(int x, int y) const;
+    // absolute rectangles (x, y, w, h) of all elements bound to `param` (for partial repaints)
+    std::vector<std::array<int, 4>> param_rects(const std::string &param) const;
     // the browser entry (program 0..127) under a point inside a PatchBrowser hit, or -1
     static int browser_entry(const Hit &h, int x, int y);
     std::map<int, int> selected; // bank -> selected program in the browser (drawn inverted)
