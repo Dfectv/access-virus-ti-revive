@@ -144,6 +144,15 @@ popup itself not testable headless - waiting for the user's retest.
 - Open: generic Linux menus feel slower/bigger than the original's native menus (VSTGUI theme not configurable
   on X11 without an SDK patch - own menu view possible); first category search: categories now decoded in the background after the sync (~0.5-0.7 s).
 
+## 2026-10-13 (afternoon) - Windows port started
+
+- win11 VM: TI Revive 0.7.4 installed (MSI, silent), CI build of the plug-in + tools (nativehost.exe now in CI).
+- Fixed: the plug-in starts vtibroker.exe on demand (was: connect only); bank sync cancellable on terminate.
+- Verified with the Virus passed through: Access files + libraries found, TI2 detected, audio streaming with notes
+  (peak ~0.07 like Linux), first sync running. Next: user test in REAPER/Ableton in the VM (editor on Windows
+  untested so far - nativehost has no editor on Windows).
+- Linux broker stopped for the VM test: afterwards `scripts/vm.sh detach`, `systemctl --user start tirevive-broker.socket`.
+
 ## Next
 - R5 timing: (1) anchor the timeline once the audio stream runs steadily (no re-anchors -> no Sync Information
   Events), (2) the runtime offset between stamps and audio: the original anchors on out-of-range audio samples
