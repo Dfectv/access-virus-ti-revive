@@ -41,6 +41,8 @@ public:
     void on_panel(std::function<void(const std::vector<uint8_t> &)> h) { panel_ = std::move(h); }
     // SysEx replies (dumps, bank info): EP 0x86 cable 3 in a plug-in session, EP 0x85 cable 1 otherwise
     void on_reply(std::function<void(const std::vector<uint8_t> &)> h) { reply_ = std::move(h); }
+    // called by the worker every loop (<= 1 ms): non-realtime follow-up of process() (state updates)
+    void on_idle(std::function<void()> h) { idle_ = std::move(h); }
     bool connected() const { return broker_.device_present(); }
     AudioIn &audio() { return audio_; } // read from process(); valid once audio_ready()
     bool audio_ready() const { return audio_ok_; }
@@ -63,6 +65,7 @@ private:
     AudioIn audio_;
     std::atomic<bool> audio_ok_{false};
     std::function<void(const std::vector<uint8_t> &)> panel_, reply_;
+    std::function<void()> idle_;
     bool rx_set_ = false, pending_send_ = false;
     std::thread worker_;
     void run();
@@ -123,6 +126,15 @@ private:
     std::map<std::string, int> ui_state_;                   // editor-only parameters (VirusControl/SelectedPage ...)
     std::string lcd_param_, lcd_value_, lcd_part_;          // the last edited parameter for the LCD
     std::atomic<bool> ui_dirty_{true};
+    // automation values from process() for the part dumps (single producer / single consumer, lock-free)
+    struct ParamUpdate {
+        Steinberg::Vst::ParamID id;
+        int value;
+    };
+    static constexpr size_t PU_SLOTS = 4096;
+    ParamUpdate pu_[PU_SLOTS];
+    std::atomic<size_t> pu_w_{0}, pu_r_{0};
+    void drain_param_updates();
     std::map<int, std::vector<std::vector<uint8_t>>> banks_; // RAM A..D (bank cache, see load_banks)
     std::mutex banks_mu_;
     void load_banks();

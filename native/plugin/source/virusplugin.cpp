@@ -86,8 +86,12 @@ void DeviceOut::run()
             }
             if (!open_) {
                 fprintf(stderr, "Virus TI native: %s\n", err.c_str());
-                std::unique_lock<std::mutex> lk(mu_);
-                cv_.wait_for(lk, std::chrono::seconds(2), [this] { return stop_.load(); });
+                for (int i = 0; i < 200 && !stop_; i++) { // keep the state current while there is no broker
+                    if (idle_)
+                        idle_();
+                    std::unique_lock<std::mutex> lk(mu_);
+                    cv_.wait_for(lk, std::chrono::milliseconds(10), [this] { return stop_.load(); });
+                }
                 continue;
             }
         }
@@ -113,6 +117,8 @@ void DeviceOut::run()
                 pending_send_ = true; // counted down after the write, so busy() covers the transfer
             }
         }
+        if (idle_)
+            idle_();
         if (msg.empty())
             continue;
         // channel messages and clock ticks carry a time stamp: F5 lo hi on cable 5 = the frame on the Virus timeline
@@ -261,6 +267,7 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
     }
     out_ = std::make_unique<DeviceOut>();
     out_->on_panel([this](const std::vector<uint8_t> &m) { panel_message(m); });
+    out_->on_idle([this] { drain_param_updates(); });
     sync_ = std::make_unique<MemorySync>([this](const std::vector<uint8_t> &m) {
         out_->send(m);
         return true;
@@ -421,7 +428,11 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             size_t n = dev_.encode_into(it->second.path, value, it->second.part, m, sizeof m);
             if (n)
                 add(at(offset), m, n);
-            set_part_value(it->second.part, it->second.path, value); // TODO(R3): move off the audio thread
+            size_t w = pu_w_.load(std::memory_order_relaxed); // part dump update: off the audio thread
+            if (w - pu_r_.load(std::memory_order_acquire) < PU_SLOTS) {
+                pu_[w % PU_SLOTS] = {id, value};
+                pu_w_.store(w + 1, std::memory_order_release);
+            }
         }
     }
     if (data.inputEvents && out_) {
@@ -478,6 +489,17 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         }
     }
     return kResultOk;
+}
+
+void VirusPlugin::drain_param_updates()
+{
+    for (size_t r = pu_r_.load(std::memory_order_relaxed); r != pu_w_.load(std::memory_order_acquire); r++) {
+        const ParamUpdate u = pu_[r % PU_SLOTS];
+        pu_r_.store(r + 1, std::memory_order_release);
+        auto it = params_.find(u.id);
+        if (it != params_.end())
+            set_part_value(it->second.part, it->second.path, u.value);
+    }
 }
 
 IPlugView *PLUGIN_API VirusPlugin::createView(FIDString name)
