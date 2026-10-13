@@ -82,6 +82,37 @@ void EditorRenderer::image(Canvas &c, const std::string &name, void *img, int sy
         }
 }
 
+// 4 x 5 pixel digits for the browser's program numbers (drawn in code by the original)
+void EditorRenderer::digits(Canvas &c, int number, int right, int top)
+{
+    static const char *glyph[10][5] = {
+        {".##.", "#..#", "#..#", "#..#", ".##."}, {".##.", "#.#.", "..#.", "..#.", "..#."},
+        {"###.", "...#", ".##.", "#...", "####"}, {"###.", "...#", ".##.", "...#", "###."},
+        {"..##", ".#.#", "#..#", "####", "...#"}, {"####", "#...", "###.", "...#", "###."},
+        {".###", "#...", "###.", "#..#", ".##."}, {"####", "...#", "..#.", ".#..", ".#.."},
+        {".##.", "#..#", ".##.", "#..#", ".##."}, {".##.", "#..#", ".###", "...#", "###."}};
+    std::string s = std::to_string(number);
+    int x = right - (int)s.size() * 5 + 1;
+    for (char ch : s) {
+        for (int r = 0; r < 5; r++)
+            for (int k = 0; k < 4; k++)
+                if (glyph[ch - '0'][r][k] == '#')
+                    c.fill(x + k, top + r, 1, 1, Rgba{59, 59, 59, 255});
+        x += 5;
+    }
+}
+
+// the bank table of the browser page: 8 columns x 16 rows (program number + name), measured on the original
+void EditorRenderer::patch_browser(Canvas &c, const Element &e, int x, int y, int bank)
+{
+    const std::string &font = e.get("ControlFont");
+    for (int p = 0; p < 128; p++) {
+        int nx = x + 21 + (p / 16) * 84, ny = y + 1 + (p % 16) * 11;
+        digits(c, p, nx - 5, ny + 4);
+        text(c, font, bank_patch(bank, p), nx, ny, 60, 9, "Top Left");
+    }
+}
+
 void EditorRenderer::render(Canvas &c)
 {
     for (auto &e : layout_.elements)
@@ -132,8 +163,15 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
     } else if (e.get("Transparent") == "false" && e.back.a)
         c.fill(x, y, e.w, e.h, e.back);
 
+    if (e.type == "PatchBrowser" && bank_patch && !param.empty()) {
+        // "Browser N/Selected Bank" (internal to the original): browser N shows RAM bank N by default
+        int bank = values(param, pt);
+        if (bank == cond_.default_value(param) && !cond_.find(param))
+            bank = param.size() > 8 ? param[8] - '0' : 0;
+        patch_browser(c, e, x, y, bank);
+    }
     const std::string &font = e.get("ControlFont");
-    if (!font.empty()) {
+    if (!font.empty() && e.type != "PatchBrowser") {
         std::string str;
         if (e.type == "StaticText")
             str = e.get("Name");

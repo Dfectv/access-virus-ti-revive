@@ -5,6 +5,7 @@
 #include "access/accessfiles.h"
 #include "editor/editormodel.h"
 #include "editor/editorrender.h"
+#include "device/memsync.h"
 #include "model/remotedevice.h"
 #include <cairo.h>
 #include <cmath>
@@ -111,7 +112,7 @@ static std::vector<std::vector<uint8_t>> read_state(const char *path)
 int main(int argc, char **argv)
 {
     if (argc < 2) {
-        fprintf(stderr, "usage: vtirender out.png [--state FILE] [--part N] [--set PATH=VALUE]... [--outline]\n");
+        fprintf(stderr, "usage: vtirender out.png [--state FILE] [--cache DIR] [--part N] [--set PATH=VALUE]...\n");
         return 2;
     }
     std::string err;
@@ -128,10 +129,15 @@ int main(int argc, char **argv)
     bool outline = false;
     std::map<std::string, int> set;
     std::map<int, std::map<std::string, int>> parts; // part -> decoded single dump
+    std::map<int, Bank> banks;                        // RAM A..D from a cache directory (--cache)
     for (int i = 2; i < argc; i++) {
         if (!strcmp(argv[i], "--part") && i + 1 < argc)
             part = atoi(argv[++i]);
-        else if (!strcmp(argv[i], "--outline"))
+        else if (!strcmp(argv[i], "--cache") && i + 1 < argc) {
+            std::string dir = argv[++i];
+            for (int b = 0; b < 4; b++)
+                load_bank_file(dir + "/RAM " + (char)('A' + b), banks[b]);
+        } else if (!strcmp(argv[i], "--outline"))
             outline = true;
         else if (!strcmp(argv[i], "--set") && i + 1 < argc) {
             std::string a = argv[++i];
@@ -187,6 +193,13 @@ int main(int argc, char **argv)
         }
         while (!n.empty() && n.back() == ' ')
             n.pop_back();
+        return n;
+    };
+    r.bank_patch = [&](int bank, int prog) {
+        auto b = banks.find(bank);
+        if (b == banks.end() || b->second[prog].size() != 524)
+            return std::string();
+        std::string n(b->second[prog].begin() + 249, b->second[prog].begin() + 259);
         return n;
     };
     r.render(canvas);
