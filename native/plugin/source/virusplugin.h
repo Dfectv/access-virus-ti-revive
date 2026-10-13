@@ -86,6 +86,7 @@ public:
     void ui_set(const std::string &path, int part, int value);    // a change made in the editor
     std::string patch_name(int part);
     std::string bank_patch(int bank, int program); // stored patch name from the bank cache (RAM A..D)
+    bool load_patch(int bank, int program, int part); // a stored patch into a part's edit buffer (and the state)
     bool ui_changed() { return ui_dirty_.exchange(false); }
 
     // IMidiMapping: channel aftertouch / pitch bend -> the original's per-channel parameters

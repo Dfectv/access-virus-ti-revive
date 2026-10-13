@@ -480,6 +480,36 @@ std::string VirusPlugin::bank_patch(int bank, int program)
     return std::string(b->second[program].begin() + 249, b->second[program].begin() + 259);
 }
 
+bool VirusPlugin::load_patch(int bank, int program, int part)
+{
+    auto b = banks_.find(bank);
+    if (b == banks_.end() || program < 0 || program >= (int)b->second.size() || b->second[program].size() != 524 ||
+        part < 0 || part > 15)
+        return false;
+    auto d = b->second[program];
+    RemoteDevice::upgrade_single(d);
+    d[7] = 0, d[8] = (uint8_t)part; // edit buffer of the part
+    unsigned a = 0;
+    for (int i = 5; i < 265; i++)
+        a += d[i];
+    d[265] = a & 0x7F;
+    for (int i = 265; i < 522; i++)
+        a += d[i];
+    d[522] = a & 0x7F;
+    {
+        std::lock_guard<std::mutex> lk(state_mu_);
+        if (state_.empty())
+            state_ = default_;
+        for (auto &r : state_)
+            if (is_part_dump(r, part))
+                r = d;
+    }
+    if (out_)
+        out_->send(d);
+    apply_state_to_params(); // parameters + editor values of the new patch
+    return true;
+}
+
 std::string VirusPlugin::patch_name(int part)
 {
     std::string n;

@@ -109,7 +109,9 @@ void EditorRenderer::patch_browser(Canvas &c, const Element &e, int x, int y, in
     for (int p = 0; p < 128; p++) {
         int nx = x + 21 + (p / 16) * 84, ny = y + 1 + (p % 16) * 11;
         digits(c, p, nx - 5, ny + 4);
-        text(c, font, bank_patch(bank, p), nx, ny, 60, 9, "Top Left");
+        auto sel = selected.find(bank);
+        bool on = sel != selected.end() && sel->second == p && !e.get("SelectedFont").empty();
+        text(c, on ? e.get("SelectedFont") : font, bank_patch(bank, p), nx, ny, 60, 9, "Top Left");
     }
 }
 
@@ -206,6 +208,16 @@ bool EditorRenderer::hit(const Element &e, int ox, int oy, int inherited, int px
     for (auto &ch : e.children)
         hit(ch, x, y, e.part() >= 0 ? e.part() : inherited, px, py, out);
     return out.element != nullptr;
+}
+
+int EditorRenderer::browser_entry(const Hit &h, int x, int y)
+{
+    if (!h.element || h.element->type != "PatchBrowser")
+        return -1;
+    int col = (x - h.x - 21 + 30) / 84, row = (y - h.y - 1) / 11; // entry = digits (left) + 60 px name
+    if (col < 0 || col > 7 || row < 0 || row > 15)
+        return -1;
+    return col * 16 + row;
 }
 
 Hit EditorRenderer::hit_test(int px, int py) const

@@ -198,7 +198,8 @@ int main(int argc, char **argv)
             notes = true;
         else if (!strcmp(argv[i], "--editor"))
             editor = true;
-        else if ((!strcmp(argv[i], "--click") || !strcmp(argv[i], "--drag") || !strcmp(argv[i], "--shot")) && i + 1 < argc) {
+        else if ((!strcmp(argv[i], "--click") || !strcmp(argv[i], "--drag") || !strcmp(argv[i], "--shot") ||
+                  !strcmp(argv[i], "--twice")) && i + 1 < argc) {
             // --click x,y@t  --drag x,y,dy@t  --shot file.ppm@t
             Action a{};
             a.kind = argv[i][2];
@@ -395,7 +396,16 @@ int main(int argc, char **argv)
                     runloop.pump();
                     XTestFakeButtonEvent(dpy, 1, False, 0);
                     XFlush(dpy);
-                    printf("%s %d,%d at %.1f s\n", a.kind == 'c' ? "click" : "drag", a.x, a.y, now);
+                    if (a.kind == 't') { // double click
+                        runloop.pump();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(60));
+                        XTestFakeButtonEvent(dpy, 1, True, 0);
+                        XFlush(dpy);
+                        runloop.pump();
+                        XTestFakeButtonEvent(dpy, 1, False, 0);
+                        XFlush(dpy);
+                    }
+                    printf("%s %d,%d at %.1f s\n", a.kind == 'c' ? "click" : a.kind == 't' ? "double click" : "drag", a.x, a.y, now);
                 }
             runloop.pump();
         }

@@ -4,6 +4,7 @@
 #pragma once
 #include "editormodel.h"
 #include <functional>
+#include <map>
 #include <string>
 
 namespace vti {
@@ -41,6 +42,9 @@ public:
 
     void render(Canvas &c);
     Hit hit_test(int x, int y) const;
+    // the browser entry (program 0..127) under a point inside a PatchBrowser hit, or -1
+    static int browser_entry(const Hit &h, int x, int y);
+    std::map<int, int> selected; // bank -> selected program in the browser (drawn inverted)
     std::string value_text(const std::string &param, int v) const;
 
 private:

@@ -68,6 +68,10 @@
   Easy 97.0, Browser 91.7, OSC 94.7, Filter 93.7, LFO 98.3, Matrix 92.9, Arp 97.2, FX 94.4, Common 98.9, FX2 94.2 (mean 95.3 %). Missing: custom displays (envelopes 0x180039df0.., filter curves,
   osc shapes, patch browser), some menus/popups state. Menus pop up with the valuelist and switch layouts.
 
+- R4: patch browser works in the plug-in: bank tables (97.3 % identical to the original), click selects (inverse
+  font), double click loads the patch into the current part (dump to the Virus edit buffer + state + parameters).
+  Part selection, menus, page tabs, knob/slider drags, buttons work; the editor follows device/automation changes.
+
 ## Next
 - R3: device -> host (knobs on the Virus change parameters: decode incoming CC/poly pressure/SysEx with
   remotedevice.xml, update the part dumps, notify the host), realtime-safe event queue, exact F5 stamps (R5 rule).

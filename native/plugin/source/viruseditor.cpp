@@ -101,6 +101,19 @@ public:
         drag_ = h;
         drag_y_ = event.mousePosition.y;
         drag_value_ = plugin_->ui_value(param, h.part);
+        if (e.type == "PatchBrowser") { // click selects, double click loads into the current part
+            int prog = EditorRenderer::browser_entry(h, (int)event.mousePosition.x, (int)event.mousePosition.y);
+            const std::string &bp = e.get("Parameter");
+            int bank = bp.size() > 8 ? bp[8] - '0' : 0;
+            if (prog >= 0) {
+                renderer_.selected[bank] = prog;
+                if (event.clickCount >= 2)
+                    plugin_->load_patch(bank, prog, plugin_->ui_value(plugin_->layout().frame_parameter, -1));
+                invalid();
+            }
+            event.consumed = true;
+            return;
+        }
         if (e.type == "Menu" || e.type == "HierarchicMenu") {
             popup_menu(h, event.mousePosition);
             event.consumed = true;
