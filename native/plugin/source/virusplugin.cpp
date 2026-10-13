@@ -485,6 +485,9 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
                 p->diag.process_over++;
         }
     } process_timer{this, data.numSamples};
+    if ((data.processContext && (data.processContext->state & ProcessContext::kPlaying)) ||
+        (data.inputEvents && data.inputEvents->getEventCount() > 0))
+        last_play_ms_.store(now_ms(), std::memory_order_relaxed);
     // the Virus timeline: block start = newest ring frame - S, continued by the block size, re-anchored on drift
     static const int S = getenv("VTI_NATIVE_S") ? atoi(getenv("VTI_NATIVE_S")) : 5000;
     const double ratio = 44100.0 / rate_; // Virus frames per host sample
@@ -1075,6 +1078,19 @@ void VirusPlugin::load_rom_banks()
     ui_dirty_ = true;
 }
 
+bool VirusPlugin::wait_until_quiet()
+{
+    bool shown = false;
+    while (!stop_warm_ && now_ms() - last_play_ms_.load(std::memory_order_relaxed) < 2000) {
+        if (!shown) {
+            set_lcd("Bank sync paused (playing)", std::string(), std::string(), std::string());
+            shown = true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+    return !stop_warm_;
+}
+
 void VirusPlugin::sync_banks()
 {
     for (int i = 0; i < 40 && !stop_warm_; i++) // 4 s: after the start-up messages and the state
@@ -1087,6 +1103,7 @@ void VirusPlugin::sync_banks()
         std::filesystem::create_directories(dir, ec);
     }
     load_rom_banks();
+    sync_->before_request = [this] { return wait_until_quiet(); };
     syncing_ = true;
     // the original keeps "synchronising" on the Virus display while it syncs (74 01 7E 07 about once a second)
     std::atomic<bool> rise{true};

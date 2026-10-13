@@ -45,6 +45,9 @@ public:
     // `stop` (optional) cancels between two requests: returns -2, `cache` keeps what was fetched so far.
     int sync_bank(int bank, Bank &cache, const std::function<void(int, bool)> &progress = nullptr,
                   const std::atomic<bool> *stop = nullptr);
+    // called before every request: may block (e.g. while the host plays - the Virus delays notes while it answers
+    // dump requests); returning false cancels like `stop`
+    std::function<bool()> before_request;
 
 private:
     Broker *broker_ = nullptr;

@@ -142,6 +142,8 @@ Dump MemorySync::single(int bank, int program)
 int MemorySync::sync_bank(int bank, Bank &cache, const std::function<void(int, bool)> &progress,
                           const std::atomic<bool> *stop)
 {
+    if (before_request && !before_request())
+        return -2;
     auto info = bank_info(bank);
     if (info.empty())
         return -1;
@@ -151,6 +153,8 @@ int MemorySync::sync_bank(int bank, Bank &cache, const std::function<void(int, b
             return -2;
         bool stale = RemoteDevice::single_fingerprint(cache[p]) != info[p];
         if (stale) {
+            if (before_request && !before_request())
+                return -2;
             Dump d = single(bank, p);
             if (d.empty() || RemoteDevice::single_fingerprint(d) != info[p])
                 return -1;

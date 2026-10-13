@@ -127,6 +127,13 @@ public:
     void update_results();
     void warm_categories(); // background: fill the category cache
     std::atomic<bool> stop_warm_{false}; // terminate(): stops the bank sync and the category pass
+    // the host plays (transport running or notes): steady_clock milliseconds of the last activity (audio thread)
+    std::atomic<int64_t> last_play_ms_{0};
+    static int64_t now_ms()
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    }
+    bool wait_until_quiet(); // bank sync: pause while the host plays (LCD shows it); false = cancelled
     std::string category_name_(); // the selected category filter's name
     void set_search(const std::string &s);
     std::string search() { std::lock_guard<std::mutex> lk(values_mu_); return search_; }
