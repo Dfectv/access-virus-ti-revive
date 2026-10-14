@@ -1,0 +1,40 @@
+# Release-candidate Mac package, exactly as TI Revive's release will build it after the move (docs/migration.md):
+# TI Revive's main + the kit's patches (packaging/ti-revive/), this repository as native/, scripts/mac-build-release.sh.
+# Manual only (macOS minutes are expensive): `gh workflow run mac-package -f version=0.8.0`.
+name: mac-package
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "package version"
+        default: "0.8.0"
+jobs:
+  mac:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: native-src
+          submodules: recursive
+      - name: TI Revive with the integration patches
+        run: |
+          git clone -q https://github.com/derpsn/access-virus-ti-revive.git repo
+          cd repo
+          git -c user.name=ci -c user.email=ci@localhost am -q ../native-src/packaging/ti-revive/*.patch
+          rsync -a --exclude external/ti-revive --exclude .git ../native-src/ native/
+          test -f native/external/vst3sdk/CMakeLists.txt
+      - name: VST3 pluginterfaces for the bridge (MIT, pinned, as TI Revive's workflow)
+        run: |
+          git clone -q https://github.com/steinbergmedia/vst3_pluginterfaces.git vst3sdk/pluginterfaces
+          git -C vst3sdk/pluginterfaces checkout -q 4f547e8e102b47de4a8b8aaf343c73b700786372
+      - name: Build
+        run: VST3SDK="$PWD/vst3sdk" bash repo/scripts/mac-build-release.sh repo "${{ inputs.version }}" "$PWD/out"
+      - name: Check the package
+        run: |
+          pkgutil --payload-files "out/build/TI-Revive-${{ inputs.version }}-mac/TI Revive.pkg" | grep "TI Revive Virus Control.vst3/Contents/MacOS"
+          lipo -info "out/build/native/VST3/Release/TI Revive Virus Control.vst3/Contents/MacOS/TI Revive Virus Control"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TI-Revive-mac
+          path: out/TI-Revive-*-mac.zip
+          if-no-files-found: error
