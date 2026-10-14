@@ -3,6 +3,7 @@
 // start position and step (source frames per output sample); the filter cutoff follows the step, so downsampling
 // (hosts below 44.1 kHz) is band-limited too. No allocation after setup.
 #pragma once
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
