@@ -26,6 +26,14 @@ Tomorrow (needs the Virus / the user):
    (gh workflow run build -f platforms=windows or macos).
 5. Then: UI to-do list (needs captures of the original), timing R5 + getLatencySamples, Snow issues #3/#4.
 
+Device results 2026-10-14 (Virus on): nativehost --stress-params --notes --editor 4 min with page switches: no hang,
+8 % of one core in total, audio drops only in the first 10 s (start-up). Note timing (nativehost --notes --wav,
+onset per second): the night's changes do not change timing - but the session latency varies at start-up in old and
+new builds alike: 69/70/71/105/118/203/207/236/237 ms over 12 runs (same timeline anchor err each time, so it is set
+after the anchor - the Virus' own anchor on FE/F2?). Within a run it is stable apart from nativehost's own clock drift
+(~2 ms/s with steps: nativehost is not paced by an audio device). This is the R5 item: needs the cause before
+getLatencySamples can report a fixed latency. Tool: scratchpad onsets.py (phase of note onsets in each second).
+
 Known limit: the automation -> state ring (pu_, 4096) drops values only if the worker stalls for seconds; then the
 saved state could keep an older value until the next change.
 
