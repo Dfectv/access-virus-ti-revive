@@ -22,8 +22,7 @@ Tomorrow (needs the Virus / the user):
 2. nativehost --stress-params --notes with the Virus (4 min): no hang, CPU numbers with the device.
 3. Long envelopes: compare the clipped envelope display with the original (tools/uicompare capa.py, Envelope
    Attack/Decay/Release 127).
-4. M4L test: 3+ LFOs on Virus parameters for ~1 h in Ableton (Windows VM and/or Mac) - needs a CI build
-   (gh workflow run build -f platforms=windows or macos).
+4. (done 2026-10-14 on macOS: M4L LFO test stable, see below)
 5. Then: UI to-do list (needs captures of the original), timing R5 + getLatencySamples, Snow issues #3/#4.
 
 Device results 2026-10-14 (Virus on): nativehost --stress-params --notes --editor 4 min with page switches: no hang,
@@ -77,6 +76,11 @@ the ping), err 0 (the ring follows the host exactly), read margin 640, no drops.
 recorded in real time, ~/Desktop/timing.wav): 256/256 onsets, sd 0.02 ms, max 0.28 ms, 0 ppm, first onset 2000.00 ms.
 nativehost over SSH gets silent Core Audio input (no microphone permission) - measure on the Mac in a DAW.
 -> R5 works on Linux and macOS; Windows only tested in the VM (gap pattern, see above).
+
+M4L LFO test (user, macOS Ableton 12, 2026-10-14): three Max for Live LFOs on Virus parameters, ~30-60 min: "all
+stable". diag.log over ~40 min of sessions: 0 drops, process() max 122 us per block (~1 % of the block time), 0 blocks
+over time, read margin >= 129, one marker per session. -> the forum question ("crashes with 3 M4L LFOs") is answered
+for the native plug-in: stable, automation limited to 250 msg/s (each LFO ~80 updates/s).
 
 Known limit: the automation -> state ring (pu_, 4096) drops values only if the worker stalls for seconds; then the
 saved state could keep an older value until the next change.
