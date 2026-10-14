@@ -1,14 +1,19 @@
-# virus-ti-native (private)
+# TI Revive Virus Control (native plug-in)
 
-A native rewrite of the Access Virus TI plug-in ("Virus Control") as VST3, stage 3 of TI Revive. It looks and
-behaves like the original: same UI, same automation IDs, same project state. It doesn't need the Intel-only Access
-plug-in, Wine or Rosetta. The Virus is reached through the TI Revive broker (USB MIDI and audio).
+A plug-in for the Access Virus TI, written from scratch: it looks and works like the original "Virus Control"
+(same pages, browser, libraries, automation IDs, project state) but runs natively on Windows, macOS (Apple Silicon
+and Intel) and Linux - without the Intel-only Access plug-in, Rosetta, Wine or yabridge. The Virus is reached
+through the TI Revive broker (USB MIDI and audio). On Windows, the ASIO driver "TI Revive Virus Audio" also makes
+the Virus a sound card without the Access driver.
+
+Users install it with TI Revive (MSI, Mac pkg, Linux `install.sh`); this folder is for building and development.
 
 | platform | status |
 |---|---|
-| Linux (x86_64, X11) | **working**; tested in REAPER: sound, automation, browser, LOAD/SAVE, libraries, sync |
-| Windows | **working**; tested in Ableton 11 (Win11 VM): sound, timing, UI, browser, menus; ASIO driver (Virus as sound card) works in a test host |
-| macOS | **working**; universal (Apple Silicon + Intel), tested in Ableton 12 on an M3: sound, UI, sync |
+| Linux (x86_64, X11/XWayland) | working; tested in REAPER 7.82 (44.1 and 48 kHz): sound, automation, browser, LOAD/SAVE, libraries, sync, timing |
+| Windows | working; tested in Ableton Live 11 on a Windows 11 PC: sound, timing, UI; ASIO driver clean |
+| macOS | working; universal VST3, tested in Ableton Live 12 on an M3: sound, UI, sync, timing |
+| Virus TI Snow | not supported yet |
 
 **How it works:** [docs/architecture.md](docs/architecture.md). More detail: protocol in
 [docs/protocol.md](docs/protocol.md), file and render formats in [docs/formats.md](docs/formats.md), progress and
@@ -22,7 +27,7 @@ device description and the ROM from the user's own Access installation at runtim
 - **TI Revive installed:** the broker owns the Virus via the systemd user socket `/tmp/vtibroker-<uid>.sock`.
 - **The original Virus TI software installed once:** in Wine, it provides `Virus Control.dll` and `firmware.bin`.
   The plug-in only reads these files.
-- **A VST3 host.** REAPER is tested, with PipeWire/JACK running at 44.1 kHz.
+- **A VST3 host.** REAPER is tested (any sample rate; the Virus' 44.1 kHz audio is converted).
 
 ## Build and install (Linux)
 
@@ -41,16 +46,10 @@ Unit tests (no Virus needed): `ctest --test-dir build`.
 ## Using it in REAPER (Linux)
 
 1. Close every other program that uses the Virus: only one session can own it.
-2. Start REAPER with the right sample rate and buffer size:
-
-   ```sh
-   pw-metadata -n settings 0 clock.force-rate 44100
-   pw-metadata -n settings 0 clock.force-quantum 512
-   pw-jack reaper
-   ```
+2. Start REAPER (any sample rate; 44.1 kHz avoids the conversion). With PipeWire for example `pw-jack reaper`.
 
 3. Insert "TI Revive Virus Control". On the first start it syncs RAM A–D from the Virus. That takes about 8 minutes;
-   the LCD shows the progress. The banks are cached in `~/.local/share/virus-ti-native/cache`; rename that folder
+   the progress bar shows it, and you can play meanwhile (the sync pauses while notes arrive). The banks are cached in `~/.local/share/virus-ti-native/cache`; rename that folder
    to force a new sync.
 4. Where the other banks come from:
    - ROM A–Z: the user's `firmware.bin`.

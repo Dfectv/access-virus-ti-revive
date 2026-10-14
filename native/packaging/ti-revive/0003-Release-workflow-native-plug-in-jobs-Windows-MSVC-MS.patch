@@ -1,7 +1,7 @@
 From 377d52c21fed2233a72e614e83781a222d4c2c02 Mon Sep 17 00:00:00 2001
 From: derpsn <callmederpsn@proton.me>
 Date: Wed, 14 Oct 2026 20:10:28 +0200
-Subject: [PATCH 3/4] Release workflow: native plug-in jobs (Windows MSVC ->
+Subject: [PATCH 3/5] Release workflow: native plug-in jobs (Windows MSVC ->
  MSI, Mac universal, Linux on Ubuntu 22.04), submodules
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
