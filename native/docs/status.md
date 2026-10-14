@@ -14,6 +14,8 @@ Feature complete = all of:
 - [ ] Virus TI Snow (model, 4 parts, banks, Snow's own device files?) - needs a Snow tester (issue #4 user)
 - [~] Virus as sound card on Windows (ASIO): own driver works in a test host (clean tone, 172 switches/s);
       DAW test (Ableton/REAPER) open
+      (VM: output crackles like the TI Revive ASIO did in the VM - QEMU corrupts iso OUT, TI Revive E083; clean
+      on a real PC there, E085. Broker side clean: 0 dropped, 1 underrun at start/stop. Judge on a real PC.)
 - [ ] Virus Control Center (Windows) - decide: port, launch the original, or drop
 - [ ] remaining UI details (UI to-do list)
 - [ ] publication check: rewrite parts ported from the decompile (e.g. upgrade_single, init sequence) as own
