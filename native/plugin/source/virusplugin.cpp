@@ -153,7 +153,7 @@ void DeviceOut::scan_audio()
         for (int i = 0; i < n; i++) {
             int64_t f = scanned_ + i;
             bool usb1 = l1[i] != 0 || r1[i] != 0, usb2 = l2[i] != 0 || r2[i] != 0;
-            if (marker == -1 && from >= 0 && f >= from && usb2 && !usb1) {
+            if (pings_out_.load() > 0 && from >= 0 && f >= from && f > marker_skip_ && usb2 && !usb1) {
                 // the marker: one sample per channel, the rest of USB 2 silent around it
                 float ll[64], rr[64], a2[64], b2[64];
                 audio_.read_at(ll, rr, a2, b2, 64, f + 2);
@@ -161,8 +161,11 @@ void DeviceOut::scan_audio()
                 for (int k = 0; k < 64; k++)
                     isolated &= a2[k] == 0 && b2[k] == 0;
                 if (isolated) {
-                    marker = f;
-                    log("Virus TI native: sync marker at frame %lld (ping at %lld)\n", (long long)f, (long long)from);
+                    marker = f; // the newest marker: the Virus reset its stamp clock here
+                    pings_out_.fetch_sub(1);
+                    log("Virus TI native: sync marker at frame %lld (ping at %lld, %lld frames later)\n", (long long)f,
+                        (long long)from, (long long)(f - from));
+                    marker_skip_ = f + 1; // its second channel follows one frame later
                 }
             }
             if (usb1 || usb2)
@@ -170,9 +173,12 @@ void DeviceOut::scan_audio()
         }
         scanned_ += n;
     }
-    if (marker == -1 && from >= 0 && newest > from + 22050) { // 0.5 s without a marker
-        marker = -2;
-        log("Virus TI native: no sync marker - time stamps relative to the ring\n");
+    if (pings_out_.load() > 0 && from >= 0 && newest > from + 5 * 44100) { // 5 s without a marker
+        pings_out_ = 0;
+        if (marker.load() < 0) {
+            marker = -2;
+            log("Virus TI native: no sync marker - time stamps relative to the ring\n");
+        }
     }
 }
 
@@ -665,7 +671,7 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         bool anchor_now = !tl_valid_ ? newest - stream_start_ > 22050 && (quiet || newest - stream_start_ > 6 * 44100)
                                      : std::llabs(err) > 8192;
         // no marker (the Virus was not silent): ping again once it is quiet and the host is not playing (3 tries)
-        if (tl_valid_ && !anchor_now && out_->marker.load() == -2 && marker_retries_ < 3 && quiet &&
+        if (tl_valid_ && !anchor_now && out_->marker.load() == -2 && !out_->calibrating() && marker_retries_ < 3 && quiet &&
             now_ms() - last_play_ms_.load(std::memory_order_relaxed) > 2000 && !env_no_ping()) {
             marker_retries_++;
             anchor_now = true;
@@ -676,13 +682,14 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
                         (long long)err, (long long)newest, data.numSamples);
             tl_ = target;
             next_tick_ = (double)tl_;
-            if (!tl_valid_)
+            bool new_stream = !tl_valid_;
+            if (new_stream)
                 marker_retries_ = 0; // a new stream (start, the Virus came back)
             out_->anchors.fetch_add(1, std::memory_order_relaxed);
             tl_valid_ = true;
             anchored_ = true; // FE + song position at the new anchor, like the original's start
             if (!env_no_ping())
-                out_->calibrate(newest); // the marker follows the ping sent in this block
+                out_->calibrate(newest, new_stream); // the marker follows the ping sent in this block
         } else if (tl_valid_ && out_->marker.load() >= 0 && std::llabs(err) > 512) {
             // with the marker the Virus' stamp clock is tied to the ring, not to our anchor: jump back to real time
             // (hosts that process ahead in bursts - REAPER's anticipative FX - or stall) without a new FE/F2/ping

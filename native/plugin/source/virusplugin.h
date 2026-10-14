@@ -66,7 +66,16 @@ public:
     // where its 14-bit time stamp clock is 0, so a stamp s plays at the ring frame marker + s (mod 16384).
     // process() calls calibrate() with the ring frame of its ping; the worker finds the marker (-1 = searching or
     // unknown, -2 = not found: stamps stay relative to the ring like before)
-    void calibrate(int64_t from) { marker_from_ = from, marker = -1; }
+    // Every ping RESETS that clock, and the Virus can answer seconds late (Windows: start-up dumps still being
+    // digested), so a ping waits up to 5 s for its marker and the newest marker always wins
+    void calibrate(int64_t from, bool new_stream)
+    {
+        marker_from_ = from;
+        pings_out_.fetch_add(1);
+        if (new_stream || marker.load() < 0) // a new audio stream (start, the Virus came back): the old one is void
+            marker = -1;
+    }
+    bool calibrating() const { return pings_out_.load() > 0; }
     std::atomic<int64_t> marker{-2};
     std::atomic<int64_t> lead{0}; // frames from a timeline position to its sound in the ring (VirusPlugin::lead())
     // the newest ring frame that had sound on USB 1 / USB 2 (the ping waits for 1 s of silence, like the original)
@@ -98,6 +107,8 @@ private:
     std::atomic<bool> diag_on_{false};
     void scan_audio(); // worker: silence tracking + marker search
     std::atomic<int64_t> marker_from_{-1};
+    std::atomic<int> pings_out_{0}; // pings sent whose marker has not been seen yet
+    int64_t marker_skip_ = -1;      // worker: frames up to here belong to the last marker
     int64_t scanned_ = -1; // ring frames up to here were looked at
     std::deque<std::vector<uint8_t>> queue_;
     std::atomic<int> queued_{0};
