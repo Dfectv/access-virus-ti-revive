@@ -72,6 +72,12 @@ every 3 bars. User: the clip looks right, suspects the VM passthrough. Open: a r
 identically - recheck with REAPER in the VM / a real Windows PC. diag.log: one marker, no re-ping, margin >= 129;
 Ableton's export processed 4x real time (1995 timeline jumps, handled).
 
+macOS (Ableton 12, MacBook Air M3, CI 38545072011, 2026-10-14): marker found through the Core Audio ring (~1 s after
+the ping), err 0 (the ring follows the host exactly), read margin 640, no drops. Timing recording (16ths, 120 BPM,
+recorded in real time, ~/Desktop/timing.wav): 256/256 onsets, sd 0.02 ms, max 0.28 ms, 0 ppm, first onset 2000.00 ms.
+nativehost over SSH gets silent Core Audio input (no microphone permission) - measure on the Mac in a DAW.
+-> R5 works on Linux and macOS; Windows only tested in the VM (gap pattern, see above).
+
 Known limit: the automation -> state ring (pu_, 4096) drops values only if the worker stalls for seconds; then the
 saved state could keep an older value until the next change.
 
