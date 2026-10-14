@@ -65,6 +65,13 @@ reports 4352). To check on a real Windows PC (maybe less is enough) and macOS (C
 Windows build with A=3072 (CI 38536820337) in the VM: run 1 K = 8072 for 16/16, run 2 6x 8072 + 9x 8116 (one USB
 frame = 44 frames slip of the ring against the Virus' clock mid-run, VM iso packet loss; 1 ms, not re-synced).
 
+Ableton 11 in the win11 VM (user, 2026-10-14): plug-in loads, timing recording (16ths, 120 BPM, recorded in real
+time and exported, C:\vti-new\timing.wav): the notes that sound are on the grid (sd 0.21 ms, max 1.83 ms, 2 ppm,
+first 2004.47 ms) but 85/256 are missing in a strict pattern - 31 notes, 17 sixteenths silent, repeating identically
+every 3 bars. User: the clip looks right, suspects the VM passthrough. Open: a random loss would not repeat
+identically - recheck with REAPER in the VM / a real Windows PC. diag.log: one marker, no re-ping, margin >= 129;
+Ableton's export processed 4x real time (1995 timeline jumps, handled).
+
 Known limit: the automation -> state ring (pu_, 4096) drops values only if the worker stalls for seconds; then the
 saved state could keep an older value until the next change.
 
