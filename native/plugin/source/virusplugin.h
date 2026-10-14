@@ -114,6 +114,7 @@ private:
     };
     std::vector<KlogNote> klog_stamps_;
     void klog_check();
+    std::chrono::steady_clock::time_point queue_hold_until_{}; // queued messages wait (the Virus busy with a multi)
     char diag_path_[1024] = {};
     std::atomic<bool> diag_on_{false};
     void scan_audio(); // worker: silence tracking + marker search

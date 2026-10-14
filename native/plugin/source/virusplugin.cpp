@@ -250,7 +250,15 @@ void DeviceOut::run()
             size_t r = rt_r_.load(std::memory_order_relaxed);
             // events from process() first, but after 8 in a row one queued message (state, dumps, sync requests),
             // else dense MIDI starves the queue (stress test: queue stuck, bank sync timed out)
+            // after a multi dump the Virus sets up its 16 parts and drops what arrives meanwhile (the following part 1
+            // dump got lost in 2 of 5 start-ups): queued messages wait until it is done; events go on
+            bool held = std::chrono::steady_clock::now() < queue_hold_until_;
             bool rt = r != rt_w_.load(std::memory_order_acquire) && !(rt_run_ >= 8 && !queue_.empty());
+            if (held && !rt) {
+                lk.unlock();
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                continue;
+            }
             if (rt) {
                 const Slot &sl = rt_[r % RT_SLOTS];
                 msg.assign(sl.data, sl.data + sl.len);
@@ -352,6 +360,10 @@ void DeviceOut::run()
             }
         }
         bool ok = broker_.write(EP_PLUGIN_OUT, pk_.data(), pk_.size());
+        if (msg.size() > 7 && msg[0] == 0xF0 && msg[6] == 0x11) { // a multi dump (11 00 00 ...)
+            static const int pause = getenv("VTI_NATIVE_MULTI_PAUSE") ? atoi(getenv("VTI_NATIVE_MULTI_PAUSE")) : 250;
+            queue_hold_until_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(pause);
+        }
         if (klog_)
             klog_check();
         if (pending_send_) {
