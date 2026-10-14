@@ -26,7 +26,14 @@ FetchContent_MakeAvailable(pugixml)
 
 # core library: Access files + device model (no Access material in this repo; loaded at runtime)
 add_library(vticore STATIC src/access/accessfiles.cpp src/model/remotedevice.cpp src/model/state.cpp src/device/broker.cpp src/device/memsync.cpp src/device/audioin.cpp src/editor/editormodel.cpp src/editor/editorrender.cpp src/access/firmware.cpp src/access/library.cpp)
-target_include_directories(vticore PUBLIC src external/ti-revive/src/broker)
+# TI Revive's broker headers (vtiproto.h, vtiaudioshm.h): from the parent tree when this code lives inside TI Revive
+# (native/ next to src/), else from the submodule external/ti-revive
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../src/broker/vtiproto.h)
+    set(TIREVIVE_BROKER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../src/broker)
+else()
+    set(TIREVIVE_BROKER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/ti-revive/src/broker)
+endif()
+target_include_directories(vticore PUBLIC src ${TIREVIVE_BROKER_DIR})
 find_package(Threads REQUIRED)
 target_link_libraries(vticore PUBLIC Threads::Threads $<$<PLATFORM_ID:Linux>:rt>)
 if(APPLE)
