@@ -107,6 +107,7 @@ const double RATE = 44100;
 const char *IN_NAMES[IN_CH] = {"Analog In L", "Analog In R", "USB 1 L", "USB 1 R", "USB 2 L", "USB 2 R"};
 const char *OUT_NAMES[OUT_CH] = {"Virus Out L", "Virus Out R"};
 const int OUT_PREFILL = 512; // the broker starts playing with this much queued (vtibroker.c)
+const int64_t START_MUTE = 4410; // frames of silence after a (re)start: the first USB block can carry a full-scale spike
 
 void split64(uint64_t v, unsigned long &hi, unsigned long &lo)
 {
@@ -344,6 +345,7 @@ private:
         const long bs = bufsize_;
         std::vector<int16_t> raw((size_t)bs * vti::AudioIn::IN_CHANNELS), out((size_t)bs * OUT_CH);
         bool reset_sent = false;
+        int64_t mute_until = 0;
         bool can_reset = callbacks_->asioMessage &&
                          callbacks_->asioMessage(kAsioSelectorSupported, kAsioResetRequest, nullptr, nullptr) == 1;
         while (running_) {
@@ -359,10 +361,14 @@ private:
                 callbacks_->asioMessage(kAsioResetRequest, 0, nullptr, nullptr);
                 reset_sent = true;
             }
-            if (pos_ < 0 || newest - pos_ > 8192 || newest < pos_) // start, a stall, a new stream: resync
+            if (pos_ < 0 || newest - pos_ > 8192 || newest < pos_) { // start, a stall, a new stream: resync
                 pos_ = newest - bs;
+                mute_until = pos_ + START_MUTE;
+            }
             while (running_ && newest - pos_ >= bs) {
                 audio_.read_raw_at(raw.data(), bs, pos_);
+                if (pos_ < mute_until)
+                    memset(raw.data(), 0, raw.size() * sizeof(int16_t));
                 for (auto &b : bufs_)
                     if (b.isInput) {
                         int32_t *d = (int32_t *)b.buffers[index_];
