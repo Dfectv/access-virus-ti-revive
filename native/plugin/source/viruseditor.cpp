@@ -280,6 +280,17 @@ public:
             canvas_.image(preload_[preload_pos_++]);
     }
 
+    // the areas that show `param`: its own controls, plus every element that read it in the last full repaint (the
+    // envelope display is bound to Attack but also draws Decay, Sustain, Slope and Release)
+    std::vector<std::array<int, 4>> shown_rects(const std::string &param)
+    {
+        auto v = renderer_.param_rects(param);
+        auto it = deps_.rects.find(param);
+        if (it != deps_.rects.end())
+            v.insert(v.end(), it->second.begin(), it->second.end());
+        return v;
+    }
+
     void draw(CDrawContext *ctx) override { drawRect(ctx, getViewSize()); }
 
     void drawRect(CDrawContext *ctx, const CRect &update) override
@@ -528,12 +539,12 @@ public:
         plugin_->ui_set(param, drag_.part, std::max(lo, std::min(hi, v)));
         // repaint only the control and the LCD (bottom info panel); value-dependent layouts change on release
         if (drag_rects_.empty())
-            drag_rects_ = renderer_.param_rects(param);
+            drag_rects_ = shown_rects(param);
         for (auto &rc : drag_rects_) // every control of this parameter (knob + value display ...)
             invalidRect(CRect(rc[0] - 2, rc[1] - 2, rc[0] + rc[2] + 2, rc[1] + rc[3] + 2));
         for (auto &other : plugin_->take_changed()) // linked parameters (LFO/filter links) move along
             if (other != param)
-                for (auto &rc : renderer_.param_rects(other))
+                for (auto &rc : shown_rects(other))
                     invalidRect(CRect(rc[0] - 2, rc[1] - 2, rc[0] + rc[2] + 2, rc[1] + rc[3] + 2));
         invalidRect(CRect(200, 470, 560, 512));
         partial_ = true;
