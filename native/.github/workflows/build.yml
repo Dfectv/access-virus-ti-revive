@@ -25,7 +25,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: VirusTINative-windows
-          path: build/VST3/Release/VirusTINative.vst3
+          path: build/VST3/Release/TI Revive Virus Control.vst3
       - uses: actions/upload-artifact@v4
         with:
           name: tools-windows
@@ -69,7 +69,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: VirusTINative-macos
-          path: build/VST3/Release/VirusTINative.vst3
+          path: build/VST3/Release/TI Revive Virus Control.vst3
       - uses: actions/upload-artifact@v4
         with:
           name: tools-macos

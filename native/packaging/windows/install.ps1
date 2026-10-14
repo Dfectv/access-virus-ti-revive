@@ -15,9 +15,10 @@ if (Get-Service VIRUSUSB -ErrorAction SilentlyContinue) { Warn "the old Access U
 Get-ChildItem $here -Recurse | Unblock-File
 
 # VST3 plug-in
-$vst = "$env:CommonProgramW6432\VST3\VirusTINative.vst3"
-if (Test-Path $vst) { Remove-Item $vst -Recurse -Force }
-Copy-Item "$here\VirusTINative.vst3" $vst -Recurse
+$vst = "$env:CommonProgramW6432\VST3\TI Revive Virus Control.vst3"
+foreach ($old in @($vst, "$env:CommonProgramW6432\VST3\VirusTINative.vst3")) { # VirusTINative = test builds before 2026-10-14
+    if (Test-Path $old) { Remove-Item $old -Recurse -Force } }
+Copy-Item "$here\TI Revive Virus Control.vst3" $vst -Recurse
 Say "plug-in installed: $vst"
 
 # ASIO driver

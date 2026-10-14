@@ -30,7 +30,8 @@ device description and the ROM from the user's own Access installation at runtim
 git submodule update --init external/ti-revive
 (cd external/vst3sdk && git submodule update --init base cmake pluginterfaces public.sdk vstgui4)
 cmake -S . -B build -G Ninja && cmake --build build
-cp -r build/VST3/Release/VirusTINative.vst3 ~/.vst3/
+rm -rf ~/.vst3/VirusTINative.vst3  # the bundle's name before 2026-10-14
+cp -r "build/VST3/Release/TI Revive Virus Control.vst3" ~/.vst3/
 ```
 
 Windows: the CI artifact `VirusTINative-windows` from `.github/workflows/build.yml`.

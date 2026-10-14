@@ -1,6 +1,6 @@
 #!/bin/sh
 S=$(dirname "$0"); cd $S
-bwrap --dev-bind / / --tmpfs /tmp --bind /tmp/.X11-unix /tmp/.X11-unix --bind /tmp/claude-1000 /tmp/claude-1000 bash -c "cd $S && DISPLAY=:77 timeout 40 ~/virus-ti-native/build/bin/Release/nativehost ~/virus-ti-native/build/VST3/Release/VirusTINative.vst3 --state $1.comp --editor --click 433,24@2 --shot u-$1.ppm@3 --seconds 4" >/dev/null 2>&1
+bwrap --dev-bind / / --tmpfs /tmp --bind /tmp/.X11-unix /tmp/.X11-unix --bind /tmp/claude-1000 /tmp/claude-1000 bash -c "cd $S && DISPLAY=:77 timeout 40 ~/virus-ti-native/build/bin/Release/nativehost ~/virus-ti-native/build/VST3/Release/TI\ Revive\ Virus\ Control.vst3 --state $1.comp --editor --click 433,24@2 --shot u-$1.ppm@3 --seconds 4" >/dev/null 2>&1
 python3 -W ignore -c "
 from PIL import Image
 o=Image.open('$2').convert('RGB'); u=Image.open('u-$1.ppm').convert('RGB')

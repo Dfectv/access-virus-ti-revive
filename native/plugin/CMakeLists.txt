@@ -1,4 +1,5 @@
-smtg_add_vst3plugin(VirusTINative
+# bundle "TI Revive Virus Control.vst3" (the product name; the build target stays VirusTINative)
+smtg_add_vst3plugin(VirusTINative PACKAGE_NAME "TI Revive Virus Control" SOURCES_LIST
     source/entry.cpp
     source/virusplugin.cpp
     source/viruseditor.cpp

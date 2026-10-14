@@ -4,7 +4,7 @@ TI Revive Virus Control - Windows test build
 INTERNAL TEST BUILD. Not for distribution.
 
 What is in here
-- VirusTINative.vst3        the native plug-in, shown as "TI Revive Virus Control" (vendor "TI Revive")
+- TI Revive Virus Control.vst3   the native plug-in, shown as "TI Revive Virus Control" (vendor "TI Revive")
 - VirusTINative_ASIO.dll    ASIO driver "TI Revive Virus Audio": the Virus as a sound card
 - install.cmd / uninstall.cmd, collect-logs.cmd
 - timing-16ths-120bpm.mid   timing test: 256 sixteenth notes at 120 BPM

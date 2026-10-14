@@ -9,7 +9,7 @@ This is the technical overview for anyone who wants to understand the plug-in. B
  DAW (REAPER, Ableton, ...)
   │  VST3: notes, automation, audio buffers, project state
   ▼
- VirusTINative.vst3 ──────────────────────────────────────────────────────────────┐
+ TI Revive Virus Control.vst3 ──────────────────────────────────────────────────────────────┐
   │ plugin/  VirusPlugin (VST3 component + controller)   VirusEditor (VSTGUI)       │
   │ src/model    RemoteDevice: parameters, MIDI/SysEx encoding, dumps  ◄── remotedevice.xml, editordevice.xml,
   │ src/editor   EditorLayout + EditorRenderer: the original UI         ◄── editor.xml + PNG skin   automation.xml
@@ -112,7 +112,7 @@ original Virus TI software must be installed (it can stay unused). These are the
 ### Linux (working, tested in REAPER)
 | topic | how |
 |---|---|
-| plug-in format | VST3 bundle `~/.vst3/VirusTINative.vst3` (`x86_64-linux`) |
+| plug-in format | VST3 bundle `~/.vst3/TI Revive Virus Control.vst3` (`x86_64-linux`) |
 | UI | VSTGUI on X11; uses the host's `IRunLoop` (from the plug frame or host context) and `X11::FrameConfig`; the host maps the XEmbed window |
 | menus | VSTGUI's generic (in-window) menu with a compact light theme and no fade-in, because X11 has no native menus |
 | drawing speed | VSTGUI keeps bitmaps as CPU (cairo image) surfaces and uploads their pixels on every draw into the X back buffer - ~70 ms per full repaint on a real X server/XWayland. The editor keeps X pixmap copies of all bitmaps (`cairo_surface_create_similar` on the frame window) and caches the static layer (backgrounds, panels, labels) as a pixmap; repaints become server-side composites (GPU with glamor): full repaint ~1-7 ms, knob step < 1 ms. `VTI_NATIVE_NO_PIXMAPS=1` disables the copies |
@@ -126,7 +126,7 @@ original Virus TI software must be installed (it can stay unused). These are the
 ### Windows (working; tested in Ableton 11 in a Win11 VM)
 | topic | how |
 |---|---|
-| plug-in format | VST3 bundle in `C:\Program Files\Common Files\VST3\VirusTINative.vst3` (`x86_64-win`), built with MSVC in CI (`.github/workflows/build.yml`, artifacts `VirusTINative-windows` + `tools-windows`) |
+| plug-in format | VST3 bundle in `C:\Program Files\Common Files\VST3\TI Revive Virus Control.vst3` (`x86_64-win`), built with MSVC in CI (`.github/workflows/build.yml`, artifacts `VirusTINative-windows` + `tools-windows`) |
 | UI | VSTGUI with Direct2D; native Win32 menus; images taller than 16384 px (Direct2D's limit; the cutoff knob filmstrips are 16512 px) are split into tiles when loaded |
 | broker | named pipe `\\.\pipe\vtibroker`; like TI Revive's own clients the plug-in starts `vtibroker.exe` on demand (path from `HKLM\SOFTWARE\TI Revive\InstallDir`, else `%ProgramW6432%\TI Revive`), detached from the DAW's job object; the broker exits by itself when idle |
 | USB | TI Revive's WinUSB binding (MSI); no Access driver |
@@ -159,7 +159,7 @@ Not yet tested in a DAW.
 ### macOS (working; universal arm64 + x86_64, tested in Ableton 12 on an M3)
 | topic | how |
 |---|---|
-| plug-in format | VST3 bundle `~/Library/Audio/Plug-Ins/VST3/VirusTINative.vst3`, universal (runs natively on Apple Silicon, no Rosetta), built with Xcode in CI (artifacts `VirusTINative-macos`, `tools-macos`) |
+| plug-in format | VST3 bundle `~/Library/Audio/Plug-Ins/VST3/TI Revive Virus Control.vst3`, universal (runs natively on Apple Silicon, no Rosetta), built with Xcode in CI (artifacts `VirusTINative-macos`, `tools-macos`) |
 | UI | VSTGUI with Cocoa / CoreGraphics; native menus |
 | permissions | the DAW needs microphone access (System Settings > Privacy > Microphone): without it Core Audio delivers silent input buffers |
 | broker | same program and protocol as on Linux (`/tmp/vtibroker-<uid>.sock`); no socket activation on macOS, so the plug-in starts `/Library/Application Support/TI Revive/vtibroker` itself when nobody answers (like TI Revive's libVirusUSB; `$TIREVIVE_BROKER` overrides) |
