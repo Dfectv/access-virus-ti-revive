@@ -507,6 +507,7 @@ tresult PLUGIN_API VirusPlugin::setActive(TBool state)
         // start-up messages; sync_banks hides it when the check is done or cannot run
         set_sync_progress(0);
         syncing_ = true;
+        starting_ = true;
         sync_thread_ = std::thread([this] {
             sync_banks();
             warm_categories();
@@ -816,9 +817,10 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             Event e;
             if (data.inputEvents->getEvent(i, e) != kResultOk)
                 continue;
-            if (e.type == Event::kNoteOnEvent && syncing_.load(std::memory_order_relaxed))
-                continue; // the start-up sync has priority (the Virus delays notes while it answers dump requests)
+            if (e.type == Event::kNoteOnEvent && starting_.load(std::memory_order_relaxed))
+                continue; // the Virus is still busy with the start-up messages and the state (notes would be late)
             if (e.type == Event::kNoteOnEvent) {
+                last_note_ms_.store(now_ms(), std::memory_order_relaxed);
                 uint8_t m[3] = {(uint8_t)(0x90 | (e.noteOn.channel & 15)), (uint8_t)e.noteOn.pitch,
                                 (uint8_t)std::max(1L, std::lround(e.noteOn.velocity * 127))};
                 add(at(e.sampleOffset), m, 3);
@@ -1275,7 +1277,7 @@ void VirusPlugin::set_sync_progress(int v)
 bool VirusPlugin::wait_until_quiet()
 {
     bool shown = false;
-    while (!stop_warm_ && now_ms() - last_play_ms_.load(std::memory_order_relaxed) < 2000) {
+    while (!stop_warm_ && now_ms() - last_note_ms_.load(std::memory_order_relaxed) < 1500) {
         if (!shown) {
             set_lcd("Bank sync paused (playing)", std::string(), std::string(), std::string());
             shown = true;
@@ -1289,6 +1291,10 @@ void VirusPlugin::sync_banks()
 {
     for (int i = 0; i < 40 && !stop_warm_; i++) // 4 s: after the start-up messages and the state
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    // until here the Virus works through the start-up messages and the state and plays notes up to 1.6 s late, so
+    // note-ons were held back; from now on notes play, and the sync pauses while they arrive (dump requests delay
+    // the Virus' notes by ~130 ms and the sync stalls - measured 2026-10-14)
+    starting_ = false;
     if (stop_warm_ || !out_ || !out_->connected()) { // no Virus: no sync, the editor as usual
         syncing_ = false;
         set_sync_progress(127);
@@ -1300,9 +1306,9 @@ void VirusPlugin::sync_banks()
         std::filesystem::create_directories(dir, ec);
     }
     load_rom_banks();
-    // like the original: the sync has priority - its start-up page ("Initializing Virus TI and syncing memory",
-    // VirusControl/InitialSyncProgress 0..126, shown since setActive) covers the editor and notes are held back
-    // until it is done
+    sync_->before_request = [this] { return wait_until_quiet(); };
+    // like the original: its start-up page ("Initializing Virus TI and syncing memory", VirusControl/
+    // InitialSyncProgress 0..126, shown since setActive) covers the editor until the sync is done; notes still play
     // the original keeps "synchronising" on the Virus display while it syncs (74 01 7E 07 about once a second)
     std::atomic<bool> rise{true};
     std::thread riser([this, &rise] {

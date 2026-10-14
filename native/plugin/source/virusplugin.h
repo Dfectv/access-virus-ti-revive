@@ -185,12 +185,13 @@ public:
     std::atomic<bool> stop_warm_{false}; // terminate(): stops the bank sync and the category pass
     // the host plays (transport running or notes): steady_clock milliseconds of the last activity (audio thread)
     std::atomic<int64_t> last_play_ms_{0};
+    std::atomic<int64_t> last_note_ms_{0}; // last note-on from the host (pauses the bank sync)
     int marker_retries_ = 0; // process(): sync pings sent again after "no marker"
     static int64_t now_ms()
     {
         return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
     }
-    bool wait_until_quiet(); // (unused since the sync has priority again)
+    bool wait_until_quiet(); // the bank sync's before_request: waits while notes arrive (playing has priority)
     void set_sync_progress(int v); // the original's start-up page: 0..126 shown, 127 hidden
     std::string category_name_(); // the selected category filter's name
     void set_search(const std::string &s);
@@ -337,6 +338,7 @@ private:
     void sync_banks(); // brings the bank cache up to date with the Virus (background thread)
     void load_rom_banks(); // ROM A.. from the user's firmware.bin for the connected model
     std::atomic<bool> syncing_{false};
+    std::atomic<bool> starting_{false}; // start-up messages + state on their way: note-ons are held back
     std::atomic<int> model_{0}; // 0 = TI2, 1 = TI, 2 = Snow (from the device descriptor)
     std::map<Steinberg::Vst::ParamID, Mapped> params_;
     std::map<std::pair<std::string, int>, Steinberg::Vst::ParamID> ids_; // (path, part 0-based) -> id
