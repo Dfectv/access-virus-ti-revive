@@ -12,6 +12,7 @@
 // HKLM\SOFTWARE\ASIO\Virus TI (native).
 #include "device/audioin.h"
 #include "device/broker.h"
+#define NOMINMAX
 #include <windows.h>
 #include <avrt.h>
 #include <objbase.h>
