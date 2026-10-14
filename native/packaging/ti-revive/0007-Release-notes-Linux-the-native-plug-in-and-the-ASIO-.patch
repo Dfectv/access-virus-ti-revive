@@ -1,7 +1,7 @@
 From c4d6cb750e3ac30e201a96cc008f6b8f610281fc Mon Sep 17 00:00:00 2001
 From: derpsn <callmederpsn@proton.me>
 Date: Wed, 14 Oct 2026 21:40:06 +0200
-Subject: [PATCH 7/8] Release notes: Linux, the native plug-in and the ASIO
+Subject: [PATCH 7/9] Release notes: Linux, the native plug-in and the ASIO
  device
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
