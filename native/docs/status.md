@@ -38,7 +38,8 @@ Done:
 - migration rehearsed end to end (docs/migration.md)
 - sync: notes play during the bank sync (pause, 30 s budget), start-up hold 4 s
 Open:
-1. Release candidate 0.8.0-rc1 on all three platforms (user tests): Windows MSI, Mac zip (CI mac-package), Linux tarball
+1. Release candidate 0.8.0-rc1 BUILT (private pre-release v0.8.0-rc1: setup.exe/MSI from the VM - installs as 0.8.0,
+   ASIO registered; Mac zip from CI mac-package - universal native VST3 in the pkg; Linux tarball). User tests open.
 2. The user's go for the move into TI Revive (docs/migration.md), then tag v0.8.0
 Later: Snow, OSC mixed-shape display, AU, Control Center, the user's empty-cache test.
 
