@@ -198,7 +198,13 @@ jobs:
           (not signed: right-click > Open), then \`Install Access Virus TI software.command\` with your own
           Access \`.pkg\` next to it. Your DAW runs natively; allow it to use the microphone. Details: README-mac.txt.
 
-          In your DAW use the plug-in **"Virus TI (TI Revive)"**.
+          **Linux (x86_64):** download \`TI-Revive-$v-linux.tar.gz\`, unpack it and run \`./install.sh\` (details:
+          README-linux.txt).
+
+          In your DAW use the plug-in **"Virus TI (TI Revive)"** - or the new native plug-in **"TI Revive Virus
+          Control"** (VST3 on Windows, macOS and Linux; runs without Rosetta, Wine or yabridge). On Windows the
+          Virus is also a sound card: ASIO device **"TI Revive Virus Audio"**. Virus TI Snow: use "Virus TI (TI
+          Revive)" for now.
 
           Not affiliated with Access Music or Kemper. Contains no Access software. See the
           [README](https://github.com/$GITHUB_REPOSITORY#readme) for how it works, limitations and uninstall.
