@@ -47,6 +47,9 @@ Open:
    K 6024, sound 18-40 ms after sending every time. Both delay sessions ran without klog -> klog.on stays on the test
    machines (Mac, Windows test package) to catch it. Open, not reproducible.
    Release workflow rehearsed (private repo derpsn/tirevive-rehearsal, tag v0.8.0): all jobs green after patch 0008.
+   rc3 = the release workflow's own output (rehearsal repo, tag v0.8.0 at branch rc3, run 38629368510): kit patches
+   0001-0009 + native incl. the stats fix. Linux rc2 tested by the user (install.sh, REAPER 44.1 + 48 kHz). Next:
+   user tests rc3 setup.exe on the Windows PC (download from derpsn/tirevive-rehearsal releases).
 2. The user's go for the move into TI Revive (docs/migration.md), then tag v0.8.0
 Later: Snow, OSC mixed-shape display, AU, Control Center, the user's empty-cache test.
 
