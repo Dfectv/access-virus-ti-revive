@@ -72,6 +72,10 @@
       <ComponentGroupRef Id="Core" />
       <ComponentGroupRef Id="Plugin" />
       <ComponentGroupRef Id="Menu" />
+<?if $(var.Native) = "1" ?>
+      <!-- the native plug-in "TI Revive Virus Control" + ASIO driver "TI Revive Virus Audio" (native/packaging/windows/native.wxs) -->
+      <ComponentGroupRef Id="Native" />
+<?endif?>
     </Feature>
 
     <!-- driver package + trusted cert (deferred, SYSTEM), and the reverse on uninstall -->
