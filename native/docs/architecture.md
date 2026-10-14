@@ -138,6 +138,24 @@ original Virus TI software must be installed (it can stay unused). These are the
 Verified in the VM (TI Revive 0.7.4, Access 5.1.7): Access files and libraries found, broker started on demand,
 TI2 detected, audio streaming with notes, bank sync (cancellable when the plug-in closes).
 
+**ASIO driver (`asio/asiodriver.cpp`, target `VirusTINative_ASIO`):** the Virus as a sound card for any Windows
+ASIO host, without the Access/Ploytec driver. It reads the same audio ring as the plug-in and writes the outputs
+through the broker.
+
+| topic | how |
+|---|---|
+| identity | COM in-proc server, CLSID `{F1DA6F3F-7A48-49A9-97F8-C3A8C008EABD}`, ASIO name "Virus TI (native)"; `regsvr32` writes `HKLM\SOFTWARE\Classes\CLSID\...` and `HKLM\SOFTWARE\ASIO\Virus TI (native)` |
+| channels | 6 in (Analog In L/R, USB 1 L/R, USB 2 L/R), 2 out (Virus Out L/R); 44.1 kHz only; Int32LSB |
+| buffers | 64-2048 frames, preferred 256 |
+| clock | the Virus is the master: a thread waits on the ring's event (`Local\vtinative_audio_<pid>`), and each full buffer of new frames is one `bufferSwitch`; the outputs are queued to the broker right after it |
+| latency | in = buffer, out = buffer + 512 (broker prefill) + 88 |
+| restarts | inputs muted for 100 ms after a (re)start (the first USB block can carry a full-scale spike); a restarted ring sends `kAsioResetRequest` |
+| test host | `tools/asiohost.c` (`asiohost.exe`): opens the driver, prints channels, counts switches, can play a tone |
+
+Verified in the VM (2026-10-14, TI2): driver registered and loaded by `asiohost`, 172 buffer switches/s at 256
+frames (= 44.1 kHz) steady, 440 Hz test tone heard clean on the Virus outputs, broker: 0 frames dropped.
+Not yet tested in a DAW.
+
 ### macOS (working; universal arm64 + x86_64, tested in Ableton 12 on an M3)
 | topic | how |
 |---|---|

@@ -12,7 +12,8 @@ Feature complete = all of:
 - [x] timing + reported latency on Linux and macOS (E140, E141) - [ ] Windows on a real PC (VM gap pattern open)
 - [x] stability / M4L LFOs / CPU
 - [ ] Virus TI Snow (model, 4 parts, banks, Snow's own device files?) - needs a Snow tester (issue #4 user)
-- [ ] Virus as sound card on Windows (ASIO) - today only the TI Revive wrapper
+- [~] Virus as sound card on Windows (ASIO): own driver works in a test host (clean tone, 172 switches/s);
+      DAW test (Ableton/REAPER) open
 - [ ] Virus Control Center (Windows) - decide: port, launch the original, or drop
 - [ ] remaining UI details (UI to-do list)
 - [ ] publication check: rewrite parts ported from the decompile (e.g. upgrade_single, init sequence) as own

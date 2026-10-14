@@ -7,7 +7,7 @@ plug-in, Wine or Rosetta. The Virus is reached through the TI Revive broker (USB
 | platform | status |
 |---|---|
 | Linux (x86_64, X11) | **working**; tested in REAPER: sound, automation, browser, LOAD/SAVE, libraries, sync |
-| Windows | **working**; tested in Ableton 11 (Win11 VM): sound, timing, UI, browser, menus |
+| Windows | **working**; tested in Ableton 11 (Win11 VM): sound, timing, UI, browser, menus ; ASIO driver (Virus as sound card) works in a test host |
 | macOS | **working**; universal (Apple Silicon + Intel), tested in Ableton 12 on an M3: sound, UI, sync |
 
 **How it works:** [docs/architecture.md](docs/architecture.md). More detail: protocol in
@@ -69,6 +69,7 @@ Environment settings for testing:
 | `src/access` | Access files (DLL/bundle resources), firmware ROM banks, Personal Libraries (SMF) |
 | `src/device` | broker client, shared-memory audio ring, memory sync, USB-MIDI packing |
 | `plugin/source` | the VST3 plug-in (`VirusPlugin`) and its VSTGUI editor (`VirusEditor`) |
+| `asio` | Windows ASIO driver: the Virus as a sound card through the broker |
 | `tools` | developer tools, see below |
 | `tests` | unit tests (`vtitests`, run by ctest) |
 
@@ -79,6 +80,7 @@ Environment settings for testing:
 | `vtimodel` | inspect the Access files: params, messages, dumps, categories, automation, ROM, libraries, init multi |
 | `virusctl` | talk to the Virus through the broker: state, set, note, sysex, timing tests |
 | `virussync` | bank sync without a host |
+| `asiohost` | Windows: load an ASIO driver, list channels, count buffer switches, play a test tone |
 | `nativehost` | minimal VST3 host: states, params, notes, WAV, editor on X11 with click/drag/type/screenshot |
 | `vtirender` | render the editor with cairo and compare it against screenshots of the original |
 | `xclick`, `xtype` | drive the original under Wine/Xvfb |
