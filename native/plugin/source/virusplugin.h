@@ -101,7 +101,11 @@ private:
     std::condition_variable cv_;
     std::vector<uint8_t> pk_; // worker: the packets of one broker write
     const bool klog_ = getenv("VTI_NATIVE_KLOG") != nullptr; // R5 diagnostic, see klog_check
-    std::vector<std::pair<int64_t, int64_t>> klog_stamps_;   // (stamp, newest frame when sent)
+    struct KlogNote {
+        int64_t stamp, sent, scanned; // stamp, newest frame when sent, ring frames scanned so far
+        int quiet;                    // quiet frames before the scan position
+    };
+    std::vector<KlogNote> klog_stamps_;
     void klog_check();
     char diag_path_[1024] = {};
     std::atomic<bool> diag_on_{false};

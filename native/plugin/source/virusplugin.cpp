@@ -93,31 +93,42 @@ bool DeviceOut::send_rt(const uint8_t *msg, size_t n, int64_t stamp)
 }
 
 // R5 diagnostic (VTI_NATIVE_KLOG): for each stamped note-on, the first onset in USB 1 after a quiet stretch, as
-// K = onset frame - stamp (the Virus plays a stamped event K frames after its stamp; K is fixed per session)
+// K = onset frame - stamp (the Virus plays a stamped event K frames after its stamp; K is fixed per session) and as
+// the delay after sending. The ring holds only ~370 ms, so the audio is scanned as it arrives (up to 2 s per note).
 void DeviceOut::klog_check()
 {
     if (!audio_ok_)
         return;
-    int64_t newest = audio_.newest_frame();
-    while (!klog_stamps_.empty() && newest > klog_stamps_.front().first + 20000) {
-        auto [st, sent_newest] = klog_stamps_.front();
-        klog_stamps_.erase(klog_stamps_.begin());
-        const int n = 24000;
-        std::vector<float> l(n), r(n), a(n), b(n);
-        audio_.read_at(l.data(), r.data(), a.data(), b.data(), n, st - 4000);
-        int quiet = 0;
-        for (int i = 0; i < n; i++) {
-            float v = std::fabs(l[i]) + std::fabs(r[i]);
-            if (v < 0.004f)
-                quiet++;
-            else if (v > 0.03f && quiet >= 2000) {
-                fprintf(stderr, "klog: K %lld (stamp %lld, sent at newest %lld = stamp + %lld)\n",
-                        (long long)(st - 4000 + i - st), (long long)st, (long long)sent_newest,
-                        (long long)(sent_newest - st));
-                break;
-            } else if (v >= 0.004f)
-                quiet = 0;
+    const int64_t newest = audio_.newest_frame();
+    for (size_t k = 0; k < klog_stamps_.size();) {
+        auto &e = klog_stamps_[k];
+        int64_t from = std::max({e.scanned, e.stamp - 4000, newest - 16000});
+        int n = (int)std::min<int64_t>(newest - from, 16000);
+        bool found = false;
+        if (n > 0) {
+            std::vector<float> l(n), r(n), a(n), b(n);
+            audio_.read_at(l.data(), r.data(), a.data(), b.data(), n, from);
+            for (int i = 0; i < n && !found; i++) {
+                float v = std::fabs(l[i]) + std::fabs(r[i]);
+                if (v < 0.004f)
+                    e.quiet++;
+                else if (v > 0.03f && e.quiet >= 2000) {
+                    int64_t on = from + i;
+                    log("klog: K %lld (stamp %lld, sent at newest %lld = stamp + %lld; sound %.1f ms after sending)\n",
+                        (long long)(on - e.stamp), (long long)e.stamp, (long long)e.sent,
+                        (long long)(e.sent - e.stamp), (on - e.sent) / 44.1);
+                    found = true;
+                } else if (v >= 0.004f)
+                    e.quiet = 0;
+            }
+            e.scanned = from + n;
         }
+        if (!found && e.scanned > e.stamp + 88200)
+            log("klog: no onset within 2 s of stamp %lld (sent at newest %lld)\n", (long long)e.stamp, (long long)e.sent);
+        if (found || e.scanned > e.stamp + 88200)
+            klog_stamps_.erase(klog_stamps_.begin() + (long)k);
+        else
+            k++;
     }
 }
 
@@ -322,7 +333,7 @@ void DeviceOut::run()
             auto ev = usbmidi_pack(m, CABLE_PLUGIN);
             pk_.insert(pk_.end(), ev.begin(), ev.end());
             if (klog_ && st >= 0 && m.size() == 3 && (m[0] & 0xF0) == 0x90 && m[2] && klog_stamps_.size() < 64)
-                klog_stamps_.push_back({raw, audio_ok_ ? audio_.newest_frame() : -1});
+                klog_stamps_.push_back({raw, audio_ok_ ? audio_.newest_frame() : -1, 0, 0});
         };
         pack(msg, stamp);
         // the rest of a block's events in the same write (one broker message instead of one per event); the
