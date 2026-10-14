@@ -46,6 +46,7 @@ Open:
    reproduced in 3 later sessions with klog (re-insert, Virus as Ableton input = Virus-clocked host, Ableton restart):
    K 6024, sound 18-40 ms after sending every time. Both delay sessions ran without klog -> klog.on stays on the test
    machines (Mac, Windows test package) to catch it. Open, not reproducible.
+   Release workflow rehearsed (private repo derpsn/tirevive-rehearsal, tag v0.8.0): all jobs green after patch 0008.
 2. The user's go for the move into TI Revive (docs/migration.md), then tag v0.8.0
 Later: Snow, OSC mixed-shape display, AU, Control Center, the user's empty-cache test.
 

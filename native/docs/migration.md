@@ -13,8 +13,12 @@ build and unit tests in the TI Revive layout, publication scans of the merged hi
 | `CMakeLists.txt` | takes the broker headers from `../src/broker` when it lives inside TI Revive, else from the submodule |
 
 Tested: the MSI with the native part in the win11 VM (install over 0.7.4, ASIO registered, uninstall/reinstall),
-the Linux tarball (`scripts/linux-build-release.sh` with `native/`), installer step 5 with a temporary HOME. Not
-testable before the move: the Mac pkg and the release workflow (they run on GitHub's runners with `native/`).
+the Linux tarball (`scripts/linux-build-release.sh` with `native/`), installer step 5 with a temporary HOME, the Mac
+pkg (CI `mac-package`, installed on the M3), and the **complete release workflow**: steps 2-3 below into the private
+repository `derpsn/tirevive-rehearsal`, tag `v0.8.0` pushed there - all 7 jobs green, release with setup.exe, MSI,
+Mac zip, Linux tarball (native plug-in needs glibc 2.35 / GLIBCXX 3.4.30) and usbinfo script (2026-10-14). The
+rehearsal found and fixed: the Wine-side tools do not build with Ubuntu 22.04's mingw (patch 0008: own native-linux
+job). The rehearsal repository can be deleted after the real release.
 
 ## Steps
 
