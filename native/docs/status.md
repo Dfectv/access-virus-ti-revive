@@ -41,6 +41,11 @@ Open:
 1. Release candidate 0.8.0-rc2 BUILT (private pre-release v0.8.0-rc2; rc1 + init-state fix E145 + MSI same-version
    upgrades). Linux: user tested the init fix in REAPER (init every time). Open: user tests of rc2 on Windows / Mac
    (the Mac was not reachable today) / Linux install.sh.
+   Mac rc2 (2026-10-14): pkg installs, removes the old test bundle; plug-in works. User heard a constant MIDI->sound
+   delay in the FIRST instance after the install (as once on Windows test2); gone after re-inserting. Not
+   reproduced in 3 later sessions with klog (re-insert, Virus as Ableton input = Virus-clocked host, Ableton restart):
+   K 6024, sound 18-40 ms after sending every time. Both delay sessions ran without klog -> klog.on stays on the test
+   machines (Mac, Windows test package) to catch it. Open, not reproducible.
 2. The user's go for the move into TI Revive (docs/migration.md), then tag v0.8.0
 Later: Snow, OSC mixed-shape display, AU, Control Center, the user's empty-cache test.
 
