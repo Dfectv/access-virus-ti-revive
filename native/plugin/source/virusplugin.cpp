@@ -371,11 +371,16 @@ tresult PLUGIN_API VirusPlugin::terminate()
 
 tresult PLUGIN_API VirusPlugin::setActive(TBool state)
 {
-    if (state && sync_ && !sync_started_.exchange(true))
+    if (state && sync_ && !sync_started_.exchange(true)) {
+        // the start-up page from the first moment (the original shows it once, right away), not only after the
+        // start-up messages; sync_banks hides it when the check is done or cannot run
+        set_sync_progress(0);
+        syncing_ = true;
         sync_thread_ = std::thread([this] {
             sync_banks();
             warm_categories();
         });
+    }
     if (state && !state_loaded_ && !default_.empty()) { // new instance: the original's default project
         {
             std::lock_guard<std::mutex> lk(state_mu_);
@@ -1116,8 +1121,11 @@ void VirusPlugin::sync_banks()
 {
     for (int i = 0; i < 40 && !stop_warm_; i++) // 4 s: after the start-up messages and the state
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    if (stop_warm_ || !out_ || !out_->connected())
+    if (stop_warm_ || !out_ || !out_->connected()) { // no Virus: no sync, the editor as usual
+        syncing_ = false;
+        set_sync_progress(127);
         return;
+    }
     std::string dir = own_cache_dir();
     if (!dir.empty()) {
         std::error_code ec;
@@ -1125,9 +1133,8 @@ void VirusPlugin::sync_banks()
     }
     load_rom_banks();
     // like the original: the sync has priority - its start-up page ("Initializing Virus TI and syncing memory",
-    // VirusControl/InitialSyncProgress 0..126) covers the editor and notes are held back until it is done
-    set_sync_progress(0);
-    syncing_ = true;
+    // VirusControl/InitialSyncProgress 0..126, shown since setActive) covers the editor and notes are held back
+    // until it is done
     // the original keeps "synchronising" on the Virus display while it syncs (74 01 7E 07 about once a second)
     std::atomic<bool> rise{true};
     std::thread riser([this, &rise] {
