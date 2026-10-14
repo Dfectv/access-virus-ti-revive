@@ -1277,6 +1277,7 @@ void VirusPlugin::set_sync_progress(int v)
 bool VirusPlugin::wait_until_quiet()
 {
     bool shown = false;
+    const int64_t t0 = now_ms();
     while (!stop_warm_ && now_ms() - last_note_ms_.load(std::memory_order_relaxed) < 1500) {
         if (!shown) {
             set_lcd("Bank sync paused (playing)", std::string(), std::string(), std::string());
@@ -1284,6 +1285,8 @@ bool VirusPlugin::wait_until_quiet()
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
+    if (shown && out_)
+        out_->log("Virus TI native: bank sync paused %.1f s for notes\n", (now_ms() - t0) / 1000.0);
     return !stop_warm_;
 }
 
@@ -1307,6 +1310,7 @@ void VirusPlugin::sync_banks()
     }
     load_rom_banks();
     sync_->before_request = [this] { return wait_until_quiet(); };
+    const int64_t sync_t0 = now_ms();
     // like the original: its start-up page ("Initializing Virus TI and syncing memory", VirusControl/
     // InitialSyncProgress 0..126, shown since setActive) covers the editor until the sync is done; notes still play
     // the original keeps "synchronising" on the Virus display while it syncs (74 01 7E 07 about once a second)
@@ -1345,7 +1349,7 @@ void VirusPlugin::sync_banks()
             } else
                 lcd_dirty_ = true; // only the progress on the LCD (a full repaint costs ~77 ms in REAPER)
         }, &stop_warm_);
-        fprintf(stderr, "Virus TI native: RAM %c sync: %d fetched\n", 'A' + b, n);
+        out_->log("Virus TI native: RAM %c sync: %d fetched\n", 'A' + b, n); // also diag.log: the sync's duration
         if (n == -2 && !dir.empty()) // closed while syncing: keep what was fetched, the next start continues
             save_bank_file(dir + "/RAM " + (char)('A' + b), bank);
         if (n < 0)
@@ -1362,6 +1366,7 @@ void VirusPlugin::sync_banks()
     riser.join();
     syncing_ = false;
     set_sync_progress(127);
+    out_->log("Virus TI native: bank sync done in %.1f s\n", (now_ms() - sync_t0) / 1000.0);
     {
         std::lock_guard<std::mutex> lk(values_mu_);
         lcd_param_ = "Synchronization done";

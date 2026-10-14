@@ -15,7 +15,11 @@ test3 + klog.on, ASIO device, read Ableton's "Overall Latency". (User: the real 
 test4: notes during the bank sync play (sync pauses while notes arrive, 1.5 s); only the ~4 s start-up holds
 note-ons (the Virus plays them 0.6-1.6 s late while it processes the start-up SysEx, TI Revive E144). A fresh
 cache syncs for minutes (>1 min per bank) - before test4 all note-ons were dropped meanwhile. klog.on by install.
-Next: real PC with test4, klog lines in diag.log tell where the ~1 s goes.
+test4 on the real PC (user): "no issues". klog: every measurable note K 8072 (= S 5000 + A 3072), sound 64-78 ms
+after sending; large/negative K only for fast passages (several notes matched to one onset - measurement artefact).
+Likely cause of the earlier ~1 s: the first sessions on that PC ran the initial full sync (empty cache, minutes, the
+Virus delays notes while answering dumps - E144) and dropped note-ons meanwhile; now the cache is complete and
+the sync pauses for notes. Not proven: the sync result/duration/pauses now also go to diag.log (next build).
 
 ## Path to public (decision 2026-10-14)
 
