@@ -53,7 +53,11 @@ timing, editor from the user's Access files, browser/search like the original. N
 performance pass (thread races fixed via TSan/ASan, no lost note-offs, idle CPU 5 % -> 1.4 %, partial repaints for
 automation, unit tests in CI); the device tests of it are on the list in docs/status.md there. Open there: a few
 displays, an Ableton test with several M4L LFOs. Timing R5 solved 2026-10-14 (E139: the sync ping's
-marker on USB 2 = the Virus' stamp clock 0 -> same latency in every session, reported to the host).
+marker on USB 2 = the Virus' stamp clock 0 -> same latency in every session, reported to the host). Verified
+2026-10-14: Linux/REAPER and macOS/Ableton 12 renders sample-exact (E140, E141), Windows only in the VM (open gap
+pattern); macOS M4L test with three LFOs ~40 min stable (0 drops). Contributor/agent guidelines added (CONTRIBUTING.md,
+AGENTS.md, .claude/skills). Issue #3 (Snow, Windows) solved; #4 (Snow, macOS): not supported by the Mac helper yet
+(answer posted, Snow VST2 hosting would be needed - or the native plug-in).
 Broker side from it: Mac broker logs "MDR ring full" once per episode (079904d, next release).
 Kemper (2026-10-13, reply to the user's request): the Virus TI software will not be open-sourced, no plans; the
 wish is forwarded to management. -> stage 3 stays on its rule: no Access material in any repo, everything loaded
