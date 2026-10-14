@@ -1,6 +1,7 @@
 // accessfiles.cpp - see accessfiles.h. The PE resource reader handles the standard three-level resource tree
 // (type / name / language) of a PE32+ or PE32 image; only named types "XML" and "PNG" are collected.
 #include "accessfiles.h"
+#include <cstdio>
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -202,6 +203,21 @@ std::unique_ptr<AccessFiles> AccessFiles::open(const std::string &hint, std::str
 #elif defined(__APPLE__)
     cands.push_back("/Library/Application Support/" + common + "/Virus Control.bundle");
 #else
+    // TI Revive's Linux installer writes the folder it installed the Access software to (any Wine prefix): a DAW
+    // started from the desktop does not see WINEPREFIX
+    std::string conf = std::getenv("XDG_CONFIG_HOME") ? std::getenv("XDG_CONFIG_HOME") : (home ? std::string(home) + "/.config" : "");
+    if (!conf.empty())
+        if (FILE *f = std::fopen((conf + "/tirevive/access-dir").c_str(), "r")) {
+            char line[1024] = {};
+            if (std::fgets(line, sizeof line, f)) {
+                std::string d(line);
+                while (!d.empty() && (d.back() == '\n' || d.back() == '\r'))
+                    d.pop_back();
+                if (!d.empty())
+                    cands.push_back(d);
+            }
+            std::fclose(f);
+        }
     std::string prefix = std::getenv("WINEPREFIX") ? std::getenv("WINEPREFIX") : (home ? std::string(home) + "/.wine" : "");
     if (!prefix.empty())
         cands.push_back(prefix + "/drive_c/Program Files/" + common);
