@@ -6,6 +6,9 @@
 !/findings/
 !/scripts/
 !/src/
+# the native plug-in (moved in from virus-ti-native with its history; its own .gitignore covers build folders)
+!/native/
+!/.gitmodules
 !/CONTRIBUTING.md
 !/AGENTS.md
 !/CLAUDE.md
