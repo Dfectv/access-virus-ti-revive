@@ -8,6 +8,10 @@ The user tests on a real Windows PC: A plug-in, B timing WAV (timing-16ths-120bp
 test1 results (real PC, Ableton): ASIO "no issues at all"; timing 304/304 notes, first at 2000.45 ms, 0 ppm drift,
 threshold jitter 0.66 ms sd (upper bound: free-running oscillator phase, cross-correlation unusable), plug-in stats
 0 drops / 0 timeline steps / err -256..184; big knobs invisible -> test2: images > 16384 px tiled (Direct2D limit).
+test2: knobs fixed, ASIO clean. Open: user felt ~1 s from live MIDI in to sound on the real PC. Not reproduced:
+Linux live notes 49 ms (= reported latency); VM (test3, ASIO 256, klog.on) 65-77 ms from sending to the Virus'
+sound, felt snappy. Suspect the real PC's audio device setting (Windows driver at 2048 samples); next: real PC with
+test3 + klog.on, ASIO device, read Ableton's "Overall Latency". Also: notes during the ~4 s bank sync are dropped.
 
 ## Path to public (decision 2026-10-14)
 
