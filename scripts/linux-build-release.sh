@@ -36,7 +36,10 @@ x86_64-w64-mingw32-gcc -O2 -Wall -Wextra -DVTIEMU_NO_DLLMAIN -DVTIEMU_VIRTUAL_DE
 x86_64-w64-mingw32-gcc -O2 -Wall -o "$BUILD/vtimsipatch.exe" "$REPO/src/installer-linux/vtimsipatch.c" -lmsi -static
 
 NATIVE=""
-if [ -f "$REPO/native/CMakeLists.txt" ]; then # the native plug-in "TI Revive Virus Control" (native/, Linux VST3)
+if [ -n "${NATIVE_PREBUILT:-}" ]; then # built elsewhere (the release workflow builds it on an older Ubuntu, glibc)
+    NATIVE="$NATIVE_PREBUILT"
+    [ -f "$NATIVE/Contents/x86_64-linux/TI Revive Virus Control.so" ] || { echo "no native plug-in in $NATIVE"; exit 1; }
+elif [ -f "$REPO/native/CMakeLists.txt" ]; then # the native plug-in "TI Revive Virus Control" (native/, Linux VST3)
     echo "== native plug-in"
     cmake -S "$REPO/native" -B "$BUILD/native" -DCMAKE_BUILD_TYPE=Release >/dev/null
     cmake --build "$BUILD/native" --target VirusTINative -j4 >/dev/null

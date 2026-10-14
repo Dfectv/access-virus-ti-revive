@@ -135,22 +135,45 @@ jobs:
           path: out/TI-Revive-*-mac.zip
           if-no-files-found: error
 
-  linux:
-    runs-on: ubuntu-22.04 # glibc 2.35: the native plug-in runs on Ubuntu 22.04 / Debian 12 and newer
+  native-linux: # the native plug-in for Linux, on Ubuntu 22.04 (glibc 2.35: runs on Ubuntu 22.04 / Debian 12 and newer)
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7
         with:
           submodules: recursive # native/external/vst3sdk
-      - name: Install mingw-w64 and the native plug-in's build dependencies
+      - name: Build dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 make curl bzip2 \
-            g++ ninja-build libx11-dev libxcb1-dev libxcb-util-dev libxcb-cursor-dev libxcb-xkb-dev libxcb-keysyms1-dev \
-            libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libcairo2-dev libgtkmm-3.0-dev libsqlite3-dev \
-            libpango1.0-dev
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends g++ make ninja-build libx11-dev \
+            libxcb1-dev libxcb-util-dev libxcb-cursor-dev libxcb-xkb-dev libxcb-keysyms1-dev libxkbcommon-dev \
+            libxkbcommon-x11-dev libfontconfig1-dev libcairo2-dev libgtkmm-3.0-dev libsqlite3-dev libpango1.0-dev
           pip3 install --user "cmake>=3.25" # Ubuntu 22.04 ships 3.22
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Build
-        run: bash scripts/linux-build-release.sh "$PWD" "${GITHUB_REF_NAME#v}" "$PWD/out"
+        run: |
+          cmake -S native -B native-build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build native-build --target VirusTINative vtitests
+          strip "native-build/VST3/Release/TI Revive Virus Control.vst3/Contents/x86_64-linux/TI Revive Virus Control.so"
+      - name: Unit tests
+        run: ctest --test-dir native-build --output-on-failure
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-linux
+          path: native-build/VST3/Release/TI Revive Virus Control.vst3
+          if-no-files-found: error
+
+  linux:
+    needs: native-linux
+    runs-on: ubuntu-24.04 # the Wine-side tools need its newer mingw-w64
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: native-linux
+          path: native-linux/TI Revive Virus Control.vst3
+      - name: Install mingw-w64
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 make curl bzip2
+      - name: Build
+        run: NATIVE_PREBUILT="$PWD/native-linux/TI Revive Virus Control.vst3" bash scripts/linux-build-release.sh "$PWD" "${GITHUB_REF_NAME#v}" "$PWD/out"
       - uses: actions/upload-artifact@v7
         with:
           name: TI-Revive-linux
