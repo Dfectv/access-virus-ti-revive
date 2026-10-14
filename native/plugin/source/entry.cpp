@@ -6,7 +6,7 @@
 #ifdef VTI_NATIVE_DROPIN
 #define VTI_NATIVE_NAME "Virus TI"
 #else
-#define VTI_NATIVE_NAME "Virus TI (native)"
+#define VTI_NATIVE_NAME "TI Revive Virus Control"
 #endif
 
 BEGIN_FACTORY_DEF("TI Revive", "https://github.com/derpsn/access-virus-ti-revive", "")

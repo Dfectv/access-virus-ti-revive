@@ -1,11 +1,11 @@
-Virus TI (native) - Windows test build
+TI Revive Virus Control - Windows test build
 =======================================
 
 INTERNAL TEST BUILD. Not for distribution.
 
 What is in here
-- VirusTINative.vst3        the native plug-in, shown as "Virus TI (native)" (vendor "TI Revive")
-- VirusTINative_ASIO.dll    ASIO driver "Virus TI (native)": the Virus as a sound card
+- VirusTINative.vst3        the native plug-in, shown as "TI Revive Virus Control" (vendor "TI Revive")
+- VirusTINative_ASIO.dll    ASIO driver "TI Revive Virus Audio": the Virus as a sound card
 - install.cmd / uninstall.cmd, collect-logs.cmd
 - timing-16ths-120bpm.mid   timing test: 256 sixteenth notes at 120 BPM
 
@@ -20,11 +20,11 @@ Install
 3. Start the DAW and rescan plug-ins.
 
 Tests (one at a time; note the results)
-A. Plug-in: load "Virus TI (native)" on a MIDI track. Wait for the bank sync to finish. Play notes,
+A. Plug-in: load "TI Revive Virus Control" on a MIDI track. Wait for the bank sync to finish. Play notes,
    turn knobs, switch pages, browse patches, save and reopen the project.
 B. Timing: put timing-16ths-120bpm.mid on that track at bar 1, record the plug-in's audio onto an
    audio track (or export/render the song) and keep the WAV.
-C. ASIO: in the DAW's audio settings choose the ASIO device "Virus TI (native)", buffer 256.
+C. ASIO: in the DAW's audio settings choose the ASIO device "TI Revive Virus Audio", buffer 256.
    - play an audio file from the DAW: it must come out of the Virus' outputs, clean, no crackle
    - record the Virus (inputs "USB 1 L/R") onto an audio track
    - optional: plug-in and ASIO at the same time

@@ -48,7 +48,7 @@ Unit tests (no Virus needed): `ctest --test-dir build`.
    pw-jack reaper
    ```
 
-3. Insert "Virus TI (native)". On the first start it syncs RAM A–D from the Virus. That takes about 8 minutes;
+3. Insert "TI Revive Virus Control". On the first start it syncs RAM A–D from the Virus. That takes about 8 minutes;
    the LCD shows the progress. The banks are cached in `~/.local/share/virus-ti-native/cache`; rename that folder
    to force a new sync.
 4. Where the other banks come from:

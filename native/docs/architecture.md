@@ -144,7 +144,7 @@ through the broker.
 
 | topic | how |
 |---|---|
-| identity | COM in-proc server, CLSID `{F1DA6F3F-7A48-49A9-97F8-C3A8C008EABD}`, ASIO name "Virus TI (native)"; `regsvr32` writes `HKLM\SOFTWARE\Classes\CLSID\...` and `HKLM\SOFTWARE\ASIO\Virus TI (native)` |
+| identity | COM in-proc server, CLSID `{F1DA6F3F-7A48-49A9-97F8-C3A8C008EABD}`, ASIO name "TI Revive Virus Audio" (registration removes the test builds' "Virus TI (native)" entry); `regsvr32` writes `HKLM\SOFTWARE\Classes\CLSID\...` and `HKLM\SOFTWARE\ASIO\TI Revive Virus Audio` |
 | channels | 6 in (Analog In L/R, USB 1 L/R, USB 2 L/R), 2 out (Virus Out L/R); 44.1 kHz only; Int32LSB |
 | buffers | 64-2048 frames, preferred 256 |
 | clock | the Virus is the master: a thread waits on the ring's event (`Local\vtinative_audio_<pid>`), and each full buffer of new frames is one `bufferSwitch`; the outputs are queued to the broker right after it |

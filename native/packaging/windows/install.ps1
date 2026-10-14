@@ -32,7 +32,7 @@ catch { # loaded by a running DAW: move the old file aside, it is deleted on the
     Rename-Item $dll ("VirusTINative_ASIO.dll." + (Get-Date -f yyyyMMddHHmmss) + ".old")
     Copy-Item "$here\VirusTINative_ASIO.dll" $dll }
 $rc = Reg32 @('/s', "`"$dll`"")
-if ($rc -ne 0) { Warn "regsvr32 failed ($rc)" } else { Say "ASIO driver registered: 'Virus TI (native)'" }
+if ($rc -ne 0) { Warn "regsvr32 failed ($rc)" } else { Say "ASIO driver registered: 'TI Revive Virus Audio'" }
 Copy-Item "$here\uninstall.ps1", "$here\uninstall.cmd" $dir -Force
 
 # diagnostics on for this test build: logs in %LOCALAPPDATA%\virus-ti-native
