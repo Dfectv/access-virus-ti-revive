@@ -34,6 +34,12 @@ after the anchor - the Virus' own anchor on FE/F2?). Within a run it is stable a
 (~2 ms/s with steps: nativehost is not paced by an audio device). This is the R5 item: needs the cause before
 getLatencySamples can report a fixed latency. Tool: scratchpad onsets.py (phase of note onsets in each second).
 
+R5 SOLVED (2026-10-14, Virus on): the sync ping's marker is a single sample on USB 2 (not ch 0/1) = the Virus'
+stamp clock 0; stamps are now converted with it -> K = 7048 for every note in 6/6 sessions, WAV latency identical in
+all sessions (was 70..240 ms), latency reported to the host (3328 frames at 512). Plus: All Notes Off + sustain off on
+deactivate (the stress test left notes hanging), marker retry after "no marker" (not provoked yet). Next: user test in
+REAPER (render a MIDI pattern, notes on the grid with delay compensation), Windows + macOS (Core Audio ring) check.
+
 Known limit: the automation -> state ring (pu_, 4096) drops values only if the worker stalls for seconds; then the
 saved state could keep an older value until the next change.
 

@@ -16,6 +16,7 @@
 #include <condition_variable>
 #include <deque>
 #include <functional>
+#include <cmath>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -61,6 +62,15 @@ public:
     bool connected() const { return broker_.device_present(); }
     AudioIn &audio() { return audio_; } // read from process(); valid once audio_ready()
     bool audio_ready() const { return audio_ok_; }
+    // R5 sync marker (docs/protocol.md "Sync marker"): after the sync ping the Virus puts one non-zero sample on USB 2
+    // where its 14-bit time stamp clock is 0, so a stamp s plays at the ring frame marker + s (mod 16384).
+    // process() calls calibrate() with the ring frame of its ping; the worker finds the marker (-1 = searching or
+    // unknown, -2 = not found: stamps stay relative to the ring like before)
+    void calibrate(int64_t from) { marker_from_ = from, marker = -1; }
+    std::atomic<int64_t> marker{-2};
+    std::atomic<int64_t> lead{0}; // frames from a timeline position to its sound in the ring (VirusPlugin::lead())
+    // the newest ring frame that had sound on USB 1 / USB 2 (the ping waits for 1 s of silence, like the original)
+    std::atomic<int64_t> last_sound{-1};
 
 private:
     std::function<void(bool)> device_;
@@ -69,6 +79,12 @@ private:
     std::mutex mu_;
     std::condition_variable cv_;
     std::vector<uint8_t> pk_; // worker: the packets of one broker write
+    const bool klog_ = getenv("VTI_NATIVE_KLOG") != nullptr; // R5 diagnostic, see klog_check
+    std::vector<std::pair<int64_t, int64_t>> klog_stamps_;   // (stamp, newest frame when sent)
+    void klog_check();
+    void scan_audio(); // worker: silence tracking + marker search
+    std::atomic<int64_t> marker_from_{-1};
+    int64_t scanned_ = -1; // ring frames up to here were looked at
     std::deque<std::vector<uint8_t>> queue_;
     std::atomic<int> queued_{0};
     struct Slot {
@@ -134,6 +150,7 @@ public:
     std::atomic<bool> stop_warm_{false}; // terminate(): stops the bank sync and the category pass
     // the host plays (transport running or notes): steady_clock milliseconds of the last activity (audio thread)
     std::atomic<int64_t> last_play_ms_{0};
+    int marker_retries_ = 0; // process(): sync pings sent again after "no marker"
     static int64_t now_ms()
     {
         return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -295,6 +312,19 @@ private:
     std::mutex state_mu_;
     std::unique_ptr<DeviceOut> out_;
     int block_ = 512;
+    // R5 timing with the sync marker: an event at timeline position t sounds at ring frame t + lead() (S behind the
+    // newest frame + A to reach the Virus in time), and process() reads the ring latency_frames() behind that, so the
+    // host gets it exactly latency_frames() late in every session (reported as the plug-in latency)
+    static int timing_a() { static const int a = getenv("VTI_NATIVE_A") ? atoi(getenv("VTI_NATIVE_A")) : 2048; return a; }
+    static int timing_s() { static const int s = getenv("VTI_NATIVE_S") ? atoi(getenv("VTI_NATIVE_S")) : 5000; return s; }
+    int64_t lead() const { return timing_s() + timing_a(); }
+    int64_t latency_frames() const { return timing_a() + std::max(2 * block_, 768) + 256; }
+public:
+    Steinberg::uint32 PLUGIN_API getLatencySamples() override
+    {
+        return (Steinberg::uint32)std::lround(latency_frames() * rate_ / 44100.0);
+    }
+private:
     double rate_ = 44100;
     // the Virus timeline (docs/protocol.md "timing"): frames of the synth, stamped on every clock tick and event
     int64_t tl_ = 0;

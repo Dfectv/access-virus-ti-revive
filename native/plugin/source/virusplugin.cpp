@@ -43,15 +43,9 @@ static bool env_panellog()
     return on;
 }
 
-static bool env_ping()
+static bool env_no_ping() // R5 test: the old stamping without sync ping / marker
 {
-    static const bool on = getenv("VTI_NATIVE_PING") != nullptr; // read once (called on hot paths)
-    return on;
-}
-
-static bool env_ping3072()
-{
-    static const bool on = getenv("VTI_NATIVE_PING3072") != nullptr; // read once (called on hot paths)
+    static const bool on = getenv("VTI_NATIVE_NO_PING") != nullptr;
     return on;
 }
 
@@ -96,6 +90,76 @@ bool DeviceOut::send_rt(const uint8_t *msg, size_t n, int64_t stamp)
     return true;
 }
 
+// R5 diagnostic (VTI_NATIVE_KLOG): for each stamped note-on, the first onset in USB 1 after a quiet stretch, as
+// K = onset frame - stamp (the Virus plays a stamped event K frames after its stamp; K is fixed per session)
+void DeviceOut::klog_check()
+{
+    if (!audio_ok_)
+        return;
+    int64_t newest = audio_.newest_frame();
+    while (!klog_stamps_.empty() && newest > klog_stamps_.front().first + 20000) {
+        auto [st, sent_newest] = klog_stamps_.front();
+        klog_stamps_.erase(klog_stamps_.begin());
+        const int n = 24000;
+        std::vector<float> l(n), r(n), a(n), b(n);
+        audio_.read_at(l.data(), r.data(), a.data(), b.data(), n, st - 4000);
+        int quiet = 0;
+        for (int i = 0; i < n; i++) {
+            float v = std::fabs(l[i]) + std::fabs(r[i]);
+            if (v < 0.004f)
+                quiet++;
+            else if (v > 0.03f && quiet >= 2000) {
+                fprintf(stderr, "klog: K %lld (stamp %lld, sent at newest %lld = stamp + %lld)\n",
+                        (long long)(st - 4000 + i - st), (long long)st, (long long)sent_newest,
+                        (long long)(sent_newest - st));
+                break;
+            } else if (v >= 0.004f)
+                quiet = 0;
+        }
+    }
+}
+
+void DeviceOut::scan_audio()
+{
+    if (!audio_ok_)
+        return;
+    int64_t newest = audio_.newest_frame();
+    if (newest < 0)
+        return;
+    if (scanned_ < 0 || newest - scanned_ > 16384 - 2048)
+        scanned_ = std::max<int64_t>(0, newest - 4096); // first call / fell behind: the ring holds 16384 frames
+    int64_t from = marker_from_.load();
+    while (scanned_ < newest) {
+        int n = (int)std::min<int64_t>(1024, newest - scanned_);
+        float l1[1024], r1[1024], l2[1024], r2[1024];
+        audio_.read_at(l1, r1, l2, r2, n, scanned_);
+        for (int i = 0; i < n; i++) {
+            int64_t f = scanned_ + i;
+            bool usb1 = l1[i] != 0 || r1[i] != 0, usb2 = l2[i] != 0 || r2[i] != 0;
+            if (marker == -1 && from >= 0 && f >= from && usb2 && !usb1) {
+                // the marker: one sample per channel, the rest of USB 2 silent around it
+                float ll[64], rr[64], a2[64], b2[64];
+                audio_.read_at(ll, rr, a2, b2, 64, f + 2);
+                bool isolated = true;
+                for (int k = 0; k < 64; k++)
+                    isolated &= a2[k] == 0 && b2[k] == 0;
+                if (isolated) {
+                    marker = f;
+                    fprintf(stderr, "Virus TI native: sync marker at frame %lld (ping at %lld)\n", (long long)f,
+                            (long long)from);
+                }
+            }
+            if (usb1 || usb2)
+                last_sound = f;
+        }
+        scanned_ += n;
+    }
+    if (marker == -1 && from >= 0 && newest > from + 22050) { // 0.5 s without a marker
+        marker = -2;
+        fprintf(stderr, "Virus TI native: no sync marker - time stamps relative to the ring\n");
+    }
+}
+
 void DeviceOut::run()
 {
     while (!stop_) {
@@ -103,6 +167,12 @@ void DeviceOut::run()
             std::string err;
             if (!rx_set_) {
                 auto parser = std::make_shared<UsbMidiParser>([this](uint8_t ep, int cable, const std::vector<uint8_t> &m) {
+                    if (klog_ && cable != 2 && cable != 3) { // R5: what else does the Virus send (time stamps?)
+                        fprintf(stderr, "klog rx ep %02x cable %d:", ep, cable);
+                        for (auto x : m)
+                            fprintf(stderr, " %02x", x);
+                        fprintf(stderr, " (newest %lld)\n", (long long)(audio_ok_ ? audio_.newest_frame() : -1));
+                    }
                     if (ep == 0x86 && cable == 2 && panel_)
                         panel_(m);
                     else if (((ep == 0x86 && cable == 3) || (ep == 0x85 && cable == 1)) && reply_ && !m.empty() &&
@@ -163,6 +233,7 @@ void DeviceOut::run()
         }
         if (idle_)
             idle_();
+        scan_audio();
         // the Virus unplugged / switched off and back while the broker connection stays (user test): stop the audio,
         // and on its return let the plug-in send the start-up messages and its state again; the audio start retries
         if (int present = broker_.device_present() ? 1 : 0; present != present_seen_) {
@@ -206,6 +277,10 @@ void DeviceOut::run()
                 st = timeline.load();
             if (st < 0 && audio_ok_)
                 st = audio_.newest_frame();
+            int64_t raw = st;
+            bool ping = m.size() == 11 && m[6] == 0x73 && m[8] == 0x22;
+            if (int64_t mk = marker.load(); st >= 0 && mk >= 0 && !ping)
+                st = st + lead.load() - mk; // ring frame st + lead on the Virus' stamp clock (0 at the marker)
             if (env_debug())
                 fprintf(stderr, "send %02x stamp %lld newest %lld\n", m[0], (long long)st,
                         (long long)(audio_ok_ ? audio_.newest_frame() : -1));
@@ -216,6 +291,8 @@ void DeviceOut::run()
             }
             auto ev = usbmidi_pack(m, CABLE_PLUGIN);
             pk_.insert(pk_.end(), ev.begin(), ev.end());
+            if (klog_ && st >= 0 && m.size() == 3 && (m[0] & 0xF0) == 0x90 && m[2] && klog_stamps_.size() < 64)
+                klog_stamps_.push_back({raw, audio_ok_ ? audio_.newest_frame() : -1});
         };
         pack(msg, stamp);
         // the rest of a block's events in the same write (one broker message instead of one per event); the
@@ -234,6 +311,8 @@ void DeviceOut::run()
             }
         }
         bool ok = broker_.write(EP_PLUGIN_OUT, pk_.data(), pk_.size());
+        if (klog_)
+            klog_check();
         if (pending_send_) {
             pending_send_ = false;
             queued_--;
@@ -333,6 +412,7 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
                                 MIDI_MAP_BASE + ch * 0x1000 + 0x81);
     }
     out_ = std::make_unique<DeviceOut>();
+    out_->lead = lead();
     out_->on_panel([this](const std::vector<uint8_t> &m) { panel_message(m); });
     out_->on_idle([this] { drain_param_updates(); });
     sync_ = std::make_unique<MemorySync>([this](const std::vector<uint8_t> &m) {
@@ -371,6 +451,14 @@ tresult PLUGIN_API VirusPlugin::terminate()
 
 tresult PLUGIN_API VirusPlugin::setActive(TBool state)
 {
+    if (!state && out_ && out_->connected()) { // nothing keeps sounding after the plug-in stops (removed, closed)
+        for (uint8_t ch = 0; ch < 16; ch++) {
+            out_->send({(uint8_t)(0xB0 | ch), 64, 0});  // sustain pedal up
+            out_->send({(uint8_t)(0xB0 | ch), 123, 0}); // all notes off
+        }
+        for (int i = 0; i < 50 && out_->busy(); i++) // ~32 messages, a few ms; at most 250 ms
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
     if (state && sync_ && !sync_started_.exchange(true)) {
         // the start-up page from the first moment (the original shows it once, right away), not only after the
         // start-up messages; sync_banks hides it when the check is done or cannot run
@@ -522,7 +610,7 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         (data.inputEvents && data.inputEvents->getEventCount() > 0))
         last_play_ms_.store(now_ms(), std::memory_order_relaxed);
     // the Virus timeline: block start = newest ring frame - S, continued by the block size, re-anchored on drift
-    static const int S = getenv("VTI_NATIVE_S") ? atoi(getenv("VTI_NATIVE_S")) : 5000;
+    const int S = timing_s();
     const double ratio = 44100.0 / rate_; // Virus frames per host sample
     int64_t newest = out_ && out_->audio_ready() ? out_->audio().newest_frame() : -1;
     if (out_ && out_->generation.load() != generation_seen_) { // the Virus came back: a new audio stream
@@ -538,14 +626,29 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         int64_t target = newest - S, err = target - tl_;
         if (!tl_valid_ && out_->busy())
             stream_start_ = newest; // wait until the start-up messages and the state are through
-        if (!tl_valid_ ? newest - stream_start_ > 22050 : std::llabs(err) > 8192) {
+        // the sync ping goes with the anchor: like the original, after 1 s of silence on USB 1/2 so its marker can be
+        // found (at most 6 s later; without a marker the stamps stay relative to the ring)
+        bool quiet = out_->last_sound.load() < newest - 44100;
+        bool anchor_now = !tl_valid_ ? newest - stream_start_ > 22050 && (quiet || newest - stream_start_ > 6 * 44100)
+                                     : std::llabs(err) > 8192;
+        // no marker (the Virus was not silent): ping again once it is quiet and the host is not playing (3 tries)
+        if (tl_valid_ && !anchor_now && out_->marker.load() == -2 && marker_retries_ < 3 && quiet &&
+            now_ms() - last_play_ms_.load(std::memory_order_relaxed) > 2000 && !env_no_ping()) {
+            marker_retries_++;
+            anchor_now = true;
+        }
+        if (anchor_now) {
             if (env_stats())
                 fprintf(stderr, "timeline %s: err %lld newest %lld block %d\n", tl_valid_ ? "re-anchor" : "anchor",
                         (long long)err, (long long)newest, data.numSamples);
             tl_ = target;
             next_tick_ = (double)tl_;
+            if (!tl_valid_)
+                marker_retries_ = 0; // a new stream (start, the Virus came back)
             tl_valid_ = true;
             anchored_ = true; // FE + song position at the new anchor, like the original's start
+            if (!env_no_ping())
+                out_->calibrate(newest); // the marker follows the ping sent in this block
         } else if (tl_valid_ && std::llabs(err) > 256) {
             tl_ += err > 0 ? 1 : -1;
             next_tick_ += err > 0 ? 1 : -1;
@@ -580,10 +683,10 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             spp = (int)std::max(0.0, data.processContext->projectTimeMusic * 4.0);
         uint8_t f2[3] = {0xF2, (uint8_t)(spp & 0x7F), (uint8_t)((spp >> 7) & 0x7F)};
         add(tl_ - M, f2, 3);
-        if (env_ping()) { // the original's sync ping (73 00 22 00): the Virus marks it in input ch 0/1
+        if (!env_no_ping()) { // the original's sync ping (73 00 22 00), stamped 3072 like the original: the Virus
+            // answers with a one-sample marker on USB 2 where its stamp clock is 0 (DeviceOut::scan_audio)
             static const uint8_t ping[11] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x22, 0x00, 0xF7};
-            add(env_ping3072() ? 3072 : tl_, ping, 11);
-            fprintf(stderr, "Virus TI native: sync ping stamped %lld (newest %lld)\n", (long long)tl_, (long long)newest);
+            add(3072, ping, 11);
         }
     }
     if (tl_valid_) { // MIDI clock at the host tempo (120 BPM without a process context), 24 ticks per quarter
@@ -706,9 +809,8 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         float **o1 = data.outputs[0].channelBuffers32, **o2 = data.outputs[1].channelBuffers32;
         if (o1 && o2)
         {
-            static const char *k = getenv("VTI_NATIVE_K"); // read at timeline + K (stamp-aligned audio), test
-            if (k && tl_valid_)
-                out_->audio().read_at(o1[0], o1[1], o2[0], o2[1], data.numSamples, block_start + atoi(k));
+            if (tl_valid_ && out_->marker.load() >= 0) // stamp-aligned: an event of this block sounds latency() later
+                out_->audio().read_at(o1[0], o1[1], o2[0], o2[1], data.numSamples, block_start + lead() - latency_frames());
             else
                 // at least 768 frames: with 64-sample blocks 2 * 64 + 256 gave a ring re-anchor (click) every ~30 s
                 out_->audio().read(o1[0], o1[1], o2[0], o2[1], data.numSamples, std::max(2 * block_ + 256, 768));

@@ -81,6 +81,11 @@ original Virus TI software must be installed (it can stay unused). These are the
   - Automation is rate limited (`src/device/automation.h`): coalesced per parameter, at most 250 messages/s,
     oldest parameter first. A flood of parameter messages hangs the Virus' audio until a power cycle; with the
     limit, three LFOs on every block still give each parameter ~80 updates/s.
+  - Timing (sample accurate, the same latency in every session): the Virus plays a time-stamped event when its own
+    14-bit stamp clock reaches the stamp. After the start-up sync ping it marks where that clock is 0 with a single
+    sample on USB 2; the plug-in finds it and converts every stamp, so an event sounds a fixed `lead` after its
+    timeline position. The audio is read at the same fixed offset and reported to the host as the plug-in latency
+    (75 ms at 512 samples), so the DAW's delay compensation lines it up. Details: protocol.md, "the stamp clock".
   - The worker writes a block's events in one broker message, and keeps the project state current off the audio
     thread (latest value per parameter, every 5 ms; a field index updates one value of a 524-byte part dump in
     ~0.4 us).

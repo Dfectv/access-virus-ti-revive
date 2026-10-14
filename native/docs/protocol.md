@@ -109,6 +109,21 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   native plug-in (VTI_NATIVE_PING[3072]) gets such a sample on ring channels 0/1 - the original's accurate timing
   (E121) does not depend on the marker under TI Revive. Next idea for R5: read the original's latency/K constant
   (its reported plug-in latency, getLatencySamples) and the stamp computation at 0x1800a8420 with the anchor unset.
+- **SOLVED 2026-10-14 - the stamp clock and its marker:** after the sync ping (`73 00 22 00`, stamped 3072 like the
+  original, sent with FE + F2) the Virus puts ONE non-zero sample (value 511) on **USB 2** (ring channels 4/5: right
+  channel at frame f, left at f+1; earlier searches only looked at channels 0/1), ~800 frames after the ping is sent.
+  At that frame its 14-bit stamp clock is 0: a stamp `s` (F5 lo hi) plays at the ring frame `f` with
+  `f = marker + s (mod 16384)`, exact to the frame in every honoured session (6/6, 3 more with a different ping
+  stamp). Without the marker our stamps (ring frames) land at a random point of that clock - in its future (honoured,
+  K anywhere 6000..11400) or its past (played on arrival, +-10 ms jitter): the per-session latency 70..240 ms.
+  Now (plug-in): the timeline is anchored after 1 s of silence on USB 1/2 (as the original, at most 6 s), the ping
+  goes with FE/F2, the worker finds the marker (DeviceOut::scan_audio), and every stamp becomes
+  `t + lead - marker` (lead = S + A, A = 2048): an event at timeline position t sounds at ring frame t + lead in every
+  session (K = 7048 for 12/12 notes in 6/6 sessions; A >= 768 still exact, 512 partly late). process() reads the ring
+  at block start + lead - latency, latency = A + max(2 * block, 768) + 256 (3328 frames = 75 ms at 512), reported via
+  getLatencySamples. No marker within 0.5 s: stamps stay ring-relative (old behaviour) and the ping is repeated up to
+  3 times once USB 1/2 are quiet and the host is not playing. VTI_NATIVE_NO_PING = old behaviour, VTI_NATIVE_KLOG =
+  log K per note.
 - The original reports a plug-in latency of 3840 + block size (4352 at 512, 4096 at 256; vtihost prints it).
   Experiments with the sync ping (S=5000, M=6441 = the original's F2 offset): ping stamped 3072 like the original ->
   honoured in 3/3 runs (K 10752-11322, ~6000 frames after sending); ping stamped on our timeline -> honoured 3/3, K
