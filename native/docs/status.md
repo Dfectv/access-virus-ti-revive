@@ -11,7 +11,11 @@ threshold jitter 0.66 ms sd (upper bound: free-running oscillator phase, cross-c
 test2: knobs fixed, ASIO clean. Open: user felt ~1 s from live MIDI in to sound on the real PC. Not reproduced:
 Linux live notes 49 ms (= reported latency); VM (test3, ASIO 256, klog.on) 65-77 ms from sending to the Virus'
 sound, felt snappy. Suspect the real PC's audio device setting (Windows driver at 2048 samples); next: real PC with
-test3 + klog.on, ASIO device, read Ableton's "Overall Latency". Also: notes during the ~4 s bank sync are dropped.
+test3 + klog.on, ASIO device, read Ableton's "Overall Latency". (User: the real PC ran ASIO - not the cause.)
+test4: notes during the bank sync play (sync pauses while notes arrive, 1.5 s); only the ~4 s start-up holds
+note-ons (the Virus plays them 0.6-1.6 s late while it processes the start-up SysEx, TI Revive E144). A fresh
+cache syncs for minutes (>1 min per bank) - before test4 all note-ons were dropped meanwhile. klog.on by install.
+Next: real PC with test4, klog lines in diag.log tell where the ~1 s goes.
 
 ## Path to public (decision 2026-10-14)
 
