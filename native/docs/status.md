@@ -1,5 +1,11 @@
 # RESUME HERE (night 2026-10-13/14: stability + performance plan worked off without the Virus)
 
+## Windows test build (2026-10-14)
+
+Internal pre-release v0.1.0-test1 (private repo release, zip from scripts/package-windows.sh): plug-in + ASIO
+driver, static C++ runtime, install/uninstall/collect-logs scripts (tested in the VM: install, reinstall, uninstall).
+The user tests on a real Windows PC: A plug-in, B timing WAV (timing-16ths-120bpm.mid), C ASIO out/in, logs zip.
+
 ## Path to public (decision 2026-10-14)
 
 This repo stays PRIVATE as the workshop. TI Revive (public) stays the home for users, issues and releases; the native
