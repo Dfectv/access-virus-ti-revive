@@ -1,0 +1,27 @@
+From 7d69f72e73ea6ad4a32ed749cdefd1f8b35d800c Mon Sep 17 00:00:00 2001
+From: derpsn <callmederpsn@proton.me>
+Date: Wed, 14 Oct 2026 20:11:11 +0200
+Subject: [PATCH 4/4] gitignore: allow native/ and .gitmodules
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .gitignore | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/.gitignore b/.gitignore
+index 29a3e22..8afeb80 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -6,6 +6,9 @@
+ !/findings/
+ !/scripts/
+ !/src/
++# the native plug-in (moved in from virus-ti-native with its history; its own .gitignore covers build folders)
++!/native/
++!/.gitmodules
+ !/CONTRIBUTING.md
+ !/AGENTS.md
+ !/CLAUDE.md
+-- 
+2.53.0
+
