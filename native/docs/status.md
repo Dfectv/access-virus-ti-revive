@@ -1,5 +1,23 @@
 # RESUME HERE (night 2026-10-13/14: stability + performance plan worked off without the Virus)
 
+## Path to public (decision 2026-10-14)
+
+This repo stays PRIVATE as the workshop. TI Revive (public) stays the home for users, issues and releases; the native
+plug-in keeps using its broker through the submodule. When the native plug-in is feature complete, its code moves
+into the public TI Revive repo with full history (git filter-repo into a subfolder + merge), becomes the main
+approach there, and the wrapper stays as a fallback until it can be retired.
+
+Feature complete = all of:
+- [x] sound, MIDI, editor, browser, bank sync, project state
+- [x] timing + reported latency on Linux and macOS (E140, E141) - [ ] Windows on a real PC (VM gap pattern open)
+- [x] stability / M4L LFOs / CPU
+- [ ] Virus TI Snow (model, 4 parts, banks, Snow's own device files?) - needs a Snow tester (issue #4 user)
+- [ ] Virus as sound card on Windows (ASIO) - today only the TI Revive wrapper
+- [ ] Virus Control Center (Windows) - decide: port, launch the original, or drop
+- [ ] remaining UI details (UI to-do list)
+- [ ] publication check: rewrite parts ported from the decompile (e.g. upgrade_single, init sequence) as own
+      implementations from the documented behaviour, neutral product name, scan the history for Access material
+
 State: all committed and pushed. The Virus was switched off by the user during the night, so everything below that
 needs the device is on the "tomorrow" list. No CI run triggered (manual only; Windows/macOS compile the new code
 and the tests with their next build).
