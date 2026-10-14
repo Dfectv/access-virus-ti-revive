@@ -62,6 +62,9 @@ MIDI reaches the Virus later than on Linux (VM USB passthrough?): A=1024 -> K 60
 A=2048 -> 12/16 exact, A=3072 -> 16/16 exact -> Windows default A=3072 (latency 4224 = 96 ms at 512, the original
 reports 4352). To check on a real Windows PC (maybe less is enough) and macOS (Core Audio ring: marker?).
 
+Windows build with A=3072 (CI 38536820337) in the VM: run 1 K = 8072 for 16/16, run 2 6x 8072 + 9x 8116 (one USB
+frame = 44 frames slip of the ring against the Virus' clock mid-run, VM iso packet loss; 1 ms, not re-synced).
+
 Known limit: the automation -> state ring (pu_, 4096) drops values only if the worker stalls for seconds; then the
 saved state could keep an older value until the next change.
 
