@@ -41,6 +41,14 @@ target_link_libraries(virussync PRIVATE vticore)
 
 add_subdirectory(plugin)
 
+# Windows: the Virus as an ASIO sound card (asio/asiodriver.cpp), register with regsvr32
+if(WIN32)
+    add_library(VirusTINative_ASIO SHARED asio/asiodriver.cpp asio/asiodriver.def)
+    target_link_libraries(VirusTINative_ASIO PRIVATE vticore avrt ole32 advapi32 user32)
+    add_executable(asiohost tools/asiohost.c) # test host: loads the driver, runs N s, reports switches and peaks
+    target_link_libraries(asiohost PRIVATE ole32)
+endif()
+
 # unit tests (no Virus needed; tests on the Access files skip without them): ctest --test-dir build
 enable_testing()
 add_executable(vtitests tests/main.cpp tests/test_usbmidi.cpp tests/test_state.cpp tests/test_model.cpp

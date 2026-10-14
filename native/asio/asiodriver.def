@@ -1,0 +1,6 @@
+LIBRARY VirusTINative_ASIO
+EXPORTS
+    DllGetClassObject PRIVATE
+    DllCanUnloadNow PRIVATE
+    DllRegisterServer PRIVATE
+    DllUnregisterServer PRIVATE

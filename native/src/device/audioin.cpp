@@ -266,4 +266,40 @@ void AudioIn::read(float *l1, float *r1, float *l2, float *r2, int n, int latenc
     pos_ += n - step_back;
 }
 
+void AudioIn::read_raw_at(int16_t *dst, int n, int64_t pos) const
+{
+    int64_t newest = newest_frame();
+    for (int i = 0; i < n; i++) {
+        int64_t f = pos + i;
+        if (!map_ || newest < 0 || f >= newest || f < newest - VTI_AUDIO_RING || f < 0)
+            memset(dst + i * VTI_AUDIO_IN_CH, 0, VTI_AUDIO_IN_CH * sizeof(int16_t));
+        else
+            memcpy(dst + i * VTI_AUDIO_IN_CH, shm_->in + (f & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_IN_CH,
+                   VTI_AUDIO_IN_CH * sizeof(int16_t));
+    }
+}
+
+void AudioIn::write_out(const int16_t *stereo, int n)
+{
+    if (!map_ || shm_->version < 2)
+        return;
+    int64_t w = shm_->out_write;
+    for (int i = 0; i < n; i++)
+        memcpy(&shm_->out[((w + i) & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_OUT_CH], stereo + i * VTI_AUDIO_OUT_CH,
+               VTI_AUDIO_OUT_CH * sizeof(int16_t));
+#ifdef _MSC_VER
+    _ReadWriteBarrier();
+    *(volatile int64_t *)&shm_->out_write = w + n; // x64: the data stores are visible before this one
+#else
+    __atomic_store_n(&shm_->out_write, w + n, __ATOMIC_RELEASE);
+#endif
+}
+
+int64_t AudioIn::out_queued() const
+{
+    if (!map_)
+        return 0;
+    return load_acquire(&shm_->out_write) - load_acquire(&shm_->out_read);
+}
+
 } // namespace vti
