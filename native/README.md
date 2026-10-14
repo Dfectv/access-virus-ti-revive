@@ -7,7 +7,7 @@ plug-in, Wine or Rosetta. The Virus is reached through the TI Revive broker (USB
 | platform | status |
 |---|---|
 | Linux (x86_64, X11) | **working**; tested in REAPER: sound, automation, browser, LOAD/SAVE, libraries, sync |
-| Windows | **working**; tested in Ableton 11 (Win11 VM): sound, timing, UI, browser, menus ; ASIO driver (Virus as sound card) works in a test host |
+| Windows | **working**; tested in Ableton 11 (Win11 VM): sound, timing, UI, browser, menus; ASIO driver (Virus as sound card) works in a test host |
 | macOS | **working**; universal (Apple Silicon + Intel), tested in Ableton 12 on an M3: sound, UI, sync |
 
 **How it works:** [docs/architecture.md](docs/architecture.md). More detail: protocol in
