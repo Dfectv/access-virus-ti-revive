@@ -56,6 +56,12 @@ marker, no re-ping, read margin >= 129, 22 timeline jumps after playback starts.
 0.01 ms, max |dev| 0.05 ms, drift 0 ppm, first onset 2000.00 ms (the original via TI Revive, E125: sd 0.06 ms, max
 1.31 ms, first note late/second missing). R5 done apart from Windows/macOS checks.
 
+Windows (win11 VM, 2026-10-14): the marker comes ~2 s after the ping (start-up dumps still being digested; each ping
+resets the stamp clock) -> one ping at a time, 5 s window, newest marker wins (ef/latest commit). Marker found 4/4.
+MIDI reaches the Virus later than on Linux (VM USB passthrough?): A=1024 -> K 6068..7437 (late, played on arrival),
+A=2048 -> 12/16 exact, A=3072 -> 16/16 exact -> Windows default A=3072 (latency 4224 = 96 ms at 512, the original
+reports 4352). To check on a real Windows PC (maybe less is enough) and macOS (Core Audio ring: marker?).
+
 Known limit: the automation -> state ring (pu_, 4096) drops values only if the worker stalls for seconds; then the
 saved state could keep an older value until the next change.
 

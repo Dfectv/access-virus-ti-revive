@@ -340,7 +340,18 @@ private:
     // R5 timing with the sync marker: an event at timeline position t sounds at ring frame t + lead() (S behind the
     // newest frame + A to reach the Virus in time), and process() reads the ring latency_frames() behind that, so the
     // host gets it exactly latency_frames() late in every session (reported as the plug-in latency)
-    static int timing_a() { static const int a = getenv("VTI_NATIVE_A") ? atoi(getenv("VTI_NATIVE_A")) : 1024; return a; }
+    // A: time for a stamped event to reach the Virus. Linux 1024 (exact down to 768); Windows needs more (win11 VM:
+    // 2048 had late notes, 3072 exact for 16/16) - close to the original's reported 3840 + block
+#ifdef _WIN32
+    static constexpr int TIMING_A_DEFAULT = 3072;
+#else
+    static constexpr int TIMING_A_DEFAULT = 1024;
+#endif
+    static int timing_a()
+    {
+        static const int a = getenv("VTI_NATIVE_A") ? atoi(getenv("VTI_NATIVE_A")) : TIMING_A_DEFAULT;
+        return a;
+    }
     static int timing_s() { static const int s = getenv("VTI_NATIVE_S") ? atoi(getenv("VTI_NATIVE_S")) : 5000; return s; }
     int64_t lead() const { return timing_s() + timing_a(); }
     // the read position stays block + 640 - |timeline jitter (<= ~400)| behind the newest frame
