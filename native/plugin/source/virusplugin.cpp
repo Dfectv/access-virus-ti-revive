@@ -690,7 +690,11 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         if (stream_start_ < 0)
             stream_start_ = newest;
         int64_t target = newest - S, err = target - tl_;
-        out_->host_frames.fetch_add((int64_t)std::lround(data.numSamples * ratio), std::memory_order_relaxed);
+        // in Virus frames, the fractional rest carried over (rounding per block showed 440625 instead of 441000 / 10 s at 48 kHz)
+        stat_acc_ += data.numSamples * ratio;
+        int64_t whole = (int64_t)stat_acc_;
+        stat_acc_ -= (double)whole;
+        out_->host_frames.fetch_add(whole, std::memory_order_relaxed);
         if (tl_valid_) {
             if (err < out_->err_min.load(std::memory_order_relaxed))
                 out_->err_min.store(err, std::memory_order_relaxed);

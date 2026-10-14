@@ -391,6 +391,7 @@ private:
     bool tl_valid_ = false, anchored_ = false;
     double next_tick_ = 0;
     double tl_acc_ = 0; // fractional Virus frames of the timeline (host rates other than 44.1 kHz)
+    double stat_acc_ = 0; // the same for the host-frames statistic
     int64_t stream_start_ = -1;
     // host rate != 44.1 kHz: the Virus' audio through the resampler, read from a steered fractional position
     Resampler resampler_;
