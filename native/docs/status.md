@@ -24,23 +24,23 @@ the sync pauses for notes. Not proven: the sync result/duration/pauses now also 
 test5 (sync: 30 s pause budget, then 300 ms gaps; note on the sync page; sync lines in diag.log) - for the user's
 empty-cache test on the real PC.
 
-## First release - open (2026-10-14)
+## First release - state (2026-10-14 evening)
 
-Must (release cannot go out without):
-0. DONE 2026-10-14: host rates other than 44.1 kHz (user: REAPER at 48 kHz sounded "completely weird" - frames were
-   copied 1:1). Resampler (32-tap Kaiser sinc, -90 dB), fractional timeline; 48 kHz verified on the Virus.
-1. Publication check: upgrade_single DONE (rewritten from the format table in docs/formats.md, golden test 3080
-   dumps byte-identical). Open: other ported parts (init sequence, ...), product name, history scan before the
-   move into TI Revive (filter-repo + merge).
-2. Install for users: Windows into the TI Revive MSI (today: test zip + scripts); macOS: package, signing and
-   notarization of the native VST3; Linux: install path/script. Test builds: diag/klog off by default.
-3. Plug-in ID decision: own ID (default, works next to the wrapper) or VTI_NATIVE_DROPIN (the original's ID: old
-   projects open with the native plug-in, but it must replace the wrapper/original then).
-4. Smoke test of today's changes on macOS and Linux/REAPER (tiling, sync pause, start-up hold).
-5. Snow: support (needs a tester) or ship as "TI/TI2 only" and say so.
-6. Control Center (Windows): port, launch the original, or drop.
-Should: OSC classic mixed-shape display (wave tables), the user's empty-cache test, AU on macOS (Logic) - decide.
-Can wait: filter HP display 2 px, envelope 1 px, menu brightness, page-switch cost.
+Decisions (user): name "TI Revive Virus Control" (vendor TI Revive), ASIO "TI Revive Virus Audio", own class id,
+Snow "not supported yet", no Control Center in release 1. Version 0.8.0 (= TI Revive release).
+Done:
+- host rates != 44.1 kHz (resampler; user: REAPER at 48 kHz works)
+- publication check: upgrade_single rewritten from docs/formats.md (golden test); init sequence is data from the
+  user's remotedevice.xml (no port); history scan clean except the developer's user name in early tool scripts
+  (replaced by filter-repo at the move); identities clean
+- installers: MSI fragment (tested in the VM: install/upgrade/uninstall), Mac pkg + Linux tarball additions, release
+  workflow jobs, README - all as the kit in packaging/ti-revive/ (local TI Revive branch native-integration)
+- migration rehearsed end to end (docs/migration.md)
+- sync: notes play during the bank sync (pause, 30 s budget), start-up hold 4 s
+Open:
+1. Release candidate 0.8.0-rc1 on all three platforms (user tests): Windows MSI, Mac zip (CI mac-package), Linux tarball
+2. The user's go for the move into TI Revive (docs/migration.md), then tag v0.8.0
+Later: Snow, OSC mixed-shape display, AU, Control Center, the user's empty-cache test.
 
 ## Path to public (decision 2026-10-14)
 
