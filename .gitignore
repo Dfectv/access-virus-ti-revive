@@ -6,5 +6,12 @@
 !/findings/
 !/scripts/
 !/src/
+!/CONTRIBUTING.md
+!/AGENTS.md
+!/CLAUDE.md
+# the repository's Claude Code skills only (a contributor's local .claude settings stay out)
+!/.claude/
+/.claude/*
+!/.claude/skills/
 __pycache__/
 *.pyc

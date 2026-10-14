@@ -372,6 +372,12 @@ corrections.
 The reverse engineering and the code were done by derpsn together with Claude (Anthropic) as an
 AI pair programmer.
 
+## Contributing
+
+Bug reports, tests on your setup and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). If you work
+with an AI coding assistant, it finds its instructions in [AGENTS.md](AGENTS.md) (Claude Code also reads
+`CLAUDE.md` and the skills in `.claude/skills/`).
+
 ## License
 
 [MIT](LICENSE) © 2026 derpsn. Provided as is, without warranty — on Windows this installs a driver

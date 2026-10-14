@@ -1,0 +1,81 @@
+# Instructions for AI coding agents
+
+You are working on **TI Revive**: it makes the Access Virus TI (Desktop, Polar, Keyboard, Snow) work with its
+original "Virus Control" plug-in on Windows 11, Apple Silicon Macs and Linux, without the old Access drivers.
+Read this file completely before changing anything. Human contributors: see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Hard rules (never break these)
+
+1. **No Access material in the repository**: no Access binaries, installers, plug-ins, firmware images, skin PNGs,
+   XML resources, patch banks, and no decompiled or disassembled Access code (not even excerpts in comments).
+   Describe behaviour in your own words; function addresses/offsets are fine. If a task seems to need Access
+   material in git, stop and ask the human.
+2. **Do not risk the user's hardware.** Never send untested USB vendor requests or SysEx to a Virus, never trigger
+   firmware/OS updates, never write to the Virus' flash. Keep MIDI rates bounded (a parameter flood can hang the
+   Virus' audio until a power cycle — see evidence on automation limits). Prefer read-only diagnostics.
+3. **Evidence before claims.** Do not invent protocol details. Every claim about the device or the Access software
+   needs a source (capture, log, hardware test, static analysis) and goes into `findings/evidence.md` with a
+   confidence level. If you are guessing, say so in the PR and mark the entry `open` or `LOW`.
+4. **Never claim a test you did not run.** State exactly what was built and what was tested on which hardware.
+   "Compiles" is not "works".
+5. **No secrets, no personal data** in code, logs or commits (user names, serial numbers, home paths from logs).
+6. **No history rewriting** on shared branches (no force pushes to `main`), no mass reformatting, no unrelated
+   refactors in a bug-fix PR.
+
+## Map of the repository
+
+| Path | What it is |
+|---|---|
+| `findings/spec.md` | the USB/MIDI protocol of the Virus TI as far as it is known |
+| `findings/evidence.md` | numbered observations E001.. with source and confidence — search here first |
+| `findings/claims.md` | community claims and how they were checked |
+| `findings/design*.md` | design per platform (Windows, macOS bridge, Linux, MIDI ports) |
+| `findings/HANDOFF.md` | the maintainers' working log: current state, open problems, next steps |
+| `src/broker/` | device access + broker: owns the Virus' USB interfaces, serves plug-in clients (WinUSB on Windows, libusb on macOS/Linux) |
+| `src/wrapper/` | Windows: emulation of the Access driver interface (`vtiemu`), VST3 wrapper, audio bridge, ASIO |
+| `src/inf/`, `src/installer/` | Windows driver package (WinUSB) and MSI |
+| `src/mac/` | macOS: `libvirususb/` (replacement libVirusUSB), `bridge/` (native VST3/AU), `helper/` (Rosetta host of the original plug-in) |
+| `src/installer-mac/` | macOS package and helper scripts (driver conflicts, Access installer) |
+| `scripts/` | diagnostics (`tirevive-usbinfo.ps1`), capture/decode tools, VM and build scripts |
+
+## Before you change code
+
+1. Search `findings/evidence.md` and `findings/HANDOFF.md` for the symptom (error text, USB request, model name).
+   Many problems are known: e.g. another driver holding the interfaces (`LIBUSB_ERROR_ACCESS`, macOS
+   `UsbExclusiveOwner = MIDIServer`, Windows `VIRUSUSB` service), wrong model detection (Snow vs TI, E115), part
+   output not on USB ("connected but silent").
+2. Find the platform path involved (Windows wrapper vs macOS bridge/helper vs Linux under Wine) — they differ.
+3. Read the code around the change and match its style: C/C++, short functions, comments that explain *why*.
+
+## Building and checking
+
+- Windows parts: cross-compile on Linux with mingw-w64: `make -C src/broker`, `make -C src/wrapper`. MSI: WiX on
+  Windows (`src/installer/build.ps1`).
+- macOS parts: on a Mac, `scripts/mac-build-bridge.sh <repo> --install` (development) or
+  `scripts/mac-build-release.sh <repo> <version>`.
+- Linux: the broker builds with `make -C src/broker` (libusb); the Windows plug-in side runs in Wine/yabridge.
+- CI (`.github/workflows/build.yml`) builds releases only on version tags; build locally for PRs.
+- Without the hardware you can still: build, run the static checks you have, and reason from logs. Say that you did
+  exactly that.
+
+## Working from a user's report
+
+Use the `tirevive-diagnose` skill (`.claude/skills/tirevive-diagnose/`) or follow it by hand: collect the platform
+logs listed in CONTRIBUTING.md, match the lines against known evidence, and answer with the cause, the evidence
+entry and concrete steps. Quote log lines exactly.
+
+## Preparing a pull request
+
+Use the `tirevive-pr` skill (`.claude/skills/tirevive-pr/`) or its checklist:
+
+- [ ] one focused change; no Access material; no personal data
+- [ ] builds for the platforms it touches (say which you built)
+- [ ] tested on hardware, or clearly marked "not tested on hardware"
+- [ ] new device/protocol knowledge added to `findings/evidence.md` (next free E-number, date, source, confidence)
+- [ ] README updated if users see different behaviour
+- [ ] PR description: problem, cause (with evidence), change, test, and one line that an AI assistant helped
+
+## Tone in issues and PRs
+
+Be concrete and friendly, base answers on the logs, and add a short note at the end when an answer was written with
+AI assistance.

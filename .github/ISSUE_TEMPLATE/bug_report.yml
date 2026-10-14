@@ -1,0 +1,48 @@
+name: Bug report
+description: TI Revive does not find, connect to or play your Virus TI
+labels: [bug]
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options: [Windows 11, Windows 10, macOS (Apple Silicon), Linux]
+    validations:
+      required: true
+  - type: dropdown
+    id: model
+    attributes:
+      label: Virus model
+      options: [TI Desktop, TI2 Desktop, TI Polar / TI2 Polar, TI Keyboard / TI2 Keyboard, TI Snow, not sure]
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: TI Revive version, OS version, DAW and version (macOS - native or "Open using Rosetta")
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what happened instead. Did it work before?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Windows: TI-Revive-usbinfo.txt from scripts/tirevive-usbinfo.ps1 (Virus connected), %TEMP%\vtiemu-*.log, %TEMP%\vtibroker.log
+        macOS: /tmp/tirevive-bridge.log, /tmp/tirevive-helper.log, /tmp/tirevive-libvirususb.log, /tmp/tirevive-vtibroker.log
+        Linux: journalctl --user -u tirevive-broker -b, vtiemu-*.log from the Wine prefix's Temp folder
+        Drag the files here. Remove anything private first.
+  - type: checkboxes
+    id: other
+    attributes:
+      label: Other Virus software on this computer
+      options:
+        - label: a full Access "Virus TI" installation (with its drivers) was installed before
+        - label: AURA Plugins' Virus Editor (or another Virus editor/driver) is installed
