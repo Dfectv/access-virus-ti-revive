@@ -40,6 +40,16 @@ all sessions (was 70..240 ms), latency reported to the host (3328 frames at 512)
 deactivate (the stress test left notes hanging), marker retry after "no marker" (not provoked yet). Next: user test in
 REAPER (render a MIDI pattern, notes on the grid with delay compensation), Windows + macOS (Core Audio ring) check.
 
+REAPER test 1 (2026-10-14): no sound / crackling, 3-4 playback starts until notes came, MIDI input less snappy.
+diag.log: REAPER processes ahead after a playback start (anticipative FX: up to 457728 host frames per 10 s vs 441000
+Virus frames, timeline up to -8548 frames ahead) -> the stamp-aligned read asked for frames not there yet (read margin
+-7268) and the old re-anchor (|err| > 8192) sent FE/F2/ping again -> marker search -> random stamps until found.
+Fix: with a marker the timeline jumps straight back to real time when |err| > 512 (the stamp clock is tied to the
+ring, no FE/F2/ping needed), reads are clamped to available frames, A 2048 -> 1024 and the read margin smaller:
+latency 2176 frames (49 ms at 512, was 75). nativehost --ahead 200@12 --ahead 200@16 (REAPER-like): marker kept,
+K = 6024 for 24/24 notes, no gaps/jumps. Diagnostics: diag.on now also logs the R5 stats/marker lines to diag.log.
+For exact timing in REAPER the Virus track should not use anticipative FX processing (track > Performance options).
+
 Known limit: the automation -> state ring (pu_, 4096) drops values only if the worker stalls for seconds; then the
 saved state could keep an older value until the next change.
 

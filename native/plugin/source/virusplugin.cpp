@@ -1,5 +1,6 @@
 // virusplugin.cpp - see virusplugin.h.
 #include "virusplugin.h"
+#include <cstdarg>
 #include <ctime>
 #include <set>
 #include "viruseditor.h"
@@ -57,6 +58,7 @@ static bool env_stats()
 
 static const uint8_t EP_PLUGIN_OUT = 0x06, CABLE_PLUGIN = 2, CABLE_TIME = 5;
 static const ParamID MIDI_MAP_BASE = 0x100000; // + channel * 0x1000 + 0x80 aftertouch / 0x81 pitch bend
+static std::string own_cache_dir();
 
 // ---- DeviceOut ----------------------------------------------------------------------------------------------------
 
@@ -119,6 +121,21 @@ void DeviceOut::klog_check()
     }
 }
 
+void DeviceOut::log(const char *fmt, ...)
+{
+    char line[512];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(line, sizeof line, fmt, ap);
+    va_end(ap);
+    fputs(line, stderr);
+    if (diag_on_.load(std::memory_order_acquire))
+        if (FILE *f = fopen(diag_path_, "a")) {
+            fprintf(f, "%ld %s", (long)std::time(nullptr), line);
+            fclose(f);
+        }
+}
+
 void DeviceOut::scan_audio()
 {
     if (!audio_ok_)
@@ -145,8 +162,7 @@ void DeviceOut::scan_audio()
                     isolated &= a2[k] == 0 && b2[k] == 0;
                 if (isolated) {
                     marker = f;
-                    fprintf(stderr, "Virus TI native: sync marker at frame %lld (ping at %lld)\n", (long long)f,
-                            (long long)from);
+                    log("Virus TI native: sync marker at frame %lld (ping at %lld)\n", (long long)f, (long long)from);
                 }
             }
             if (usb1 || usb2)
@@ -156,7 +172,7 @@ void DeviceOut::scan_audio()
     }
     if (marker == -1 && from >= 0 && newest > from + 22050) { // 0.5 s without a marker
         marker = -2;
-        fprintf(stderr, "Virus TI native: no sync marker - time stamps relative to the ring\n");
+        log("Virus TI native: no sync marker - time stamps relative to the ring\n");
     }
 }
 
@@ -247,12 +263,20 @@ void DeviceOut::run()
             if (device_ && (was || present))
                 device_(present != 0);
         }
-        if (env_stats() && std::chrono::steady_clock::now() >= stats_next_) { // endurance tests
+        if ((env_stats() || diag_on_.load(std::memory_order_acquire)) && std::chrono::steady_clock::now() >= stats_next_) { // endurance tests
             stats_next_ = std::chrono::steady_clock::now() + std::chrono::seconds(10);
             int64_t newest = audio_ok_ ? audio_.newest_frame() : -1, pos = audio_ok_ ? audio_.position() : -1;
-            fprintf(stderr, "stats: audio %d drops %lld distance %lld queued %d\n", (int)audio_ok_.load(),
-                    (long long)(audio_ok_ ? audio_.drops() : -1), (long long)(newest >= 0 && pos >= 0 ? newest - pos : -1),
-                    queued_.load());
+            static int64_t newest_before = -1;
+            log("stats: audio %d drops %lld distance %lld queued %d | marker %lld aligned blocks %lld, read margin min "
+                "%lld, timeline steps %lld, last sound %lld frames ago | host frames %lld / virus frames %lld, anchors "
+                "%lld, err %lld..%lld\n",
+                (int)audio_ok_.load(), (long long)(audio_ok_ ? audio_.drops() : -1),
+                (long long)(newest >= 0 && pos >= 0 ? newest - pos : -1), queued_.load(), (long long)marker.load(),
+                (long long)aligned_blocks.exchange(0), (long long)read_margin_min.exchange(INT64_MAX),
+                (long long)tl_steps.exchange(0), (long long)(newest - last_sound.load()), (long long)host_frames.exchange(0),
+                (long long)(newest_before >= 0 ? newest - newest_before : -1), (long long)anchors.exchange(0),
+                (long long)err_min.exchange(INT64_MAX), (long long)err_max.exchange(INT64_MIN));
+            newest_before = newest;
         }
         // the broker may refuse the audio start right after another session ended (stress test: every second
         // quick re-open had no sound): retry every 500 ms while connected without audio
@@ -413,6 +437,8 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
     }
     out_ = std::make_unique<DeviceOut>();
     out_->lead = lead();
+    if (diag_enabled())
+        out_->set_diag_path(own_cache_dir() + "/../diag.log");
     out_->on_panel([this](const std::vector<uint8_t> &m) { panel_message(m); });
     out_->on_idle([this] { drain_param_updates(); });
     sync_ = std::make_unique<MemorySync>([this](const std::vector<uint8_t> &m) {
@@ -624,6 +650,13 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         if (stream_start_ < 0)
             stream_start_ = newest;
         int64_t target = newest - S, err = target - tl_;
+        out_->host_frames.fetch_add((int64_t)std::lround(data.numSamples * ratio), std::memory_order_relaxed);
+        if (tl_valid_) {
+            if (err < out_->err_min.load(std::memory_order_relaxed))
+                out_->err_min.store(err, std::memory_order_relaxed);
+            if (err > out_->err_max.load(std::memory_order_relaxed))
+                out_->err_max.store(err, std::memory_order_relaxed);
+        }
         if (!tl_valid_ && out_->busy())
             stream_start_ = newest; // wait until the start-up messages and the state are through
         // the sync ping goes with the anchor: like the original, after 1 s of silence on USB 1/2 so its marker can be
@@ -645,13 +678,21 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             next_tick_ = (double)tl_;
             if (!tl_valid_)
                 marker_retries_ = 0; // a new stream (start, the Virus came back)
+            out_->anchors.fetch_add(1, std::memory_order_relaxed);
             tl_valid_ = true;
             anchored_ = true; // FE + song position at the new anchor, like the original's start
             if (!env_no_ping())
                 out_->calibrate(newest); // the marker follows the ping sent in this block
+        } else if (tl_valid_ && out_->marker.load() >= 0 && std::llabs(err) > 512) {
+            // with the marker the Virus' stamp clock is tied to the ring, not to our anchor: jump back to real time
+            // (hosts that process ahead in bursts - REAPER's anticipative FX - or stall) without a new FE/F2/ping
+            tl_ += err;
+            next_tick_ += (double)err;
+            out_->anchors.fetch_add(1, std::memory_order_relaxed);
         } else if (tl_valid_ && std::llabs(err) > 256) {
             tl_ += err > 0 ? 1 : -1;
             next_tick_ += err > 0 ? 1 : -1;
+            out_->tl_steps.fetch_add(1, std::memory_order_relaxed);
         }
     }
     struct Ev {
@@ -809,9 +850,16 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         float **o1 = data.outputs[0].channelBuffers32, **o2 = data.outputs[1].channelBuffers32;
         if (o1 && o2)
         {
-            if (tl_valid_ && out_->marker.load() >= 0) // stamp-aligned: an event of this block sounds latency() later
-                out_->audio().read_at(o1[0], o1[1], o2[0], o2[1], data.numSamples, block_start + lead() - latency_frames());
-            else
+            if (tl_valid_ && out_->marker.load() >= 0) { // stamp-aligned: an event of this block sounds latency() later
+                int64_t pos = block_start + lead() - latency_frames();
+                if (pos + data.numSamples > newest) // never read frames that are not there yet (silence, clicks)
+                    pos = newest - data.numSamples;
+                out_->audio().read_at(o1[0], o1[1], o2[0], o2[1], data.numSamples, pos);
+                int64_t margin = newest - (pos + data.numSamples); // < 0: frames not there yet (silence)
+                if (margin < out_->read_margin_min.load(std::memory_order_relaxed))
+                    out_->read_margin_min.store(margin, std::memory_order_relaxed);
+                out_->aligned_blocks.fetch_add(1, std::memory_order_relaxed);
+            } else
                 // at least 768 frames: with 64-sample blocks 2 * 64 + 256 gave a ring re-anchor (click) every ~30 s
                 out_->audio().read(o1[0], o1[1], o2[0], o2[1], data.numSamples, std::max(2 * block_ + 256, 768));
         }

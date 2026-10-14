@@ -179,6 +179,7 @@ int main(int argc, char **argv)
     const char *state = nullptr, *save = nullptr, *wav = nullptr;
     bool notes = false, editor = false, stress = false, stress_notes = true, stress_params = true;
     double stress_stop = 1e9;
+    std::vector<std::pair<double, double>> aheads; // (at s, ms)
     int block = 512; // --block N: host block size
     struct Action {
         double t;
@@ -205,7 +206,12 @@ int main(int argc, char **argv)
             stress = true, stress_params = false;
         else if (!strcmp(argv[i], "--stress-params")) // only the automation of --stress
             stress = true, stress_notes = false;
-        else if (!strcmp(argv[i], "--stress-stop") && i + 1 < argc) // the automation of --stress ends after N s
+        else if (!strcmp(argv[i], "--ahead") && i + 1 < argc) { // --ahead MS@T: from T s on process MS ms ahead of
+            // real time in a burst, like REAPER's anticipative FX processing after a playback start
+            double ms = 0, t = 0;
+            sscanf(argv[++i], "%lf@%lf", &ms, &t);
+            aheads.push_back({t, ms});
+        } else if (!strcmp(argv[i], "--stress-stop") && i + 1 < argc) // the automation of --stress ends after N s
             stress_stop = atof(argv[++i]);
         else if (!strcmp(argv[i], "--block") && i + 1 < argc)
             block = atoi(argv[++i]);
@@ -416,6 +422,12 @@ int main(int argc, char **argv)
             peak = 0;
         }
         t_next += std::chrono::microseconds((long long)block * 1000000 / 44100); // real time at 44.1 kHz
+        for (auto &ah : aheads)
+            if (ah.second > 0 && b * (double)block / 44100.0 >= ah.first) {
+                t_next -= std::chrono::microseconds((long long)(ah.second * 1000));
+                printf("ahead %.0f ms at %.1f s\n", ah.second, ah.first);
+                ah.second = 0;
+            }
 #ifdef __linux__
         if (view) {
             double now = (b + 1) * (double)block / 44100.0;

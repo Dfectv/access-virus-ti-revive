@@ -71,6 +71,18 @@ public:
     std::atomic<int64_t> lead{0}; // frames from a timeline position to its sound in the ring (VirusPlugin::lead())
     // the newest ring frame that had sound on USB 1 / USB 2 (the ping waits for 1 s of silence, like the original)
     std::atomic<int64_t> last_sound{-1};
+    // R5 diagnostics (VTI_NATIVE_STATS, every 10 s): stamp-aligned reads, their smallest distance to the newest frame,
+    // timeline drift steps
+    std::atomic<int64_t> aligned_blocks{0}, read_margin_min{INT64_MAX}, tl_steps{0};
+    // process() calls/samples and timeline events (anticipative hosts call in bursts ahead of real time)
+    std::atomic<int64_t> host_frames{0}, anchors{0}, err_min{INT64_MAX}, err_max{INT64_MIN};
+    // R5 lines also go to this file (diag.on, field tests); set once after construction, read by the worker
+    void set_diag_path(const std::string &p)
+    {
+        snprintf(diag_path_, sizeof diag_path_, "%s", p.c_str());
+        diag_on_.store(true, std::memory_order_release);
+    }
+    void log(const char *fmt, ...);
 
 private:
     std::function<void(bool)> device_;
@@ -82,6 +94,8 @@ private:
     const bool klog_ = getenv("VTI_NATIVE_KLOG") != nullptr; // R5 diagnostic, see klog_check
     std::vector<std::pair<int64_t, int64_t>> klog_stamps_;   // (stamp, newest frame when sent)
     void klog_check();
+    char diag_path_[1024] = {};
+    std::atomic<bool> diag_on_{false};
     void scan_audio(); // worker: silence tracking + marker search
     std::atomic<int64_t> marker_from_{-1};
     int64_t scanned_ = -1; // ring frames up to here were looked at
@@ -315,10 +329,11 @@ private:
     // R5 timing with the sync marker: an event at timeline position t sounds at ring frame t + lead() (S behind the
     // newest frame + A to reach the Virus in time), and process() reads the ring latency_frames() behind that, so the
     // host gets it exactly latency_frames() late in every session (reported as the plug-in latency)
-    static int timing_a() { static const int a = getenv("VTI_NATIVE_A") ? atoi(getenv("VTI_NATIVE_A")) : 2048; return a; }
+    static int timing_a() { static const int a = getenv("VTI_NATIVE_A") ? atoi(getenv("VTI_NATIVE_A")) : 1024; return a; }
     static int timing_s() { static const int s = getenv("VTI_NATIVE_S") ? atoi(getenv("VTI_NATIVE_S")) : 5000; return s; }
     int64_t lead() const { return timing_s() + timing_a(); }
-    int64_t latency_frames() const { return timing_a() + std::max(2 * block_, 768) + 256; }
+    // the read position stays block + 640 - |timeline jitter (<= ~400)| behind the newest frame
+    int64_t latency_frames() const { return timing_a() + std::max(block_, 256) + 640; }
 public:
     Steinberg::uint32 PLUGIN_API getLatencySamples() override
     {
