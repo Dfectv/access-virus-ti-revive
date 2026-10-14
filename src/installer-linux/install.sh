@@ -120,6 +120,10 @@ wine_new() { # Wine 9.22 or newer changed window embedding (yabridge issue #409)
     set -- $v
     [ -n "${1:-}" ] && { [ "$1" -gt 9 ] || { [ "$1" -eq 9 ] && [ "${2:-0}" -ge 22 ]; }; }
 }
+# yabridge's releases unpack to ~/.local/share/yabridge, which is often not in PATH
+if ! command -v yabridgectl >/dev/null 2>&1 && [ -x "$HOME/.local/share/yabridge/yabridgectl" ]; then
+    PATH="$HOME/.local/share/yabridge:$PATH"
+fi
 if command -v yabridgectl >/dev/null 2>&1; then
     YV=$(yabridge_version || true)
     if [ "$YV" = 5.1.1 ] && wine_new; then
@@ -161,4 +165,4 @@ EOT
     echo "installed to ~/.vst3: rescan plug-ins in your DAW and load \"TI Revive Virus Control\" (VST3)"
 fi
 
-say "done. Use the VST3 \"Virus TI (TI Revive)\" in your DAW; the original \"Virus TI\" plug-in does not work on its own."
+say "done. In your DAW use the VST3 \"TI Revive Virus Control\" (native) or \"Virus TI (TI Revive)\" (through yabridge); the original \"Virus TI\" plug-in does not work on its own."
