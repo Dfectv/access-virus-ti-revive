@@ -39,6 +39,7 @@ Copy-Item "$here\uninstall.ps1", "$here\uninstall.cmd" $dir -Force
 $diag = "$env:LOCALAPPDATA\virus-ti-native"
 New-Item -ItemType Directory -Force $diag | Out-Null
 New-Item -ItemType File -Force "$diag\diag.on" | Out-Null
+New-Item -ItemType File -Force "$diag\klog.on" | Out-Null # per-note timing in diag.log (test builds)
 Say "diagnostic logs on: $diag"
 Say ""
 Say "Done. Close and reopen your DAW, then rescan plug-ins."
