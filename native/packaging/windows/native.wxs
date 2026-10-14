@@ -11,6 +11,13 @@
           <Directory Id="NATIVERES" Name="Resources" />
         </Directory>
       </Directory>
+      <!-- the bundle of the test builds before 2026-10-14 (same class id: two copies would clash in the DAW) -->
+      <Directory Id="OLDBUNDLE" Name="VirusTINative.vst3">
+        <Directory Id="OLDCONTENTS" Name="Contents">
+          <Directory Id="OLDBIN" Name="x86_64-win" />
+          <Directory Id="OLDRES" Name="Resources" />
+        </Directory>
+      </Directory>
     </DirectoryRef>
 
     <ComponentGroup Id="Native">
@@ -23,7 +30,22 @@
       </Component>
       <Component Directory="NATIVEBUNDLE">
         <File Id="nativeicon" Source="$(var.NativeBin)\TI Revive Virus Control.vst3\PlugIn.ico" />
+      </Component>
+      <Component Directory="NATIVEBUNDLE">
         <File Id="nativedesktopini" Source="$(var.NativeBin)\TI Revive Virus Control.vst3\desktop.ini" />
+      </Component>
+
+      <Component Directory="OLDBUNDLE" Guid="5B0C2E7A-9E41-4D7C-8F3A-2C6B1D9E4A10">
+        <RegistryValue Root="HKLM" Key="Software\TI Revive\Installer" Name="NativeTestBundleRemoved" Type="integer"
+                       Value="1" KeyPath="yes" />
+        <RemoveFile Id="oldvst3" Directory="OLDBIN" Name="VirusTINative.vst3" On="install" />
+        <RemoveFile Id="oldmoduleinfo" Directory="OLDRES" Name="moduleinfo.json" On="install" />
+        <RemoveFile Id="oldicon" Name="PlugIn.ico" On="install" />
+        <RemoveFile Id="olddesktopini" Name="desktop.ini" On="install" />
+        <RemoveFolder Id="oldbin" Directory="OLDBIN" On="install" />
+        <RemoveFolder Id="oldres" Directory="OLDRES" On="install" />
+        <RemoveFolder Id="oldcontents" Directory="OLDCONTENTS" On="install" />
+        <RemoveFolder Id="oldbundle" Directory="OLDBUNDLE" On="install" />
       </Component>
 
       <!-- ASIO driver "TI Revive Virus Audio": the Virus as a sound card through the broker (asio/asiodriver.cpp).
