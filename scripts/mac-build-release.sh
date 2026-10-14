@@ -36,6 +36,16 @@ make -C "$REPO/src/broker" mac-static OUT="$BUILD" LIBUSB_PREFIX="$LIBUSB"
 otool -L "$BUILD/mac/vtibroker" | grep -q libusb && { echo "broker still links a libusb dylib"; exit 1; }
 codesign --force --sign - "$BUILD/mac/vtibroker"
 
+NATIVE=""
+if [ -f "$REPO/native/CMakeLists.txt" ]; then # the native plug-in "TI Revive Virus Control" (native/, VST3, universal)
+    echo "== native plug-in (arm64 + x86_64)"
+    cmake -S "$REPO/native" -B "$BUILD/native" -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+        -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 ${SDKROOT:+-DCMAKE_OSX_SYSROOT="$SDKROOT"} >/dev/null
+    cmake --build "$BUILD/native" --config Release --target VirusTINative -- -quiet
+    NATIVE="$BUILD/native/VST3/Release/TI Revive Virus Control.vst3"
+    codesign --force --deep --sign - "$NATIVE"
+fi
+
 echo "== payload"
 ROOT="$BUILD/root"
 SUP="$ROOT/Library/Application Support"
@@ -43,6 +53,7 @@ mkdir -p "$ROOT/Library/Audio/Plug-Ins/VST3" "$ROOT/Library/Audio/Plug-Ins/Compo
     "$SUP/Access Music/Virus TI/Common"
 cp -R "$BUILD/Virus TI (TI Revive).vst3" "$ROOT/Library/Audio/Plug-Ins/VST3/"
 cp -R "$BUILD/Virus TI (TI Revive).component" "$ROOT/Library/Audio/Plug-Ins/Components/"
+[ -n "$NATIVE" ] && cp -R "$NATIVE" "$ROOT/Library/Audio/Plug-Ins/VST3/"
 cp "$BUILD/mac/vtibroker" "$SUP/TI Revive/vtibroker"
 cp "$REPO/src/installer-mac/Uninstall TI Revive.command" "$SUP/TI Revive/"
 cp "$BUILD/libVirusUSB.dylib" "$SUP/Access Music/Virus TI/Common/libVirusUSB.dylib"

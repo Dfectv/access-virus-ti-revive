@@ -16,6 +16,7 @@ for f in "VST3/Virus TI.vst3" "VST/Virus TI.vst" "VST/Virus TI Snow.vst" "Compon
         sudo mv "$PRIV/$f" "/Library/Audio/Plug-Ins/$f"
     fi
 done
+sudo rm -rf "/Library/Audio/Plug-Ins/VST3/TI Revive Virus Control.vst3" "$HOME/Library/Audio/Plug-Ins/VST3/VirusTINative.vst3"
 sudo rm -rf "/Library/Audio/Plug-Ins/VST3/Virus TI (TI Revive).vst3" \
     "/Library/Audio/Plug-Ins/Components/Virus TI (TI Revive).component" "/Library/Application Support/TI Revive"
 # our replacement of Access' driver-package library (the Access plug-ins stop connecting without TI Revive)

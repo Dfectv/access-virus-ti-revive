@@ -8,6 +8,7 @@
 #   2. TI Revive broker in ~/.local/lib/tirevive + systemd user socket (starts on demand, exits when idle)
 #   3. your own Access Virus TI software into your Wine prefix, without its old drivers / firmware updater
 #   4. the plug-in "Virus TI (TI Revive)" into the Wine prefix, and - if yabridge is installed - bridged for your DAW
+#   5. the native plug-in "TI Revive Virus Control" (Linux VST3, no Wine/yabridge needed) into ~/.vst3
 # Wine and yabridge are NOT installed by this script; it tells you how if they are missing.
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -101,6 +102,10 @@ else
     [ -f "$VST3_DIR/Virus TI.vst3" ] || die "the Access plug-in is missing after the install"
 fi
 
+# the native plug-in reads the Access files from there (a DAW started from the desktop does not see WINEPREFIX)
+mkdir -p "$CONF"
+printf '%s\n' "$PREFIX/drive_c/Program Files/Access Music/Virus TI/Common" > "$CONF/access-dir"
+
 # --- 4. the TI Revive plug-in + yabridge ----------------------------------------------------------------------------
 say "plug-in Virus TI (TI Revive)"
 install -m 0644 "$HERE/wine/VirusTI_TIRevive.vst3" "$VST3_DIR/Virus TI (TI Revive).vst3"
@@ -138,4 +143,22 @@ yabridge is not installed. It makes Windows plug-ins usable in Linux DAWs (REAPE
     yabridgectl add "$VST3_DIR" && yabridgectl sync
 EOT
 fi
+# --- 5. the native plug-in ------------------------------------------------------------------------------------------
+if [ -d "$HERE/native/TI Revive Virus Control.vst3" ]; then
+    say "native plug-in TI Revive Virus Control (VST3 for Linux DAWs, no Wine/yabridge)"
+    mkdir -p "$HOME/.vst3"
+    rm -rf "$HOME/.vst3/TI Revive Virus Control.vst3" "$HOME/.vst3/VirusTINative.vst3" # VirusTINative = test builds
+    cp -R "$HERE/native/TI Revive Virus Control.vst3" "$HOME/.vst3/"
+    MISSING=$(ldd "$HOME/.vst3/TI Revive Virus Control.vst3/Contents/x86_64-linux/TI Revive Virus Control.so" 2>/dev/null |
+        awk '/not found/ {print $1}' | tr '\n' ' ')
+    if [ -n "$MISSING" ]; then
+        cat <<EOT
+WARNING: libraries the native plug-in needs are missing: $MISSING
+Install them with your package manager (Ubuntu/Debian: libxcb-cursor0 libxcb-util1 libxkbcommon-x11-0 libcairo2
+libpango-1.0-0 libpangocairo-1.0-0 libfontconfig1), then rescan plug-ins.
+EOT
+    fi
+    echo "installed to ~/.vst3: rescan plug-ins in your DAW and load \"TI Revive Virus Control\" (VST3)"
+fi
+
 say "done. Use the VST3 \"Virus TI (TI Revive)\" in your DAW; the original \"Virus TI\" plug-in does not work on its own."

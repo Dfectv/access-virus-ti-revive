@@ -35,6 +35,15 @@ x86_64-w64-mingw32-gcc -O2 -Wall -Wextra -DVTIEMU_NO_DLLMAIN -DVTIEMU_VIRTUAL_DE
     -lshell32 -lole32 -luuid -lws2_32 -lwinmm -static -lpthread
 x86_64-w64-mingw32-gcc -O2 -Wall -o "$BUILD/vtimsipatch.exe" "$REPO/src/installer-linux/vtimsipatch.c" -lmsi -static
 
+NATIVE=""
+if [ -f "$REPO/native/CMakeLists.txt" ]; then # the native plug-in "TI Revive Virus Control" (native/, Linux VST3)
+    echo "== native plug-in"
+    cmake -S "$REPO/native" -B "$BUILD/native" -DCMAKE_BUILD_TYPE=Release >/dev/null
+    cmake --build "$BUILD/native" --target VirusTINative -j4 >/dev/null
+    NATIVE="$BUILD/native/VST3/Release/TI Revive Virus Control.vst3"
+    strip "$NATIVE/Contents/x86_64-linux/TI Revive Virus Control.so"
+fi
+
 echo "== package"
 NAME="TI-Revive-$VERSION-linux"
 P="$BUILD/$NAME"
@@ -45,6 +54,7 @@ install -m 0644 "$BUILD/VirusTI_TIRevive.vst3" "$BUILD/vtimsipatch.exe" "$P/wine
 install -m 0644 "$I/tirevive-broker.socket" "$I/tirevive-broker.service" "$P/systemd/"
 install -m 0644 "$I/70-tirevive-virus-ti.rules" "$P/udev/"
 install -m 0755 "$I/install.sh" "$I/uninstall.sh" "$P/"
+[ -n "$NATIVE" ] && mkdir -p "$P/native" && cp -R "$NATIVE" "$P/native/"
 sed "s/@VERSION@/$VERSION/g" "$I/README-linux.txt" > "$P/README-linux.txt"
 install -m 0644 "$REPO/LICENSE" "$P/"
 tar -C "$BUILD" -czf "$OUT/$NAME.tar.gz" "$NAME"

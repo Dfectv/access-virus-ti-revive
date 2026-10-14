@@ -9,6 +9,10 @@ if [ -n "$USER_NAME" ] && [ "$USER_NAME" != root ]; then
         launchctl bootout "gui/$USER_ID/$label" 2>/dev/null || true
     done
     rm -f "/Users/$USER_NAME/Library/LaunchAgents/com.tirevive.vtibroker.plist"
+    # test builds of the native plug-in lived in the user's folder under another name (same class id: a DAW would
+    # see two copies of "TI Revive Virus Control")
+    rm -rf "/Users/$USER_NAME/Library/Audio/Plug-Ins/VST3/VirusTINative.vst3" \
+        "/Users/$USER_NAME/Library/Audio/Plug-Ins/VST3/TI Revive Virus Control.vst3"
 fi
 rm -f /Library/LaunchAgents/io.github.derpsn.tirevive.vtibroker.plist
 # a running broker is NOT stopped: it serves its current session to the end and exits 30 s after its last client;
