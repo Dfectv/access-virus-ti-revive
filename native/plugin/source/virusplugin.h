@@ -90,6 +90,12 @@ public:
     {
         snprintf(diag_path_, sizeof diag_path_, "%s", p.c_str());
         diag_on_.store(true, std::memory_order_release);
+        // klog.on next to diag.log also enables the R5 log (a DAW started from the desktop misses new env variables)
+        std::string k = p.substr(0, p.find_last_of("/\\") + 1) + "klog.on";
+        if (FILE *f = fopen(k.c_str(), "rb")) {
+            fclose(f);
+            klog_.store(true);
+        }
     }
     void log(const char *fmt, ...);
 
@@ -100,7 +106,7 @@ private:
     std::mutex mu_;
     std::condition_variable cv_;
     std::vector<uint8_t> pk_; // worker: the packets of one broker write
-    const bool klog_ = getenv("VTI_NATIVE_KLOG") != nullptr; // R5 diagnostic, see klog_check
+    std::atomic<bool> klog_{getenv("VTI_NATIVE_KLOG") != nullptr}; // R5 diagnostic, see klog_check; or klog.on
     struct KlogNote {
         int64_t stamp, sent, scanned; // stamp, newest frame when sent, ring frames scanned so far
         int quiet;                    // quiet frames before the scan position
