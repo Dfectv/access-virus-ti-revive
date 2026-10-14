@@ -12,7 +12,7 @@ static double worst_error(double host_rate, double freq)
     r.setup(step);
     std::vector<float> src(44100);
     for (size_t i = 0; i < src.size(); i++)
-        src[i] = (float)(0.5 * std::sin(2 * M_PI * freq * i / 44100.0));
+        src[i] = (float)(0.5 * std::sin(2 * Resampler::PI * freq * i / 44100.0));
     double worst = 0, pos = 1000.3; // fractional start
     for (int block = 0; block < 40; block++) { // 40 blocks of 256: continuity across blocks
         float out[256];
@@ -22,7 +22,7 @@ static double worst_error(double host_rate, double freq)
         r.process(src.data() + first, first, pos, step, out, 256);
         for (int i = 0; i < 256; i++) {
             double t = (pos + i * step) / 44100.0;
-            worst = std::max(worst, std::fabs(out[i] - 0.5 * std::sin(2 * M_PI * freq * t)));
+            worst = std::max(worst, std::fabs(out[i] - 0.5 * std::sin(2 * Resampler::PI * freq * t)));
         }
         pos += 256 * step;
     }

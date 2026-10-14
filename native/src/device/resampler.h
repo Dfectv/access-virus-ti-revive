@@ -13,6 +13,7 @@ public:
     static constexpr int TAPS = 32;   // source frames per output sample
     static constexpr int HALF = TAPS / 2;
     static constexpr int PHASES = 256;
+    static constexpr double PI = 3.14159265358979323846; // M_PI is not standard (MSVC)
 
     // step = source frames per output sample (44100 / host rate)
     void setup(double step)
@@ -25,7 +26,7 @@ public:
             float *t = &table_[(size_t)ph * TAPS];
             for (int k = 0; k < TAPS; k++) {
                 double x = (k - (HALF - 1)) - frac; // tap k sits at source frame floor(pos) - HALF + 1 + k
-                double s = x == 0 ? 2 * cutoff : std::sin(2 * M_PI * cutoff * x) / (M_PI * x);
+                double s = x == 0 ? 2 * cutoff : std::sin(2 * PI * cutoff * x) / (PI * x);
                 double w = x / HALF;
                 double win = std::fabs(w) >= 1 ? 0 : bessel0(beta * std::sqrt(1 - w * w)) / bessel0(beta);
                 t[k] = (float)(s * win);
