@@ -42,8 +42,33 @@ jobs:
             work/build/vtiinject.exe
           if-no-files-found: error
 
+  native-windows: # the native plug-in "TI Revive Virus Control" + ASIO driver "TI Revive Virus Audio" (native/, MSVC)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Build
+        run: |
+          cmake -S native -B native-build -G "Visual Studio 17 2022" -A x64
+          cmake --build native-build --config Release --target VirusTINative VirusTINative_ASIO vtitests
+      - name: Unit tests
+        run: ctest --test-dir native-build -C Release --output-on-failure
+      - name: Collect
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory nativebin | Out-Null
+          Copy-Item -Recurse "native-build\VST3\Release\TI Revive Virus Control.vst3" nativebin\
+          Remove-Item "nativebin\TI Revive Virus Control.vst3\Contents\x86_64-win\*.map" -ErrorAction SilentlyContinue
+          Copy-Item native-build\bin\Release\VirusTINative_ASIO.dll nativebin\
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nativebin
+          path: nativebin
+          if-no-files-found: error
+
   msi:
-    needs: binaries
+    needs: [binaries, native-windows]
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v7
@@ -51,6 +76,10 @@ jobs:
         with:
           name: binaries
           path: bin
+      - uses: actions/download-artifact@v8
+        with:
+          name: nativebin
+          path: nativebin
       - name: Version
         id: ver
         shell: pwsh
@@ -71,7 +100,7 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
-          ./src/installer/build.ps1 -Bin "$PWD\bin" -Src "$PWD\src" -Out "$PWD\out" -Version "${{ steps.ver.outputs.version }}" -Bundle
+          ./src/installer/build.ps1 -Bin "$PWD\bin" -Src "$PWD\src" -Out "$PWD\out" -Version "${{ steps.ver.outputs.version }}" -Bundle -NativeBin "$PWD\nativebin"
       - name: Rename
         shell: pwsh
         run: |
@@ -91,6 +120,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: repo
+          submodules: recursive # native/external/vst3sdk
       - name: VST3 pluginterfaces (MIT, pinned)
         run: |
           git clone -q https://github.com/steinbergmedia/vst3_pluginterfaces.git vst3sdk/pluginterfaces
@@ -106,11 +136,19 @@ jobs:
           if-no-files-found: error
 
   linux:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04 # glibc 2.35: the native plug-in runs on Ubuntu 22.04 / Debian 12 and newer
     steps:
       - uses: actions/checkout@v7
-      - name: Install mingw-w64
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 make curl bzip2
+        with:
+          submodules: recursive # native/external/vst3sdk
+      - name: Install mingw-w64 and the native plug-in's build dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 make curl bzip2 \
+            g++ ninja-build libx11-dev libxcb1-dev libxcb-util-dev libxcb-cursor-dev libxcb-xkb-dev libxcb-keysyms1-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libcairo2-dev libgtkmm-3.0-dev libsqlite3-dev \
+            libpango1.0-dev
+          pip3 install --user "cmake>=3.25" # Ubuntu 22.04 ships 3.22
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Build
         run: bash scripts/linux-build-release.sh "$PWD" "${GITHUB_REF_NAME#v}" "$PWD/out"
       - uses: actions/upload-artifact@v7
