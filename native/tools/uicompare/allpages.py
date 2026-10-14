@@ -2,15 +2,15 @@ import st,subprocess,struct,time,os
 from PIL import ImageGrab, Image
 S=os.path.dirname(os.path.abspath(__file__))
 tabs=[('easy',244),('osc',370),('filter',433),('lfo',496),('matrix',559),('arp',622),('fx1',685),('fx2',748),('common',811)]
-comp,rest=st.load('/home/user/.wine/drive_c/base.state')
-open('/home/user/.wine/drive_c/x.state','wb').write(b'VTISTATE'+struct.pack('<I',len(comp))+comp+rest)
+comp,rest=st.load(os.path.expanduser('~/')+'.wine/drive_c/base.state')
+open(os.path.expanduser('~/')+'.wine/drive_c/x.state','wb').write(b'VTISTATE'+struct.pack('<I',len(comp))+comp+rest)
 open(S+'/base.comp','wb').write(comp)
 env=dict(os.environ,DISPLAY=':77',VTI_LOADSTATE='C:\\x.state',VTI_EDITOR='C:\\shot.bmp')
-if os.environ.get("ORIG"): p=subprocess.Popen(['wine','C:\\vtihost.exe','C:\\Program Files\\Common Files\\VST3\\Virus TI (TI Revive).vst3','45','C:\\out.wav'],cwd='/home/user/.wine/drive_c',env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+if os.environ.get("ORIG"): p=subprocess.Popen(['wine','C:\\vtihost.exe','C:\\Program Files\\Common Files\\VST3\\Virus TI (TI Revive).vst3','45','C:\\out.wav'],cwd=os.path.expanduser('~/')+'.wine/drive_c',env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 if os.environ.get("ORIG"): time.sleep(14)
 if os.environ.get("ORIG"):
   for name,x in tabs:
-    subprocess.run(['/home/user/virus-ti-native/work/bin/xclick',str(x+4),'54','1'],env=env); time.sleep(2.5)
+    subprocess.run([os.path.expanduser('~/')+'virus-ti-native/work/bin/xclick',str(x+4),'54','1'],env=env); time.sleep(2.5)
     ImageGrab.grab(xdisplay=':77').crop((4,30,911,543)).save(S+'/o-%s.png'%name)
   p.wait(timeout=90)
 args=[]
