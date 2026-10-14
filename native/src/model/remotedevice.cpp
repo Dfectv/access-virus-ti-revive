@@ -279,133 +279,226 @@ int RemoteDevice::single_fingerprint(const std::vector<uint8_t> &msg)
     return (int)(sum & 0x3FFF);
 }
 
+// Single dump format versions: docs/formats.md, "Single dump format versions" (the table there is the specification
+// of this code). Offsets are counted from byte 9, the format version.
+namespace {
+namespace off {
+enum : int {
+    VERSION = 0x00, EXPRESSION = 0x0B, OSC1_KEYFOLLOW = 0x15, OLD_RINGMOD = 0x26, NOISE_COLOUR = 0x27,
+    RINGMOD_VOLUME = 0x32, LFO1_SHAPE = 0x44, LFO1_CONTOUR = 0x47, LFO2_SHAPE = 0x50, LFO2_CONTOUR = 0x53,
+    OLD_UNISON = 0x61, CHORUS_TYPE = 0x67, CHORUS_MIX = 0x68, CHORUS_FEEDBACK = 0x6D, CHORUS_XOVER = 0x6F,
+    DELAY_MODE = 0x70, DELAY_SEND = 0x71, DELAY_TIME = 0x72, DELAY_FEEDBACK = 0x73, DELAY_LFO_RATE = 0x74,
+    DELAY_LFO_DEPTH = 0x75, DELAY_LFO_SHAPE = 0x76, DELAY_COLOUR = 0x77, P80 = 0x80, OLD_ARP_MODE = 0x81,
+    ARP_PATTERN = 0x82, ARP_NOTE_LENGTH = 0x85, ARP_SWING = 0x86, LFO3_RATE = 0x87, LFO3_ASSIGN_AMOUNT = 0x8C,
+    LFO3_FADE_IN = 0x8D, ARP_MODE = 0x8F, TEMPO = 0x90, ARP_CLOCK = 0x91, LFO1_CLOCK = 0x92, LFO2_CLOCK = 0x93,
+    DELAY_CLOCK = 0x94, LFO3_CLOCK = 0x95, SMOOTH_MODE = 0x99, FILTER_KEYFOLLOW_BASE = 0xA1, OSC2_FM_MODE = 0xA2,
+    INPUT_FOLLOWER = 0xA6, OSC3_MODE = 0xA9, OSC3_VOLUME = 0xAA, OSC3_SEMITONE = 0xAB, OSC3_DETUNE = 0xAC,
+    EQ_LOW_FREQ = 0xAD, EQ_HIGH_FREQ = 0xAE, SOFTKNOB1_NAME = 0xB3, SOFTKNOB2_NAME = 0xB4, SURROUND_BALANCE = 0xBA,
+    SOFTKNOB1_DEST = 0xBE, SOFTKNOB2_DEST = 0xBF, SLOT1_SOURCE = 0xC0, SLOT1_DEST = 0xC1, SLOT2_SOURCE = 0xC3,
+    SLOT2_DEST1 = 0xC4, SLOT2_DEST2 = 0xC6, SLOT3_SOURCE = 0xC8, SLOT3_DEST1 = 0xC9, SLOT3_DEST2 = 0xCB,
+    SLOT3_DEST3 = 0xCD, LFO1_TARGET = 0xCF, LFO1_TARGET_AMOUNT = 0xD0, LFO2_TARGET = 0xD1, LFO2_TARGET_AMOUNT = 0xD2,
+    PHASER = 0xD4, EQ_MID_GAIN = 0xDC, EQ_MID_FREQ = 0xDD, EQ_MID_Q = 0xDE, EQ_LOW_GAIN = 0xDF, EQ_HIGH_GAIN = 0xE0,
+    BOOST_INTENSITY = 0xE1, BOOST_TUNE = 0xE2, INPUT_RINGMOD = 0xE3, DISTORTION_TYPE = 0xE4, SLOT4 = 0xE7,
+    SLOT5 = 0xEA, SLOT6 = 0xED, CATEGORY1 = 0xFB, CATEGORY2 = 0xFC, PFE = 0xFE, OSC_SELECT = 0xFF,
+    PAGE_C = 0x101, REVERB_MODE = 0x102, REVERB_SEND = 0x103, REVERB_TYPE = 0x104, REVERB_TIME = 0x105,
+    REVERB_DAMPING = 0x106, REVERB_COLOUR = 0x107, REVERB_PREDELAY = 0x108, REVERB_CLOCK = 0x109,
+    REVERB_FEEDBACK = 0x10A, DELAY_TYPE = 0x10B, TAPE_RATIO = 0x10D, TAPE_LEFT_CLOCK = 0x10E,
+    TAPE_RIGHT_CLOCK = 0x10F, TAPE_BANDWIDTH = 0x112, FILTERBANK_TYPE = 0x114, FILTERBANK_MIX = 0x115,
+    FILTERBANK_FREQ = 0x116, FILTERBANK_PHASE = 0x117, FILTERBANK_SHAPE_L = 0x118, FILTERBANK_SHAPE_R = 0x119,
+    FILTERBANK_RESONANCE = 0x11A, BOOST_TYPE = 0x11B, OSC1_MODE = 0x11F, OSC1_FORMANT = 0x12B, OSC2_MODE = 0x124,
+    OSC2_FORMANT = 0x13F, DIST_TREBLE = 0x147, DIST_HIGH_CUT = 0x148, DIST_MIX = 0x149, DIST_QUALITY = 0x14A,
+    DIST_TONE = 0x14B, ENVELOPES_3_4 = 0x151, UNISON = 0x1F9,
+};
+}
+
+using Fields = std::initializer_list<std::pair<int, uint8_t>>;
+
+void put(uint8_t *p, Fields f)
+{
+    for (auto &kv : f)
+        p[kv.first] = kv.second;
+}
+
+void to_v1(uint8_t *p)
+{
+    using namespace off;
+    put(p, {{TEMPO, 0x39}, {FILTER_KEYFOLLOW_BASE, 0x24}, {OSC1_KEYFOLLOW, 0x60}, {LFO1_CLOCK, 0}, {LFO2_CLOCK, 0},
+            {DELAY_CLOCK, 0}, {LFO3_FADE_IN, 0}, {SOFTKNOB1_DEST, 0}});
+}
+
+void to_v2(uint8_t *p)
+{
+    p[off::CHORUS_FEEDBACK] = (uint8_t)(p[off::CHORUS_FEEDBACK] / 2 + 64); // unipolar -> bipolar
+}
+
+void to_v3(uint8_t *p)
+{
+    using namespace off;
+    put(p, {{OLD_RINGMOD, 0}, {LFO3_CLOCK, 0}, {LFO1_TARGET, 0}, {LFO1_TARGET_AMOUNT, 0x40}, {LFO2_TARGET, 0},
+            {LFO2_TARGET_AMOUNT, 0x40}});
+}
+
+void to_v4(uint8_t *p)
+{
+    put(p, {{off::SMOOTH_MODE, 1}, {off::BOOST_INTENSITY, 0}, {off::BOOST_TUNE, 0x20}});
+}
+
+void to_v5(uint8_t *p)
+{
+    using namespace off;
+    put(p, {{OSC2_FM_MODE, 0}, {INPUT_FOLLOWER, 0}, {INPUT_RINGMOD, 0}, {CATEGORY1, 0}, {CATEGORY2, 0},
+            {DELAY_COLOUR, 0x40}, {NOISE_COLOUR, 0x40}, {DELAY_MODE, 1}, {OSC3_MODE, 0}, {OSC3_VOLUME, 0x40},
+            {OSC3_SEMITONE, 0x40}, {OSC3_DETUNE, 0x28}});
+    if (p[LFO1_SHAPE] != 1)
+        p[LFO1_CONTOUR] = 0x40;
+    if (p[LFO2_SHAPE] != 1)
+        p[LFO2_CONTOUR] = 0x40;
+    static const uint8_t phaser[7] = {3, 0, 0x24, 0x70, 0x30, 0x40, 0x7F}; // stages mix rate depth freq feedback spread
+    for (int k = 0; k < 7; k++)
+        p[PHASER + k] = phaser[k];
+    for (int at : std::initializer_list<int>{SOFTKNOB1_DEST, SOFTKNOB2_DEST}) // destination list renumbered
+        if (int d = (int8_t)p[at])
+            p[at] = (uint8_t)(d + 13 > 0x52 ? d - 0x45 : d + 13);
+}
+
+void to_v6(uint8_t *p)
+{
+    using namespace off;
+    put(p, {{EXPRESSION, 0x7F}, {SURROUND_BALANCE, 0}, {ARP_PATTERN, 0}, {ARP_NOTE_LENGTH, 0x40}, {ARP_SWING, 0}});
+    if (p[OLD_ARP_MODE] == 0)
+        p[ARP_CLOCK] = 4;
+    else if (p[ARP_CLOCK] == 3)
+        p[ARP_CLOCK] = 4, p[ARP_PATTERN] = 1;
+}
+
+void to_v7(uint8_t *p)
+{
+    using namespace off;
+    for (int slot : std::initializer_list<int>{SLOT4, SLOT5, SLOT6}) // source, destination, amount
+        p[slot] = 3, p[slot + 1] = 0, p[slot + 2] = 0x40;
+    put(p, {{EQ_MID_GAIN, 0x40}, {EQ_MID_FREQ, 0x47}, {EQ_MID_Q, 0x33}, {EQ_LOW_GAIN, 0x40}, {EQ_HIGH_GAIN, 0x40},
+            {EQ_LOW_FREQ, 0x2B}, {EQ_HIGH_FREQ, 0x55}, {SOFTKNOB1_NAME, 0}, {SOFTKNOB2_NAME, 0}, {PFE, 0}});
+}
+
+void to_v8(uint8_t *p, const std::vector<uint8_t> &page_cd)
+{
+    using namespace off;
+    memcpy(p + PAGE_C, page_cd.data(), 256);
+    bool lfo3_free = p[LFO3_ASSIGN_AMOUNT] == 0;
+    for (int at : std::initializer_list<int>{SLOT1_SOURCE, SLOT2_SOURCE, SLOT3_SOURCE, SLOT4, SLOT5, SLOT6})
+        lfo3_free = lfo3_free && p[at] != 0x17;
+    for (int at : std::initializer_list<int>{SLOT1_DEST, SLOT2_DEST1, SLOT2_DEST2, SLOT3_DEST1, SLOT3_DEST2, SLOT3_DEST3, SLOT4 + 1, SLOT5 + 1,
+                   SLOT6 + 1, LFO1_TARGET, LFO2_TARGET})
+        lfo3_free = lfo3_free && p[at] != 0x3A;
+    if (lfo3_free)
+        p[LFO3_RATE] = 0x30;
+    const int mode = (int8_t)p[DELAY_MODE];
+    const bool was_reverb = mode >= 2 && mode <= 4;
+    if (was_reverb) // the reverb takes over the fields the old reverb modes used
+        put(p, {{REVERB_MODE, (uint8_t)(mode - 1)}, {REVERB_SEND, p[DELAY_SEND]}, {REVERB_TYPE, p[DELAY_LFO_DEPTH]},
+                {REVERB_TIME, p[DELAY_LFO_RATE]}, {REVERB_DAMPING, p[DELAY_LFO_SHAPE]}, {REVERB_COLOUR, p[DELAY_COLOUR]},
+                {REVERB_PREDELAY, p[DELAY_TIME]}, {REVERB_CLOCK, p[DELAY_CLOCK]},
+                {REVERB_FEEDBACK, p[DELAY_FEEDBACK]}});
+    else {
+        if (mode > 4)
+            p[DELAY_MODE] = (uint8_t)(mode - 3);
+        put(p, {{REVERB_MODE, 1}, {REVERB_SEND, 0}, {REVERB_TYPE, 2}, {REVERB_TIME, 0x50}, {REVERB_DAMPING, 0x14},
+                {REVERB_COLOUR, 0x31}, {REVERB_PREDELAY, 0x1C}, {REVERB_CLOCK, 0}, {REVERB_FEEDBACK, 0}});
+    }
+    if (mode == 0 || was_reverb)
+        put(p, {{DELAY_MODE, 1}, {DELAY_SEND, 0}, {DELAY_TIME, 0x40}, {DELAY_FEEDBACK, 0}, {DELAY_LFO_RATE, 0x28},
+                {DELAY_LFO_DEPTH, 6}, {DELAY_LFO_SHAPE, 1}, {DELAY_COLOUR, 0x40}, {DELAY_CLOCK, 0}});
+}
+
+void to_v9(uint8_t *p)
+{
+    using namespace off;
+    if (p[OSC1_MODE] < 4)
+        p[OSC1_FORMANT] = 0x40;
+    if (p[OSC2_MODE] < 4)
+        p[OSC2_FORMANT] = 0x40;
+    if ((int8_t)p[PFE] > 1)
+        p[PFE] = 0;
+    put(p, {{TAPE_RATIO, 3}, {TAPE_LEFT_CLOCK, 4}, {TAPE_RIGHT_CLOCK, 2}, {TAPE_BANDWIDTH, 0}, {BOOST_TYPE, 0},
+            {DELAY_TYPE, 0}, {DIST_TREBLE, 0}, {DIST_HIGH_CUT, 0}, {DIST_MIX, 0x7F}, {FILTERBANK_TYPE, 0},
+            {FILTERBANK_MIX, 0x7F}, {FILTERBANK_FREQ, 0x40}, {FILTERBANK_PHASE, 0x40}, {FILTERBANK_SHAPE_L, 0x7F},
+            {FILTERBANK_SHAPE_R, 0x7F}});
+}
+
+void to_v10(uint8_t *p)
+{
+    using namespace off;
+    if ((int8_t)p[OSC_SELECT] > 1)
+        p[OSC_SELECT] = 0;
+    if ((int8_t)p[DISTORTION_TYPE] < 0x12)
+        p[DIST_QUALITY] = 0x7F;
+    if ((int8_t)p[DISTORTION_TYPE] < 0x14)
+        p[DIST_TONE] = 0x40;
+    if ((int8_t)p[FILTERBANK_TYPE] < 3)
+        p[FILTERBANK_RESONANCE] = 0x40;
+}
+
+void to_v11(uint8_t *p)
+{
+    using namespace off;
+    put(p, {{CHORUS_TYPE, 1}, {CHORUS_MIX, 0x7F}, {CHORUS_XOVER, 0}, {P80, 0x40}, {RINGMOD_VOLUME, p[OLD_RINGMOD]},
+            {ARP_MODE, p[OLD_ARP_MODE]}});
+    memcpy(p + UNISON, p + OLD_UNISON, 6);
+}
+
+void to_v12(uint8_t *p)
+{
+    static const uint8_t env[5] = {0x14, 0x46, 0, 0, 0x46}; // attack decay sustain slope release
+    for (int e = 0; e < 2; e++)
+        memcpy(p + off::ENVELOPES_3_4 + 5 * e, env, 5);
+}
+
+void single_checksums(std::vector<uint8_t> &m)
+{
+    unsigned sum = 0;
+    for (int i = 5; i < 265; i++)
+        sum += m[i];
+    m[265] = sum & 0x7F;
+    for (int i = 265; i < 522; i++)
+        sum += m[i];
+    m[522] = sum & 0x7F;
+}
+} // namespace
+
 bool RemoteDevice::upgrade_single(std::vector<uint8_t> &m, const std::vector<uint8_t> &page_b)
 {
     if (m.size() != 524 || m[0] != 0xF0 || m[6] != 0x10)
         return false;
-    uint8_t *p = m.data() + 9; // p[0] = format version, p[k] = byte 9 + k
-    const int bank = m[7];
-    const int v0 = (int8_t)p[0];
-    if (v0 < 8 && page_b.size() != 256)
-        return false;
-    auto set = [&](std::initializer_list<std::pair<int, uint8_t>> l) {
-        for (auto &kv : l)
-            p[kv.first] = kv.second;
+    uint8_t *p = m.data() + 9;
+    const int from = (int8_t)p[off::VERSION];
+    if (from < 8 && page_b.size() != 256)
+        return false; // pages C/D cannot be created
+    const bool edit_buffer = m[7] == 0;
+    int v = from;
+    auto step = [&](int to, auto &&fn) {
+        if (v < to) {
+            fn();
+            v = to;
+        }
     };
-    if (v0 < 1)
-        set({{0x90, 0x39}, {0xA1, 0x24}, {0x15, 0x60}, {0x92, 0}, {0x93, 0}, {0x94, 0}, {0x8D, 0}, {0xBE, 0}});
-    if (v0 < 2)
-        p[0x6D] = (uint8_t)(((p[0x6D] >> 1) & 0x7F) + 0x40);
-    if (v0 < 3)
-        set({{0x26, 0}, {0x95, 0}, {0xCF, 0}, {0xD0, 0x40}, {0xD1, 0}, {0xD2, 0x40}});
-    if (v0 < 4)
-        set({{0x99, 1}, {0xE1, 0}, {0xE2, 0x20}});
-    if (v0 < 5) {
-        set({{0xA2, 0}, {0xA6, 0}, {0xE3, 0}, {0xFB, 0}, {0xFC, 0}, {0x77, 0x40}, {0x27, 0x40}, {0x70, 1}, {0xA9, 0},
-             {0xAA, 0x40}, {0xAB, 0x40}, {0xAC, 0x28}});
-        if (p[0x44] != 1)
-            p[0x47] = 0x40;
-        if (p[0x50] != 1)
-            p[0x53] = 0x40;
-        set({{0xD4, 3}, {0xD5, 0}, {0xD6, 0x24}, {0xD7, 0x70}, {0xD8, 0x30}, {0xD9, 0x40}, {0xDA, 0x7F}});
-        for (int k : {0xBE, 0xBF})
-            if (p[k]) {
-                int c = (int8_t)p[k] + 13;
-                p[k] = (uint8_t)(c > 0x52 ? (int8_t)p[k] - 0x45 : c);
-            }
+    step(1, [&] { to_v1(p); });
+    step(2, [&] { to_v2(p); });
+    step(3, [&] { to_v3(p); });
+    step(4, [&] { to_v4(p); });
+    step(5, [&] { to_v5(p); });
+    step(6, [&] { to_v6(p); });
+    step(7, [&] { to_v7(p); });
+    step(8, [&] { to_v8(p, page_b); });
+    step(9, [&] { to_v9(p); });
+    if (edit_buffer) { // stored patches stay at 9: the firmware converts them
+        step(10, [&] { to_v10(p); });
+        step(11, [&] { to_v11(p); });
+        step(12, [&] { to_v12(p); });
     }
-    if (v0 < 6) {
-        set({{0x0B, 0x7F}, {0xBA, 0}, {0x82, 0}, {0x85, 0x40}, {0x86, 0}});
-        if (p[0x81] == 0)
-            p[0x91] = 4;
-        else if (p[0x91] == 3) {
-            p[0x82] = 1;
-            p[0x91] = 4;
-        }
-    }
-    if (v0 < 7)
-        set({{0xE7, 3}, {0xE8, 0}, {0xE9, 0x40}, {0xEA, 3}, {0xEB, 0}, {0xEC, 0x40}, {0xED, 3}, {0xEE, 0}, {0xEF, 0x40},
-             {0xDC, 0x40}, {0xDD, 0x47}, {0xDE, 0x33}, {0xDF, 0x40}, {0xE0, 0x40}, {0xAD, 0x2B}, {0xAE, 0x55}, {0xB3, 0},
-             {0xB4, 0}, {0xFE, 0}});
-    if (v0 < 8) {
-        memcpy(&m[0x10A], page_b.data(), 256); // page B did not exist before version 8
-        m[0x20B] = 0xF7;
-        bool no_fm = m[0x95] == 0;
-        for (int a : {0xC9, 0xCC, 0xD1, 0xF0, 0xF3, 0xF6})
-            no_fm = no_fm && m[a] != 0x17;
-        for (int a : {0xCA, 0xCD, 0xCF, 0xD2, 0xD4, 0xD6, 0xF1, 0xF4, 0xF7, 0xD8, 0xDA})
-            no_fm = no_fm && m[a] != 0x3A;
-        if (no_fm)
-            m[0x90] = 0x30;
-        int c = (int8_t)m[0x79];
-        if (c >= 2 && c <= 4) { // old delay types -> the new delay section
-            m[0x10C] = m[0x7A], m[0x10B] = (uint8_t)(c - 1), m[0x10D] = m[0x7E], m[0x10E] = m[0x7D], m[0x10F] = m[0x7F];
-            m[0x110] = m[0x80], m[0x111] = m[0x7B], m[0x112] = m[0x9D], m[0x113] = m[0x7C];
-        } else {
-            if (c > 4)
-                m[0x79] = (uint8_t)(c - 3);
-            m[0x112] = 0, m[0x113] = 0, m[0x111] = 0x1C;
-            m[0x10B] = 0x01, m[0x10C] = 0x00, m[0x10D] = 0x02, m[0x10E] = 0x50, m[0x10F] = 0x14, m[0x110] = 0x31;
-        }
-        if (c == 0 || (c >= 2 && c <= 4)) {
-            m[0x9D] = 0;
-            m[0x79] = 0x01, m[0x7A] = 0x00, m[0x7B] = 0x40, m[0x7C] = 0x00;
-            m[0x7D] = 0x28, m[0x7E] = 0x06, m[0x7F] = 0x01, m[0x80] = 0x40;
-        }
-        p[0] = 8;
-    }
-    if ((int8_t)p[0] < 9) {
-        if (bank == 0) {
-            if (m[0x128] < 4)
-                m[0x134] = 0x40;
-            if (m[0x12D] < 4)
-                m[0x148] = 0x40;
-        }
-        if ((int8_t)p[0xFE] > 1)
-            p[0xFE] = 0;
-        if (p[0x11F] < 4)
-            p[0x12B] = 0x40;
-        if (p[0x124] < 4)
-            p[0x13F] = 0x40;
-        set({{0x10D, 3}, {0x10E, 4}, {0x10F, 2}, {0x11B, 0}, {0x10B, 0}, {0x112, 0}, {0x147, 0}, {0x148, 0}, {0x114, 0},
-             {0x115, 0x7F}, {0x116, 0x40}, {0x117, 0x40}, {0x118, 0x7F}, {0x119, 0x7F}, {0x149, 0x7F}});
-        p[0] = 9;
-    }
-    // versions 10..12 only for edit-buffer dumps (bank 0); stored patches are converted by the firmware
-    if (bank == 0 && (int8_t)p[0] < 10) {
-        if ((int8_t)p[0xFF] > 1)
-            p[0xFF] = 0;
-        if ((int8_t)p[0xE4] < 0x12)
-            p[0x14A] = 0x7F;
-        if ((int8_t)p[0xE4] < 0x14)
-            p[0x14B] = 0x40;
-        if ((int8_t)p[0x114] < 3)
-            p[0x11A] = 0x40;
-        p[0] = 10;
-    }
-    if (bank == 0 && (int8_t)p[0] < 11) {
-        set({{0x67, 1}, {0x68, 0x7F}, {0x6F, 0}, {0x80, 0x40}});
-        p[0x32] = p[0x26];
-        for (int k = 0; k < 6; k++)
-            p[0x1F9 + k] = p[0x61 + k];
-        p[0x8F] = p[0x81];
-        p[0] = 11;
-    }
-    if (bank == 0 && (int8_t)p[0] < 12) {
-        static const uint8_t mod[10] = {0x14, 0x46, 0, 0, 0x46, 0x14, 0x46, 0, 0, 0x46};
-        for (int k = 0; k < 10; k++)
-            p[0x151 + k] = mod[k];
-        p[0] = 12;
-    }
-    bool changed = (int8_t)p[0] != v0;
-    unsigned a = 0;
-    for (int i = 5; i < 265; i++)
-        a += m[i];
-    m[265] = a & 0x7F;
-    for (int i = 265; i < 522; i++)
-        a += m[i];
-    m[522] = a & 0x7F;
-    return changed;
+    if (v != from)
+        p[off::VERSION] = (uint8_t)v;
+    single_checksums(m);
+    return v != from;
 }
 
 std::vector<RemoteDevice::Change> RemoteDevice::decode(const std::vector<uint8_t> &m) const

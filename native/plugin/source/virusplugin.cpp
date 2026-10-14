@@ -529,6 +529,13 @@ tresult PLUGIN_API VirusPlugin::setupProcessing(ProcessSetup &setup)
 {
     block_ = setup.maxSamplesPerBlock;
     rate_ = setup.sampleRate;
+    if (resampling()) { // the Virus runs at 44.1 kHz; other host rates get its audio resampled
+        const double step = 44100.0 / rate_;
+        resampler_.setup(step);
+        for (auto &b : rs_src_)
+            b.assign((size_t)(block_ * step * 1.01) + 2 * Resampler::TAPS + 8, 0.0f);
+        rs_valid_ = false;
+    }
     return SingleComponentEffect::setupProcessing(setup);
 }
 
@@ -730,7 +737,10 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             nev++;
         }
     };
-    int64_t block_frames = (int64_t)std::lround(data.numSamples * ratio);
+    // Virus frames of this block: exact on average (a fractional rest carries over), so other host rates do not drift
+    tl_acc_ += data.numSamples * ratio;
+    int64_t block_frames = (int64_t)std::floor(tl_acc_ + 1e-9);
+    tl_acc_ -= (double)block_frames;
     if (anchored_) {
         anchored_ = false;
         // the Virus anchors its timeline on the song position's arrival: stamping it M frames early puts every later
@@ -868,7 +878,12 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
     if (out_ && out_->audio_ready() && data.numOutputs >= 2 && data.outputs[0].numChannels >= 2 &&
         data.outputs[1].numChannels >= 2 && data.numSamples > 0) {
         float **o1 = data.outputs[0].channelBuffers32, **o2 = data.outputs[1].channelBuffers32;
-        if (o1 && o2)
+        if (o1 && o2 && resampling())
+            read_resampled(o1, o2, data.numSamples, ratio, newest,
+                           tl_valid_ && out_->marker.load() >= 0
+                               ? block_start + lead() - latency_frames()
+                               : newest - std::max<int64_t>(2 * block_frames + 256, 768) - Resampler::HALF);
+        else if (o1 && o2)
         {
             if (tl_valid_ && out_->marker.load() >= 0) { // stamp-aligned: an event of this block sounds latency() later
                 int64_t pos = block_start + lead() - latency_frames();
@@ -885,6 +900,41 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         }
     }
     return kResultOk;
+}
+
+// host rate != 44.1 kHz: n output samples from the Virus frame `target` on, resampled. The read position moves on
+// smoothly and steers towards the target by at most 0.2 % in speed (a jump only on a large error), so the audio has
+// no clicks while it follows the timeline.
+void VirusPlugin::read_resampled(float **o1, float **o2, int n, double ratio, int64_t newest, int64_t target)
+{
+    double err = (double)target - rs_pos_;
+    if (!rs_valid_ || std::fabs(err) > 2048) {
+        rs_pos_ = (double)target;
+        rs_valid_ = true;
+        err = 0;
+    }
+    double adj = err / (64.0 * std::max(1.0, n * ratio)); // closes the error over ~64 blocks
+    adj = std::max(-0.002, std::min(0.002, adj));
+    const double step = ratio * (1.0 + adj);
+    double end = rs_pos_ + (n - 1) * step + Resampler::HALF; // never read frames that are not there yet
+    if (end > (double)(newest - 1))
+        rs_pos_ -= end - (double)(newest - 1);
+    int64_t first;
+    int count;
+    Resampler::frames_needed(rs_pos_, step, n, first, count);
+    if (count > (int)rs_src_[0].size()) { // a block larger than announced: read the beginning only (silence after)
+        count = (int)rs_src_[0].size();
+        n = std::max(0, std::min(n, (int)((count - 2 * Resampler::HALF) / step)));
+    }
+    out_->audio().read_at(rs_src_[0].data(), rs_src_[1].data(), rs_src_[2].data(), rs_src_[3].data(), count, first);
+    float *dst[4] = {o1[0], o1[1], o2[0], o2[1]};
+    for (int c = 0; c < 4; c++)
+        resampler_.process(rs_src_[c].data(), first, rs_pos_, step, dst[c], n);
+    int64_t margin = newest - (int64_t)std::ceil(rs_pos_ + (n - 1) * step + Resampler::HALF);
+    if (margin < out_->read_margin_min.load(std::memory_order_relaxed))
+        out_->read_margin_min.store(margin, std::memory_order_relaxed);
+    out_->aligned_blocks.fetch_add(1, std::memory_order_relaxed);
+    rs_pos_ += n * step;
 }
 
 void VirusPlugin::drain_param_updates()

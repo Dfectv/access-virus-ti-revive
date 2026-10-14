@@ -181,6 +181,7 @@ int main(int argc, char **argv)
     double stress_stop = 1e9;
     std::vector<std::pair<double, double>> aheads; // (at s, ms)
     int block = 512; // --block N: host block size
+    int rate = 44100; // --rate N: host sample rate
     struct Action {
         double t;
         char kind; // c = click, d = drag, s = screenshot
@@ -215,6 +216,8 @@ int main(int argc, char **argv)
             stress_stop = atof(argv[++i]);
         else if (!strcmp(argv[i], "--block") && i + 1 < argc)
             block = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--rate") && i + 1 < argc) // host sample rate (the Virus runs at 44.1 kHz)
+            rate = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--editor"))
             editor = true;
         else if ((!strcmp(argv[i], "--click") || !strcmp(argv[i], "--drag") || !strcmp(argv[i], "--shot") ||
@@ -314,7 +317,7 @@ int main(int argc, char **argv)
         XFlush(dpy);
     }
 #endif
-    ProcessSetup ps{kRealtime, kSample32, block, 44100};
+    ProcessSetup ps{kRealtime, kSample32, block, rate};
     proc->setupProcessing(ps);
     comp->setActive(true);
     proc->setProcessing(true);
@@ -325,17 +328,17 @@ int main(int argc, char **argv)
     EventList ev;
     std::vector<int16_t> pcm;
     float peak = 0;
-    int blocks = (int)(seconds * 44100 / block);
+    int blocks = (int)(seconds * rate / block);
     auto t_next = std::chrono::steady_clock::now();
     for (int b = 0; b < blocks; b++) {
         ev.clear();
         if (notes) { // C4 on at the start of every second, off at the half
             long f0 = (long)b * block, f1 = f0 + block;
-            for (long t = (f0 / 22050) * 22050; t < f1; t += 22050)
+            for (long t = (f0 / (rate / 2)) * (rate / 2); t < f1; t += (rate / 2))
                 if (t >= f0) {
                     Event e{};
                     e.sampleOffset = (int32)(t - f0);
-                    if ((t / 22050) % 2 == 0) {
+                    if ((t / (rate / 2)) % 2 == 0) {
                         e.type = Event::kNoteOnEvent;
                         e.noteOn = {0, 60, 0, 0.8f, 0, -1};
                     } else {
@@ -360,7 +363,7 @@ int main(int argc, char **argv)
         }
         data.inputEvents = &ev;
         pc.clearQueue();
-        if (stress && stress_params && ctl && b * (double)block < stress_stop * 44100.0) { // 32 automatable parameters moving every block
+        if (stress && stress_params && ctl && b * (double)block < stress_stop * (double)rate) { // 32 automatable parameters moving every block
             static std::vector<ParamID> ids;
             if (ids.empty())
                 for (int32 k = 0; k < ctl->getParameterCount() && ids.size() < 32; k++) {
@@ -416,21 +419,21 @@ int main(int argc, char **argv)
                 pcm.push_back((int16_t)std::max(-32768.f, std::min(32767.f, r[i] * 32768)));
             }
         }
-        if ((b + 1) * (long)block / 44100 != (long)b * block / 44100) { // once per second
-            printf("t=%.0f s peak %.3f\n", (b + 1) * (double)block / 44100.0, peak);
+        if ((b + 1) * (long)block / rate != (long)b * block / rate) { // once per second
+            printf("t=%.0f s peak %.3f\n", (b + 1) * (double)block / (double)rate, peak);
             fflush(stdout);
             peak = 0;
         }
-        t_next += std::chrono::microseconds((long long)block * 1000000 / 44100); // real time at 44.1 kHz
+        t_next += std::chrono::microseconds((long long)block * 1000000 / rate); // real time at 44.1 kHz
         for (auto &ah : aheads)
-            if (ah.second > 0 && b * (double)block / 44100.0 >= ah.first) {
+            if (ah.second > 0 && b * (double)block / (double)rate >= ah.first) {
                 t_next -= std::chrono::microseconds((long long)(ah.second * 1000));
                 printf("ahead %.0f ms at %.1f s\n", ah.second, ah.first);
                 ah.second = 0;
             }
 #ifdef __linux__
         if (view) {
-            double now = (b + 1) * (double)block / 44100.0;
+            double now = (b + 1) * (double)block / (double)rate;
             for (auto &a : actions)
                 if (!a.done && now >= a.t) {
                     a.done = true;
@@ -509,7 +512,7 @@ int main(int argc, char **argv)
     }
     if (wav) {
         if (FILE *f = fopen(wav, "wb")) {
-            uint32_t bytes = (uint32_t)(pcm.size() * 2), rate = 44100, brate = 44100 * 4, sz = 36 + bytes, fmt = 16;
+            uint32_t bytes = (uint32_t)(pcm.size() * 2), brate = rate * 4, sz = 36 + bytes, fmt = 16;
             uint16_t pcmfmt = 1, ch = 2, align = 4, bits = 16;
             fwrite("RIFF", 1, 4, f), fwrite(&sz, 4, 1, f), fwrite("WAVEfmt ", 1, 8, f), fwrite(&fmt, 4, 1, f);
             fwrite(&pcmfmt, 2, 1, f), fwrite(&ch, 2, 1, f), fwrite(&rate, 4, 1, f), fwrite(&brate, 4, 1, f);

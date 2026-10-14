@@ -8,6 +8,7 @@
 #include "device/automation.h"
 #include "device/broker.h"
 #include "device/memsync.h"
+#include "device/resampler.h"
 #include "model/remotedevice.h"
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
 #include "public.sdk/source/vst/vstsinglecomponenteffect.h"
@@ -370,7 +371,13 @@ private:
     static int timing_s() { static const int s = getenv("VTI_NATIVE_S") ? atoi(getenv("VTI_NATIVE_S")) : 5000; return s; }
     int64_t lead() const { return timing_s() + timing_a(); }
     // the read position stays block + 640 - |timeline jitter (<= ~400)| behind the newest frame
-    int64_t latency_frames() const { return timing_a() + std::max(block_, 256) + 640; }
+    // (+ the resampler's look-ahead when the host does not run at 44.1 kHz)
+    int64_t latency_frames() const
+    {
+        return timing_a() + std::max(block_, 256) + 640 + (resampling() ? Resampler::HALF + 2 : 0);
+    }
+    bool resampling() const { return std::fabs(rate_ - 44100.0) > 0.5; }
+    void read_resampled(float **o1, float **o2, int n, double ratio, int64_t newest, int64_t target);
 public:
     Steinberg::uint32 PLUGIN_API getLatencySamples() override
     {
@@ -382,7 +389,13 @@ private:
     int64_t tl_ = 0;
     bool tl_valid_ = false, anchored_ = false;
     double next_tick_ = 0;
+    double tl_acc_ = 0; // fractional Virus frames of the timeline (host rates other than 44.1 kHz)
     int64_t stream_start_ = -1;
+    // host rate != 44.1 kHz: the Virus' audio through the resampler, read from a steered fractional position
+    Resampler resampler_;
+    std::vector<float> rs_src_[4];
+    double rs_pos_ = 0;
+    bool rs_valid_ = false;
     int generation_seen_ = 0; // DeviceOut::generation handled by process()
     bool device_seen_ = false; // the Virus was present once (worker thread)
     std::set<std::string> dump_paths_; // parameters stored in a part's single dump (the rest: single messages)
