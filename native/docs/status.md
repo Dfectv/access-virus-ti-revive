@@ -27,8 +27,11 @@ empty-cache test on the real PC.
 ## First release - open (2026-10-14)
 
 Must (release cannot go out without):
-1. Publication check: own implementations for the parts ported from the decompile (upgrade_single, init sequence,
-   ...), product name, history scan before the move into TI Revive (filter-repo + merge).
+0. DONE 2026-10-14: host rates other than 44.1 kHz (user: REAPER at 48 kHz sounded "completely weird" - frames were
+   copied 1:1). Resampler (32-tap Kaiser sinc, -90 dB), fractional timeline; 48 kHz verified on the Virus.
+1. Publication check: upgrade_single DONE (rewritten from the format table in docs/formats.md, golden test 3080
+   dumps byte-identical). Open: other ported parts (init sequence, ...), product name, history scan before the
+   move into TI Revive (filter-repo + merge).
 2. Install for users: Windows into the TI Revive MSI (today: test zip + scripts); macOS: package, signing and
    notarization of the native VST3; Linux: install path/script. Test builds: diag/klog off by default.
 3. Plug-in ID decision: own ID (default, works next to the wrapper) or VTI_NATIVE_DROPIN (the original's ID: old
