@@ -464,6 +464,7 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
     });
     out_->on_reply([this](const std::vector<uint8_t> &m) { sync_->feed(m); });
     out_->on_device([this](bool present) { // worker thread
+        out_->log("Virus TI native: device %s\n", present ? (device_seen_ ? "reconnected" : "connected") : "disconnected");
         if (!present) {
             set_lcd("Virus disconnected", std::string(), std::string(), std::string());
             return;
@@ -494,6 +495,8 @@ tresult PLUGIN_API VirusPlugin::terminate()
 
 tresult PLUGIN_API VirusPlugin::setActive(TBool state)
 {
+    if (out_)
+        out_->log("Virus TI native: setActive(%d), state loaded %d\n", (int)state, (int)state_loaded_);
     if (!state && out_ && out_->connected()) { // nothing keeps sounding after the plug-in stops (removed, closed)
         for (uint8_t ch = 0; ch < 16; ch++) {
             out_->send({(uint8_t)(0xB0 | ch), 64, 0});  // sustain pedal up
@@ -1908,14 +1911,28 @@ void VirusPlugin::apply_state_to_params()
     meta_init();
 }
 
+// field diagnostics (diag.log): the patch name of part 1 in a state's records
+static std::string part1_name(const std::vector<std::vector<uint8_t>> &recs)
+{
+    for (auto &r : recs)
+        if (r.size() == 524 && r[0] == 0xF0 && r[6] == 0x10 && r[7] == 0 && r[8] == 0)
+            return std::string(r.begin() + 249, r.begin() + 259);
+    return "?";
+}
+
 void VirusPlugin::send_state()
 {
     if (!out_)
         return;
     std::lock_guard<std::mutex> lk(state_mu_);
+    int n = 0;
     for (auto &r : state_)
-        if (!r.empty() && !(r.size() > 2 && r[0] == 0xF0 && r[1] == 0x7D)) // not our editor-only records
+        if (!r.empty() && !(r.size() > 2 && r[0] == 0xF0 && r[1] == 0x7D)) { // not our editor-only records
             out_->send(r);
+            n++;
+        }
+    out_->log("Virus TI native: state sent (%d messages, part 1 \"%s\", device %s)\n", n, part1_name(state_).c_str(),
+              out_->connected() ? "connected" : "not yet connected");
 }
 
 tresult PLUGIN_API VirusPlugin::setState(IBStream *state)
@@ -1926,6 +1943,9 @@ tresult PLUGIN_API VirusPlugin::setState(IBStream *state)
     while (state->read(buf, sizeof buf, &got) == kResultOk && got > 0)
         d.insert(d.end(), buf, buf + got);
     auto recs = parse_container(d);
+    if (out_)
+        out_->log("Virus TI native: setState %zu bytes, %zu records, part 1 \"%s\"\n", d.size(), recs.size(),
+                  part1_name(recs).c_str());
     if (recs.empty())
         return kResultFalse;
     {
