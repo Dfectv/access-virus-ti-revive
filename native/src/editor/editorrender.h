@@ -66,6 +66,11 @@ public:
     };
     Deps *deps = nullptr;
     void render(Canvas &c);
+    // one line in an LCD bitmap font, centred in the rectangle (the plug-in's own notes on the original's pages)
+    void status_text(Canvas &c, const std::string &font, const std::string &str, int x, int y, int w, int h)
+    {
+        text(c, font, str, x, y, w, h, "Middle Center");
+    }
     // repaint area: elements outside it are skipped (with their children); default = everything
     int clip_x0 = -100000, clip_y0 = -100000, clip_x1 = 100000, clip_y1 = 100000;
     Hit hit_test(int x, int y) const;

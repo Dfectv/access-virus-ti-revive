@@ -1276,17 +1276,28 @@ void VirusPlugin::set_sync_progress(int v)
 
 bool VirusPlugin::wait_until_quiet()
 {
+    // playing has priority: no dump request while notes arrive (the Virus delays notes behind requests, E144). After
+    // 30 s of pauses in total a short gap is enough for the next request, so constant playing cannot block the sync.
     bool shown = false;
     const int64_t t0 = now_ms();
-    while (!stop_warm_ && now_ms() - last_note_ms_.load(std::memory_order_relaxed) < 1500) {
+    auto gap = [&] { return sync_paused_ms_ + (now_ms() - t0) >= 30000 ? 300 : 1500; };
+    while (!stop_warm_ && now_ms() - last_note_ms_.load(std::memory_order_relaxed) < gap()) {
         if (!shown) {
             set_lcd("Bank sync paused (playing)", std::string(), std::string(), std::string());
+            sync_paused_ = true;
+            ui_dirty_ = true; // the note on the sync page
             shown = true;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
-    if (shown && out_)
-        out_->log("Virus TI native: bank sync paused %.1f s for notes\n", (now_ms() - t0) / 1000.0);
+    if (shown) {
+        sync_paused_ = false;
+        ui_dirty_ = true;
+        sync_paused_ms_ += now_ms() - t0;
+        if (out_)
+            out_->log("Virus TI native: bank sync paused %.1f s for notes (%.0f s in total)\n", (now_ms() - t0) / 1000.0,
+                      sync_paused_ms_ / 1000.0);
+    }
     return !stop_warm_;
 }
 

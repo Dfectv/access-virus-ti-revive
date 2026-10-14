@@ -415,6 +415,8 @@ public:
         }
         renderer_.render(canvas_);
         renderer_.deps = nullptr;
+        if (plugin_->sync_paused()) // under the sync page's progress bar (the original hides the LCD meanwhile)
+            renderer_.status_text(canvas_, "FNT_LCD_5x7_Rot.png", "SYNC PAUSED WHILE YOU PLAY", 480, 290, 381, 12);
         {
             long us = (long)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - t0).count();
             plugin_->diag.draw_us += us;
