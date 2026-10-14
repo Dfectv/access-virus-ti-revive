@@ -50,6 +50,12 @@ latency 2176 frames (49 ms at 512, was 75). nativehost --ahead 200@12 --ahead 20
 K = 6024 for 24/24 notes, no gaps/jumps. Diagnostics: diag.on now also logs the R5 stats/marker lines to diag.log.
 For exact timing in REAPER the Virus track should not use anticipative FX processing (track > Performance options).
 
+REAPER test 2 (2026-10-14, build bf34426): playback starts right away, live input snappy again (user); diag.log: one
+marker, no re-ping, read margin >= 129, 22 timeline jumps after playback starts. Timing render (16ths at 120 BPM,
+34 s, REAPER render, work/timing/REAPER Media/untitled.wav, scripts/timing_analysis.py): 256/256 onsets, jitter sd
+0.01 ms, max |dev| 0.05 ms, drift 0 ppm, first onset 2000.00 ms (the original via TI Revive, E125: sd 0.06 ms, max
+1.31 ms, first note late/second missing). R5 done apart from Windows/macOS checks.
+
 Known limit: the automation -> state ring (pu_, 4096) drops values only if the worker stalls for seconds; then the
 saved state could keep an older value until the next change.
 
