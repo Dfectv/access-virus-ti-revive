@@ -3,6 +3,9 @@ cmake_minimum_required(VERSION 3.25)
 project(virus-ti-native VERSION 0.0.1 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Windows: static C/C++ runtime, so the plug-in and the ASIO driver run without the VC++ redistributable
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+set(SMTG_USE_STATIC_CRT ON CACHE BOOL "" FORCE)
 
 # VST3 SDK (MIT) + VSTGUI (BSD), pinned submodule external/vst3sdk (v3.8.1_build_84)
 set(SMTG_ADD_VST3_PLUGINS_SAMPLES OFF CACHE BOOL "" FORCE)
