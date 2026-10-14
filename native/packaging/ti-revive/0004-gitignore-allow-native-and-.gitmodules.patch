@@ -1,7 +1,7 @@
 From 7d69f72e73ea6ad4a32ed749cdefd1f8b35d800c Mon Sep 17 00:00:00 2001
 From: derpsn <callmederpsn@proton.me>
 Date: Wed, 14 Oct 2026 20:11:11 +0200
-Subject: [PATCH 4/6] gitignore: allow native/ and .gitmodules
+Subject: [PATCH 4/7] gitignore: allow native/ and .gitmodules
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---
