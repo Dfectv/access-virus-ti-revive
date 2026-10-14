@@ -127,7 +127,7 @@ original Virus TI software must be installed (it can stay unused). These are the
 | topic | how |
 |---|---|
 | plug-in format | VST3 bundle in `C:\Program Files\Common Files\VST3\VirusTINative.vst3` (`x86_64-win`), built with MSVC in CI (`.github/workflows/build.yml`, artifacts `VirusTINative-windows` + `tools-windows`) |
-| UI | VSTGUI with Direct2D; native Win32 menus |
+| UI | VSTGUI with Direct2D; native Win32 menus; images taller than 16384 px (Direct2D's limit; the cutoff knob filmstrips are 16512 px) are split into tiles when loaded |
 | broker | named pipe `\\.\pipe\vtibroker`; like TI Revive's own clients the plug-in starts `vtibroker.exe` on demand (path from `HKLM\SOFTWARE\TI Revive\InstallDir`, else `%ProgramW6432%\TI Revive`), detached from the DAW's job object; the broker exits by itself when idle |
 | USB | TI Revive's WinUSB binding (MSI); no Access driver |
 | audio ring | file mapping `Local\vtibroker_audio`, plus a named event per plug-in process |

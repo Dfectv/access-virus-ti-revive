@@ -5,6 +5,9 @@
 Internal pre-release v0.1.0-test1 (private repo release, zip from scripts/package-windows.sh): plug-in + ASIO
 driver, static C++ runtime, install/uninstall/collect-logs scripts (tested in the VM: install, reinstall, uninstall).
 The user tests on a real Windows PC: A plug-in, B timing WAV (timing-16ths-120bpm.mid), C ASIO out/in, logs zip.
+test1 results (real PC, Ableton): ASIO "no issues at all"; timing 304/304 notes, first at 2000.45 ms, 0 ppm drift,
+threshold jitter 0.66 ms sd (upper bound: free-running oscillator phase, cross-correlation unusable), plug-in stats
+0 drops / 0 timeline steps / err -256..184; big knobs invisible -> test2: images > 16384 px tiled (Direct2D limit).
 
 ## Path to public (decision 2026-10-14)
 
@@ -15,13 +18,12 @@ approach there, and the wrapper stays as a fallback until it can be retired.
 
 Feature complete = all of:
 - [x] sound, MIDI, editor, browser, bank sync, project state
-- [x] timing + reported latency on Linux and macOS (E140, E141) - [ ] Windows on a real PC (VM gap pattern open)
+- [x] timing + reported latency on Linux, macOS (E140, E141) and a real Windows PC (E143: 304/304 notes, no drift;
+      the VM's missing notes were the VM)
 - [x] stability / M4L LFOs / CPU
 - [ ] Virus TI Snow (model, 4 parts, banks, Snow's own device files?) - needs a Snow tester (issue #4 user)
-- [~] Virus as sound card on Windows (ASIO): own driver works in a test host (clean tone, 172 switches/s);
-      DAW test (Ableton/REAPER) open
-      (VM: output crackles like the TI Revive ASIO did in the VM - QEMU corrupts iso OUT, TI Revive E083; clean
-      on a real PC there, E085. Broker side clean: 0 dropped, 1 underrun at start/stop. Judge on a real PC.)
+- [x] Virus as sound card on Windows (ASIO): own driver "Virus TI (native)", clean in Ableton on a real PC
+      (user, test1). In the VM the output crackles: QEMU corrupts iso OUT (TI Revive E083, E142)
 - [ ] Virus Control Center (Windows) - decide: port, launch the original, or drop
 - [ ] remaining UI details (UI to-do list)
 - [ ] publication check: rewrite parts ported from the decompile (e.g. upgrade_single, init sequence) as own
