@@ -21,6 +21,24 @@ Likely cause of the earlier ~1 s: the first sessions on that PC ran the initial 
 Virus delays notes while answering dumps - E144) and dropped note-ons meanwhile; now the cache is complete and
 the sync pauses for notes. Not proven: the sync result/duration/pauses now also go to diag.log (next build).
 
+test5 (sync: 30 s pause budget, then 300 ms gaps; note on the sync page; sync lines in diag.log) - for the user's
+empty-cache test on the real PC.
+
+## First release - open (2026-10-14)
+
+Must (release cannot go out without):
+1. Publication check: own implementations for the parts ported from the decompile (upgrade_single, init sequence,
+   ...), product name, history scan before the move into TI Revive (filter-repo + merge).
+2. Install for users: Windows into the TI Revive MSI (today: test zip + scripts); macOS: package, signing and
+   notarization of the native VST3; Linux: install path/script. Test builds: diag/klog off by default.
+3. Plug-in ID decision: own ID (default, works next to the wrapper) or VTI_NATIVE_DROPIN (the original's ID: old
+   projects open with the native plug-in, but it must replace the wrapper/original then).
+4. Smoke test of today's changes on macOS and Linux/REAPER (tiling, sync pause, start-up hold).
+5. Snow: support (needs a tester) or ship as "TI/TI2 only" and say so.
+6. Control Center (Windows): port, launch the original, or drop.
+Should: OSC classic mixed-shape display (wave tables), the user's empty-cache test, AU on macOS (Logic) - decide.
+Can wait: filter HP display 2 px, envelope 1 px, menu brightness, page-switch cost.
+
 ## Path to public (decision 2026-10-14)
 
 This repo stays PRIVATE as the workshop. TI Revive (public) stays the home for users, issues and releases; the native
