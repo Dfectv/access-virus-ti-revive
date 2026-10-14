@@ -15,10 +15,13 @@
 #include <windows.h>
 #include <avrt.h>
 #include <objbase.h>
+#include <algorithm>
 #include <atomic>
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -127,6 +130,35 @@ uint64_t now_ns()
     return (uint64_t)((double)c.QuadPart * 1e9 / (double)f.QuadPart);
 }
 
+// diagnostics: %LOCALAPPDATA%\virus-ti-native\asio.log, only when diag.on exists in that folder (like the plug-in)
+void dlog(const char *fmt, ...)
+{
+    static std::string path = [] {
+        char base[MAX_PATH];
+        DWORD n = GetEnvironmentVariableA("LOCALAPPDATA", base, sizeof base);
+        if (!n || n >= sizeof base)
+            return std::string();
+        std::string dir = std::string(base) + "\\virus-ti-native\\";
+        return GetFileAttributesA((dir + "diag.on").c_str()) != INVALID_FILE_ATTRIBUTES ? dir + "asio.log" : std::string();
+    }();
+    if (path.empty())
+        return;
+    static std::mutex m;
+    std::lock_guard<std::mutex> g(m);
+    FILE *f = fopen(path.c_str(), "a");
+    if (!f)
+        return;
+    SYSTEMTIME t;
+    GetLocalTime(&t);
+    fprintf(f, "%02d:%02d:%02d.%03d [%lu] ", t.wHour, t.wMinute, t.wSecond, t.wMilliseconds, GetCurrentProcessId());
+    va_list a;
+    va_start(a, fmt);
+    vfprintf(f, fmt, a);
+    va_end(a);
+    fputc('\n', f);
+    fclose(f);
+}
+
 class Driver : public IASIO {
 public:
     Driver() { g_objects++; }
@@ -134,6 +166,7 @@ public:
     {
         stop();
         disposeBuffers();
+        dlog("%p released", (void *)this);
         if (audio_on_)
             broker_.audio(false);
         broker_.close();
@@ -188,6 +221,7 @@ public:
         snprintf(nm, sizeof nm, "Local\\vtinative_audio_%lu", (unsigned long)GetCurrentProcessId());
         ev_ = OpenEventA(SYNCHRONIZE, FALSE, nm);
         inited_ = true;
+        dlog("%p init: broker open, audio on", (void *)this);
         return 1;
     }
     void getDriverName(char *name) override { snprintf(name, 32, "%s", DRIVER_NAME); }
@@ -204,11 +238,14 @@ public:
         index_ = 0;
         pos_ = -1;
         running_ = true;
+        dlog("%p start: buffer %ld", (void *)this, bufsize_);
         thread_ = std::thread([this] { clock(); });
         return ASE_OK;
     }
     ASIOError stop() override
     {
+        if (running_)
+            dlog("%p stop", (void *)this);
         running_ = false;
         if (thread_.joinable())
             thread_.join();
@@ -346,6 +383,10 @@ private:
         std::vector<int16_t> raw((size_t)bs * vti::AudioIn::IN_CHANNELS), out((size_t)bs * OUT_CH);
         bool reset_sent = false;
         int64_t mute_until = 0;
+        // stats per 5 s: largest gap between switches, longest host callback, output queue before each write
+        uint64_t st_t0 = now_ns(), st_last = 0, gap_max = 0, cb_max = 0;
+        int64_t q_min = INT64_MAX, q_max = INT64_MIN;
+        long st_n = 0, st_resync = 0;
         bool can_reset = callbacks_->asioMessage &&
                          callbacks_->asioMessage(kAsioSelectorSupported, kAsioResetRequest, nullptr, nullptr) == 1;
         while (running_) {
@@ -364,6 +405,7 @@ private:
             if (pos_ < 0 || newest - pos_ > 8192 || newest < pos_) { // start, a stall, a new stream: resync
                 pos_ = newest - bs;
                 mute_until = pos_ + START_MUTE;
+                st_resync++;
             }
             while (running_ && newest - pos_ >= bs) {
                 audio_.read_raw_at(raw.data(), bs, pos_);
@@ -375,8 +417,13 @@ private:
                         for (long i = 0; i < bs; i++)
                             d[i] = (int32_t)raw[(size_t)i * vti::AudioIn::IN_CHANNELS + b.channelNum] * 65536;
                     }
-                stamp_ns_ = now_ns();
+                uint64_t t = now_ns();
+                stamp_ns_ = t;
+                if (st_last && t - st_last > gap_max)
+                    gap_max = t - st_last;
+                st_last = t;
                 callbacks_->bufferSwitch(index_, 1);
+                cb_max = std::max<uint64_t>(cb_max, now_ns() - t);
                 memset(out.data(), 0, out.size() * sizeof(int16_t));
                 for (auto &b : bufs_)
                     if (!b.isInput) {
@@ -386,10 +433,19 @@ private:
                             out[(size_t)i * OUT_CH + b.channelNum] = (int16_t)(v > 32767 ? 32767 : v);
                         }
                     }
+                int64_t q = audio_.out_queued();
+                q_min = std::min(q_min, q), q_max = std::max(q_max, q);
                 audio_.write_out(out.data(), bs);
+                st_n++;
                 samples_ += bs;
                 pos_ += bs;
                 index_ ^= 1;
+            }
+            if (now_ns() - st_t0 >= 5000000000ull) {
+                dlog("%p %ld switches, gap max %.1f ms, callback max %.2f ms, out queued %lld..%lld, resyncs %ld",
+                     (void *)this, st_n, gap_max / 1e6, cb_max / 1e6, (long long)(st_n ? q_min : 0),
+                     (long long)(st_n ? q_max : 0), st_resync);
+                st_t0 = now_ns(), gap_max = cb_max = 0, q_min = INT64_MAX, q_max = INT64_MIN, st_n = st_resync = 0;
             }
         }
         if (mm)
