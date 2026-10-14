@@ -110,6 +110,35 @@ static SharedPointer<CBitmap> server_bitmap(CFrame *frame, CBitmap *bmp)
 }
 #endif
 
+// Images taller than this are split into tiles: Direct2D cannot create a bitmap over 16384 px on a side, and the
+// big knob filmstrips are 16512 px tall (they stayed invisible on Windows). VTI_NATIVE_TILE overrides it (tests).
+static int tile_limit()
+{
+    static int v = [] {
+        const char *e = getenv("VTI_NATIVE_TILE");
+        return e && atoi(e) > 0 ? atoi(e) : 16384;
+    }();
+    return v;
+}
+
+// rows [y0, y0 + h) of `bmp` as a new bitmap (same platform pixel format)
+static SharedPointer<CBitmap> crop_rows(CBitmap *bmp, int y0, int h)
+{
+    auto src = bmp->getPlatformBitmap();
+    int w = (int)bmp->getWidth();
+    auto pb = getPlatformFactory().createBitmap(CPoint(w, h));
+    if (!src || !pb)
+        return nullptr;
+    auto in = src->lockPixels(false);
+    auto out = pb->lockPixels(false);
+    if (!in || !out)
+        return nullptr;
+    for (int y = 0; y < h; y++)
+        memcpy(out->getAddress() + (size_t)y * out->getBytesPerRow(),
+               in->getAddress() + (size_t)(y0 + y) * in->getBytesPerRow(), (size_t)w * 4);
+    return makeOwned<CBitmap>(pb);
+}
+
 class VstguiCanvas : public Canvas {
 public:
     VstguiCanvas(const AccessFiles &files, std::map<std::string, SharedPointer<CBitmap>> &cache)
@@ -131,10 +160,24 @@ public:
             if (!d.empty())
                 if (auto pb = getPlatformFactory().createBitmapFromMemory(d.data(), (uint32_t)d.size()))
                     bmp = makeOwned<CBitmap>(pb);
+            const int lim = tile_limit();
+            if (bmp && bmp->getHeight() > lim) {
+                std::vector<SharedPointer<CBitmap>> t;
+                for (int y = 0; y < (int)bmp->getHeight(); y += lim)
+                    t.push_back(crop_rows(bmp, y, std::min(lim, (int)bmp->getHeight() - y)));
+                bool ok = true;
+                for (auto &b : t)
+                    ok = ok && b;
+                if (env_debug())
+                    fprintf(stderr, "editor: %s %dx%d split into %zu tiles%s\n", name.c_str(), (int)bmp->getWidth(),
+                            (int)bmp->getHeight(), t.size(), ok ? "" : " - FAILED, drawn whole");
+                if (ok)
+                    tiles_[bmp.get()] = std::move(t);
+            }
             it = cache_.emplace(name, bmp).first;
         }
 #if SMTG_OS_LINUX
-        if (frame && it->second) {
+        if (frame && it->second && !tiles_.count(it->second.get())) {
             auto sv = server_.find(name);
             if (sv == server_.end())
                 sv = server_.emplace(name, server_bitmap(frame, it->second.get())).first;
@@ -148,7 +191,19 @@ public:
     int image_height(void *i) override { return (int)((CBitmap *)i)->getHeight(); }
     void blit(void *img, int sx, int sy, int dx, int dy, int w, int h, double alpha) override
     {
-        ((CBitmap *)img)->draw(ctx, CRect(dx, dy, dx + w, dy + h), CPoint(sx, sy), (float)alpha);
+        auto t = tiles_.find((CBitmap *)img);
+        if (t == tiles_.end()) {
+            ((CBitmap *)img)->draw(ctx, CRect(dx, dy, dx + w, dy + h), CPoint(sx, sy), (float)alpha);
+            return;
+        }
+        const int lim = tile_limit(); // a source rectangle can straddle two tiles
+        while (h > 0) {
+            int i = sy / lim, off = sy - i * lim, n = std::min(h, lim - off);
+            if (i >= (int)t->second.size())
+                break;
+            t->second[i]->draw(ctx, CRect(dx, dy, dx + w, dy + n), CPoint(sx, off), (float)alpha);
+            sy += n, dy += n, h -= n;
+        }
     }
     void fill(int x, int y, int w, int h, Rgba c) override
     {
@@ -181,6 +236,7 @@ public:
 private:
     const AccessFiles &files_;
     std::map<std::string, SharedPointer<CBitmap>> &cache_;
+    std::map<CBitmap *, std::vector<SharedPointer<CBitmap>>> tiles_; // of the images in cache_ over tile_limit()
     std::vector<CRect> clips_;
 };
 
