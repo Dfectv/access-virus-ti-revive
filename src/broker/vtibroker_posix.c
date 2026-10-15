@@ -799,13 +799,20 @@ int main(int argc, char **argv)
     // arrives as fd 3; systemd starts us again on the next connect after the idle exit.
     const char *lpid = getenv("LISTEN_PID"), *lfds = getenv("LISTEN_FDS");
     int tcp = -1;
+    // the TCP listener only served the classic plug-in under Wine (TI Revive 0.7); since 0.8 the plug-in is native and
+    // uses the Unix socket, so TCP is off unless asked for (VTI_BROKER_TCP=1)
+    const int tcp_wanted = getenv("VTI_BROKER_TCP") && atoi(getenv("VTI_BROKER_TCP")) == 1;
     if (lpid && lfds && (pid_t)atol(lpid) == getpid() && atoi(lfds) >= 1) {
         s = 3;
         if (atoi(lfds) >= 2)
             tcp = 4; // second ListenStream of tirevive-broker.socket: 127.0.0.1:<port>
         blog("socket from systemd%s", tcp >= 0 ? " (+ TCP)" : "");
     }
-    if (token_load())
+    if (!tcp_wanted && tcp >= 0) { // an older socket unit still passes the TCP socket: do not serve it
+        close(tcp);
+        tcp = -1;
+    }
+    if (tcp_wanted && token_load())
         blog("token file could not be read or created: TCP clients (Wine) cannot authenticate");
 #endif
     if (s < 0) {
@@ -824,7 +831,7 @@ int main(int argc, char **argv)
         }
     }
 #ifdef __linux__
-    if (tcp < 0 && g_tcp_port > 0) {
+    if (tcp_wanted && tcp < 0 && g_tcp_port > 0) {
         tcp = socket(AF_INET, SOCK_STREAM, 0);
         int one = 1;
         setsockopt(tcp, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);

@@ -19,7 +19,6 @@ UNITS="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}/tirevive"
 VST3_DIR="$PREFIX/drive_c/Program Files/Common Files/VST3"
 ACCESS="$HOME/.local/share/tirevive/access/Access Music/Virus TI" # Common/ (Virus Control.dll, firmware.bin), Documentation/
-PORT=47615
 
 say() { printf '\n== %s\n' "$*"; }
 die() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
@@ -48,12 +47,7 @@ say "TI Revive broker"
 mkdir -p "$LIB" "$UNITS" "$CONF"
 install -m 0755 "$HERE/bin/vtibroker" "$LIB/vtibroker"
 install -m 0644 "$HERE/systemd/tirevive-broker.socket" "$HERE/systemd/tirevive-broker.service" "$UNITS/"
-if ! grep -q '^token=' "$CONF/broker.token" 2>/dev/null; then # secret for the plug-in's connection from Wine
-    umask 077
-    printf 'port=%s\ntoken=%s\n' "$PORT" "$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')" > "$CONF/broker.token"
-    umask 022
-fi
-chmod 600 "$CONF/broker.token"
+rm -f "$CONF/broker.token" # TI Revive 0.7: the TCP socket for the plug-in under Wine is gone
 if command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
     if systemctl --user daemon-reload && systemctl --user enable tirevive-broker.socket >/dev/null &&
         systemctl --user restart tirevive-broker.socket; then
