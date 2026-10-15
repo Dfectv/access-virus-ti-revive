@@ -1,78 +1,146 @@
-# tirevive-access.ps1 - install the user's own Access "Virus TI Software Suite" MSI without its kernel drivers and
-# without the firmware updater (launched from the TI Revive exit dialog / Start menu). The Access MSI is looked
-# for next to the TI Revive MSI, in Downloads, or picked with a file dialog. A local copy is patched (driver and
-# firmware custom actions get the condition "0") and installed; nothing of Access is shipped with TI Revive.
-param([string]$Msi, [string]$SourceDir, [string]$FromMsi) # FromMsi: path of the TI Revive MSI ([OriginalDatabase])
+# tirevive-access.ps1 - provide the files of the user's own Access "Virus TI Software Suite" that TI Revive's plug-in
+# reads, WITHOUT installing the Access software (launched from the TI Revive exit dialog / Start menu):
+#   Virus Control.dll (skin + device description) and firmware.bin (ROM banks) -> Program Files\Access Music\Virus TI\
+#   Common (where the plug-in looks), the manuals -> ...\Virus TI\Documentation, the factory patch libraries ->
+#   Documents\Access Music\Virus TI\Patches (only files that are not there yet; the user's own libraries stay).
+# The .msi is unpacked (administrative extraction: no custom actions, no drivers, nothing registered). Nothing of Access
+# is shipped with TI Revive. A full Access installation (TI Revive 0.7 and older installed it: original plug-in, Access
+# ASIO and USB drivers, Control Center) is offered for removal; the files above stay.
+# -Quiet: no dialogs (tests): remove a full Access installation, report on stdout.
+param([string]$Msi, [string]$SourceDir, [string]$FromMsi, [switch]$Quiet,
+      [switch]$Elevated, [string]$Extracted, [switch]$RemoveAccess) # -Elevated: the admin part (one UAC prompt)
 # from the setup.exe the folder ends with '\', which escapes the closing quote on the command line: C:\dir"
 if ($SourceDir) { $SourceDir = $SourceDir.Trim().Trim('"').TrimEnd('\') }
 if ($FromMsi -and -not $SourceDir) { $SourceDir = Split-Path -Parent $FromMsi }
 $ErrorActionPreference = 'Stop'
-Add-Type -AssemblyName System.Windows.Forms
 $title = 'TI Revive'
+$target = Join-Path $env:ProgramW6432 'Access Music\Virus TI'
+$needed = 'Virus Control.dll', 'firmware.bin' # in ...\Common
 function Say([string]$text, [string]$icon = 'Information') {
+    if ($Quiet) { Write-Host "$icon`: $text"; return }
+    Add-Type -AssemblyName System.Windows.Forms
     [System.Windows.Forms.MessageBox]::Show($text, $title, 'OK', $icon) | Out-Null
 }
+function Ask([string]$text) {
+    if ($Quiet) { Write-Host "Question (yes): $text"; return $true }
+    Add-Type -AssemblyName System.Windows.Forms
+    return [System.Windows.Forms.MessageBox]::Show($text, $title, 'YesNo', 'Question') -eq 'Yes'
+}
+function AccessProduct {
+    Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*,
+                     HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction SilentlyContinue |
+        Where-Object { $_.DisplayName -match '^Virus TI Software Suite' -and $_.Publisher -match 'Access' } | Select-Object -First 1
+}
+function HaveFiles { -not ($needed | Where-Object { -not (Test-Path (Join-Path $target "Common\$_")) }) }
 
-# start the broker for this session if it is not running yet (it is started on demand and exits when idle)
-$broker = Join-Path $PSScriptRoot 'vtibroker.exe'
-if (-not (Get-Process vtibroker -ErrorAction SilentlyContinue) -and (Test-Path $broker)) {
-    Start-Process $broker -WindowStyle Hidden
+# ---- the admin part: remove the Access installation (keeping the files), copy the extracted files -----------------
+if ($Elevated) {
+    $keep = Join-Path $env:TEMP 'tirevive-access-keep'
+    if ($RemoveAccess -and ($p = AccessProduct)) {
+        Remove-Item -Recurse -Force $keep -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Force "$keep\Common" | Out-Null
+        foreach ($f in $needed) { Copy-Item (Join-Path $target "Common\$f") "$keep\Common\" -ErrorAction SilentlyContinue }
+        if (Test-Path "$target\Documentation") { Copy-Item -Recurse "$target\Documentation" $keep }
+        $r = Start-Process msiexec.exe -ArgumentList "/x $($p.PSChildName) /qb /norestart" -Wait -PassThru
+        Write-Host "removing the Access installation: $($r.ExitCode)"
+        New-Item -ItemType Directory -Force "$target\Common" | Out-Null
+        Copy-Item "$keep\Common\*" "$target\Common\" -Force -ErrorAction SilentlyContinue
+        if (Test-Path "$keep\Documentation") { Copy-Item -Recurse -Force "$keep\Documentation" $target }
+        Remove-Item -Recurse -Force $keep -ErrorAction SilentlyContinue
+    }
+    # Access' uninstaller leaves its ASIO entry behind: a dead "Virus USB ASIO driver" in every DAW's device list
+    $asio = 'HKLM:\SOFTWARE\ASIO\Virus USB ASIO driver'
+    if (Test-Path $asio) {
+        $clsid = (Get-ItemProperty $asio -ErrorAction SilentlyContinue).CLSID
+        $dll = if ($clsid) { (Get-ItemProperty "HKLM:\SOFTWARE\Classes\CLSID\$clsid\InprocServer32" -ErrorAction SilentlyContinue).'(default)' }
+        if (-not $dll -or -not (Test-Path $dll)) { Remove-Item -Recurse -Force $asio; Write-Host 'removed the dead Access ASIO entry' }
+    }
+    if ($Extracted) {
+        $src = Join-Path $Extracted 'Access Music\Virus TI'
+        New-Item -ItemType Directory -Force "$target\Common" | Out-Null
+        foreach ($f in $needed) { Copy-Item (Join-Path $src "Common\$f") "$target\Common\" -Force }
+        if (Test-Path "$src\Documentation") { Copy-Item -Recurse -Force "$src\Documentation" $target }
+    }
+    exit 0
 }
 
-if (-not $Msi) {
-    $dirs = @($SourceDir, (Join-Path $env:USERPROFILE 'Downloads'), (Join-Path $env:USERPROFILE 'Desktop')) | Where-Object { $_ }
-    $Msi = $dirs | ForEach-Object { Get-ChildItem $_ -Filter '*Virus TI*.msi' -ErrorAction SilentlyContinue } |
-        Where-Object Name -NotMatch 'TI Revive' | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
+# ---- the user part --------------------------------------------------------------------------------------------------
+$product = AccessProduct
+$remove = $false
+if ($product) {
+    $remove = Ask ("The full Access Virus TI software is installed (from an earlier TI Revive): the original plug-in " +
+        "`"Virus TI`", the Access ASIO and USB drivers and the Control Center. TI Revive no longer uses them.`n`n" +
+        "Remove it? The files TI Revive's plug-in needs (skin, ROM banks, manuals) and your patch libraries stay.")
 }
-if (-not $Msi) {
-    $dlg = New-Object System.Windows.Forms.OpenFileDialog
-    $dlg.Title = 'Select the Access "Virus TI Software Suite" installer (64-bit .msi)'
-    $dlg.Filter = 'Windows Installer (*.msi)|*.msi'
-    if ($dlg.ShowDialog() -ne 'OK') { exit 1 }
-    $Msi = $dlg.FileName
-}
-
-$work = Join-Path $env:TEMP 'tirevive-access'
-New-Item -ItemType Directory -Force $work | Out-Null
-$copy = Join-Path $work 'VirusTI-without-drivers.msi'
-Copy-Item $Msi $copy -Force
-(Get-Item $copy).IsReadOnly = $false
-$skip = 'ConnectDevicesDialog', 'PrepareDriverInstall', 'InstallDrivers', 'FinishDriverInstall', 'InstallRunOnceEntry',
-        'ApplyOptimization', 'UpdateFirmware'
-$installer = New-Object -ComObject WindowsInstaller.Installer
-$db = $installer.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $installer, @([string]$copy, [int]1))
-foreach ($table in 'InstallExecuteSequence', 'InstallUISequence') {
-    foreach ($a in $skip) {
-        $view = $db.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $db,
-            @([string]"UPDATE ``$table`` SET ``Condition`` = '0' WHERE ``Action`` = '$a'"))
-        $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null) | Out-Null
-        $view.GetType().InvokeMember('Close', 'InvokeMethod', $null, $view, $null) | Out-Null
-        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($view) | Out-Null
+$extracted = $null
+if (-not (HaveFiles)) {
+    if (-not $Msi) {
+        $dirs = @($SourceDir, (Join-Path $env:USERPROFILE 'Downloads'), (Join-Path $env:USERPROFILE 'Desktop')) | Where-Object { $_ }
+        $Msi = $dirs | ForEach-Object { Get-ChildItem $_ -Filter '*Virus TI*.msi' -ErrorAction SilentlyContinue } |
+            Where-Object Name -NotMatch 'TI Revive' | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
+    }
+    if (-not $Msi -and -not $Quiet) {
+        Add-Type -AssemblyName System.Windows.Forms
+        $dlg = New-Object System.Windows.Forms.OpenFileDialog
+        $dlg.Title = 'Select the Access "Virus TI Software Suite" installer (64-bit .msi)'
+        $dlg.Filter = 'Windows Installer (*.msi)|*.msi'
+        if ($dlg.ShowDialog() -eq 'OK') { $Msi = $dlg.FileName }
+    }
+    if (-not $Msi) { Say 'No Access "Virus TI Software Suite" .msi selected: nothing was set up.' 'Warning'; exit 1 }
+    $extracted = Join-Path $env:TEMP 'tirevive-access-extract'
+    Remove-Item -Recurse -Force $extracted -ErrorAction SilentlyContinue
+    for ($i = 0; $i -lt 60; $i++) { # launched from the TI Revive exit dialog: that installation may still hold the mutex
+        $p = Start-Process msiexec.exe -ArgumentList "/a `"$Msi`" /qn TARGETDIR=`"$extracted`"" -Wait -PassThru
+        if ($p.ExitCode -ne 1618) { break }
+        Start-Sleep 2
+    }
+    if ($p.ExitCode -ne 0 -or -not (Test-Path (Join-Path $extracted 'Access Music\Virus TI\Common\Virus Control.dll'))) {
+        Say "Unpacking the Access installer failed (code $($p.ExitCode)). Is it the 64-bit `"Virus TI Software Suite`" .msi?" 'Error'
+        exit 1
+    }
+    # the factory patch libraries into the user's Documents (no admin needed; existing files stay untouched)
+    $docs = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Access Music\Virus TI\Patches'
+    $lib = Join-Path $extracted 'PersonalFiles\Access Music\Virus TI\Patches'
+    if (Test-Path $lib) {
+        Get-ChildItem $lib -Recurse -File | ForEach-Object {
+            $dst = Join-Path $docs $_.FullName.Substring($lib.Length).TrimStart('\')
+            if (-not (Test-Path $dst)) {
+                New-Item -ItemType Directory -Force (Split-Path -Parent $dst) | Out-Null
+                Copy-Item $_.FullName $dst
+            }
+        }
     }
 }
-$db.GetType().InvokeMember('Commit', 'InvokeMethod', $null, $db, $null) | Out-Null
-[System.Runtime.InteropServices.Marshal]::ReleaseComObject($db) | Out-Null
-[System.Runtime.InteropServices.Marshal]::ReleaseComObject($installer) | Out-Null
-$db = $null; $installer = $null; [GC]::Collect(); [GC]::WaitForPendingFinalizers() # else msiexec: 1619
-
-# launched from the TI Revive exit dialog: that installation may still hold the installer mutex (1618)
-$log = Join-Path $work 'install.log'
-for ($i = 0; $i -lt 60; $i++) {
-    $p = Start-Process msiexec.exe -ArgumentList "/i `"$copy`" /qb /norestart /l*v `"$log`"" -Wait -PassThru
-    if ($p.ExitCode -ne 1618) { break }
-    Start-Sleep 2
+# the patch libraries in Documents survive the removal of the Access software (it would take its factory files along)
+$docs = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Access Music\Virus TI\Patches'
+$backup = Join-Path $env:TEMP 'tirevive-access-patches'
+if ($remove -and (Test-Path $docs)) {
+    Remove-Item -Recurse -Force $backup -ErrorAction SilentlyContinue
+    Copy-Item -Recurse $docs $backup
 }
-# Access' own Control Center shortcuts start it without the bridge: replace them (tirevive-shortcuts.ps1, admin,
-# one UAC prompt).
-if ($p.ExitCode -in 0, 3010) {
-    $sc = Join-Path $PSScriptRoot 'tirevive-shortcuts.ps1'
-    Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue `
-        -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$sc`" install"
+if ($remove -or $extracted) { # one UAC prompt for both
+    $argline = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`" -Elevated"
+    if ($remove) { $argline += ' -RemoveAccess' }
+    if ($extracted) { $argline += " -Extracted `"$extracted`"" }
+    if ($Quiet) { & $PSCommandPath -Elevated -RemoveAccess:$remove -Extracted $extracted }
+    else { Start-Process powershell.exe -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList $argline }
 }
-switch ($p.ExitCode) {
-    0 { Say 'The Access Virus TI software is installed (without its old drivers). Use the plug-in "Virus TI (TI Revive)" in your DAW.' }
-    3010 { Say 'The Access Virus TI software is installed. Please restart Windows.' }
-    1602 { Say 'Installation of the Access software was cancelled.' 'Warning' }
-    default { Say "Installing the Access software failed (code $($p.ExitCode)). Log: $log" 'Error' }
+if (Test-Path $backup) {
+    Get-ChildItem $backup -Recurse -File | ForEach-Object {
+        $dst = Join-Path $docs $_.FullName.Substring($backup.Length).TrimStart('\')
+        if (-not (Test-Path $dst)) {
+            New-Item -ItemType Directory -Force (Split-Path -Parent $dst) | Out-Null
+            Copy-Item $_.FullName $dst
+        }
+    }
+    Remove-Item -Recurse -Force $backup -ErrorAction SilentlyContinue
 }
-exit $p.ExitCode
+if ($extracted) { Remove-Item -Recurse -Force $extracted -ErrorAction SilentlyContinue }
+if (HaveFiles) {
+    $msg = 'The Access Virus TI files are set up. Use the plug-in "TI Revive Virus Control" in your DAW'
+    if ($remove -and -not (AccessProduct)) { $msg += '; the old Access software was removed' }
+    Say "$msg."
+    exit 0
+}
+Say 'The Access Virus TI files are still missing (was the admin prompt declined?). Run "Set up Access Virus TI files" from the Start menu again.' 'Warning'
+exit 1

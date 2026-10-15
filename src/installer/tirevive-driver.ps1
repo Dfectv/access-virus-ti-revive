@@ -62,7 +62,7 @@ if ($Action -eq 'install') {
     }
     pnputil /scan-devices | Out-Null
     Remove-Item $stage -Recurse -Force
-    & (Join-Path $here 'tirevive-shortcuts.ps1') install # if the Access software is already installed
+    & (Join-Path $here 'tirevive-shortcuts.ps1') uninstall # 0.8.0: no Control Center launcher - shortcuts of 0.7.x back to Access'
 } else {
     & (Join-Path $here 'tirevive-shortcuts.ps1') uninstall
     $p = Get-ItemProperty $reg -ErrorAction SilentlyContinue

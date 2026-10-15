@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   TIRevive.wxs - MSI for "TI Revive" (milestone M6, findings/design.md). Build: src/installer/build.ps1 (WiX 5) or .github/workflows/build.yml.
-  Per-machine install of our files only; the user's Access MSI is installed afterwards by tirevive-access.ps1
-  (exit dialog checkbox / Start menu), because Windows forbids nested MSI installs.
+  Per-machine install of our files only; the files of the user's Access MSI that the plug-in reads are unpacked
+  afterwards by tirevive-access.ps1 (exit dialog checkbox / Start menu) - the Access software is not installed.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
@@ -31,37 +31,18 @@
              start it on demand (found via InstallDir) and it exits when no client has been connected for 30 s -->
         <RegistryValue Root="HKLM" Key="Software\TI Revive" Name="InstallDir" Type="string" Value="[INSTALLFOLDER]" />
       </Component>
-      <Component><File Source="$(var.Bin)\vtilaunch.exe" /></Component>
-      <Component><File Source="$(var.Bin)\vtiemu-pipe.dll" /></Component>
-      <!-- ASIO driver "Virus TI (TI Revive)": wraps the user's original Access ASIO driver (vtiasio.c) -->
-      <Component>
-        <File Id="tireviveasio" Source="$(var.Bin)\TIRevive_ASIO.dll" KeyPath="yes" />
-        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{6FD63640-1E0A-4EE0-9158-732A1077C8B5}" Type="string"
-                       Value="Virus TI (TI Revive)" />
-        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{6FD63640-1E0A-4EE0-9158-732A1077C8B5}\InprocServer32"
-                       Type="string" Value="[#tireviveasio]" />
-        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{6FD63640-1E0A-4EE0-9158-732A1077C8B5}\InprocServer32"
-                       Name="ThreadingModel" Type="string" Value="Apartment" />
-        <RegistryValue Root="HKLM" Key="Software\ASIO\Virus TI (TI Revive)" Name="CLSID" Type="string"
-                       Value="{6FD63640-1E0A-4EE0-9158-732A1077C8B5}" />
-        <RegistryValue Root="HKLM" Key="Software\ASIO\Virus TI (TI Revive)" Name="Description" Type="string"
-                       Value="Virus TI (TI Revive)" />
-      </Component>
+      <!-- 0.8.0: the classic plug-in "Virus TI (TI Revive)" (wrapper of the Access plug-in), its ASIO wrapper and the
+           Control Center launcher are gone - "TI Revive Virus Control" (native.wxs) replaces them; an upgrade
+           removes their files because they are no longer part of the package -->
       <Component><File Source="$(var.Src)\inf\vti_winusb.inf" /></Component>
       <Component><File Id="driverps1" Source="$(var.Src)\installer\tirevive-driver.ps1" /></Component>
       <Component><File Id="accessps1" Source="$(var.Src)\installer\tirevive-access.ps1" /></Component>
       <Component><File Id="shortcutsps1" Source="$(var.Src)\installer\tirevive-shortcuts.ps1" /></Component>
       <Component><File Source="$(var.Src)\installer\notice.rtf" /></Component>
     </ComponentGroup>
-    <ComponentGroup Id="Plugin" Directory="VST3FOLDER">
-      <Component><File Source="$(var.Bin)\VirusTI_WinUSB.vst3" Name="Virus TI (TI Revive).vst3" /></Component>
-    </ComponentGroup>
     <ComponentGroup Id="Menu" Directory="MENUFOLDER">
       <Component Id="MenuShortcuts" Guid="7C1D3F2E-1B5A-4C8E-9A2D-3E4F5A6B7C8D">
-        <Shortcut Id="ccShortcut" Name="Virus Control Center (TI Revive)" Target="[INSTALLFOLDER]vtilaunch.exe"
-                  Arguments="&quot;[ProgramFiles64Folder]Access Music\Virus TI\Common\Virus Control Center.exe&quot;"
-                  WorkingDirectory="INSTALLFOLDER" />
-        <Shortcut Id="accessShortcut" Name="Install Access Virus TI software" Target="[System64Folder]WindowsPowerShell\v1.0\powershell.exe"
+        <Shortcut Id="accessShortcut" Name="Set up Access Virus TI files" Target="[System64Folder]WindowsPowerShell\v1.0\powershell.exe"
                   Arguments="-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;[INSTALLFOLDER]tirevive-access.ps1&quot;"
                   WorkingDirectory="INSTALLFOLDER" />
         <RemoveFolder Id="RemoveMenuFolder" On="uninstall" />
@@ -71,7 +52,6 @@
 
     <Feature Id="Main" Title="TI Revive" Level="1">
       <ComponentGroupRef Id="Core" />
-      <ComponentGroupRef Id="Plugin" />
       <ComponentGroupRef Id="Menu" />
 <?if $(var.Native) = "1" ?>
       <!-- the native plug-in "TI Revive Virus Control" + ASIO driver "TI Revive Virus Audio" (native/packaging/windows/native.wxs) -->
@@ -97,7 +77,7 @@
     </InstallExecuteSequence>
 
     <!-- exit dialog: install the user's Access software now (as the user; msiexec elevates itself) -->
-    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Install the Access Virus TI software now (recommended)" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Set up the Access Virus TI files now (recommended)" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
     <CustomAction Id="CA_LaunchAccess" Directory="INSTALLFOLDER" Return="asyncNoWait" Impersonate="yes"
                   ExeCommand="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;[INSTALLFOLDER]tirevive-access.ps1&quot; -FromMsi &quot;[OriginalDatabase]&quot; -SourceDir &quot;[TIREVIVE_SOURCEDIR]&quot;" />
