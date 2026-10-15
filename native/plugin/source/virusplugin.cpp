@@ -101,9 +101,23 @@ void DeviceOut::release_owner()
 void DeviceOut::send(std::vector<uint8_t> msg)
 {
     std::lock_guard<std::mutex> lk(mu_);
-    queue_.push_back(std::move(msg));
+    queue_.push_back({std::move(msg), false});
     queued_++;
     cv_.notify_one();
+}
+
+int DeviceOut::send_state(std::vector<std::vector<uint8_t>> records)
+{
+    std::lock_guard<std::mutex> lk(mu_);
+    size_t before = queue_.size();
+    queue_.erase(std::remove_if(queue_.begin(), queue_.end(), [](const Queued &q) { return q.state; }), queue_.end());
+    int dropped = (int)(before - queue_.size());
+    queued_ -= dropped;
+    for (auto &r : records)
+        queue_.push_back({std::move(r), true});
+    queued_ += (int)records.size();
+    cv_.notify_one();
+    return dropped;
 }
 
 bool DeviceOut::send_rt(const uint8_t *msg, size_t n, int64_t stamp)
@@ -321,7 +335,7 @@ void DeviceOut::run()
                 rt_run_++;
             } else if (!queue_.empty()) {
                 rt_run_ = 0;
-                msg = std::move(queue_.front());
+                msg = std::move(queue_.front().msg);
                 queue_.pop_front();
                 pending_send_ = true; // counted down after the write, so busy() covers the transfer
             }
@@ -768,8 +782,8 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             if (err > out_->err_max.load(std::memory_order_relaxed))
                 out_->err_max.store(err, std::memory_order_relaxed);
         }
-        if (!tl_valid_ && out_->busy())
-            stream_start_ = newest; // wait until the start-up messages and the state are through
+        if (!tl_valid_ && (out_->busy() || !ready_.load(std::memory_order_relaxed)))
+            stream_start_ = newest; // wait until the Virus has worked through the start-up messages and the state
         // the sync ping goes with the anchor: like the original, after 1 s of silence on USB 1/2 so its marker can be
         // found (at most 6 s later; without a marker the stamps stay relative to the ring)
         bool quiet = out_->last_sound.load() < newest - 44100;
@@ -1437,24 +1451,49 @@ bool VirusPlugin::wait_until_quiet()
     return !stop_warm_;
 }
 
-void VirusPlugin::sync_banks()
+void VirusPlugin::wait_virus_ready()
 {
-    for (int i = 0; i < 40 && !stop_warm_; i++) // 4 s: after the start-up messages and the state
+    // Our queue empties long before the Virus has digested it: after a takeover (530 queued messages) notes sent 4 s
+    // later still played 1.8 s late and the first sync ping went unanswered (E148). The Virus handles its MIDI input
+    // in order (E144), so a request queued behind the start-up messages and the state is answered only when they are
+    // done: the single dump request of part 1's edit buffer (30 00 00, read-only, as the bank sync and E145 use it).
+    const int64_t t0 = now_ms();
+    while (!stop_warm_ && out_ && (!out_->connected() || out_->waiting()) && now_ms() - t0 < 4000)
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    // until here the Virus works through the start-up messages and the state and plays notes up to 1.6 s late, so
-    // note-ons were held back; from now on notes play, and the sync pauses while they arrive (dump requests delay
-    // the Virus' notes by ~130 ms and the sync stalls - measured 2026-10-14)
     if (!stop_warm_ && out_ && out_->waiting()) {
         // another instance owns the Virus (issue #6): this one starts up when it takes over, with the same start
-        // page and note hold as a first start - else its notes play up to 1.6 s late behind its start-up SysEx and
-        // the sync ping finds no marker (seen in the first takeover test)
+        // page and note hold as a first start
         set_sync_progress(127); // the "Virus unavailable" page instead of the start page
         while (!stop_warm_ && out_->waiting())
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         set_sync_progress(0);
-        for (int i = 0; i < 40 && !stop_warm_; i++)
+        const int64_t t1 = now_ms();
+        while (!stop_warm_ && !out_->connected() && now_ms() - t1 < 4000)
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
+    if (stop_warm_ || !out_ || !out_->connected()) { // no Virus: nothing to wait for
+        ready_ = true;
+        return;
+    }
+    const int64_t tp = now_ms();
+    // one try: a second request behind a slow first one would only lengthen the Virus' backlog
+    Dump r = sync_->transact({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x30, 0x00, 0x00, 0xF7}, {0x10, 0x00, 0x00}, 10000, 1);
+    out_->log("Virus TI native: Virus ready after %.1f s%s\n", (now_ms() - tp) / 1000.0,
+              r.empty() ? " (no reply to the probe)" : "");
+    ready_ = true;
+    // process() anchors now and sends the ping (0.5 s of stream, 1 s of silence); notes stay held until its marker
+    // is found, so the first notes are stamped on the Virus' clock (at most 3 s, else stamps stay ring-relative)
+    const int64_t tm = now_ms();
+    while (!stop_warm_ && out_->marker.load() < 0 && now_ms() - tm < 3000)
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+}
+
+void VirusPlugin::sync_banks()
+{
+    // until the Virus is ready it works through the start-up messages and the state and plays notes up to 1.6 s late
+    // (E144), so note-ons are held back; from then on notes play, and the sync pauses while they arrive (dump requests
+    // delay the Virus' notes by ~130 ms and the sync stalls - measured 2026-10-14)
+    wait_virus_ready();
     starting_ = false;
     if (stop_warm_ || !out_ || !out_->connected()) { // no Virus: no sync, the editor as usual
         syncing_ = false;
@@ -2026,14 +2065,15 @@ void VirusPlugin::send_state()
     if (!out_)
         return;
     std::lock_guard<std::mutex> lk(state_mu_);
-    int n = 0;
+    std::vector<std::vector<uint8_t>> recs;
     for (auto &r : state_)
-        if (!r.empty() && !(r.size() > 2 && r[0] == 0xF0 && r[1] == 0x7D)) { // not our editor-only records
-            out_->send(r);
-            n++;
-        }
-    out_->log("Virus TI native: state sent (%d messages, part 1 \"%s\", device %s)\n", n, part1_name(state_).c_str(),
-              out_->connected() ? "connected" : "not yet connected");
+        if (!r.empty() && !(r.size() > 2 && r[0] == 0xF0 && r[1] == 0x7D)) // not our editor-only records
+            recs.push_back(r);
+    const int n = (int)recs.size();
+    const int dropped = out_->send_state(std::move(recs));
+    out_->log("Virus TI native: state sent (%d messages, part 1 \"%s\", device %s)%s\n", n, part1_name(state_).c_str(),
+              out_->connected() ? "connected" : "not yet connected",
+              dropped ? (" - replaces " + std::to_string(dropped) + " queued records of the previous state").c_str() : "");
 }
 
 tresult PLUGIN_API VirusPlugin::setState(IBStream *state)

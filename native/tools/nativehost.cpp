@@ -1,6 +1,8 @@
 // nativehost - minimal VST3 test host for the native plug-in on Linux/macOS (R3 checks).
 //   nativehost <plugin.vst3> [--state FILE] [--param ID=NORM]... [--save FILE] [--seconds N] [--notes] [--wav FILE] [--scan]
 // --notes plays C4 (channel 1) for the first half of every second, --wav writes Out 1 (16-bit stereo 44.1 kHz).
+// --duplicate T: a second instance runs next to the first from the start (a DAW's duplicated track, issue #6) with
+// the same notes; at T s the first is removed and the second takes over the Virus.
 // --state loads a state (a raw component state, or vtihost's VTISTATE file: the original's state), checks that
 // getState returns it unchanged, --param applies parameter changes through process(), --save writes getState.
 #include "public.sdk/source/common/memorystream.h"
@@ -192,6 +194,7 @@ int main(int argc, char **argv)
     const char *state = nullptr, *save = nullptr, *wav = nullptr;
     bool notes = false, editor = false, stress = false, stress_notes = true, stress_params = true, scan = false;
     double stress_stop = 1e9;
+    double duplicate = 0; // --duplicate T: remove the first of two instances after T s
     std::vector<std::pair<double, double>> aheads; // (at s, ms)
     int block = 512; // --block N: host block size
     int rate = 44100; // --rate N: host sample rate
@@ -252,6 +255,8 @@ int main(int argc, char **argv)
                 sscanf(v.c_str(), "%d,%d,%d", &a.x, &a.y, &a.dy);
             actions.push_back(a);
         }
+        else if (!strcmp(argv[i], "--duplicate") && i + 1 < argc)
+            duplicate = atof(argv[++i]);
         else if (!strcmp(argv[i], "--seconds") && i + 1 < argc)
             seconds = atof(argv[++i]);
         else if (!strcmp(argv[i], "--param") && i + 1 < argc) {
@@ -348,6 +353,31 @@ int main(int argc, char **argv)
     HostProcessData data;
     data.prepare(*comp, block, kSample32);
     data.numSamples = block;
+    // --duplicate: the second instance, activated after the first like a DAW adding a track
+    IPtr<IComponent> comp2;
+    FUnknownPtr<IAudioProcessor> proc2;
+    HostProcessData data2;
+    ParameterChanges pc2, outpc2;
+    if (duplicate > 0) {
+        comp2 = factory.createInstance<IComponent>(audio.ID());
+        if (!comp2) {
+            fprintf(stderr, "nativehost: second createInstance failed\n");
+            return 1;
+        }
+        printf("duplicate: initialize -> %d\n", (int)comp2->initialize(host));
+        proc2 = FUnknownPtr<IAudioProcessor>(comp2);
+        proc2->setupProcessing(ps);
+        comp2->setActive(true);
+        proc2->setProcessing(true);
+        data2.prepare(*comp2, block, kSample32);
+        data2.numSamples = block;
+        // a DAW's duplicate gets the original's state after its activation (Ableton: a second state upload, E149)
+        auto st = get_state(comp);
+        auto *ms = new MemoryStream(st.data(), (TSize)st.size());
+        printf("duplicate: setState(%zu bytes) -> %d\n", st.size(), (int)comp2->setState(ms));
+        ms->release();
+    }
+    HostProcessData *outd = &data; // the instance whose output is measured / written
     ParameterChanges pc, outpc;
     EventList ev;
     std::vector<int16_t> pcm;
@@ -412,7 +442,26 @@ int main(int argc, char **argv)
         data.inputParameterChanges = &pc;
         outpc.clearQueue();
         data.outputParameterChanges = &outpc;
-        proc->process(data);
+        if (proc)
+            proc->process(data);
+        if (proc2) { // the duplicate plays the same notes (same clip on the duplicated track)
+            data2.inputEvents = &ev;
+            pc2.clearQueue();
+            data2.inputParameterChanges = &pc2;
+            outpc2.clearQueue();
+            data2.outputParameterChanges = &outpc2;
+            proc2->process(data2);
+        }
+        if (comp2 && proc && b * (double)block >= duplicate * (double)rate) {
+            // the user deletes the original track: the duplicate takes over the Virus
+            printf("duplicate: removing the first instance at %.1f s\n", b * (double)block / (double)rate);
+            fflush(stdout);
+            proc->setProcessing(false);
+            comp->setActive(false);
+            comp->terminate();
+            proc = nullptr;
+            outd = &data2;
+        }
         for (int32 i = 0; i < outpc.getParameterCount(); i++) { // device -> host (knobs on the Virus)
             IParamValueQueue *q = outpc.getParameterData(i);
             int32 off;
@@ -430,8 +479,8 @@ int main(int argc, char **argv)
                 printf("from the Virus: %u %s = %.3f\n", (unsigned)q->getParameterId(), t, v);
             }
         }
-        if (data.numOutputs > 0 && data.outputs[0].numChannels >= 2) {
-            float *l = data.outputs[0].channelBuffers32[0], *r = data.outputs[0].channelBuffers32[1];
+        if (outd->numOutputs > 0 && outd->outputs[0].numChannels >= 2) {
+            float *l = outd->outputs[0].channelBuffers32[0], *r = outd->outputs[0].channelBuffers32[1];
             for (int i = 0; i < block; i++) {
                 if (!std::isfinite(l[i]) || !std::isfinite(r[i])) {
                     static int bad;
@@ -546,6 +595,16 @@ int main(int argc, char **argv)
             fclose(f);
             printf("wrote %s\n", wav);
         }
+    }
+    if (comp2 && !proc) { // the first instance is gone: the duplicate is the one to finish
+        comp = comp2;
+        proc = proc2;
+        proc2 = nullptr;
+    }
+    if (proc2) { // --duplicate longer than --seconds: both still run
+        proc2->setProcessing(false);
+        comp2->setActive(false);
+        comp2->terminate();
     }
     proc->setProcessing(false);
     comp->setActive(false);

@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-15 (0.8.5: single-instance fix, issue #6; Status table brought up to date). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E148), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E149), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## 0.8.5 (2026-10-15): issue #6, duplicated track puts the Virus out of time (merged from branch single-instance)
@@ -20,6 +20,14 @@ Evidence: [evidence.md](evidence.md) (E001-E148), protocol: [spec.md](spec.md); 
 - Test 2 (CI run 38793336069): works (user); the first ping after a takeover still unanswered, marker ~13 s later
   (open, minor). Merged to main, released as 0.8.5. Open: macOS/Linux quick check of a duplicate.
 - Not covered: two different DAWs on Windows still share the Virus (broker without owner on Windows).
+- Branch `virus-ready` (after 0.8.5, E149): the fixed 4 s note hold is replaced by a readiness probe (single dump
+  request `30 00 00` queued behind the start-up messages + state; its reply = the Virus is through); the timeline
+  anchors and pings only after it, notes wait up to 3 s for the marker. Cause of the unanswered first ping: the
+  Virus was still digesting 530 queued messages (two state uploads queued while waiting). nativehost `--duplicate T`
+  = takeover test. Tested on Linux (TI Desktop): first start + takeover, marker on the first ping, K 6024 for all
+  notes. Windows (VM, Ableton 11, CI run 38797985200, package 0.8.7): first start + takeover playing/stopped,
+  ready after 3.9 / 6.9 / 6.8 s, marker on every first ping, works (user). Open: the double state upload of a waiting instance (only the newest is
+  needed), the reconnect path (device back) still has no note hold.
 
 ## 0.8.4 (2026-10-15): editor sizes (merged from branch ui-scaling)
 
