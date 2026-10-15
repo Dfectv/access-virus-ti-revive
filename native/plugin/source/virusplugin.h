@@ -214,6 +214,7 @@ public:
         return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
     }
     bool wait_until_quiet(); // the bank sync's before_request: waits while notes arrive (playing has priority)
+    void wait_virus_ready(); // the bank sync thread at start-up / takeover: probe, then the sync marker (see .cpp)
     void set_sync_progress(int v); // the original's start-up page: 0..126 shown, 127 hidden
     std::string category_name_(); // the selected category filter's name
     void set_search(const std::string &s);
@@ -364,6 +365,9 @@ private:
     void load_rom_banks(); // ROM A.. from the user's firmware.bin for the connected model
     std::atomic<bool> syncing_{false};
     std::atomic<bool> starting_{false}; // start-up messages + state on their way: note-ons are held back
+    // the Virus answered the readiness probe (wait_virus_ready): it has worked through the start-up messages and the
+    // state, so the timeline may anchor and send the sync ping
+    std::atomic<bool> ready_{false};
     std::atomic<int> model_{0}; // 0 = TI2, 1 = TI, 2 = Snow (from the device descriptor)
     std::map<Steinberg::Vst::ParamID, Mapped> params_;
     std::map<std::pair<std::string, int>, Steinberg::Vst::ParamID> ids_; // (path, part 0-based) -> id
