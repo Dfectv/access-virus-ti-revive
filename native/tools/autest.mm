@@ -1,0 +1,127 @@
+// autest.mm - test host for the Audio Unit (au/tirevive_au.mm): loads a component bundle directly and calls its factory,
+// registers it in this process (AudioComponentRegister), so it works over SSH (auval needs the GUI session's registry). Opens the unit, optionally restores an AU state
+// (ClassInfo, e.g. one in the classic TI Revive Audio Unit's format) and saves the current one, plays notes and
+// renders, and saves the Cocoa view as PNG.
+// Build: clang++ -std=c++17 -fobjc-arc -o autest autest.mm -framework Cocoa -framework AudioToolbox -framework AudioUnit
+// usage: autest <X.component> [--load state.plist] [--save state.plist] [--png view.png] [--seconds N]
+#import <AudioToolbox/AudioToolbox.h>
+#import <AudioUnit/AUCocoaUIView.h>
+#import <Cocoa/Cocoa.h>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <dlfcn.h>
+#include <string>
+#include <vector>
+
+
+int main(int argc, char **argv)
+{
+    if (argc < 2)
+        return fprintf(stderr, "usage: autest <X.component> [--load f] [--save f] [--png f] [--seconds N]\n"), 1;
+    const char *load = nullptr, *save = nullptr, *png = nullptr;
+    int secs = 2;
+    for (int i = 2; i + 1 < argc; i += 2) {
+        if (!strcmp(argv[i], "--load")) load = argv[i + 1];
+        else if (!strcmp(argv[i], "--save")) save = argv[i + 1];
+        else if (!strcmp(argv[i], "--png")) png = argv[i + 1];
+        else if (!strcmp(argv[i], "--seconds")) secs = atoi(argv[i + 1]);
+    }
+    @autoreleasepool {
+        [NSApplication sharedApplication];
+        NSBundle *b = [NSBundle bundleWithPath:[NSString stringWithUTF8String:argv[1]]];
+        NSDictionary *ac = [[b infoDictionary][@"AudioComponents"] firstObject];
+        if (!b || !ac)
+            return fprintf(stderr, "no component bundle\n"), 1;
+        void *h = dlopen([[b executablePath] UTF8String], RTLD_NOW);
+        void *f = h ? dlsym(h, [ac[@"factoryFunction"] UTF8String]) : nullptr;
+        if (!f)
+            return fprintf(stderr, "factory %s not found (%s)\n", [ac[@"factoryFunction"] UTF8String], dlerror()), 1;
+        auto code = [](NSString *s) {
+            const char *c = [s UTF8String];
+            return (OSType)((c[0] << 24) | (c[1] << 16) | (c[2] << 8) | c[3]);
+        };
+        AudioComponentDescription d = {code(ac[@"type"]), code(ac[@"subtype"]), code(ac[@"manufacturer"]), 0, 0};
+        // registered in this process only (works over SSH, without the GUI session's AU registry)
+        AudioComponent comp = AudioComponentRegister(&d, (__bridge CFStringRef)ac[@"name"],
+                                                     [ac[@"version"] unsignedIntValue], (AudioComponentFactoryFunction)f);
+        AudioUnit au = nullptr;
+        OSStatus st = comp ? AudioComponentInstanceNew(comp, &au) : -1;
+        printf("open %s -> %d\n", [ac[@"name"] UTF8String], (int)st);
+        if (st)
+            return 1;
+        auto get = [&](AudioUnitPropertyID id, AudioUnitScope sc, AudioUnitElement el, void *data, UInt32 *size) {
+            return AudioUnitGetProperty(au, id, sc, el, data, size);
+        };
+        auto set = [&](AudioUnitPropertyID id, AudioUnitScope sc, AudioUnitElement el, const void *data, UInt32 size) {
+            return AudioUnitSetProperty(au, id, sc, el, data, size);
+        };
+        UInt32 maxf = 512, sz = sizeof maxf;
+        set(kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &maxf, sz);
+        st = AudioUnitInitialize(au);
+        printf("initialize -> %d\n", (int)st);
+        if (load) { // an AU state file (plist)
+            NSData *data = [NSData dataWithContentsOfFile:[NSString stringWithUTF8String:load]];
+            CFPropertyListRef pl = data ? (__bridge_retained CFPropertyListRef)[NSPropertyListSerialization
+                                                  propertyListWithData:data options:0 format:nil error:nil]
+                                        : nullptr;
+            st = pl ? set(kAudioUnitProperty_ClassInfo, kAudioUnitScope_Global, 0, &pl, sizeof pl) : -1;
+            printf("ClassInfo set from %s -> %d\n", load, (int)st);
+        }
+        // play: C4 on/off per second, render 512-frame blocks in real time
+        AudioTimeStamp ts = {};
+        ts.mFlags = kAudioTimeStampSampleTimeValid;
+        std::vector<float> l(512), r(512);
+        float peak = 0;
+        int blocks = secs * 44100 / 512;
+        for (int i = 0; i < blocks; i++) {
+            if (i % 86 == 0)
+                MusicDeviceMIDIEvent(au, 0x90, 60, 100, 0);
+            if (i % 86 == 43)
+                MusicDeviceMIDIEvent(au, 0x80, 60, 0, 0);
+            struct { UInt32 n; AudioBuffer b[2]; } abl = {2, {{1, 512 * 4, l.data()}, {1, 512 * 4, r.data()}}};
+            AudioUnitRenderActionFlags fl = 0;
+            st = AudioUnitRender(au, &fl, &ts, 0, 512, (AudioBufferList *)&abl);
+            for (float v : l)
+                peak = std::max(peak, std::fabs(v));
+            ts.mSampleTime += 512;
+            [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:512.0 / 44100]];
+        }
+        printf("render -> %d, peak %.3f over %d s\n", (int)st, peak, secs);
+        if (save) {
+            CFPropertyListRef pl = nullptr;
+            sz = sizeof pl;
+            st = get(kAudioUnitProperty_ClassInfo, kAudioUnitScope_Global, 0, &pl, &sz);
+            NSData *out = pl ? [NSPropertyListSerialization dataWithPropertyList:(__bridge id)pl
+                                                                          format:NSPropertyListXMLFormat_v1_0
+                                                                         options:0 error:nil]
+                             : nil;
+            printf("ClassInfo get -> %d, saved %s\n", (int)st, [out writeToFile:[NSString stringWithUTF8String:save]
+                                                                    atomically:YES] ? save : "FAILED");
+        }
+        if (png) { // the Cocoa view, drawn offscreen
+            UInt32 vsz = 0;
+            Boolean w;
+            if (AudioUnitGetPropertyInfo(au, kAudioUnitProperty_CocoaUI, kAudioUnitScope_Global, 0, &vsz, &w) == noErr && vsz) {
+                std::vector<char> buf(vsz);
+                get(kAudioUnitProperty_CocoaUI, kAudioUnitScope_Global, 0, buf.data(), &vsz);
+                auto *info = (AudioUnitCocoaViewInfo *)buf.data();
+                NSBundle *vb = [NSBundle bundleWithURL:(__bridge NSURL *)info->mCocoaAUViewBundleLocation];
+                Class cls = [vb classNamed:(__bridge NSString *)info->mCocoaAUViewClass[0]];
+                id<AUCocoaUIBase> factory = [[cls alloc] init];
+                NSView *v = [factory uiViewForAudioUnit:au withSize:NSMakeSize(907, 513)];
+                for (int k = 0; k < 40; k++)
+                    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+                NSBitmapImageRep *rep = [v bitmapImageRepForCachingDisplayInRect:[v bounds]];
+                [v cacheDisplayInRect:[v bounds] toBitmapImageRep:rep];
+                NSData *p = [rep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+                printf("view %.0fx%.0f, png %s\n", v.bounds.size.width, v.bounds.size.height,
+                       [p writeToFile:[NSString stringWithUTF8String:png] atomically:YES] ? "written" : "FAILED");
+            } else
+                printf("no Cocoa view\n");
+        }
+        AudioUnitUninitialize(au);
+        AudioComponentInstanceDispose(au);
+    }
+    return 0;
+}
