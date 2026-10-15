@@ -1,7 +1,7 @@
 From b10fb089f82a1deb216292f090ee005cf6aeb61f Mon Sep 17 00:00:00 2001
 From: derpsn <callmederpsn@proton.me>
 Date: Wed, 14 Oct 2026 20:09:58 +0200
-Subject: [PATCH 2/9] Mac and Linux packages: the native plug-in when native/
+Subject: [PATCH 02/13] Mac and Linux packages: the native plug-in when native/
  is present (built universal / on Linux), installers and uninstallers; the old
  test bundle VirusTINative.vst3 is removed
 

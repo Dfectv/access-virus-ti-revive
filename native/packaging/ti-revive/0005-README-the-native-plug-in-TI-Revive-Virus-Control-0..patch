@@ -1,7 +1,7 @@
 From e2d8f085f6089547ae9120077782ba225a48a6ef Mon Sep 17 00:00:00 2001
 From: derpsn <callmederpsn@proton.me>
 Date: Wed, 14 Oct 2026 20:12:49 +0200
-Subject: [PATCH 5/9] README: the native plug-in TI Revive Virus Control
+Subject: [PATCH 05/13] README: the native plug-in TI Revive Virus Control
  (0.8.0), status, building, layout
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

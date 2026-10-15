@@ -1,8 +1,8 @@
 From 93923426a56c77fd505942ed6c7f3024eb3f72a8 Mon Sep 17 00:00:00 2001
 From: derpsn <callmederpsn@proton.me>
 Date: Wed, 14 Oct 2026 21:51:54 +0200
-Subject: [PATCH 8/9] Release workflow: the native Linux plug-in in its own job
- on Ubuntu 22.04; the Linux package job stays on 24.04 (mingw)
+Subject: [PATCH 08/13] Release workflow: the native Linux plug-in in its own
+ job on Ubuntu 22.04; the Linux package job stays on 24.04 (mingw)
 
 Rehearsal: on 22.04 the Wine-side wrapper did not build (afunix.h, WASAPI flags missing in its mingw-w64).
 

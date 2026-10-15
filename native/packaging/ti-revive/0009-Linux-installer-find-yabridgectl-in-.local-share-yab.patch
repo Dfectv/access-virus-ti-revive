@@ -1,7 +1,7 @@
 From 28ba5b955890f302573933db2a8188b86b83b5c8 Mon Sep 17 00:00:00 2001
 From: derpsn <callmederpsn@proton.me>
 Date: Wed, 14 Oct 2026 22:01:08 +0200
-Subject: [PATCH 9/9] Linux installer: find yabridgectl in
+Subject: [PATCH 09/13] Linux installer: find yabridgectl in
  ~/.local/share/yabridge (not in PATH); closing message names both plug-ins
 
 Rehearsal install (user): 'yabridge is not installed' although it was, in yabridge's default folder.
