@@ -1,14 +1,23 @@
 # Build TI Revive: the plug-in "TI Revive Virus Control" (native/) on Windows (MSVC, + ASIO driver), macOS (VST3 + AU,
 # universal) and Linux (Ubuntu 22.04); the Windows broker cross-compiled with mingw-w64 and the MSI with WiX 5; the
 # macOS zip (scripts/mac-build-release.sh) and the Linux tarball (scripts/linux-build-release.sh).
-# Runs ONLY when a version tag v<major>.<minor>.<build> (e.g. v0.2.3) is pushed: no builds on branch pushes, pull
-# requests or by hand. Each run uploads "TI-Revive-msi" as an artifact and creates a GitHub Release with the MSI
-# attached; the MSI version is taken from the tag.
+# Runs when a version tag v<major>.<minor>.<build> (e.g. v0.2.3) is pushed: builds everything and creates a GitHub
+# Release; the version is taken from the tag. No builds on branch pushes or pull requests. By hand, to check the
+# packages of a branch before a tag: gh workflow run build --ref <branch> -f version=0.0.1 - builds and uploads the
+# packages as artifacts only (the release job needs a tag).
 name: build
 
 on:
   push:
     tags: ['v[0-9]+.[0-9]+.[0-9]+']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: test version for the packages (numeric, e.g. 0.0.1)
+        default: 0.0.1
+
+env:
+  VERSION: ${{ inputs.version }} # empty on a tag push: the jobs take the tag
 
 permissions:
   contents: read
@@ -71,7 +80,8 @@ jobs:
         shell: pwsh
         run: |
           # tag v1.2.3 -> 1.2.3 (MSI versions must be numeric)
-          if ($env:GITHUB_REF -match '^refs/tags/v(\d+\.\d+\.\d+)$') { $v = $Matches[1] } else { throw "not a version tag: $env:GITHUB_REF" }
+          if ($env:VERSION -match '^\d+\.\d+\.\d+$') { $v = $env:VERSION }
+          elseif ($env:GITHUB_REF -match '^refs/tags/v(\d+\.\d+\.\d+)$') { $v = $Matches[1] } else { throw "not a version tag: $env:GITHUB_REF" }
           "version=$v" >> $env:GITHUB_OUTPUT
           "MSI version $v"
       - name: Install WiX 5
@@ -109,7 +119,7 @@ jobs:
           submodules: recursive # native/external/vst3sdk
       - name: Build
         run: |
-          v="${GITHUB_REF_NAME#v}"
+          v="${VERSION:-${GITHUB_REF_NAME#v}}"
           bash repo/scripts/mac-build-release.sh repo "$v" "$PWD/out"
       - uses: actions/upload-artifact@v7
         with:
@@ -155,7 +165,7 @@ jobs:
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends make curl bzip2
       - name: Build
-        run: NATIVE_PREBUILT="$PWD/native-linux/TI Revive Virus Control.vst3" bash scripts/linux-build-release.sh "$PWD" "${GITHUB_REF_NAME#v}" "$PWD/out"
+        run: NATIVE_PREBUILT="$PWD/native-linux/TI Revive Virus Control.vst3" bash scripts/linux-build-release.sh "$PWD" "${VERSION:-${GITHUB_REF_NAME#v}}" "$PWD/out"
       - uses: actions/upload-artifact@v7
         with:
           name: TI-Revive-linux
