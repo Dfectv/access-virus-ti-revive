@@ -16,6 +16,7 @@ namespace tirevive {
 
 struct SkinPageActions {
     std::function<void()> nerd_mode, convert_library, plain_view;
+    std::function<void(VSTGUI::CPoint)> size_menu; // right-click where there is no control
 };
 
 // nullptr if the user's installer has no Control Center (the app then shows its plain page); `error` says why
