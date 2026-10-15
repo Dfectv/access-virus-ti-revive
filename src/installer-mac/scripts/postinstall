@@ -1,6 +1,6 @@
 #!/bin/bash
-# TI Revive .pkg postinstall (runs as root). The broker needs no LaunchAgent: TI Revive's libVirusUSB.dylib starts
-# /Library/Application Support/TI Revive/vtibroker on demand from the DAW. Remove agents of earlier setups (the
+# TI Revive .pkg postinstall (runs as root). The broker needs no LaunchAgent: the plug-in starts
+# /Library/Application Support/TI Revive/vtibroker on demand. Remove agents of earlier setups (the
 # development agent from scripts/mac-install-broker.sh, the system agent of a 0.5.0 test build).
 USER_NAME=$(stat -f %Su /dev/console)
 if [ -n "$USER_NAME" ] && [ "$USER_NAME" != root ]; then
@@ -12,12 +12,15 @@ if [ -n "$USER_NAME" ] && [ "$USER_NAME" != root ]; then
     # test builds of the native plug-in lived in the user's folder under another name (same class id: a DAW would
     # see two copies of "TI Revive Virus Control")
     rm -rf "/Users/$USER_NAME/Library/Audio/Plug-Ins/VST3/VirusTINative.vst3" \
-        "/Users/$USER_NAME/Library/Audio/Plug-Ins/VST3/TI Revive Virus Control.vst3"
+        "/Users/$USER_NAME/Library/Audio/Plug-Ins/VST3/TI Revive Virus Control.vst3" \
+        "/Users/$USER_NAME/Library/Audio/Plug-Ins/Components/TI Revive Virus Control.component"
 fi
 rm -f /Library/LaunchAgents/io.github.derpsn.tirevive.vtibroker.plist
 # a running broker is NOT stopped: it serves its current session to the end and exits 30 s after its last client;
 # the next start picks up the new binary (stopping it cut off a running DAW session, E112)
-# 0.8.0: the bridge VST3 "Virus TI (TI Revive)" is replaced by "TI Revive Virus Control" (same class id)
-rm -rf "/Library/Audio/Plug-Ins/VST3/Virus TI (TI Revive).vst3"
+# 0.8.0: the classic bridge (VST3 + Audio Unit "Virus TI (TI Revive)", Rosetta helper, libVirusUSB) is replaced by
+# "TI Revive Virus Control" (same class id / Audio Unit codes, its projects open with it)
+rm -rf "/Library/Audio/Plug-Ins/VST3/Virus TI (TI Revive).vst3" "/Library/Audio/Plug-Ins/Components/Virus TI (TI Revive).component"
+rm -f "/Library/Application Support/TI Revive/vtihelper" "/Library/Application Support/TI Revive/Install Access Virus TI software.command"
 killall -9 AudioComponentRegistrar 2>/dev/null || true # make macOS rescan Audio Units (the new component)
 exit 0

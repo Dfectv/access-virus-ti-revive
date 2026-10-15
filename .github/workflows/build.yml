@@ -121,14 +121,10 @@ jobs:
         with:
           path: repo
           submodules: recursive # native/external/vst3sdk
-      - name: VST3 pluginterfaces (MIT, pinned)
-        run: |
-          git clone -q https://github.com/steinbergmedia/vst3_pluginterfaces.git vst3sdk/pluginterfaces
-          git -C vst3sdk/pluginterfaces checkout -q 4f547e8e102b47de4a8b8aaf343c73b700786372
       - name: Build
         run: |
           v="${GITHUB_REF_NAME#v}"
-          VST3SDK="$PWD/vst3sdk" bash repo/scripts/mac-build-release.sh repo "$v" "$PWD/out"
+          bash repo/scripts/mac-build-release.sh repo "$v" "$PWD/out"
       - uses: actions/upload-artifact@v7
         with:
           name: TI-Revive-mac

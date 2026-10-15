@@ -1,9 +1,10 @@
 #!/bin/bash
-# mac-build-release.sh - build the macOS release of TI Revive (stage 2: native bridge + Rosetta helper) on a Mac:
-#   TI-Revive-<version>-mac.zip = TI Revive.pkg + "Install Access Virus TI software.command"
-#                                 + "Uninstall TI Revive.command" + README-mac.txt
+# mac-build-release.sh - build the macOS release of TI Revive on a Mac (Xcode; the release workflow's macOS runner):
+#   TI-Revive-<version>-mac.zip = TI Revive.pkg (plug-in "TI Revive Virus Control" as VST3 + Audio Unit, universal;
+#     the broker) + "Set up Access Virus TI files.command" + "Uninstall TI Revive.command" + README-mac.txt
 # usage: mac-build-release.sh <repo dir> <version> [out dir]
-# needs: Xcode Command Line Tools (libusb is built from source), VST3 pluginterfaces in <repo>/../vst3sdk or $VST3SDK.
+# needs: Xcode (the plug-in: native/, VST3 SDK submodule; the AudioUnitSDK is fetched by CMake), curl (libusb).
+# 0.8.0: no bridge, Rosetta helper or libVirusUSB any more (scripts/mac-build-bridge.sh builds them for reference).
 set -euo pipefail
 REPO="$(cd "${1:?repo dir}" && pwd)"
 VERSION="${2:?version}"
@@ -18,8 +19,6 @@ fi
 BUILD="$OUT/build"
 rm -rf "$BUILD" && mkdir -p "$BUILD"
 
-echo "== bridge, helper, libVirusUSB"
-OUT="$BUILD" bash "$REPO/scripts/mac-build-bridge.sh" "$REPO"
 echo "== libusb (static, built for macOS $MACOSX_DEPLOYMENT_TARGET; Homebrew's targets the build machine's macOS)"
 LIBUSB_VER=1.0.30
 LIBUSB="$OUT/libusb-$LIBUSB_VER-macos$MACOSX_DEPLOYMENT_TARGET"
@@ -36,29 +35,25 @@ make -C "$REPO/src/broker" mac-static OUT="$BUILD" LIBUSB_PREFIX="$LIBUSB"
 otool -L "$BUILD/mac/vtibroker" | grep -q libusb && { echo "broker still links a libusb dylib"; exit 1; }
 codesign --force --sign - "$BUILD/mac/vtibroker"
 
-NATIVE=""
-if [ -f "$REPO/native/CMakeLists.txt" ]; then # the native plug-in "TI Revive Virus Control" (native/, VST3, universal)
-    echo "== native plug-in (arm64 + x86_64)"
-    cmake -S "$REPO/native" -B "$BUILD/native" -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
-        -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 ${SDKROOT:+-DCMAKE_OSX_SYSROOT="$SDKROOT"} >/dev/null
-    cmake --build "$BUILD/native" --config Release --target VirusTINative -- -quiet
-    NATIVE="$BUILD/native/VST3/Release/TI Revive Virus Control.vst3"
-    codesign --force --deep --sign - "$NATIVE"
-fi
+echo "== plug-in TI Revive Virus Control: VST3 + Audio Unit (arm64 + x86_64)"
+cmake -S "$REPO/native" -B "$BUILD/native" -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 ${SDKROOT:+-DCMAKE_OSX_SYSROOT="$SDKROOT"} >/dev/null
+cmake --build "$BUILD/native" --config Release --target VirusTINative VirusTINative_AU -- -quiet
+VST3="$BUILD/native/VST3/Release/TI Revive Virus Control.vst3"
+AU="$BUILD/native/AU/Release/TI Revive Virus Control.component"
+codesign --force --deep --sign - "$VST3"
+codesign --force --deep --sign - "$AU"
 
 echo "== payload"
 ROOT="$BUILD/root"
 SUP="$ROOT/Library/Application Support"
-mkdir -p "$ROOT/Library/Audio/Plug-Ins/VST3" "$ROOT/Library/Audio/Plug-Ins/Components" "$SUP/TI Revive" \
-    "$SUP/Access Music/Virus TI/Common"
-# 0.8.0: no bridge VST3 - "TI Revive Virus Control" (native) has its class id and opens its projects; the bridge's
-# Audio Unit stays (Logic / GarageBand)
-cp -R "$BUILD/Virus TI (TI Revive).component" "$ROOT/Library/Audio/Plug-Ins/Components/"
-[ -n "$NATIVE" ] && cp -R "$NATIVE" "$ROOT/Library/Audio/Plug-Ins/VST3/"
+mkdir -p "$ROOT/Library/Audio/Plug-Ins/VST3" "$ROOT/Library/Audio/Plug-Ins/Components" "$SUP/TI Revive"
+# 0.8.0: only the native plug-in (VST3 + Audio Unit, the codes / class ids of the classic bridge, which it replaces)
+cp -R "$VST3" "$ROOT/Library/Audio/Plug-Ins/VST3/"
+cp -R "$AU" "$ROOT/Library/Audio/Plug-Ins/Components/"
 cp "$BUILD/mac/vtibroker" "$SUP/TI Revive/vtibroker"
-cp "$REPO/src/installer-mac/Uninstall TI Revive.command" "$SUP/TI Revive/"
-cp "$BUILD/libVirusUSB.dylib" "$SUP/Access Music/Virus TI/Common/libVirusUSB.dylib"
-codesign --force --sign - "$SUP/Access Music/Virus TI/Common/libVirusUSB.dylib"
+cp "$REPO/src/installer-mac/Uninstall TI Revive.command" "$REPO/src/installer-mac/Set up Access Virus TI files.command" \
+    "$SUP/TI Revive/"
 chmod -R go-w "$ROOT"
 
 echo "== pkg"
@@ -73,7 +68,7 @@ STAGE="$BUILD/TI-Revive-$VERSION-mac"
 mkdir -p "$STAGE"
 pkgbuild --root "$ROOT" --component-plist "$BUILD/components.plist" --identifier io.github.derpsn.tirevive \
     --version "$VERSION" --scripts "$REPO/src/installer-mac/scripts" --install-location / "$STAGE/TI Revive.pkg"
-cp "$REPO/src/installer-mac/Install Access Virus TI software.command" "$REPO/src/installer-mac/Uninstall TI Revive.command" \
+cp "$REPO/src/installer-mac/Set up Access Virus TI files.command" "$REPO/src/installer-mac/Uninstall TI Revive.command" \
     "$REPO/src/installer-mac/README-mac.txt" "$STAGE/"
 chmod +x "$STAGE"/*.command
 (cd "$BUILD" && ditto -c -k --keepParent "TI-Revive-$VERSION-mac" "$OUT/TI-Revive-$VERSION-mac.zip")
