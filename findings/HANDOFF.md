@@ -4,6 +4,11 @@ _Last updated: 2026-10-15 (0.8.6: readiness probe at start-up / takeover, E149).
 Evidence: [evidence.md](evidence.md) (E001-E149), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
+## CONTINUE HERE: read findings/HANDOFF.md on branch `softknobs`
+
+Work after the 0.8.6 release is on two local branches (not pushed, not merged): `softknobs` (soft-knob fix E150,
+E151, the full "continue here" list) and `tests-coverage` (30 new unit tests). `git switch softknobs` first.
+
 ## 0.8.5 (2026-10-15): issue #6, duplicated track puts the Virus out of time (merged from branch single-instance)
 
 - Cause (E148, MEDIUM): on Windows a second plug-in instance (Ableton: duplicate track) got the Virus too, sent its own
