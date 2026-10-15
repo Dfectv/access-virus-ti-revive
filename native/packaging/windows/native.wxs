@@ -1,6 +1,6 @@
 <!-- native.wxs - the native plug-in and its ASIO driver in TI Revive's MSI (WiX 5 fragment).
      TIRevive.wxs references the group: <ComponentGroupRef Id="Native" /> in Feature "Main"; build.ps1 passes
-     -d NativeBin=<folder with "TI Revive Virus Control.vst3\" and VirusTINative_ASIO.dll>.
+     -d NativeBin=<folder with "TI Revive Virus Control.vst3\", VirusTINative_ASIO.dll and tirevive-cc.exe>.
      Directories INSTALLFOLDER (Program Files\TI Revive) and VST3FOLDER (Common Files\VST3) come from TIRevive.wxs. -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
@@ -56,6 +56,11 @@
         <RemoveFolder Id="oldres" Directory="OLDRES" On="install" />
         <RemoveFolder Id="oldcontents" Directory="OLDCONTENTS" On="install" />
         <RemoveFolder Id="oldbundle" Directory="OLDBUNDLE" On="install" />
+      </Component>
+
+      <!-- Control Center, command line (read-only: device info, backup of the RAM banks, library export) -->
+      <Component Directory="INSTALLFOLDER">
+        <File Id="tirevivecc" Source="$(var.NativeBin)\tirevive-cc.exe" KeyPath="yes" />
       </Component>
 
       <!-- ASIO driver "TI Revive Virus Audio": the Virus as a sound card through the broker (asio/asiodriver.cpp).

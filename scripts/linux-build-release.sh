@@ -30,14 +30,17 @@ gcc -O2 -Wall -Wextra -I"$LIBUSB/include/libusb-1.0" -o "$BUILD/vtibroker" "$B/v
     "$B/vtiusbaudio_libusb.c" "$B/vticore_midi.c" "$LIBUSB/lib/libusb-1.0.a" -lpthread
 ! ldd "$BUILD/vtibroker" | grep -q libusb || { echo "broker still links libusb dynamically"; exit 1; }
 NATIVE=""
+CC_BIN="" # tirevive-cc, the Control Center command line (native/tools)
 if [ -n "${NATIVE_PREBUILT:-}" ]; then # built elsewhere (the release workflow builds it on an older Ubuntu, glibc)
     NATIVE="$NATIVE_PREBUILT"
     [ -f "$NATIVE/Contents/x86_64-linux/TI Revive Virus Control.so" ] || { echo "no native plug-in in $NATIVE"; exit 1; }
+    CC_BIN="${NATIVE_CC:-}"
 elif [ -f "$REPO/native/CMakeLists.txt" ]; then # the native plug-in "TI Revive Virus Control" (native/, Linux VST3)
     echo "== native plug-in"
     cmake -S "$REPO/native" -B "$BUILD/native" -DCMAKE_BUILD_TYPE=Release >/dev/null
-    cmake --build "$BUILD/native" --target VirusTINative -j4 >/dev/null
+    cmake --build "$BUILD/native" --target VirusTINative tirevive-cc -j4 >/dev/null
     NATIVE="$BUILD/native/VST3/Release/TI Revive Virus Control.vst3"
+    CC_BIN="$BUILD/native/bin/Release/tirevive-cc"
     strip "$NATIVE/Contents/x86_64-linux/TI Revive Virus Control.so"
 fi
 
@@ -48,6 +51,8 @@ I="$REPO/src/installer-linux"
 [ -n "$NATIVE" ] || { echo "the native plug-in is required (native/ or NATIVE_PREBUILT)"; exit 1; }
 mkdir -p "$P/bin" "$P/systemd" "$P/udev"
 install -m 0755 "$BUILD/vtibroker" "$P/bin/"
+[ -f "$CC_BIN" ] || { echo "tirevive-cc missing (NATIVE_CC with NATIVE_PREBUILT)"; exit 1; }
+install -m 0755 -s "$CC_BIN" "$P/bin/tirevive-cc"
 install -m 0644 "$I/tirevive-broker.socket" "$I/tirevive-broker.service" "$P/systemd/"
 install -m 0644 "$I/70-tirevive-virus-ti.rules" "$P/udev/"
 install -m 0755 "$I/install.sh" "$I/uninstall.sh" "$P/"

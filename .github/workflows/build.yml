@@ -1,14 +1,23 @@
 # Build TI Revive: the plug-in "TI Revive Virus Control" (native/) on Windows (MSVC, + ASIO driver), macOS (VST3 + AU,
 # universal) and Linux (Ubuntu 22.04); the Windows broker cross-compiled with mingw-w64 and the MSI with WiX 5; the
 # macOS zip (scripts/mac-build-release.sh) and the Linux tarball (scripts/linux-build-release.sh).
-# Runs ONLY when a version tag v<major>.<minor>.<build> (e.g. v0.2.3) is pushed: no builds on branch pushes, pull
-# requests or by hand. Each run uploads "TI-Revive-msi" as an artifact and creates a GitHub Release with the MSI
-# attached; the MSI version is taken from the tag.
+# Runs when a version tag v<major>.<minor>.<build> (e.g. v0.2.3) is pushed: builds everything and creates a GitHub
+# Release; the version is taken from the tag. No builds on branch pushes or pull requests. By hand, to check the
+# packages of a branch before a tag: gh workflow run build --ref <branch> -f version=0.0.1 - builds and uploads the
+# packages as artifacts only (the release job needs a tag).
 name: build
 
 on:
   push:
     tags: ['v[0-9]+.[0-9]+.[0-9]+']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: test version for the packages (numeric, e.g. 0.0.1)
+        default: 0.0.1
+
+env:
+  VERSION: ${{ inputs.version }} # empty on a tag push: the jobs take the tag
 
 permissions:
   contents: read
@@ -37,7 +46,7 @@ jobs:
       - name: Build
         run: |
           cmake -S native -B native-build -G "Visual Studio 17 2022" -A x64
-          cmake --build native-build --config Release --target VirusTINative VirusTINative_ASIO vtitests
+          cmake --build native-build --config Release --target VirusTINative VirusTINative_ASIO tirevive-cc vtitests
       - name: Unit tests
         run: ctest --test-dir native-build -C Release --output-on-failure
       - name: Collect
@@ -47,6 +56,7 @@ jobs:
           Copy-Item -Recurse "native-build\VST3\Release\TI Revive Virus Control.vst3" nativebin\
           Remove-Item "nativebin\TI Revive Virus Control.vst3\Contents\x86_64-win\*.map" -ErrorAction SilentlyContinue
           Copy-Item native-build\bin\Release\VirusTINative_ASIO.dll nativebin\
+          Copy-Item native-build\bin\Release\tirevive-cc.exe nativebin\
       - uses: actions/upload-artifact@v7
         with:
           name: nativebin
@@ -71,7 +81,8 @@ jobs:
         shell: pwsh
         run: |
           # tag v1.2.3 -> 1.2.3 (MSI versions must be numeric)
-          if ($env:GITHUB_REF -match '^refs/tags/v(\d+\.\d+\.\d+)$') { $v = $Matches[1] } else { throw "not a version tag: $env:GITHUB_REF" }
+          if ($env:VERSION -match '^\d+\.\d+\.\d+$') { $v = $env:VERSION }
+          elseif ($env:GITHUB_REF -match '^refs/tags/v(\d+\.\d+\.\d+)$') { $v = $Matches[1] } else { throw "not a version tag: $env:GITHUB_REF" }
           "version=$v" >> $env:GITHUB_OUTPUT
           "MSI version $v"
       - name: Install WiX 5
@@ -109,7 +120,7 @@ jobs:
           submodules: recursive # native/external/vst3sdk
       - name: Build
         run: |
-          v="${GITHUB_REF_NAME#v}"
+          v="${VERSION:-${GITHUB_REF_NAME#v}}"
           bash repo/scripts/mac-build-release.sh repo "$v" "$PWD/out"
       - uses: actions/upload-artifact@v7
         with:
@@ -133,14 +144,16 @@ jobs:
       - name: Build
         run: |
           cmake -S native -B native-build -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build native-build --target VirusTINative vtitests
+          cmake --build native-build --target VirusTINative tirevive-cc vtitests
           strip "native-build/VST3/Release/TI Revive Virus Control.vst3/Contents/x86_64-linux/TI Revive Virus Control.so"
+          mkdir native-linux && cp -R "native-build/VST3/Release/TI Revive Virus Control.vst3" native-linux/
+          install -m 0755 -s native-build/bin/Release/tirevive-cc native-linux/
       - name: Unit tests
         run: ctest --test-dir native-build --output-on-failure
       - uses: actions/upload-artifact@v7
         with:
           name: native-linux
-          path: native-build/VST3/Release/TI Revive Virus Control.vst3
+          path: native-linux
           if-no-files-found: error
 
   linux:
@@ -151,11 +164,11 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: native-linux
-          path: native-linux/TI Revive Virus Control.vst3
+          path: native-linux
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends make curl bzip2
       - name: Build
-        run: NATIVE_PREBUILT="$PWD/native-linux/TI Revive Virus Control.vst3" bash scripts/linux-build-release.sh "$PWD" "${GITHUB_REF_NAME#v}" "$PWD/out"
+        run: NATIVE_PREBUILT="$PWD/native-linux/TI Revive Virus Control.vst3" NATIVE_CC="$PWD/native-linux/tirevive-cc" bash scripts/linux-build-release.sh "$PWD" "${VERSION:-${GITHUB_REF_NAME#v}}" "$PWD/out"
       - uses: actions/upload-artifact@v7
         with:
           name: TI-Revive-linux

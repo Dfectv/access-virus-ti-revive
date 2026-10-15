@@ -46,6 +46,8 @@ fi
 say "TI Revive broker"
 mkdir -p "$LIB" "$UNITS" "$CONF"
 install -m 0755 "$HERE/bin/vtibroker" "$LIB/vtibroker"
+# the Control Center command line (read-only: device info, backup of the RAM banks, library export)
+mkdir -p "$HOME/.local/bin" && install -m 0755 "$HERE/bin/tirevive-cc" "$HOME/.local/bin/tirevive-cc"
 install -m 0644 "$HERE/systemd/tirevive-broker.socket" "$HERE/systemd/tirevive-broker.service" "$UNITS/"
 rm -f "$CONF/broker.token" # TI Revive 0.7: the TCP socket for the plug-in under Wine is gone
 if command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
