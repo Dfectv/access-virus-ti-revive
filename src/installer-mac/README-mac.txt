@@ -1,11 +1,14 @@
-TI Revive for macOS (Apple Silicon) - Access Virus TI Total Integration without the old Access drivers
-=====================================================================================================
+TI Revive for macOS - Access Virus TI Total Integration without the old Access drivers
+=====================================================================================
 
 Requirements
-- A Mac with Apple Silicon (M1 or newer), macOS 14.4 or newer, Rosetta 2 ("Install Access Virus TI software.command"
-  checks it and offers to install it; or in Terminal: softwareupdate --install-rosetta --agree-to-license)
+- macOS 14.4 or newer. The plug-in "TI Revive Virus Control" (VST3) is universal: native on Apple Silicon and Intel,
+  no Rosetta. Only the Audio Unit for Logic Pro / GarageBand runs the original plug-in and needs Rosetta 2
+  ("Install Access Virus TI software.command" checks it and offers to install it; or in Terminal:
+  softwareupdate --install-rosetta --agree-to-license)
 - Your own Access "Virus TI Software Suite" installer (.pkg, e.g. 5.1.7.00). TI Revive contains no Access software.
-- A DAW that loads VST3 plug-ins natively (tested: Ableton Live 12). The DAW does NOT need to run under Rosetta.
+- A DAW that loads VST3 plug-ins (tested: Ableton Live 12) or Audio Units (tested: GarageBand). The DAW does NOT need
+  to run under Rosetta.
 
 Install
 1. Double-click "TI Revive.pkg" (not signed: if macOS refuses, right-click > Open, or System Settings > Privacy &
