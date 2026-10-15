@@ -263,7 +263,7 @@ private:
             std::lock_guard<std::mutex> l(mu_);
             found_ = ok;
             if (!ok) {
-                status_ = "No Virus: not connected, or the plug-in uses it";
+                status_ = "No Virus (or the plug-in has it)"; // 36 characters fit in the footer
                 page_ = kSelector;
                 return;
             }

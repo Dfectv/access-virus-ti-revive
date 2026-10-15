@@ -113,7 +113,9 @@ images are is still to check).
 - 2026-10-15, Linux, TI2, Access look (Xvfb + XTest, Access' Control Center from the Wine prefix): device selector
   with the Virus, OK to Backup & Restore, BACKUP + OK wrote RAM A..D (cache current, 0 read), Burn Flash and OS
   Updater show the note, footer buttons to Nerd mode / plain view and back. Not checked: the folder dialog (zenity's
-  GTK 4 dialog does not draw on a bare Xvfb), Windows (only built).
+  GTK 4 dialog does not draw on a bare Xvfb).
+- 2026-10-15, Windows 11 VM (no Virus; Access' Control Center exe copied in for the test and removed again): the app
+  from the MSI of CI run 38723649021 shows the Access look with the empty device selector.
 - 2026-10-15, Linux, TI2 (new broker run by hand, the installed one stopped meanwhile): `tirevive-cc watch` as
   observer while `tirevive-cc info` owned the Virus (both in the status; descriptor requests and bank info requests /
   replies decoded) and while the plug-in started in `nativehost` (globals by name, multi dump, 16 single dumps
