@@ -9,8 +9,9 @@ Evidence: [evidence.md](evidence.md) (E001-E147), protocol: [spec.md](spec.md); 
 - Plug-in: display scale from the host (IPlugViewContentScaleSupport) x user size (right-click menu 100-200 %, file
   ui-zoom), resizeView; tested on Linux with nativehost (--rclick added; its window follows resizeView): 150 %/200 %
   rendering, menu, runtime resize, saved choice. Control Center: View > Size + right-click in the Access look
-  (preference "Zoom"), tested on Xvfb. Open: the user decides on the look; Windows (display scaling!) and macOS
-  hosts (Ableton, AU) to check.
+  (preference "Zoom"), tested on Xvfb. User tests 2026-10-15: Linux (REAPER + Control Center) works; macOS with
+  the CI package of run 38754600760 works in Ableton (VST3) and GarageBand (AU). Open: Windows with display
+  scaling; merge after the user's OK.
 
 ## 0.8.3 (2026-10-15, RELEASED: CI run 38750678863, all jobs green, Latest)
 
