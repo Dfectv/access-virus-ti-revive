@@ -13,10 +13,16 @@ Evidence: [evidence.md](evidence.md) (E001-E145), protocol: [spec.md](spec.md); 
   the broker log (checked in the win11 VM). Release workflow builds only what ships (broker `vtibroker.exe`, no mingw
   in the Linux job) - rehearse before the next tag.
 - Issue #4 (Snow on macOS): status reply posted, both users asked to run the first test stages with 0.8.1.
-- Next: Mac broker MIDI stand-in (`vtimidi_start`, needs the Mac); later USB3 output (Global USB controller 9) and
-  real readiness instead of the fixed 4 s note hold; then the **Control Center** as a standalone app: core library +
-  CLI first, read-only (device info, backup, export of patch libraries); RAM restore later; **no flash writes, no OS
-  update, ever** (AGENTS.md rule 2).
+- Merged to main and pushed (1e88e73).
+- **Control Center phase 1** (branch `control-center`): `native/src/cc/` + `native/tools/tirevive-cc` (info, backup,
+  list, export), read-only, docs in native/docs/controlcenter.md. Tested on the M3 + TI2 (built there with clang++
+  and `-isysroot .../MacOSX26.sdk`: the CLT linker rejects the default 27 SDK; no cmake on the Mac): info, backup
+  from cache, full RAM D fetch byte-identical (2 min 9 s). Not yet in any package/installer. Next: ship it in the
+  packages (Windows/Linux/Mac), then a UI; RAM restore only after a separate review with the user.
+- Later: Linux `library_dir()` and install.sh use `~/Documents` even where the XDG documents folder is localized
+  (e.g. `~/Dokumente`); consistent today, nicer with `xdg-user-dir DOCUMENTS`. Mac broker MIDI stand-in
+  (`vtimidi_start`, needs the Mac); USB3 output (Global USB controller 9); real readiness instead of the fixed 4 s
+  note hold. **No flash writes, no OS update, ever** (AGENTS.md rule 2).
 
 ## 0.8.1 (2026-10-15): native Audio Unit, Mac without Rosetta
 

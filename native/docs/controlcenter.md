@@ -43,4 +43,4 @@ The last row stays out for good: these functions write the Virus' flash, and a f
   4 s); `backup` from a current cache (3.5 s); `backup --banks 4` with the RAM D cache moved aside: 128 programs read
   in 2 min 9 s, the library byte-identical to the one from the cache.
 - Linux: builds, `list`/`export` round trips on factory libraries (patch data unchanged; only program byte and
-  checksums differ). Windows: not built yet.
+  checksums differ). Windows: cross-compiles with mingw-w64, not run yet.
