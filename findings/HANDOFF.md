@@ -1,15 +1,35 @@
 # HANDOFF
 
-_Last updated: 2026-10-13 morning. Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E125), protocol: [spec.md](spec.md)._
+_Last updated: 2026-10-15 (0.8.0). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+Evidence: [evidence.md](evidence.md) (E001-E145), protocol: [spec.md](spec.md); the native plug-in:
+[../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
+
+## 0.8.0 (2026-10-15): the native plug-in replaces the classic one
+
+- **"TI Revive Virus Control"** (`native/`, moved in from the private workshop repo virus-ti-native with its full
+  history, native/docs/migration.md): VST3 on Windows (MSVC), macOS (universal) and Linux (Ubuntu 22.04 build); the
+  Windows ASIO driver **"TI Revive Virus Audio"** (6 in / 2 out, no Access driver). Timing sample accurate with
+  reported latency (E139-E141, E143), any host sample rate (resampler), start-up/sync behaviour (E144, E145).
+- It takes over the class id of the classic plug-in (Windows/Linux wrapper id, macOS bridge id; moduleinfo
+  Compatibility for the others), so projects of "Virus TI (TI Revive)" open with it. Vendor stays "TI Revive".
+- Installers: Windows MSI without wrapper / ASIO wrapper / Control Center launcher; `tirevive-access.ps1` only unpacks
+  the Access `.msi` (msiexec /a) and offers to remove a full Access install of 0.7.x (files kept, dead Access ASIO
+  entry removed). Linux `install.sh` without Wine/yabridge (msiextract or Wine unpack). Mac pkg without the bridge
+  VST3 (the Audio Unit for Logic stays, the Access software is still installed for it).
+- Tested by the user on real hardware: Windows 11 PC (Ableton 11, ASIO), MacBook Air M3 (Ableton 12), Linux REAPER
+  (44.1/48 kHz). Release workflow rehearsed in a private repo (all jobs green).
+- Not in 0.8.0: Virus TI Snow (owners stay on 0.7.4), Virus Control Center, Windows MIDI ports.
+- Next: Snow in the native plug-in (needs a tester), OSC display for mixed shapes (wave tables), AU of the native
+  plug-in, possibly the third USB return (cf. github.com/Give-me-a-signal/virus-ti-rework: Global USB controller 9)
+  and RAM restore on exit; contact with that project pending.
 
 ## Status
 
 | Platform | State | Released | Key docs |
 |---|---|---|---|
-| Windows 10/11 | stable: WinUSB + user-mode emulation, broker with USB audio, ASIO "Virus TI (TI Revive)", Control Center via vtilaunch | MSI + setup.exe (Burn bundle) | design.md, design-wdm-bridge.md, design-midi-ports.md |
-| macOS Apple Silicon | stable: native VST3/AUv2 bridge + Rosetta helper hosting the original, own libVirusUSB, broker (MIDI driver stand-in) | `-mac.zip` (pkg + scripts) | design-macos.md, design-macos-bridge.md |
-| Linux (experimental) | works in REAPER: native broker owns the whole Virus (MIDI + iso audio), Windows wrapper under Wine/yabridge | `-linux.tar.gz` (install.sh) | design-linux.md |
+| Windows 10/11 | 0.8.0: native plug-in + ASIO "TI Revive Virus Audio", WinUSB binding, broker with USB audio | MSI + setup.exe (Burn bundle) | native/docs/architecture.md, design.md |
+| macOS | 0.8.0: native plug-in (VST3, universal); Audio Unit = bridge + Rosetta helper; own libVirusUSB, broker | `-mac.zip` (pkg + scripts) | native/docs/architecture.md, design-macos*.md |
+| Linux | 0.8.0: native plug-in (VST3); native broker owns the whole Virus (MIDI + iso audio) | `-linux.tar.gz` (install.sh) | native/docs/architecture.md, design-linux.md |
 
 Latest release: **v0.7.4** (2026-10-12, macOS driver-conflict detection; 0.7.3 = universal macOS bridge; 0.7.2 CI run 38291289944, automatically "Latest": CI no longer marks 0.x as
 pre-release). 0.7.2 = macOS hides the Intel-only Access plug-ins + Rosetta check, Linux ring polling. Contents: All Notes Off when a client that played notes disconnects (all brokers), Linux

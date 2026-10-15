@@ -13,12 +13,14 @@ the missing log instead.
 Note platform, OS version, Virus model (TI / TI2 / Snow / Polar / Keyboard), DAW (native or Rosetta on macOS),
 TI Revive version. Then make sure you have the logs (CONTRIBUTING.md lists where they are):
 
-- **Windows:** `TI-Revive-usbinfo.txt` from `scripts/tirevive-usbinfo.ps1`, the newest `%TEMP%\vtiemu-*.log`,
+- **All platforms (0.8.0+, plug-in "TI Revive Virus Control"):** the plug-in's `diag.log` (after creating `diag.on`
+  in its folder, see CONTRIBUTING.md) - lifecycle, state sent, device connect, sync, timing stats.
+- **Windows:** `TI-Revive-usbinfo.txt` from `scripts/tirevive-usbinfo.ps1`, (0.7.x: the newest `%TEMP%\vtiemu-*.log`),
   `%TEMP%\vtibroker.log`.
 - **macOS:** `/tmp/tirevive-bridge.log`, `/tmp/tirevive-helper.log`, `/tmp/tirevive-libvirususb.log`,
   `/tmp/tirevive-vtibroker.log`; for connection problems also `ioreg -p IOUSB -l -w0` (Virus section) and
   `ls "/Library/Audio/MIDI Drivers" "/Library/Audio/Plug-Ins/HAL"`.
-- **Linux:** `journalctl --user -u tirevive-broker -b`, `vtiemu-*.log` in the Wine prefix's Temp folder.
+- **Linux:** `journalctl --user -u tirevive-broker -b` (0.7.x: `vtiemu-*.log` in the Wine prefix's Temp folder).
 
 ## 2. Match against known causes
 
@@ -34,6 +36,10 @@ Search `findings/evidence.md` and `findings/HANDOFF.md` for the exact error text
 | macOS DAW blocklists the plug-in / "Unsupported Architecture" | the Intel-only original plug-in was scanned, or the DAW runs under Rosetta with an old bridge | E129, E130, E132 | TI Revive 0.7.3+ (universal bridge); the original is moved out of the DAW folders by the install script |
 | "A sync error occurred. Press Stop and Play to clear." once after Play | the Virus' timing report at the start | E072, E125 | Stop and Play; start playback slightly before the first note |
 | Windows "communication problems" | audio buffer not 64/128/256/512 samples | README "Good to know" | set the buffer to 512 or less |
+| a **Snow** with 0.8.0 | the native plug-in does not support the Snow yet | README | stay with TI Revive 0.7.4 for now |
+| new project shows -Init- but the Virus plays the previous patch | (fixed in 0.8.0) the Virus dropped the part dump after the multi dump | E145 | update to 0.8.0 |
+| plug-in sounds pitched up / garbled at 48 kHz | (fixed in 0.8.0) no sample-rate conversion in the test builds | native/docs/architecture.md | update to 0.8.0 |
+| notes late or missing right after loading / during the first sync | the Virus delays notes while it processes SysEx; 0.8.0 holds notes ~4 s and pauses the sync for notes | E144 | wait a few seconds after loading; update to 0.8.0 |
 | Virus audio suddenly silent, MIDI still answers | parameter flood hung the Virus' audio | HANDOFF / automation limit | power-cycle the Virus; reduce dense automation |
 
 ## 3. If nothing matches

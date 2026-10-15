@@ -18,17 +18,19 @@ This is the technical overview for anyone who wants to understand the plug-in. B
   └────────────────────────────┬────────────────────────────────────────────────────┘
                                │ broker protocol 3 (Unix socket / named pipe) + shared-memory audio ring
                                ▼
- TI Revive broker (external/ti-revive) ── USB (libusb / WinUSB / IOKit) ──► Virus TI / TI2 / Snow
+ TI Revive broker (src/broker) ── USB (libusb / WinUSB / IOKit) ──► Virus TI / TI2 / Snow
 ```
 
-The plug-in never talks to USB directly. The **TI Revive broker** (the public project, a submodule here) owns the
-Virus. It frames USB-MIDI, carries the 6-channel USB audio, and lets one plug-in session at a time use the device.
+The plug-in never talks to USB directly. The **TI Revive broker** (`src/broker/` of this repository, the same one the
+classic TI Revive plug-in used) owns the Virus. It frames USB-MIDI, carries the 6-channel USB audio, and lets one plug-in session at a time use the device.
 
 ### No Access material in this repository
 
 Access/Kemper have not open-sourced the Virus TI software. So the plug-in ships **none** of it: no graphics, no XML,
-no firmware, no decompiled code. At runtime it loads everything from the user's own Access installation, so the
-original Virus TI software must be installed (it can stay unused). These are the files it loads:
+no firmware, no decompiled code. At runtime it loads everything from the files of the user's own Access installer:
+on Windows and Linux TI Revive's installer only **unpacks** the Access `.msi` and copies `Virus Control.dll`,
+`firmware.bin`, the manuals and the factory patch libraries (nothing of Access is installed or registered); on macOS
+the Access software is installed (the Audio Unit for Logic still runs the original). These are the files it loads:
 
 | loaded at runtime | from | used for |
 |---|---|---|
@@ -89,7 +91,16 @@ original Virus TI software must be installed (it can stay unused). These are the
   - The worker writes a block's events in one broker message, and keeps the project state current off the audio
     thread (latest value per parameter, every 5 ms; a field index updates one value of a 524-byte part dump in
     ~0.4 us).
-- **Audio:** read from the broker's shared-memory ring, drift-corrected, with latency compensation.
+- **Audio:** read from the broker's shared-memory ring at the stamp-aligned position, with latency compensation. At
+  host rates other than 44.1 kHz a 32-tap Kaiser windowed-sinc resampler (`src/device/resampler.h`, -90 dB) reads
+  from a smoothly steered fractional position; the timeline carries the fractional rest per block, so nothing drifts.
+- **Start-up:** the start-up messages (GlobalInit/ParamInit from `remotedevice.xml`) and the project state go out
+  first; note-ons are held back for these ~4 s (the Virus plays notes up to 1.6 s late while it works through
+  SysEx, TI Revive E144), and queued messages pause 250 ms after a multi dump (the Virus drops the next message
+  otherwise, E145).
+- **Bank sync pauses for notes:** while notes arrive no dump request is sent (a request delays the Virus' notes by
+  ~130 ms); after 30 s of pauses in total a 300 ms gap is enough, so constant playing cannot block the sync. The sync
+  page shows "SYNC PAUSED WHILE YOU PLAY".
 - **Banks:**
   - RAM A–D: synced from the Virus on first start, then cached.
   - ROM A–Z: from `firmware.bin`; the device model comes from the USB descriptor.
@@ -107,9 +118,18 @@ original Virus TI software must be installed (it can stay unused). These are the
   - checks bank fingerprints against the cache, and requests single dumps only for changed programs;
   - one request at a time, at the Virus' pace of about 1 s per request.
 
+### Identity and old projects
+- Name **"TI Revive Virus Control"**, vendor **TI Revive**, bundle `TI Revive Virus Control.vst3`, version = the TI
+  Revive release (CMake project version).
+- Class id = the one of the TI Revive plug-in it replaced in 0.8.0, so DAW projects saved with "Virus TI (TI
+  Revive)" open with it: Windows/Linux the wrapper's id (the original's with byte 15 XOR 0x5A), macOS the bridge's id.
+  `moduleinfo.json` declares the other ids compatible (the original Access plug-in, the other platform's, the test
+  builds'; VST 3.7.5+ hosts). The project state format is the original's: a state saved by the original (= what the
+  wrapper and the bridge store) loads unchanged, and `getState` returns it byte-identical.
+
 ## 3. Platforms
 
-### Linux (working, tested in REAPER)
+### Linux (tested in REAPER 7.82 at 44.1 and 48 kHz)
 | topic | how |
 |---|---|
 | plug-in format | VST3 bundle `~/.vst3/TI Revive Virus Control.vst3` (`x86_64-linux`) |
@@ -119,11 +139,12 @@ original Virus TI software must be installed (it can stay unused). These are the
 | broker | systemd user socket `/tmp/vtibroker-<uid>.sock` (starts on demand, exits after 30 s idle) |
 | audio ring | `/dev/shm/tirevive-audio-<uid>` |
 | cache | `~/.local/share/virus-ti-native/cache` (`RAM A`..`RAM D`) |
-| Access files | the Access installation in the Wine prefix (installer run once; `firmware.bin` next to the DLL) |
-| Personal Libraries | the Wine prefix's Documents folder; Wine links it to the XDG documents folder (e.g. `~/Dokumente`) |
-| audio setup | PipeWire with JACK; the host runs at 44.1 kHz (`pw-metadata -n settings 0 clock.force-rate 44100`) |
+| Access files | `~/.local/share/tirevive/access/Access Music/Virus TI/Common`, unpacked from the user's `.msi` by `install.sh` (msiextract or Wine's administrative extraction); the folder is written to `~/.config/tirevive/access-dir`, else `$WINEPREFIX`/`~/.wine` is searched (installations of TI Revive 0.7) |
+| Personal Libraries | `~/Documents/Access Music/Virus TI/Patches` (factory libraries copied there by `install.sh`), also the Wine prefix's Documents |
+| audio setup | any host rate (resampled); PipeWire with JACK (`pw-jack reaper`) works well, PulseAudio is not recommended |
+| runtime | built on Ubuntu 22.04 (glibc 2.35) by the release workflow; needs the usual X11/xcb/cairo/pango libraries (`install.sh` checks with `ldd`) |
 
-### Windows (working; tested in Ableton 11 in a Win11 VM)
+### Windows (tested in Ableton Live 11 on a Windows 11 PC and in a VM)
 | topic | how |
 |---|---|
 | plug-in format | VST3 bundle in `C:\Program Files\Common Files\VST3\TI Revive Virus Control.vst3` (`x86_64-win`), built with MSVC in CI (`.github/workflows/build.yml`, artifacts `VirusTINative-windows` + `tools-windows`) |
@@ -132,11 +153,12 @@ original Virus TI software must be installed (it can stay unused). These are the
 | USB | TI Revive's WinUSB binding (MSI); no Access driver |
 | audio ring | file mapping `Local\vtibroker_audio`, plus a named event per plug-in process |
 | cache | `%LOCALAPPDATA%\virus-ti-native\cache` |
-| Access files | the normal Access installation (`C:\Program Files\Access Music\Virus TI\Common\Virus Control.dll`, `firmware.bin`) |
+| Access files | `C:\Program Files\Access Music\Virus TI\Common\Virus Control.dll` + `firmware.bin` (+ `Documentation`), unpacked from the user's `.msi` by `tirevive-access.ps1` (`msiexec /a`: no custom actions, no drivers); a full Access installation of TI Revive 0.7 is offered for removal (files kept) |
 | Personal Libraries | `%USERPROFILE%\Documents\Access Music\Virus TI\Patches` |
 
-Verified in the VM (TI Revive 0.7.4, Access 5.1.7): Access files and libraries found, broker started on demand,
-TI2 detected, audio streaming with notes, bank sync (cancellable when the plug-in closes).
+Installed by TI Revive's MSI (`native/packaging/windows/native.wxs`): the bundle, the ASIO driver (registered as MSI
+registry values), clean-up of the test builds. Real PC (user, 0.8.0 test builds): sound, editor, sync, timing (304 of
+304 notes on the grid, no drift), ASIO clean.
 
 **ASIO driver (`asio/asiodriver.cpp`, target `VirusTINative_ASIO`):** the Virus as a sound card for any Windows
 ASIO host, without the Access/Ploytec driver. It reads the same audio ring as the plug-in and writes the outputs
@@ -152,11 +174,10 @@ through the broker.
 | restarts | inputs muted for 100 ms after a (re)start (the first USB block can carry a full-scale spike); a restarted ring sends `kAsioResetRequest` |
 | test host | `tools/asiohost.c` (`asiohost.exe`): opens the driver, prints channels, counts switches, can play a tone |
 
-Verified in the VM (2026-10-14, TI2): driver registered and loaded by `asiohost`, 172 buffer switches/s at 256
-frames (= 44.1 kHz) steady, 440 Hz test tone heard clean on the Virus outputs, broker: 0 frames dropped.
-Not yet tested in a DAW.
+Tested: Ableton Live 11 on a real Windows 11 PC, playback through the Virus outputs clean (user). In a QEMU VM the
+output crackles because QEMU's USB passthrough corrupts isochronous OUT data (TI Revive E083, E142).
 
-### macOS (working; universal arm64 + x86_64, tested in Ableton 12 on an M3)
+### macOS (universal arm64 + x86_64, tested in Ableton Live 12 on an M3)
 | topic | how |
 |---|---|
 | plug-in format | VST3 bundle `~/Library/Audio/Plug-Ins/VST3/TI Revive Virus Control.vst3`, universal (runs natively on Apple Silicon, no Rosetta), built with Xcode in CI (artifacts `VirusTINative-macos`, `tools-macos`) |
@@ -167,6 +188,7 @@ Not yet tested in a DAW.
 | cache | `~/Library/Application Support/virus-ti-native/cache` |
 | Access files | `/Library/Application Support/Access Music/Virus TI/Common/Virus Control.bundle/Contents/Resources` (+ `firmware.bin` next to it); only read, the Intel-only Access plug-in is never loaded |
 | Personal Libraries | `~/Documents/Access Music/Virus TI/Patches` |
+| install | TI Revive's pkg (`scripts/mac-build-release.sh`): the VST3 into `/Library/Audio/Plug-Ins/VST3`, ad-hoc signed; the classic bridge's Audio Unit stays for Logic/GarageBand, its VST3 is removed |
 
 ## 4. Building and testing
 
@@ -179,7 +201,10 @@ Not yet tested in a DAW.
 - **Partial repaint check:** `tools/uicompare/partialcmp.sh` compares every page after automation, once with partial
   repaints and once with `VTI_NATIVE_NO_PARTIAL=1`; the screenshots must be identical.
 
-- **Build:** see the [README](../README.md). It needs the VST3 SDK 3.8 (submodule) and CMake. The tools also need
+- **Build:** see the [README](../README.md): `cmake -S native -B build-native && cmake --build build-native` from the
+  repository root. It needs the VST3 SDK 3.8 (submodule `native/external/vst3sdk`) and CMake 3.25+; the broker
+  headers come from `src/broker`. Releases: TI Revive's workflow (`.github/workflows/build.yml`) builds the plug-in
+  on Windows (MSVC), macOS (universal) and Linux (Ubuntu 22.04) on a version tag. The tools also need
   X11/Xtst (nativehost) and cairo (vtirender).
 - **Headless tests:** `nativehost` loads the plug-in without a DAW. It can apply states and parameters, play notes,
   render WAV, and open the editor on a virtual X display, where it can click, drag, type and take screenshots.

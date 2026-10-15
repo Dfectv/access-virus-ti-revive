@@ -19,6 +19,8 @@ Work through the steps in order and report the result of each one to the human.
 
 - `src/broker/`, `src/wrapper/`: `make -C src/broker`, `make -C src/wrapper` (mingw-w64 on Linux).
 - `src/mac/`: on a Mac, `scripts/mac-build-bridge.sh <repo> --install`.
+- `native/`: `cmake -S native -B build-native && cmake --build build-native && ctest --test-dir build-native` (needs
+  the submodule `native/external/vst3sdk`); Windows needs MSVC, macOS Xcode.
 - Installer scripts: run their syntax check (`bash -n`, PowerShell parser) at least.
 Record which builds you ran and their result. If a platform could not be built, say so.
 

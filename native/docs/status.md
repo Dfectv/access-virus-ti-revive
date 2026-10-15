@@ -1,3 +1,9 @@
+# Moved into TI Revive (2026-10-15)
+
+This code now lives in the public TI Revive repository as `native/` (history preserved, docs/migration.md) and ships
+with TI Revive 0.8.0. The private repository virus-ti-native is a read-only backup. The current working log is TI
+Revive's `findings/HANDOFF.md`; this file is the history of the native rewrite (stage 3).
+
 # RESUME HERE (night 2026-10-13/14: stability + performance plan worked off without the Virus)
 
 ## Windows test build (2026-10-14)

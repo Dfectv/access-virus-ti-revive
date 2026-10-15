@@ -1,7 +1,9 @@
 # Instructions for AI coding agents
 
-You are working on **TI Revive**: it makes the Access Virus TI (Desktop, Polar, Keyboard, Snow) work with its
-original "Virus Control" plug-in on Windows 11, Apple Silicon Macs and Linux, without the old Access drivers.
+You are working on **TI Revive**: it makes the Access Virus TI (Desktop, Polar, Keyboard; the Snow with 0.7.4) work
+on Windows 11, macOS and Linux without the old Access drivers. Since 0.8.0 its plug-in is "TI Revive Virus Control"
+(`native/`), a rewrite that looks and works like the original "Virus Control" and loads the Access files from the
+user's own installer at runtime.
 Read this file completely before changing anything. Human contributors: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Hard rules (never break these)
@@ -31,10 +33,11 @@ Read this file completely before changing anything. Human contributors: see [CON
 | `findings/claims.md` | community claims and how they were checked |
 | `findings/design*.md` | design per platform (Windows, macOS bridge, Linux, MIDI ports) |
 | `findings/HANDOFF.md` | the maintainers' working log: current state, open problems, next steps |
+| `native/` | **the plug-in since 0.8.0**: "TI Revive Virus Control" (VST3, all platforms) and the Windows ASIO driver "TI Revive Virus Audio"; `native/docs/architecture.md`, `native/docs/protocol.md` (timing, stamp clock), `native/docs/formats.md` |
 | `src/broker/` | device access + broker: owns the Virus' USB interfaces, serves plug-in clients (WinUSB on Windows, libusb on macOS/Linux) |
-| `src/wrapper/` | Windows: emulation of the Access driver interface (`vtiemu`), VST3 wrapper, audio bridge, ASIO |
+| `src/wrapper/` | the classic Windows plug-in of 0.7.x (emulation of the Access driver interface `vtiemu`, VST3 wrapper, ASIO wrapper); not shipped since 0.8.0, kept for reference |
 | `src/inf/`, `src/installer/` | Windows driver package (WinUSB) and MSI |
-| `src/mac/` | macOS: `libvirususb/` (replacement libVirusUSB), `bridge/` (native VST3/AU), `helper/` (Rosetta host of the original plug-in) |
+| `src/mac/` | macOS: `libvirususb/` (replacement libVirusUSB), `bridge/` (Audio Unit for Logic/GarageBand; its VST3 is replaced by the native plug-in), `helper/` (Rosetta host of the original plug-in) |
 | `src/installer-mac/` | macOS package and helper scripts (driver conflicts, Access installer) |
 | `scripts/` | diagnostics (`tirevive-usbinfo.ps1`), capture/decode tools, VM and build scripts |
 
@@ -44,7 +47,8 @@ Read this file completely before changing anything. Human contributors: see [CON
    Many problems are known: e.g. another driver holding the interfaces (`LIBUSB_ERROR_ACCESS`, macOS
    `UsbExclusiveOwner = MIDIServer`, Windows `VIRUSUSB` service), wrong model detection (Snow vs TI, E115), part
    output not on USB ("connected but silent").
-2. Find the platform path involved (Windows wrapper vs macOS bridge/helper vs Linux under Wine) — they differ.
+2. Find the path involved: since 0.8.0 the native plug-in (`native/`) on all platforms; the macOS Audio Unit still
+   uses the bridge/helper; reports about "Virus TI (TI Revive)" VST3 come from 0.7.x or older.
 3. Read the code around the change and match its style: C/C++, short functions, comments that explain *why*.
 
 ## Building and checking
@@ -53,7 +57,10 @@ Read this file completely before changing anything. Human contributors: see [CON
   Windows (`src/installer/build.ps1`).
 - macOS parts: on a Mac, `scripts/mac-build-bridge.sh <repo> --install` (development) or
   `scripts/mac-build-release.sh <repo> <version>`.
-- Linux: the broker builds with `make -C src/broker` (libusb); the Windows plug-in side runs in Wine/yabridge.
+- Linux: the broker builds with `make -C src/broker` (libusb).
+- Native plug-in (all platforms): `git submodule update --init --recursive native/external/vst3sdk`, then
+  `cmake -S native -B build-native && cmake --build build-native && ctest --test-dir build-native` (MSVC on Windows,
+  Xcode on macOS; see `native/README.md`). Never commit Access files: the plug-in loads them at runtime.
 - CI (`.github/workflows/build.yml`) builds releases only on version tags; build locally for PRs.
 - Without the hardware you can still: build, run the static checks you have, and reason from logs. Say that you did
   exactly that.

@@ -6,7 +6,8 @@ and Intel) and Linux - without the Intel-only Access plug-in, Rosetta, Wine or y
 through the TI Revive broker (USB MIDI and audio). On Windows, the ASIO driver "TI Revive Virus Audio" also makes
 the Virus a sound card without the Access driver.
 
-Users install it with TI Revive (MSI, Mac pkg, Linux `install.sh`); this folder is for building and development.
+Users install it with TI Revive (MSI, Mac pkg, Linux `install.sh`); this folder (`native/` in the TI Revive
+repository, moved in with its full history on 2026-10-15) is for building and development.
 
 | platform | status |
 |---|---|
@@ -22,32 +23,31 @@ measurements in [docs/status.md](docs/status.md), the plan in [docs/plan.md](doc
 **Rule:** no Access material in git (graphics, XML, firmware, decompiled code). The plug-in loads the skin, the
 device description and the ROM from the user's own Access installation at runtime. Recordings stay in `work/`.
 
-## Requirements (Linux)
+## Building (all platforms)
 
-- **TI Revive installed:** the broker owns the Virus via the systemd user socket `/tmp/vtibroker-<uid>.sock`.
-- **The original Virus TI software installed once:** in Wine, it provides `Virus Control.dll` and `firmware.bin`.
-  The plug-in only reads these files.
-- **A VST3 host.** REAPER is tested (any sample rate; the Virus' 44.1 kHz audio is converted).
-
-## Build and install (Linux)
+From the repository root (TI Revive), with CMake 3.25+ and the VST3 SDK submodule:
 
 ```sh
-git submodule update --init external/ti-revive
-(cd external/vst3sdk && git submodule update --init base cmake pluginterfaces public.sdk vstgui4)
-cmake -S . -B build -G Ninja && cmake --build build
-rm -rf ~/.vst3/VirusTINative.vst3  # the bundle's name before 2026-10-14
-cp -r "build/VST3/Release/TI Revive Virus Control.vst3" ~/.vst3/
+git submodule update --init --recursive native/external/vst3sdk
+cmake -S native -B build-native -DCMAKE_BUILD_TYPE=Release
+cmake --build build-native --config Release
+ctest --test-dir build-native -C Release        # unit tests, no Virus needed
 ```
 
-Windows: the CI artifact `VirusTINative-windows` from `.github/workflows/build.yml`.
-
-Unit tests (no Virus needed): `ctest --test-dir build`.
+- **Windows:** Visual Studio 2022 (`-G "Visual Studio 17 2022" -A x64`); targets `VirusTINative` (plug-in) and
+  `VirusTINative_ASIO` (ASIO driver). **macOS:** Xcode, universal with `-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"`.
+  **Linux:** the X11/xcb/cairo/pango development packages listed in `.github/workflows/build.yml` (job
+  `native-linux`).
+- The broker headers come from `../src/broker`. Users get the plug-in through TI Revive's installers (MSI, Mac pkg,
+  Linux `install.sh`); the release workflow builds it on a version tag.
+- Development install on Linux: `cp -r "build-native/VST3/Release/TI Revive Virus Control.vst3" ~/.vst3/` (the TI
+  Revive broker must be installed; the Access files are found through `~/.config/tirevive/access-dir` or the Wine
+  prefix).
 
 ## Using it in REAPER (Linux)
 
 1. Close every other program that uses the Virus: only one session can own it.
 2. Start REAPER (any sample rate; 44.1 kHz avoids the conversion). With PipeWire for example `pw-jack reaper`.
-
 3. Insert "TI Revive Virus Control". On the first start it syncs RAM A–D from the Virus. That takes about 8 minutes;
    the progress bar shows it, and you can play meanwhile (the sync pauses while notes arrive). The banks are cached in `~/.local/share/virus-ti-native/cache`; rename that folder
    to force a new sync.

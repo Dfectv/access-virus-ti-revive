@@ -1,4 +1,4 @@
-# Moving the native plug-in into TI Revive (only on the maintainer's explicit go)
+# Moving the native plug-in into TI Revive - DONE 2026-10-15 (TI Revive 0.8.0)
 
 The native plug-in moves into the public TI Revive repository as `native/`, with its full history. Everything
 below was rehearsed end to end on 2026-10-14 (scratch copies, nothing published): filter, merge, submodules,
