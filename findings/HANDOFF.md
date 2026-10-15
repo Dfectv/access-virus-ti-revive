@@ -1,8 +1,22 @@
 # HANDOFF
 
-_Last updated: 2026-10-15 (0.8.0). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-15 (0.8.2 clean-up). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E145), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
+
+## 0.8.2 (in progress, branch cleanup-0.8.2)
+
+- Clean-up after 0.8: the 0.7.x migration kit and test-package scripts in `native/` removed, broker headers only from
+  `src/broker`; Linux broker without the TCP listener (opt-in `VTI_BROKER_TCP=1`, socket unit has no TCP port, install.sh
+  removes `broker.token`; checked: no listener on 47615). `native/tools/autest.mm` (AU test host).
+- Bug reports: template and `tirevive-usbinfo.ps1` collect the plug-in's `diag.log` (only "Virus TI native:" lines) and
+  the broker log (checked in the win11 VM). Release workflow builds only what ships (broker `vtibroker.exe`, no mingw
+  in the Linux job) - rehearse before the next tag.
+- Issue #4 (Snow on macOS): status reply posted, both users asked to run the first test stages with 0.8.1.
+- Next: Mac broker MIDI stand-in (`vtimidi_start`, needs the Mac); later USB3 output (Global USB controller 9) and
+  real readiness instead of the fixed 4 s note hold; then the **Control Center** as a standalone app: core library +
+  CLI first, read-only (device info, backup, export of patch libraries); RAM restore later; **no flash writes, no OS
+  update, ever** (AGENTS.md rule 2).
 
 ## 0.8.1 (2026-10-15): native Audio Unit, Mac without Rosetta
 
