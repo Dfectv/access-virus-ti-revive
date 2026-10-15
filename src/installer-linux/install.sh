@@ -61,7 +61,7 @@ Terminal=false
 Categories=AudioVideo;Audio;Utility;
 EOF_DESKTOP
 if ldd "$HOME/.local/bin/tirevive-control-center" 2>/dev/null | grep -q "not found"; then
-    echo "NOTE: the Control Center app needs gtkmm 3 (Debian/Ubuntu: sudo apt install libgtkmm-3.0-1v5; Fedora: gtkmm3.0);"
+    echo "NOTE: the Control Center app needs gtkmm 3 (Ubuntu 24.04+: sudo apt install libgtkmm-3.0-1t64, older Debian/Ubuntu: libgtkmm-3.0-1v5; Fedora: gtkmm3.0);"
     echo "      the plug-in and tirevive-cc work without it."
 fi
 install -m 0644 "$HERE/systemd/tirevive-broker.socket" "$HERE/systemd/tirevive-broker.service" "$UNITS/"

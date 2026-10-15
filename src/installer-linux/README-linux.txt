@@ -36,7 +36,7 @@ Good to know
   the plug-in is closed (about 30 seconds later).
 - One program at a time uses the Virus; a second one shows "no Virus TI connected".
 - Backups of the Virus' RAM banks (read-only, close the plug-in first): "TI Revive Control Center" in the
-  application menu (needs gtkmm 3: Debian/Ubuntu libgtkmm-3.0-1v5), or "tirevive-cc backup" in a terminal (also
+  application menu (needs gtkmm 3: Ubuntu 24.04+ libgtkmm-3.0-1t64, older libgtkmm-3.0-1v5), or "tirevive-cc backup" in a terminal (also
   "info", "list", "export"; both in ~/.local/bin). Firmware/OS updates are not supported.
 - Uninstall: ./uninstall.sh (your patch libraries in ~/Documents stay)
 
