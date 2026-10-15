@@ -19,6 +19,14 @@ welcome. Many people use AI assistants for this, and that is fine: the rules bel
    version, and say clearly what you could *not* test (for example "built only, no hardware here").
 5. **Privacy.** Logs can contain user names and paths. Remove what you would not want to publish.
 
+## Testing your setup
+
+Tests on setups we do not have are the most useful contribution: the **Virus TI Snow** (not supported by 0.8.0 yet),
+Polar and Keyboard models, Logic Pro and other DAWs, Intel Macs, other Linux distributions, Windows 10. Follow the
+[testing guide](.claude/skills/tirevive-test/SKILL.md) (plain text, also used by AI coding agents) and post a
+[test report](https://github.com/derpsn/access-virus-ti-revive/issues/new?template=test_report.yml). Report each
+stage as pass, fail or not tested - partial results help.
+
 ## Reporting a bug
 
 Open an [issue](https://github.com/derpsn/access-virus-ti-revive/issues/new/choose) and attach the logs for your

@@ -11,6 +11,25 @@ on Windows, macOS (Apple Silicon and Intel) and Linux, without the old Access dr
 reads the skin, the parameter descriptions and the ROM banks from your own Access installer at runtime; TI Revive
 contains no Access material. No kernel code of its own is installed.
 
+> 🙋 **Testers wanted!** TI Revive is tested on a TI2 Desktop with Ableton Live, REAPER and GarageBand. Help us
+> cover more: **Virus TI Snow** (not supported by 0.8.0 yet - your test results are what makes it possible),
+> **Polar and Keyboard** models, other DAWs (**Logic Pro**, Cubase, Bitwig, FL Studio, Studio One), **Intel Macs**,
+> other **Linux** distributions and **Windows 10**. No coding needed: follow the
+> [testing guide](.claude/skills/tirevive-test/SKILL.md) and post a
+> [test report](https://github.com/derpsn/access-virus-ti-revive/issues/new?template=test_report.yml) - partial
+> results help too.
+>
+> **With an AI coding agent** (Claude Code, Codex, Cursor, ...): this repository brings its own instructions
+> ([AGENTS.md](AGENTS.md), skills for testing, diagnosing logs and preparing pull requests). Clone it, start your
+> agent in the folder and paste:
+>
+> ```text
+> Read AGENTS.md and .claude/skills/tirevive-test/SKILL.md. Help me test TI Revive with my Virus TI on this
+> computer: check my setup against the README, help me install it, go through the test stages safely (no firmware
+> updates, no writing stored patches, a disposable DAW project), collect the logs and draft a test report for
+> me to review before posting it as a GitHub issue.
+> ```
+
 > ☕ **TI Revive is free, and it will stay free.** The whole idea is to bring the Virus TI back to life for
 > everyone, at no cost. If it gives your Virus a second life and you'd like to say thanks, you're welcome to
 > [buy me a coffee](https://buymeacoffee.com/callmederpsn). That's entirely optional and never expected:

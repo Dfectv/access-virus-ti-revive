@@ -1,0 +1,53 @@
+name: Test report
+description: You tested TI Revive on your setup (Snow, Polar, Keyboard, another DAW or system) - what worked, what did not
+labels: [test report]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you! Partial results help too. Mark each stage as pass / fail / not tested.
+        Testing guide: the `tirevive-test` skill in `.claude/skills/` (also readable as plain text). Use a disposable
+        project; never update the Virus firmware or write stored patches for a test.
+  - type: dropdown
+    id: model
+    attributes:
+      label: Virus model
+      options: [TI Desktop, TI2 Desktop, TI Polar / TI2 Polar, TI Keyboard / TI2 Keyboard, TI Snow, not sure]
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: Setup
+      description: Virus OS version, computer + OS version (Mac chip), DAW + version, TI Revive version, sample rate / buffer size, USB direct or hub
+    validations:
+      required: true
+  - type: textarea
+    id: stages
+    attributes:
+      label: Results
+      value: |
+        1. USB detection (usbinfo / ioreg / lsusb):
+        2. Install:
+        3. Plug-in loads, connects, first bank sync finishes:
+        4. Sound (notes play, audio through the plug-in):
+        5. Knobs and patch browser:
+        6. Project save / reopen:
+        7. Timing (16th notes on the grid), optional:
+        8. Windows: ASIO "TI Revive Virus Audio", optional:
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Plug-in: diag.log (create diag.on in the plug-in folder first, see CONTRIBUTING.md). Broker: Windows %TEMP%\vtibroker.log,
+        macOS /tmp/tirevive-vtibroker.log, Linux journalctl --user -u tirevive-broker -b. Snow / detection problems: the usbinfo output.
+        Remove anything private first.
+  - type: checkboxes
+    id: ai
+    attributes:
+      label: How was this test done?
+      options:
+        - label: with the help of an AI coding agent

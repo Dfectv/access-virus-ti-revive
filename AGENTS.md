@@ -65,6 +65,13 @@ Read this file completely before changing anything. Human contributors: see [CON
 - Without the hardware you can still: build, run the static checks you have, and reason from logs. Say that you did
   exactly that.
 
+## Helping a user test their setup
+
+Use the `tirevive-test` skill (`.claude/skills/tirevive-test/`): safety rules first (no firmware updates, no writing
+stored patches, no untested SysEx, a disposable DAW project), then the test stages from USB detection to project
+recall, and a report with pass / fail / not tested per stage for the "Test report" issue template. Untested models
+(Virus TI Snow) and setups are exactly where these reports are needed.
+
 ## Working from a user's report
 
 Use the `tirevive-diagnose` skill (`.claude/skills/tirevive-diagnose/`) or follow it by hand: collect the platform
