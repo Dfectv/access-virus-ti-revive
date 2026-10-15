@@ -1,6 +1,6 @@
 # TI Revive
 
-*Turning on your Virus TI again feels like meeting an old best friend.*
+*Like meeting an old best friend again.*
 
 **Total Integration for the Access Virus TI on Windows 11, macOS and Linux — without the old drivers.**
 
