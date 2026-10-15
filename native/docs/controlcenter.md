@@ -12,7 +12,7 @@ does not work with TI Revive. Its replacement is built in steps: a core library,
 | Backup of the RAM banks as patch libraries (`RAM A.mid` .. `RAM D.mid`) | app, `tirevive-cc backup` |
 | List / convert patch libraries (.mid <-> .syx), no Virus needed | app (Convert library), `tirevive-cc list`, `export` |
 | Nerd mode: plug-in and broker log live, plug-in log switch, logs for a bug report (anonymized) | app (View > Nerd mode, or the button), `tirevive-cc logs`, `debug on/off` |
-| Nerd mode "Live": broker status (device, owner, clients, audio, counters) and the traffic, decoded | app (Live tab), `tirevive-cc watch`; broker of macOS/Linux (Windows: next) |
+| Nerd mode "Live": broker status (device, owner, clients, audio, counters) and the traffic, decoded | app (Live tab), `tirevive-cc watch`; all three brokers |
 | Restore a backup into the Virus' RAM | later, after a separate review (writes stored patches) |
 | Firmware / OS update, Burn To Flash, factory reset, device name | **not supported, on purpose** |
 
@@ -52,7 +52,8 @@ it as the owner, so it disconnects and says the broker is too old. `src/cc/decod
 together and names them: notes, CCs, clock, the Access SysEx commands documented in findings/spec.md §6 (single
 dump / request, multi dump, bank info / request, sync ping), parameter changes by name through the device model
 (the user's Access files; without them as page/id/value). Clients name themselves in HELLO (plug-in "TI Revive
-Virus Control", ASIO driver, Control Center, tirevive-cc).
+Virus Control", ASIO driver, Control Center, tirevive-cc). The Windows broker has no owner (every client
+shares the Virus, as before); there an observer simply gets no raw RX and the status says "owner=shared".
 
 ## How it works
 
@@ -90,6 +91,9 @@ Virus Control", ASIO driver, Control Center, tirevive-cc).
   observer while `tirevive-cc info` owned the Virus (both in the status; descriptor requests and bank info requests /
   replies decoded) and while the plug-in started in `nativehost` (globals by name, multi dump, 16 single dumps
   " -Init-", notes off at the end; 0 dropped over 1266 lines). The app's Live tab on Xvfb shows the same.
+- 2026-10-15, Windows 11 VM (no Virus): new vtibroker.exe by hand, `tirevive-cc watch` (mingw build) as observer
+  while `tirevive-cc info` connected: status, client names, log lines. Against the installed 0.8.1 broker on Linux
+  `watch` reports "broker too old" and disconnects after 1.5 s (the old broker had made it the owner meanwhile).
 - Linux: builds, `list`/`export` round trips on factory libraries (patch data unchanged; only program byte and
   checksums differ). Windows: cross-compiles with mingw-w64.
 - Packages (CI run 38709651579, manual, test version 0.0.1): the pkg's binary is universal and signed and runs

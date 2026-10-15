@@ -26,8 +26,8 @@ Evidence: [evidence.md](evidence.md) (E001-E145), protocol: [spec.md](spec.md); 
 - **Nerd mode** (user's idea 2026-10-15, agreed plan): (1) DONE logs + debug switches (page of the main window,
   `tirevive-cc logs` / `debug on|off`), tested on Linux (Xvfb). (2)+(3) DONE for the POSIX broker: protocol 4
   observer role (vtiproto.h), decoder src/cc/decode, Live tab, `tirevive-cc watch`; tested on Linux with the TI2
-  (installed 0.8.1 broker stopped for the test and restored). (4) NEXT Windows broker (vtibroker.c) observer, CI,
-  macOS compile + check. No "send SysEx" console (rule 2).
+  (installed 0.8.1 broker stopped for the test and restored). (4) Windows broker observer DONE (VM test without Virus);
+  NEXT: CI run, macOS check (broker by hand + autest + watch), merge. No "send SysEx" console (rule 2).
 - Mac broker: the MIDI driver stand-in (`vtimidi_start`, VirusTICommMem, E100) only served the original plug-in of
   the classic path; it is now opt-in (`VTI_BROKER_MIDISHIM=1`). Without a reader its ring overflowed ("MDR ring full,
   dropping" in 0.8.1 broker logs). Tested on the M3 + TI2 with a broker built there: autest (native AU) connects,

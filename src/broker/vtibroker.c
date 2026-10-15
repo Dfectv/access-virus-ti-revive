@@ -43,6 +43,9 @@ typedef struct {
     volatile LONG alive;
     HANDLE sender;
     int notes; // has sent note-ons: silence the Virus when it goes away (hanging-note protection)
+    int observer;            // protocol 4: read-only observer (Nerd mode)
+    volatile LONG64 dropped; // observer: messages dropped because its queue was full
+    char name[48];           // from HELLO (protocol 4)
 } client;
 static client *g_clients[MAX_CLIENTS];
 
@@ -56,6 +59,8 @@ static struct {
 } g_audio[MAX_CLIENTS];
 static HANDLE g_audio_thread;
 static volatile LONG g_audio_running, g_audio_blocks;
+
+static void obs_log(const char *line, int len); // observers get every log line (below)
 
 static void blog(const char *fmt, ...)
 {
@@ -77,6 +82,7 @@ static void blog(const char *fmt, ...)
     WriteFile(g_log, buf, n, &w, NULL);
     fwrite(buf, 1, n, stdout);
     LeaveCriticalSection(&g_cs_log);
+    obs_log(buf, n - 1);
 }
 
 // Queue one message (header + a + b). On overflow the client is dropped instead of blocking the caller.
@@ -267,12 +273,14 @@ static int send_msg(client *c, uint16_t type, const void *a, int alen, const voi
         for (int p = 0; p < 3; p++)
             for (uint32_t i = 0; i < lens[p]; i++)
                 c->queue[(c->q_head + c->q_len++) % QUEUE_BYTES] = parts[p][i];
+    } else if (c->observer) { // an observer only loses this message (counted in its status)
+        InterlockedIncrement64(&c->dropped);
     } else {
         c->alive = 0;
     }
     LeaveCriticalSection(&c->q);
     SetEvent(c->q_event);
-    if (!ok)
+    if (!ok && !c->observer)
         blog("client queue overflow: dropping client");
     return ok ? 0 : -1;
 }
@@ -303,12 +311,79 @@ static DWORD WINAPI sender_thread(LPVOID arg)
     return 0;
 }
 
-static void broadcast(uint16_t type, const void *a, int alen, const void *b, int blen)
+static void broadcast(uint16_t type, const void *a, int alen, const void *b, int blen) // not to observers
 {
     EnterCriticalSection(&g_cs_clients);
     for (int i = 0; i < MAX_CLIENTS; i++)
-        if (g_clients[i])
+        if (g_clients[i] && !g_clients[i]->observer)
             send_msg(g_clients[i], type, a, alen, b, blen);
+    LeaveCriticalSection(&g_cs_clients);
+}
+
+// ---- observers (protocol 4, the Control Center's Nerd mode; see vtiproto.h) ----
+static volatile LONG g_obs_count;
+static volatile LONG64 g_cnt_out, g_cnt_in, g_cnt_ctl; // packets passed on (status)
+static ULONGLONG g_t0;
+
+static void obs_send(uint16_t type, const void *a, int alen, const void *b, int blen)
+{
+    if (alen + blen > VTIMSG_MAX)
+        blen = VTIMSG_MAX - alen;
+    EnterCriticalSection(&g_cs_clients);
+    for (int i = 0; i < MAX_CLIENTS; i++)
+        if (g_clients[i] && g_clients[i]->observer)
+            send_msg(g_clients[i], type, a, alen, b, blen);
+    LeaveCriticalSection(&g_cs_clients);
+}
+
+static void obs_log(const char *line, int len)
+{
+    if (g_obs_count && len > 0)
+        obs_send(VTIMSG_OBS_LOG, line, len, NULL, 0);
+}
+
+static void obs_traffic(uint8_t kind, uint8_t ep, const void *a, int alen, const void *b, int blen)
+{
+    InterlockedIncrement64(kind == 0 ? &g_cnt_out : kind == 1 ? &g_cnt_in : &g_cnt_ctl);
+    if (!g_obs_count)
+        return;
+    uint8_t hdr[6] = {kind, ep};
+    uint32_t t = (uint32_t)(GetTickCount64() - g_t0);
+    memcpy(hdr + 2, &t, 4);
+    uint8_t body[VTIMSG_MAX];
+    int n = alen < (int)sizeof body ? alen : (int)sizeof body;
+    memcpy(body, a, n);
+    if (blen > 0 && n + blen <= (int)sizeof body)
+        memcpy(body + n, b, blen), n += blen;
+    obs_send(VTIMSG_OBS_TRAFFIC, hdr, 6, body, n);
+}
+
+static void obs_status(int dev_open) // once a second (device thread)
+{
+    if (!g_obs_count)
+        return;
+    char clients[600] = "", st[1100];
+    EnterCriticalSection(&g_cs_clients);
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        client *c = g_clients[i];
+        if (!c)
+            continue;
+        size_t l = strlen(clients);
+        snprintf(clients + l, sizeof clients - l, "%s%s%s", l ? ", " : "", c->name[0] ? c->name : "unnamed client",
+                 c->observer ? " (observer)" : "");
+    }
+    // Windows: every client shares the Virus (no owner); the drop counter is per observer
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        client *c = g_clients[i];
+        if (!c || !c->observer)
+            continue;
+        int n = snprintf(st, sizeof st,
+                         "device=%d\towner=shared\tclients=%s\taudio=%d\tto_device=%lld\tfrom_device=%lld\tcontrol=%lld"
+                         "\tuptime_s=%u\tdropped=%lld",
+                         dev_open, clients, g_audio_running ? 1 : 0, (long long)g_cnt_out, (long long)g_cnt_in,
+                         (long long)g_cnt_ctl, (unsigned)((GetTickCount64() - g_t0) / 1000), (long long)c->dropped);
+        send_msg(c, VTIMSG_OBS_STATUS, st, n < (int)sizeof st ? n : (int)sizeof st - 1, NULL, 0);
+    }
     LeaveCriticalSection(&g_cs_clients);
 }
 
@@ -318,6 +393,7 @@ static void on_rx(void *user, uint8_t ep, const uint8_t *data, int len)
     if (g_verbose)
         blog("rx ep%02x %d bytes", ep, len);
     broadcast(VTIMSG_RX, &ep, 1, data, len);
+    obs_traffic(1, ep, data, len, NULL, 0);
 }
 
 static void on_vti_log(const char *fmt, ...)
@@ -386,7 +462,13 @@ static DWORD WINAPI device_thread(LPVOID unused)
                 broadcast(VTIMSG_STATE, &st, 4, NULL, 0);
             }
         }
+        int open = g_dev != NULL;
         LeaveCriticalSection(&g_cs_dev);
+        static ULONGLONG last_status;
+        if (GetTickCount64() - last_status >= 1000) {
+            last_status = GetTickCount64();
+            obs_status(open);
+        }
         Sleep(g_dev ? 500 : 2000);
     }
     return 0;
@@ -409,21 +491,43 @@ static DWORD WINAPI client_thread(LPVOID arg)
             break;
         switch (h.type) {
         case VTIMSG_HELLO:
-            blog("client hello, protocol %u", h.len >= 4 ? *(uint32_t *)buf : 0);
+            if (h.len > 4) { // protocol 4: the client's name
+                size_t n = h.len - 4u < sizeof c->name - 1 ? h.len - 4u : sizeof c->name - 1;
+                EnterCriticalSection(&g_cs_clients);
+                memcpy(c->name, buf + 4, n);
+                c->name[n] = 0;
+                for (char *p = c->name; *p; p++)
+                    if ((unsigned char)*p < 32)
+                        *p = ' ';
+                LeaveCriticalSection(&g_cs_clients);
+            }
+            blog("client hello, protocol %u%s%s", h.len >= 4 ? *(uint32_t *)buf : 0, c->name[0] ? ": " : "", c->name);
             break;
+        case VTIMSG_OBSERVE: { // read-only observer: no RX, no writes; traffic copy, log and status instead
+            EnterCriticalSection(&g_cs_clients);
+            c->observer = 1;
+            InterlockedIncrement(&g_obs_count);
+            LeaveCriticalSection(&g_cs_clients);
+            uint32_t ver = VTI_PROTO_VERSION, st0 = 0;
+            send_msg(c, VTIMSG_STATE, &st0, 4, NULL, 0);
+            send_msg(c, VTIMSG_OBSERVE_REPLY, &ver, 4, NULL, 0);
+            blog("client is an observer (read-only)");
+            break;
+        }
         case VTIMSG_WRITE:
-            if (h.len >= 1) {
+            if (h.len >= 1 && !c->observer) {
                 if (buf[0] == VTI_EP_MI04_OUT && !c->notes && vti_has_note_on(buf + 1, h.len - 1))
                     c->notes = 1;
                 EnterCriticalSection(&g_cs_dev);
                 int r = g_dev ? vti_write(g_dev, buf[0], buf + 1, h.len - 1) : -1;
                 LeaveCriticalSection(&g_cs_dev);
+                obs_traffic(0, buf[0], buf + 1, h.len - 1, NULL, 0);
                 if (g_verbose || r)
                     blog("write ep%02x %d bytes -> %d", buf[0], h.len - 1, r);
             }
             break;
         case VTIMSG_CONTROL:
-            if (h.len >= 12) {
+            if (h.len >= 12 && !c->observer) {
                 uint32_t seq = *(uint32_t *)buf;
                 uint8_t *s = buf + 4, data[VTIMSG_MAX];
                 uint16_t wl = s[6] | s[7] << 8;
@@ -434,6 +538,10 @@ static DWORD WINAPI client_thread(LPVOID arg)
                 EnterCriticalSection(&g_cs_dev);
                 int32_t r = g_dev ? vti_control(g_dev, s[0], s[1], s[2] | s[3] << 8, s[4] | s[5] << 8, data, wl) : -1;
                 LeaveCriticalSection(&g_cs_dev);
+                uint8_t rec[12];
+                memcpy(rec, s, 8);
+                memcpy(rec + 8, &r, 4);
+                obs_traffic(2, 0, rec, 12, data, (s[0] & 0x80) ? (r > 0 ? r : 0) : wl);
                 uint8_t hdr[8];
                 memcpy(hdr, &seq, 4);
                 memcpy(hdr + 4, &r, 4);
@@ -441,7 +549,7 @@ static DWORD WINAPI client_thread(LPVOID arg)
             }
             break;
         case VTIMSG_AUDIO:
-            if (h.len >= 4) {
+            if (h.len >= 4 && !c->observer) {
                 buf[h.len < VTIMSG_MAX ? h.len : VTIMSG_MAX - 1] = 0;
                 int32_t r = audio_request(c, *(uint32_t *)buf, h.len > 4 ? (const char *)buf + 4 : "");
                 blog("client audio %s -> %d", *(uint32_t *)buf ? "on" : "off", r);
@@ -452,7 +560,9 @@ static DWORD WINAPI client_thread(LPVOID arg)
             blog("client: unknown message %u", h.type);
         }
     }
-    blog("client disconnected");
+    blog("client disconnected%s", c->observer ? " (observer)" : "");
+    if (c->observer)
+        InterlockedDecrement(&g_obs_count);
     if (c->notes) { // a DAW that crashed or was killed cannot send its note-offs any more
         uint8_t off[256];
         int n = vti_pack_notes_off(off, sizeof off);
@@ -486,6 +596,7 @@ int main(int argc, char **argv)
         g_verbose |= !strcmp(argv[i], "-v");
         g_stay |= !strcmp(argv[i], "-stay");
     }
+    g_t0 = GetTickCount64();
     InitializeCriticalSection(&g_cs_log);
     InitializeCriticalSection(&g_cs_dev);
     InitializeCriticalSection(&g_cs_clients);

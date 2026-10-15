@@ -744,7 +744,7 @@ static void *device_thread(void *unused)
             last_status = uptime_ms();
             obs_status(open);
         }
-        usleep(open ? 500000 : 1000000);
+        usleep(open ? 500000 : 2000000);
     }
     return NULL;
 }
