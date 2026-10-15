@@ -1,0 +1,163 @@
+From b10fb089f82a1deb216292f090ee005cf6aeb61f Mon Sep 17 00:00:00 2001
+From: derpsn <callmederpsn@proton.me>
+Date: Wed, 14 Oct 2026 20:09:58 +0200
+Subject: [PATCH 02/13] Mac and Linux packages: the native plug-in when native/
+ is present (built universal / on Linux), installers and uninstallers; the old
+ test bundle VirusTINative.vst3 is removed
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ scripts/linux-build-release.sh                | 10 ++++++++
+ scripts/mac-build-release.sh                  | 11 +++++++++
+ src/installer-linux/install.sh                | 23 +++++++++++++++++++
+ src/installer-linux/uninstall.sh              |  2 ++
+ src/installer-mac/Uninstall TI Revive.command |  1 +
+ src/installer-mac/scripts/postinstall         |  4 ++++
+ 6 files changed, 51 insertions(+)
+
+diff --git a/scripts/linux-build-release.sh b/scripts/linux-build-release.sh
+index 31342b4..ceb195c 100755
+--- a/scripts/linux-build-release.sh
++++ b/scripts/linux-build-release.sh
+@@ -35,6 +35,15 @@ x86_64-w64-mingw32-gcc -O2 -Wall -Wextra -DVTIEMU_NO_DLLMAIN -DVTIEMU_VIRTUAL_DE
+     -lshell32 -lole32 -luuid -lws2_32 -lwinmm -static -lpthread
+ x86_64-w64-mingw32-gcc -O2 -Wall -o "$BUILD/vtimsipatch.exe" "$REPO/src/installer-linux/vtimsipatch.c" -lmsi -static
+ 
++NATIVE=""
++if [ -f "$REPO/native/CMakeLists.txt" ]; then # the native plug-in "TI Revive Virus Control" (native/, Linux VST3)
++    echo "== native plug-in"
++    cmake -S "$REPO/native" -B "$BUILD/native" -DCMAKE_BUILD_TYPE=Release >/dev/null
++    cmake --build "$BUILD/native" --target VirusTINative -j4 >/dev/null
++    NATIVE="$BUILD/native/VST3/Release/TI Revive Virus Control.vst3"
++    strip "$NATIVE/Contents/x86_64-linux/TI Revive Virus Control.so"
++fi
++
+ echo "== package"
+ NAME="TI-Revive-$VERSION-linux"
+ P="$BUILD/$NAME"
+@@ -45,6 +54,7 @@ install -m 0644 "$BUILD/VirusTI_TIRevive.vst3" "$BUILD/vtimsipatch.exe" "$P/wine
+ install -m 0644 "$I/tirevive-broker.socket" "$I/tirevive-broker.service" "$P/systemd/"
+ install -m 0644 "$I/70-tirevive-virus-ti.rules" "$P/udev/"
+ install -m 0755 "$I/install.sh" "$I/uninstall.sh" "$P/"
++[ -n "$NATIVE" ] && mkdir -p "$P/native" && cp -R "$NATIVE" "$P/native/"
+ sed "s/@VERSION@/$VERSION/g" "$I/README-linux.txt" > "$P/README-linux.txt"
+ install -m 0644 "$REPO/LICENSE" "$P/"
+ tar -C "$BUILD" -czf "$OUT/$NAME.tar.gz" "$NAME"
+diff --git a/scripts/mac-build-release.sh b/scripts/mac-build-release.sh
+index 3aab2fe..91751ce 100755
+--- a/scripts/mac-build-release.sh
++++ b/scripts/mac-build-release.sh
+@@ -36,6 +36,16 @@ make -C "$REPO/src/broker" mac-static OUT="$BUILD" LIBUSB_PREFIX="$LIBUSB"
+ otool -L "$BUILD/mac/vtibroker" | grep -q libusb && { echo "broker still links a libusb dylib"; exit 1; }
+ codesign --force --sign - "$BUILD/mac/vtibroker"
+ 
++NATIVE=""
++if [ -f "$REPO/native/CMakeLists.txt" ]; then # the native plug-in "TI Revive Virus Control" (native/, VST3, universal)
++    echo "== native plug-in (arm64 + x86_64)"
++    cmake -S "$REPO/native" -B "$BUILD/native" -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
++        -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 ${SDKROOT:+-DCMAKE_OSX_SYSROOT="$SDKROOT"} >/dev/null
++    cmake --build "$BUILD/native" --config Release --target VirusTINative -- -quiet
++    NATIVE="$BUILD/native/VST3/Release/TI Revive Virus Control.vst3"
++    codesign --force --deep --sign - "$NATIVE"
++fi
++
+ echo "== payload"
+ ROOT="$BUILD/root"
+ SUP="$ROOT/Library/Application Support"
+@@ -43,6 +53,7 @@ mkdir -p "$ROOT/Library/Audio/Plug-Ins/VST3" "$ROOT/Library/Audio/Plug-Ins/Compo
+     "$SUP/Access Music/Virus TI/Common"
+ cp -R "$BUILD/Virus TI (TI Revive).vst3" "$ROOT/Library/Audio/Plug-Ins/VST3/"
+ cp -R "$BUILD/Virus TI (TI Revive).component" "$ROOT/Library/Audio/Plug-Ins/Components/"
++[ -n "$NATIVE" ] && cp -R "$NATIVE" "$ROOT/Library/Audio/Plug-Ins/VST3/"
+ cp "$BUILD/mac/vtibroker" "$SUP/TI Revive/vtibroker"
+ cp "$REPO/src/installer-mac/Uninstall TI Revive.command" "$SUP/TI Revive/"
+ cp "$BUILD/libVirusUSB.dylib" "$SUP/Access Music/Virus TI/Common/libVirusUSB.dylib"
+diff --git a/src/installer-linux/install.sh b/src/installer-linux/install.sh
+index 40737f8..2abda34 100755
+--- a/src/installer-linux/install.sh
++++ b/src/installer-linux/install.sh
+@@ -8,6 +8,7 @@
+ #   2. TI Revive broker in ~/.local/lib/tirevive + systemd user socket (starts on demand, exits when idle)
+ #   3. your own Access Virus TI software into your Wine prefix, without its old drivers / firmware updater
+ #   4. the plug-in "Virus TI (TI Revive)" into the Wine prefix, and - if yabridge is installed - bridged for your DAW
++#   5. the native plug-in "TI Revive Virus Control" (Linux VST3, no Wine/yabridge needed) into ~/.vst3
+ # Wine and yabridge are NOT installed by this script; it tells you how if they are missing.
+ set -eu
+ HERE=$(cd "$(dirname "$0")" && pwd)
+@@ -101,6 +102,10 @@ else
+     [ -f "$VST3_DIR/Virus TI.vst3" ] || die "the Access plug-in is missing after the install"
+ fi
+ 
++# the native plug-in reads the Access files from there (a DAW started from the desktop does not see WINEPREFIX)
++mkdir -p "$CONF"
++printf '%s\n' "$PREFIX/drive_c/Program Files/Access Music/Virus TI/Common" > "$CONF/access-dir"
++
+ # --- 4. the TI Revive plug-in + yabridge ----------------------------------------------------------------------------
+ say "plug-in Virus TI (TI Revive)"
+ install -m 0644 "$HERE/wine/VirusTI_TIRevive.vst3" "$VST3_DIR/Virus TI (TI Revive).vst3"
+@@ -138,4 +143,22 @@ yabridge is not installed. It makes Windows plug-ins usable in Linux DAWs (REAPE
+     yabridgectl add "$VST3_DIR" && yabridgectl sync
+ EOT
+ fi
++# --- 5. the native plug-in ------------------------------------------------------------------------------------------
++if [ -d "$HERE/native/TI Revive Virus Control.vst3" ]; then
++    say "native plug-in TI Revive Virus Control (VST3 for Linux DAWs, no Wine/yabridge)"
++    mkdir -p "$HOME/.vst3"
++    rm -rf "$HOME/.vst3/TI Revive Virus Control.vst3" "$HOME/.vst3/VirusTINative.vst3" # VirusTINative = test builds
++    cp -R "$HERE/native/TI Revive Virus Control.vst3" "$HOME/.vst3/"
++    MISSING=$(ldd "$HOME/.vst3/TI Revive Virus Control.vst3/Contents/x86_64-linux/TI Revive Virus Control.so" 2>/dev/null |
++        awk '/not found/ {print $1}' | tr '\n' ' ')
++    if [ -n "$MISSING" ]; then
++        cat <<EOT
++WARNING: libraries the native plug-in needs are missing: $MISSING
++Install them with your package manager (Ubuntu/Debian: libxcb-cursor0 libxcb-util1 libxkbcommon-x11-0 libcairo2
++libpango-1.0-0 libpangocairo-1.0-0 libfontconfig1), then rescan plug-ins.
++EOT
++    fi
++    echo "installed to ~/.vst3: rescan plug-ins in your DAW and load \"TI Revive Virus Control\" (VST3)"
++fi
++
+ say "done. Use the VST3 \"Virus TI (TI Revive)\" in your DAW; the original \"Virus TI\" plug-in does not work on its own."
+diff --git a/src/installer-linux/uninstall.sh b/src/installer-linux/uninstall.sh
+index ecb8f5f..a93d353 100755
+--- a/src/installer-linux/uninstall.sh
++++ b/src/installer-linux/uninstall.sh
+@@ -14,6 +14,8 @@ command -v systemctl >/dev/null 2>&1 && systemctl --user daemon-reload 2>/dev/nu
+ rm -rf "$HOME/.local/lib/tirevive"
+ rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/tirevive/broker.token"
+ rm -f "$PREFIX/drive_c/Program Files/Common Files/VST3/Virus TI (TI Revive).vst3"
++rm -rf "$HOME/.vst3/TI Revive Virus Control.vst3" "$HOME/.vst3/VirusTINative.vst3"
++rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/tirevive/access-dir"
+ command -v yabridgectl >/dev/null 2>&1 && yabridgectl sync --prune >/dev/null 2>&1
+ if [ -f /etc/udev/rules.d/70-tirevive-virus-ti.rules ]; then
+     sudo rm -f /etc/udev/rules.d/70-tirevive-virus-ti.rules && sudo udevadm control --reload
+diff --git a/src/installer-mac/Uninstall TI Revive.command b/src/installer-mac/Uninstall TI Revive.command
+index b968c0b..681204f 100755
+--- a/src/installer-mac/Uninstall TI Revive.command	
++++ b/src/installer-mac/Uninstall TI Revive.command	
+@@ -16,6 +16,7 @@ for f in "VST3/Virus TI.vst3" "VST/Virus TI.vst" "VST/Virus TI Snow.vst" "Compon
+         sudo mv "$PRIV/$f" "/Library/Audio/Plug-Ins/$f"
+     fi
+ done
++sudo rm -rf "/Library/Audio/Plug-Ins/VST3/TI Revive Virus Control.vst3" "$HOME/Library/Audio/Plug-Ins/VST3/VirusTINative.vst3"
+ sudo rm -rf "/Library/Audio/Plug-Ins/VST3/Virus TI (TI Revive).vst3" \
+     "/Library/Audio/Plug-Ins/Components/Virus TI (TI Revive).component" "/Library/Application Support/TI Revive"
+ # our replacement of Access' driver-package library (the Access plug-ins stop connecting without TI Revive)
+diff --git a/src/installer-mac/scripts/postinstall b/src/installer-mac/scripts/postinstall
+index b8ee37c..6161302 100755
+--- a/src/installer-mac/scripts/postinstall
++++ b/src/installer-mac/scripts/postinstall
+@@ -9,6 +9,10 @@ if [ -n "$USER_NAME" ] && [ "$USER_NAME" != root ]; then
+         launchctl bootout "gui/$USER_ID/$label" 2>/dev/null || true
+     done
+     rm -f "/Users/$USER_NAME/Library/LaunchAgents/com.tirevive.vtibroker.plist"
++    # test builds of the native plug-in lived in the user's folder under another name (same class id: a DAW would
++    # see two copies of "TI Revive Virus Control")
++    rm -rf "/Users/$USER_NAME/Library/Audio/Plug-Ins/VST3/VirusTINative.vst3" \
++        "/Users/$USER_NAME/Library/Audio/Plug-Ins/VST3/TI Revive Virus Control.vst3"
+ fi
+ rm -f /Library/LaunchAgents/io.github.derpsn.tirevive.vtibroker.plist
+ # a running broker is NOT stopped: it serves its current session to the end and exits 30 s after its last client;
+-- 
+2.53.0
+

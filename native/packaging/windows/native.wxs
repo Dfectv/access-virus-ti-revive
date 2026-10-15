@@ -1,0 +1,80 @@
+<!-- native.wxs - the native plug-in and its ASIO driver in TI Revive's MSI (WiX 5 fragment).
+     TIRevive.wxs references the group: <ComponentGroupRef Id="Native" /> in Feature "Main"; build.ps1 passes
+     -d NativeBin=<folder with "TI Revive Virus Control.vst3\" and VirusTINative_ASIO.dll>.
+     Directories INSTALLFOLDER (Program Files\TI Revive) and VST3FOLDER (Common Files\VST3) come from TIRevive.wxs. -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <DirectoryRef Id="VST3FOLDER">
+      <Directory Id="NATIVEBUNDLE" Name="TI Revive Virus Control.vst3">
+        <Directory Id="NATIVECONTENTS" Name="Contents">
+          <Directory Id="NATIVEBIN" Name="x86_64-win" />
+          <Directory Id="NATIVERES" Name="Resources" />
+        </Directory>
+      </Directory>
+      <!-- the bundle of the test builds before 2026-10-14 (same class id: two copies would clash in the DAW) -->
+      <Directory Id="OLDBUNDLE" Name="VirusTINative.vst3">
+        <Directory Id="OLDCONTENTS" Name="Contents">
+          <Directory Id="OLDBIN" Name="x86_64-win" />
+          <Directory Id="OLDRES" Name="Resources" />
+        </Directory>
+      </Directory>
+    </DirectoryRef>
+    <!-- the test packages' folder (install.ps1 of 0.1.0-testN: ASIO DLL, renamed old DLLs, uninstall scripts) -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="OLDTESTFOLDER" Name="virus-ti-native" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="Native">
+      <Component Directory="OLDTESTFOLDER" Guid="9D3A61F2-5C47-4E1B-A8E9-0B7D2C4F6E31">
+        <RegistryValue Root="HKLM" Key="Software\TI Revive\Installer" Name="NativeTestFolderRemoved" Type="integer"
+                       Value="1" KeyPath="yes" />
+        <RemoveFile Id="oldtestfiles" Name="*" On="install" />
+        <RemoveFolder Id="oldtestfolder" On="install" />
+      </Component>
+      <!-- the VST3 bundle "TI Revive Virus Control" (vendor TI Revive) -->
+      <Component Directory="NATIVEBIN">
+        <File Id="nativevst3" Source="$(var.NativeBin)\TI Revive Virus Control.vst3\Contents\x86_64-win\TI Revive Virus Control.vst3" />
+      </Component>
+      <Component Directory="NATIVERES">
+        <File Id="nativemoduleinfo" Source="$(var.NativeBin)\TI Revive Virus Control.vst3\Contents\Resources\moduleinfo.json" />
+      </Component>
+      <Component Directory="NATIVEBUNDLE">
+        <File Id="nativeicon" Source="$(var.NativeBin)\TI Revive Virus Control.vst3\PlugIn.ico" />
+      </Component>
+      <Component Directory="NATIVEBUNDLE">
+        <File Id="nativedesktopini" Source="$(var.NativeBin)\TI Revive Virus Control.vst3\desktop.ini" />
+      </Component>
+
+      <Component Directory="OLDBUNDLE" Guid="5B0C2E7A-9E41-4D7C-8F3A-2C6B1D9E4A10">
+        <RegistryValue Root="HKLM" Key="Software\TI Revive\Installer" Name="NativeTestBundleRemoved" Type="integer"
+                       Value="1" KeyPath="yes" />
+        <RemoveFile Id="oldvst3" Directory="OLDBIN" Name="VirusTINative.vst3" On="install" />
+        <RemoveFile Id="oldmoduleinfo" Directory="OLDRES" Name="moduleinfo.json" On="install" />
+        <RemoveFile Id="oldicon" Name="PlugIn.ico" On="install" />
+        <RemoveFile Id="olddesktopini" Name="desktop.ini" On="install" />
+        <RemoveFolder Id="oldbin" Directory="OLDBIN" On="install" />
+        <RemoveFolder Id="oldres" Directory="OLDRES" On="install" />
+        <RemoveFolder Id="oldcontents" Directory="OLDCONTENTS" On="install" />
+        <RemoveFolder Id="oldbundle" Directory="OLDBUNDLE" On="install" />
+      </Component>
+
+      <!-- ASIO driver "TI Revive Virus Audio": the Virus as a sound card through the broker (asio/asiodriver.cpp).
+           Registered like DllRegisterServer does, as MSI registry values (removed on uninstall). -->
+      <Component Directory="INSTALLFOLDER">
+        <File Id="nativeasio" Source="$(var.NativeBin)\VirusTINative_ASIO.dll" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{F1DA6F3F-7A48-49A9-97F8-C3A8C008EABD}" Type="string"
+                       Value="TI Revive Virus Audio ASIO driver" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{F1DA6F3F-7A48-49A9-97F8-C3A8C008EABD}\InprocServer32"
+                       Type="string" Value="[#nativeasio]" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{F1DA6F3F-7A48-49A9-97F8-C3A8C008EABD}\InprocServer32"
+                       Name="ThreadingModel" Type="string" Value="Apartment" />
+        <RegistryValue Root="HKLM" Key="Software\ASIO\TI Revive Virus Audio" Name="CLSID" Type="string"
+                       Value="{F1DA6F3F-7A48-49A9-97F8-C3A8C008EABD}" />
+        <RegistryValue Root="HKLM" Key="Software\ASIO\TI Revive Virus Audio" Name="Description" Type="string"
+                       Value="TI Revive Virus Audio" />
+        <!-- the test builds' entry (same CLSID) would show the device twice -->
+        <RemoveRegistryKey Root="HKLM" Key="Software\ASIO\Virus TI (native)" Action="removeOnInstall" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

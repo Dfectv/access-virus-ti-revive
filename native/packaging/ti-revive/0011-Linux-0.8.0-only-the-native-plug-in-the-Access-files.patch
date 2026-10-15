@@ -1,0 +1,372 @@
+From 6a758dbb9af1377df87144eec846bbe532e85a18 Mon Sep 17 00:00:00 2001
+From: derpsn <callmederpsn@proton.me>
+Date: Thu, 15 Oct 2026 06:42:53 +0200
+Subject: [PATCH 11/13] Linux 0.8.0: only the native plug-in; the Access files
+ are unpacked (msiextract or Wine), not installed
+
+- install.sh: no Wine prefix install, no classic plug-in / yabridge step; the Access .msi is unpacked with msiextract
+  (msitools) or, without it, Wine's administrative extraction into a throw-away prefix; Virus Control.dll,
+  firmware.bin, manuals -> ~/.local/share/tirevive/access, factory patch libraries -> ~/Documents (missing files
+  only); an Access installation of TI Revive 0.7 in the Wine prefix is reused; the classic plug-in (prefix +
+  yabridge copy) and test bundles are removed
+- tarball without wine/ (classic plug-in, MSI patch tool); README-linux for the new flow
+Tested with a temporary HOME: both unpack paths (msiextract: DLL, firmware, 96 patch files; Wine: + manuals), the
+plug-in's lookup finds the files through access-dir.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ scripts/linux-build-release.sh       |  18 ++--
+ src/installer-linux/README-linux.txt |  63 ++++++------
+ src/installer-linux/install.sh       | 143 +++++++++++----------------
+ src/installer-linux/uninstall.sh     |   8 +-
+ 4 files changed, 94 insertions(+), 138 deletions(-)
+
+diff --git a/scripts/linux-build-release.sh b/scripts/linux-build-release.sh
+index bf0135f..073b348 100755
+--- a/scripts/linux-build-release.sh
++++ b/scripts/linux-build-release.sh
+@@ -1,10 +1,11 @@
+ #!/bin/bash
+ # linux-build-release.sh - build the Linux release of TI Revive (findings/design-linux.md):
+ #   TI-Revive-<version>-linux.tar.gz = install.sh, uninstall.sh, README-linux.txt,
+-#     bin/vtibroker (native, libusb linked statically), wine/VirusTI_TIRevive.vst3 + wine/vtimsipatch.exe (mingw),
++#     bin/vtibroker (native, libusb linked statically), native/TI Revive Virus Control.vst3 (the plug-in),
+ #     systemd/ (user socket + service), udev/70-tirevive-virus-ti.rules
++# (0.8.0: no Wine-side files - the classic plug-in under yabridge is replaced by the native plug-in)
+ # usage: linux-build-release.sh <repo dir> <version> [out dir]
+-# needs: gcc, make, mingw-w64 (x86_64), curl, bzip2
++# needs: gcc, make, curl, bzip2, cmake + the native plug-in's build dependencies (or NATIVE_PREBUILT)
+ set -euo pipefail
+ REPO="$(cd "${1:?repo dir}" && pwd)"
+ VERSION="${2:?version}"
+@@ -28,13 +29,6 @@ B="$REPO/src/broker"
+ gcc -O2 -Wall -Wextra -I"$LIBUSB/include/libusb-1.0" -o "$BUILD/vtibroker" "$B/vtibroker_posix.c" "$B/vticore.c" \
+     "$B/vtiusbaudio_libusb.c" "$B/vticore_midi.c" "$LIBUSB/lib/libusb-1.0.a" -lpthread
+ ! ldd "$BUILD/vtibroker" | grep -q libusb || { echo "broker still links libusb dynamically"; exit 1; }
+-echo "== Windows side (mingw): wrapper for Wine, MSI patch tool"
+-x86_64-w64-mingw32-gcc -O2 -Wall -Wextra -DVTIEMU_NO_DLLMAIN -DVTIEMU_VIRTUAL_DEVICE -shared -o "$BUILD/VirusTI_TIRevive.vst3" \
+-    -I"$REPO/src/wrapper" "$REPO/src/wrapper/vtiwrap.c" "$REPO/src/wrapper/vtiemu.c" "$REPO/src/wrapper/vtiaudio.c" \
+-    "$REPO/src/wrapper/vtiusbaudio.c" "$B/vticore_sock.c" "$B/vticore_midi.c" -lwinusb -lsetupapi -lshlwapi \
+-    -lshell32 -lole32 -luuid -lws2_32 -lwinmm -static -lpthread
+-x86_64-w64-mingw32-gcc -O2 -Wall -o "$BUILD/vtimsipatch.exe" "$REPO/src/installer-linux/vtimsipatch.c" -lmsi -static
+-
+ NATIVE=""
+ if [ -n "${NATIVE_PREBUILT:-}" ]; then # built elsewhere (the release workflow builds it on an older Ubuntu, glibc)
+     NATIVE="$NATIVE_PREBUILT"
+@@ -51,13 +45,13 @@ echo "== package"
+ NAME="TI-Revive-$VERSION-linux"
+ P="$BUILD/$NAME"
+ I="$REPO/src/installer-linux"
+-mkdir -p "$P/bin" "$P/wine" "$P/systemd" "$P/udev"
++[ -n "$NATIVE" ] || { echo "the native plug-in is required (native/ or NATIVE_PREBUILT)"; exit 1; }
++mkdir -p "$P/bin" "$P/systemd" "$P/udev"
+ install -m 0755 "$BUILD/vtibroker" "$P/bin/"
+-install -m 0644 "$BUILD/VirusTI_TIRevive.vst3" "$BUILD/vtimsipatch.exe" "$P/wine/"
+ install -m 0644 "$I/tirevive-broker.socket" "$I/tirevive-broker.service" "$P/systemd/"
+ install -m 0644 "$I/70-tirevive-virus-ti.rules" "$P/udev/"
+ install -m 0755 "$I/install.sh" "$I/uninstall.sh" "$P/"
+-[ -n "$NATIVE" ] && mkdir -p "$P/native" && cp -R "$NATIVE" "$P/native/"
++mkdir -p "$P/native" && cp -R "$NATIVE" "$P/native/"
+ sed "s/@VERSION@/$VERSION/g" "$I/README-linux.txt" > "$P/README-linux.txt"
+ install -m 0644 "$REPO/LICENSE" "$P/"
+ tar -C "$BUILD" -czf "$OUT/$NAME.tar.gz" "$NAME"
+diff --git a/src/installer-linux/README-linux.txt b/src/installer-linux/README-linux.txt
+index e45c06c..4a623ce 100644
+--- a/src/installer-linux/README-linux.txt
++++ b/src/installer-linux/README-linux.txt
+@@ -1,49 +1,42 @@
+-TI Revive @VERSION@ for Linux (EXPERIMENTAL)
+-==========================================
++TI Revive @VERSION@ for Linux
++=========================
+ 
+-Brings back the Access Virus TI's "Total Integration" plug-in on Linux, without the old Access drivers: your own
+-Access Virus TI plug-in (Windows version) runs through Wine + yabridge in your Linux DAW, and the TI Revive broker
+-(a small native Linux program) talks to the Virus over USB - MIDI, patch sync and the Virus' USB audio.
++Brings back the Access Virus TI's "Total Integration" on Linux, without the old Access drivers: the plug-in
++"TI Revive Virus Control" (a native Linux VST3, no Wine, no yabridge) looks and works like the original Virus
++Control, and the TI Revive broker (a small native Linux program) talks to the Virus over USB - MIDI, patch sync and
++the Virus' USB audio.
+ 
+ You need
+-- an Access Virus TI on USB (tested: TI2 Desktop)
+-- Wine (e.g. "sudo apt install wine") and yabridge (https://github.com/robbert-vdh/yabridge).
+-  IMPORTANT: with Wine 9.22 or newer (Ubuntu 26.04 ships Wine 10) the official yabridge 5.1.1 release shows the
+-  plug-in window but ignores all mouse clicks (yabridge issue #382/#409). Use a newer yabridge build from the
+-  project's "Automated builds" (GitHub Actions, master branch) or a release newer than 5.1.1.
++- an Access Virus TI on USB (tested: TI2 Desktop; the Virus TI Snow is not supported yet)
++- a Linux DAW that hosts VST3 plug-ins (REAPER, Bitwig Studio, Ardour, ...), x86_64, Ubuntu 22.04 / Debian 12 or newer
++- your own copy of the Access installer "Virus TI Software Suite 5.1.7.00 64-bit.msi" (not included): the plug-in
++  reads the Virus skin, the parameter descriptions and the ROM banks from it. To unpack it, install msitools
++  ("sudo apt install msitools") or Wine. The Access software itself is NOT installed.
+ - For stable real-time audio, let your user use real-time priority (Ubuntu: sudo usermod -aG pipewire $USER, then
+-  log out and in again) - otherwise yabridge warns about "low memory locking".
+-- a Linux DAW that hosts VST3 plug-ins (REAPER, Bitwig Studio, Ardour, ...)
+-- your own copy of the Access installer "Virus TI Software Suite 5.1.7.00 64-bit.msi" (not included)
++  log out and in again).
+ 
+ Install
+ 1. Unpack this folder and open a terminal in it.
+ 2. ./install.sh "/path/to/Virus TI Software Suite 5.1.7.00 64-bit.msi"
+-   (it asks for your password once to allow USB access to the Virus; the Access software goes into your Wine
+-   prefix, ~/.wine or $WINEPREFIX, WITHOUT its old drivers and firmware updater)
+-3. In your DAW, rescan plug-ins and load the VST3 "Virus TI (TI Revive)" (Snow: "Virus TI Snow (TI Revive)").
+-   The first start syncs the Virus' patch memory, which takes about 7 minutes (the Virus sends about one patch per
+-   second, as with the original driver); later starts use the cache and play after a few seconds.
++   (it asks for your password once to allow USB access to the Virus; the Access files go to
++   ~/.local/share/tirevive/access, the factory patch libraries to ~/Documents/Access Music/Virus TI/Patches)
++3. In your DAW, rescan plug-ins and load the VST3 "TI Revive Virus Control" (vendor TI Revive).
++   The first start reads the Virus' RAM banks, which takes a few minutes; you can play meanwhile (the sync pauses
++   while notes arrive). Later starts use the cache and are ready after a few seconds.
++
++Coming from TI Revive 0.7
++- install.sh removes the classic plug-in "Virus TI (TI Revive)" (Wine + yabridge). Projects saved with it open with
++  "TI Revive Virus Control" (same plug-in ID); the Access files are taken from your Wine prefix.
+ 
+ Good to know
+-- Audio system in your DAW: JACK through PipeWire works best (tested in REAPER):
+-      sudo apt install pipewire-jack                          (once)
+-      pw-metadata -n settings 0 clock.force-rate 44100        (until the next login; or permanently, see below)
+-      pw-metadata -n settings 0 clock.force-quantum 512
+-      pw-jack reaper                                          (start the DAW through PipeWire's JACK; in REAPER
+-                                                               choose Audio system "JACK")
+-  To keep 44.1 kHz / 512 permanently, create ~/.config/pipewire/pipewire.conf.d/tirevive.conf with
+-      context.properties = { default.clock.rate = 44100  default.clock.allowed-rates = [ 44100 48000 ]
+-                             default.clock.quantum = 512 }
+-  and log out and in. ALSA directly works as well (but takes the sound card exclusively).
+-  NOT PulseAudio: it hands the plug-in irregular block sizes, the Virus then reports timing errors, playback
+-  sounds messy and notes can hang. Use a buffer size of 64, 128, 256 or 512 at 44.1 kHz.
+-- Close your DAW normally (File -> Quit). The plug-in saves the synced Virus memory only then; if the DAW is
+-  killed (e.g. Ctrl+C in a terminal), the next start syncs again (about 7 minutes).
++- Any sample rate works (the Virus runs at 44.1 kHz; the plug-in converts). JACK through PipeWire works well
++  ("pw-jack reaper"); avoid PulseAudio as the DAW's audio system.
++- The plug-in reports its latency to the DAW, so recorded and played notes line up with the grid.
+ - While TI Revive uses the Virus, Linux cannot use it as a normal sound card; it is handed back automatically when
+   the plug-in is closed (about 30 seconds later).
+ - One program at a time uses the Virus; a second one shows "no Virus TI connected".
+-- Uninstall: ./uninstall.sh
++- Uninstall: ./uninstall.sh (your patch libraries in ~/Documents stay)
+ 
+-Logs: broker "journalctl --user -u tirevive-broker", plug-in "$WINEPREFIX/drive_c/users/$USER/AppData/Local/Temp/vtiemu-*.log".
+-TI Revive is not affiliated with Access Music. MIT license, https://github.com/derpsn/access-virus-ti-revive
++Logs: broker "journalctl --user -u tirevive-broker"; plug-in: create ~/.local/share/virus-ti-native/diag.on, then
++see diag.log in the same folder.
++TI Revive is not affiliated with Access Music or Kemper. MIT license, https://github.com/derpsn/access-virus-ti-revive
+diff --git a/src/installer-linux/install.sh b/src/installer-linux/install.sh
+index f8cfd07..8737e8b 100755
+--- a/src/installer-linux/install.sh
++++ b/src/installer-linux/install.sh
+@@ -6,10 +6,11 @@
+ # What it does (findings/design-linux.md):
+ #   1. udev rule so you (not only root) may use the Virus over USB          (asks for your password once, sudo)
+ #   2. TI Revive broker in ~/.local/lib/tirevive + systemd user socket (starts on demand, exits when idle)
+-#   3. your own Access Virus TI software into your Wine prefix, without its old drivers / firmware updater
+-#   4. the plug-in "Virus TI (TI Revive)" into the Wine prefix, and - if yabridge is installed - bridged for your DAW
+-#   5. the native plug-in "TI Revive Virus Control" (Linux VST3, no Wine/yabridge needed) into ~/.vst3
+-# Wine and yabridge are NOT installed by this script; it tells you how if they are missing.
++#   3. the files of your own Access "Virus TI Software Suite" .msi that the plug-in reads (skin + device description,
++#      ROM banks, manuals, factory patch libraries) - unpacked with msiextract (msitools) or Wine, NOT installed
++#   4. the plug-in "TI Revive Virus Control" (Linux VST3, no Wine/yabridge) into ~/.vst3; the classic plug-in of
++#      TI Revive 0.7 ("Virus TI (TI Revive)" through yabridge) is removed - the new one opens its projects
++# Wine is only needed to unpack the .msi when msiextract is missing.
+ set -eu
+ HERE=$(cd "$(dirname "$0")" && pwd)
+ PREFIX="${WINEPREFIX:-$HOME/.wine}"
+@@ -17,6 +18,7 @@ LIB="$HOME/.local/lib/tirevive"
+ UNITS="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+ CONF="${XDG_CONFIG_HOME:-$HOME/.config}/tirevive"
+ VST3_DIR="$PREFIX/drive_c/Program Files/Common Files/VST3"
++ACCESS="$HOME/.local/share/tirevive/access/Access Music/Virus TI" # Common/ (Virus Control.dll, firmware.bin), Documentation/
+ PORT=47615
+ 
+ say() { printf '\n== %s\n' "$*"; }
+@@ -24,20 +26,6 @@ die() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
+ 
+ [ "$(id -u)" -ne 0 ] || die "run install.sh as your normal user, not as root (it asks for sudo when needed)"
+ 
+-# --- 0. Wine -------------------------------------------------------------------------------------------------------
+-if ! command -v wine >/dev/null 2>&1; then
+-    cat <<'EOT'
+-
+-Wine is not installed. TI Revive runs the Access Virus TI plug-in (Windows) through Wine and yabridge.
+-Install Wine with your package manager, for example:
+-    Ubuntu / Debian:  sudo apt install wine
+-    Fedora:           sudo dnf install wine
+-    Arch:             sudo pacman -S wine
+-then run ./install.sh again.
+-EOT
+-    exit 1
+-fi
+-
+ # --- 1. USB access (udev) ------------------------------------------------------------------------------------------
+ RULE=/etc/udev/rules.d/70-tirevive-virus-ti.rules
+ virus_accessible() { # a plugged-in Virus whose device node we may already open (rule present or other setup)
+@@ -77,12 +65,15 @@ else
+     echo "no systemd user session: start $LIB/vtibroker yourself before using the plug-in"
+ fi
+ 
+-# --- 3. Wine prefix + Access software ------------------------------------------------------------------------------
+-say "Wine prefix $PREFIX"
+-export WINEPREFIX="$PREFIX" WINEDEBUG=-all
+-[ -d "$PREFIX/drive_c" ] || wine wineboot -i >/dev/null 2>&1 || die "could not create the Wine prefix $PREFIX"
+-if [ -f "$VST3_DIR/Virus TI.vst3" ]; then
+-    echo "Access Virus TI software is already installed in this prefix"
++# --- 3. the Access files ---------------------------------------------------------------------------------------------
++say "Access Virus TI files"
++OLD_COMMON="$PREFIX/drive_c/Program Files/Access Music/Virus TI/Common" # TI Revive 0.7 installed Access into Wine
++if [ -f "$ACCESS/Common/Virus Control.dll" ] && [ -f "$ACCESS/Common/firmware.bin" ]; then
++    echo "already set up in $ACCESS"
++elif [ -f "$OLD_COMMON/Virus Control.dll" ] && [ -f "$OLD_COMMON/firmware.bin" ]; then
++    mkdir -p "$ACCESS/Common"
++    cp "$OLD_COMMON/Virus Control.dll" "$OLD_COMMON/firmware.bin" "$ACCESS/Common/"
++    echo "taken from the Access installation in the Wine prefix $PREFIX"
+ else
+     MSI="${1:-}"
+     if [ -z "$MSI" ]; then
+@@ -92,77 +83,55 @@ else
+     fi
+     [ -n "$MSI" ] && [ -f "$MSI" ] || die "Access installer not found. Download \"Virus TI Software Suite 5.1.7.00 64-bit.msi\"
+        (your own copy) and run: ./install.sh \"/path/to/Virus TI Software Suite 5.1.7.00 64-bit.msi\""
+-    say "installing the Access Virus TI software (without its old drivers) from $MSI"
+     TMP=$(mktemp -d)
+     trap 'rm -rf "$TMP"' EXIT
+-    cp "$MSI" "$TMP/access.msi"
+-    chmod u+w "$TMP/access.msi"
+-    wine "$HERE/wine/vtimsipatch.exe" "$(wine winepath -w "$TMP/access.msi" 2>/dev/null)"
+-    wine msiexec /i "$(wine winepath -w "$TMP/access.msi" 2>/dev/null)" /qb || die "the Access installer failed"
+-    [ -f "$VST3_DIR/Virus TI.vst3" ] || die "the Access plug-in is missing after the install"
++    if command -v msiextract >/dev/null 2>&1; then
++        echo "unpacking $MSI (msiextract)"
++        (cd "$TMP" && msiextract "$MSI" >/dev/null) || die "msiextract could not unpack $MSI"
++    elif command -v wine >/dev/null 2>&1; then
++        echo "unpacking $MSI (Wine, administrative extraction - nothing is installed)"
++        cp "$MSI" "$TMP/access.msi"
++        WINEPREFIX="$TMP/wineprefix" WINEDEBUG=-all wine msiexec /a "$(WINEPREFIX="$TMP/wineprefix" wine winepath -w "$TMP/access.msi" 2>/dev/null)" \
++            /qn TARGETDIR="$(WINEPREFIX="$TMP/wineprefix" wine winepath -w "$TMP/x" 2>/dev/null)" >/dev/null 2>&1 ||
++            die "Wine could not unpack $MSI"
++        WINEPREFIX="$TMP/wineprefix" wineserver -k 2>/dev/null || true # its files must go with $TMP
++    else
++        die "to unpack the Access .msi install msitools (Ubuntu/Debian: sudo apt install msitools) or Wine, then run ./install.sh again"
++    fi
++    DLL=$(find "$TMP" -path '*Access Music/Virus TI/Common/Virus Control.dll' | head -1)
++    [ -n "$DLL" ] || die "no Virus Control.dll in $MSI - is it the 64-bit \"Virus TI Software Suite\" .msi?"
++    SRC=$(dirname "$(dirname "$DLL")") # .../Access Music/Virus TI
++    mkdir -p "$ACCESS/Common"
++    cp "$SRC/Common/Virus Control.dll" "$SRC/Common/firmware.bin" "$ACCESS/Common/"
++    [ -d "$SRC/Documentation" ] && cp -R "$SRC/Documentation" "$ACCESS/"
++    LIB_SRC=$(find "$TMP" -type d -path '*Access Music/Virus TI/Patches' | grep -v '/Common/' | head -1)
++    if [ -n "$LIB_SRC" ]; then # factory patch libraries; existing files (your own libraries) stay untouched
++        DOCS="$HOME/Documents/Access Music/Virus TI/Patches"
++        (cd "$LIB_SRC" && find . -type f) | while read -r f; do
++            [ -e "$DOCS/$f" ] || { mkdir -p "$(dirname "$DOCS/$f")"; cp "$LIB_SRC/$f" "$DOCS/$f"; }
++        done
++    fi
++    echo "set up in $ACCESS (the Access software itself is not installed)"
+ fi
+-
+-# the native plug-in reads the Access files from there (a DAW started from the desktop does not see WINEPREFIX)
++# the plug-in reads the Access files from there
+ mkdir -p "$CONF"
+-printf '%s\n' "$PREFIX/drive_c/Program Files/Access Music/Virus TI/Common" > "$CONF/access-dir"
+-
+-# --- 4. the TI Revive plug-in + yabridge ----------------------------------------------------------------------------
+-say "plug-in Virus TI (TI Revive)"
+-install -m 0644 "$HERE/wine/VirusTI_TIRevive.vst3" "$VST3_DIR/Virus TI (TI Revive).vst3"
+-yabridge_version() { # e.g. 5.1.1 (release) or 5.1.1-57-gb580a9f7 (newer build) - read from the VST3 library
+-    for d in "$(dirname "$(command -v yabridgectl)")" "$HOME/.local/share/yabridge" /usr/lib /usr/local/lib /usr/lib64; do
+-        f="$d/libyabridge-vst3.so"
+-        [ -f "$f" ] && tr -c '[:print:]' '\n' < "$f" | grep -E '^5\.[0-9]+\.[0-9]+(-[0-9]+-g[0-9a-f]+)?$' | head -1 && return
+-    done
+-}
+-wine_new() { # Wine 9.22 or newer changed window embedding (yabridge issue #409)
+-    v=$(wine --version 2>/dev/null | sed -n 's/^wine-\([0-9]*\)\.\([0-9]*\).*/\1 \2/p')
+-    set -- $v
+-    [ -n "${1:-}" ] && { [ "$1" -gt 9 ] || { [ "$1" -eq 9 ] && [ "${2:-0}" -ge 22 ]; }; }
+-}
+-# yabridge's releases unpack to ~/.local/share/yabridge, which is often not in PATH
+-if ! command -v yabridgectl >/dev/null 2>&1 && [ -x "$HOME/.local/share/yabridge/yabridgectl" ]; then
+-    PATH="$HOME/.local/share/yabridge:$PATH"
+-fi
+-if command -v yabridgectl >/dev/null 2>&1; then
+-    YV=$(yabridge_version || true)
+-    if [ "$YV" = 5.1.1 ] && wine_new; then
+-        cat <<EOT
++printf '%s\n' "$ACCESS/Common" > "$CONF/access-dir"
+ 
+-WARNING: yabridge $YV with $(wine --version 2>/dev/null): the plug-in window will NOT react to mouse clicks
+-(yabridge issue #409, fixed after 5.1.1). Install a newer yabridge build from
+-    https://github.com/robbert-vdh/yabridge/actions  (Automated builds, master branch)
+-into ~/.local/share/yabridge and run ./install.sh again. Continuing anyway.
+-EOT
+-    fi
+-    yabridgectl add "$VST3_DIR" >/dev/null 2>&1 || true
+-    # only the TI Revive plug-in is usable; the original "Virus TI" alone finds no Virus
+-    yabridgectl blacklist add "$VST3_DIR/Virus TI.vst3" >/dev/null 2>&1 || true
+-    yabridgectl sync
+-    echo "bridged with yabridge: rescan plug-ins in your DAW and load \"Virus TI (TI Revive)\" (VST3)"
+-else
++# --- 4. the plug-in --------------------------------------------------------------------------------------------------
++say "plug-in TI Revive Virus Control"
++mkdir -p "$HOME/.vst3"
++# the classic plug-in of TI Revive 0.7 (through yabridge) and the test builds: the new plug-in opens their projects
++rm -f "$VST3_DIR/Virus TI (TI Revive).vst3"
++rm -rf "$HOME/.vst3/yabridge/Virus TI (TI Revive).vst3" "$HOME/.vst3/VirusTINative.vst3" "$HOME/.vst3/TI Revive Virus Control.vst3"
++cp -R "$HERE/native/TI Revive Virus Control.vst3" "$HOME/.vst3/"
++MISSING=$(ldd "$HOME/.vst3/TI Revive Virus Control.vst3/Contents/x86_64-linux/TI Revive Virus Control.so" 2>/dev/null |
++    awk '/not found/ {print $1}' | tr '\n' ' ')
++if [ -n "$MISSING" ]; then
+     cat <<EOT
+-yabridge is not installed. It makes Windows plug-ins usable in Linux DAWs (REAPER, Bitwig, Ardour, ...):
+-    https://github.com/robbert-vdh/yabridge  (see "Installation"), then:
+-    yabridgectl add "$VST3_DIR" && yabridgectl sync
+-EOT
+-fi
+-# --- 5. the native plug-in ------------------------------------------------------------------------------------------
+-if [ -d "$HERE/native/TI Revive Virus Control.vst3" ]; then
+-    say "native plug-in TI Revive Virus Control (VST3 for Linux DAWs, no Wine/yabridge)"
+-    mkdir -p "$HOME/.vst3"
+-    rm -rf "$HOME/.vst3/TI Revive Virus Control.vst3" "$HOME/.vst3/VirusTINative.vst3" # VirusTINative = test builds
+-    cp -R "$HERE/native/TI Revive Virus Control.vst3" "$HOME/.vst3/"
+-    MISSING=$(ldd "$HOME/.vst3/TI Revive Virus Control.vst3/Contents/x86_64-linux/TI Revive Virus Control.so" 2>/dev/null |
+-        awk '/not found/ {print $1}' | tr '\n' ' ')
+-    if [ -n "$MISSING" ]; then
+-        cat <<EOT
+-WARNING: libraries the native plug-in needs are missing: $MISSING
++WARNING: libraries the plug-in needs are missing: $MISSING
+ Install them with your package manager (Ubuntu/Debian: libxcb-cursor0 libxcb-util1 libxkbcommon-x11-0 libcairo2
+ libpango-1.0-0 libpangocairo-1.0-0 libfontconfig1), then rescan plug-ins.
+ EOT
+-    fi
+-    echo "installed to ~/.vst3: rescan plug-ins in your DAW and load \"TI Revive Virus Control\" (VST3)"
+ fi
+ 
+-say "done. In your DAW use the VST3 \"TI Revive Virus Control\" (native) or \"Virus TI (TI Revive)\" (through yabridge); the original \"Virus TI\" plug-in does not work on its own."
++say "done. Rescan plug-ins in your DAW and load the VST3 \"TI Revive Virus Control\"."
+diff --git a/src/installer-linux/uninstall.sh b/src/installer-linux/uninstall.sh
+index a93d353..b6fcb1b 100755
+--- a/src/installer-linux/uninstall.sh
++++ b/src/installer-linux/uninstall.sh
+@@ -1,7 +1,6 @@
+ #!/bin/sh
+-# TI Revive for Linux - uninstaller. Removes the broker, its systemd user units, the token and the plug-in from the
+-# Wine prefix. The Access software in the Wine prefix and Wine / yabridge stay (remove them yourself if you like);
+-# the udev rule is removed with sudo.
++# TI Revive for Linux - uninstaller. Removes the broker, its systemd user units, the token, the plug-in, the unpacked
++# Access files and the classic plug-in of TI Revive 0.7 from the Wine prefix; the udev rule is removed with sudo.
+ set -u
+ PREFIX="${WINEPREFIX:-$HOME/.wine}"
+ UNITS="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+@@ -16,8 +15,9 @@ rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/tirevive/broker.token"
+ rm -f "$PREFIX/drive_c/Program Files/Common Files/VST3/Virus TI (TI Revive).vst3"
+ rm -rf "$HOME/.vst3/TI Revive Virus Control.vst3" "$HOME/.vst3/VirusTINative.vst3"
+ rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/tirevive/access-dir"
++rm -rf "$HOME/.local/share/tirevive/access" # the unpacked Access files (your patch libraries in Documents stay)
+ command -v yabridgectl >/dev/null 2>&1 && yabridgectl sync --prune >/dev/null 2>&1
+ if [ -f /etc/udev/rules.d/70-tirevive-virus-ti.rules ]; then
+     sudo rm -f /etc/udev/rules.d/70-tirevive-virus-ti.rules && sudo udevadm control --reload
+ fi
+-echo "TI Revive removed. The Access software is still in the Wine prefix $PREFIX."
++echo "TI Revive removed. Your patch libraries in ~/Documents/Access Music stay."
+-- 
+2.53.0
+

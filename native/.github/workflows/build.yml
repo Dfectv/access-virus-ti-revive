@@ -1,0 +1,76 @@
+# Build check of the native plug-in on Windows (MSVC) and Linux; artifacts for manual tests. No releases from here.
+name: build
+# Manual only (Actions minutes of a private repo are limited; Linux is built locally): start it when a Windows or
+# macOS build is needed - `gh workflow run build -f platforms=windows` (windows | macos | linux | all).
+on:
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: "windows, macos, linux or all"
+        default: "all"
+jobs:
+  windows:
+    if: inputs.platforms == 'all' || inputs.platforms == 'windows'
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: configure
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64
+      - name: build
+        run: cmake --build build --config Release --target VirusTINative vtimodel virussync virusctl nativehost vtitests VirusTINative_ASIO asiohost
+      - name: unit tests
+        run: ctest --test-dir build -C Release --output-on-failure
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VirusTINative-windows
+          path: build/VST3/Release/TI Revive Virus Control.vst3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tools-windows
+          path: build/bin/Release/*.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: asio-windows
+          path: build/bin/Release/VirusTINative_ASIO.dll
+      - uses: actions/upload-artifact@v4
+        with:
+          name: symbols-windows
+          path: |
+            build/**/VirusTINative.map
+            build/**/VirusTINative.pdb
+  linux:
+    if: inputs.platforms == 'all' || inputs.platforms == 'linux'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: dependencies
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev libxtst-dev libxcb1-dev libxcb-util-dev libxcb-cursor-dev libxcb-xkb-dev libxcb-keysyms1-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libcairo2-dev libgtkmm-3.0-dev libsqlite3-dev libpango1.0-dev ninja-build
+      - name: build
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build
+      - name: unit tests
+        run: ctest --test-dir build --output-on-failure
+  macos:
+    if: inputs.platforms == 'all' || inputs.platforms == 'macos'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: configure
+        run: cmake -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+      - name: build
+        run: cmake --build build --config Release --target VirusTINative vtimodel nativehost vtitests -- -quiet
+      - name: unit tests
+        run: ctest --test-dir build -C Release --output-on-failure
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VirusTINative-macos
+          path: build/VST3/Release/TI Revive Virus Control.vst3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tools-macos
+          path: build/bin/Release/*

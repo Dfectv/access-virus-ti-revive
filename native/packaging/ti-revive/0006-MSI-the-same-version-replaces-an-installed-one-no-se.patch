@@ -1,0 +1,28 @@
+From dc57af8abe7d68135f19bb70cff9a361a57e6591 Mon Sep 17 00:00:00 2001
+From: derpsn <callmederpsn@proton.me>
+Date: Wed, 14 Oct 2026 21:23:44 +0200
+Subject: [PATCH 06/13] MSI: the same version replaces an installed one (no
+ second entry)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/installer/TIRevive.wxs | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/installer/TIRevive.wxs b/src/installer/TIRevive.wxs
+index 5743759..32354b1 100644
+--- a/src/installer/TIRevive.wxs
++++ b/src/installer/TIRevive.wxs
+@@ -9,7 +9,8 @@
+   <Package Name="TI Revive" Manufacturer="TI Revive" Version="$(var.Version)" UpgradeCode="248B1670-6464-4F0A-965F-9CA56380C1AD"
+            Scope="perMachine" Compressed="yes" Language="1033">
+     <SummaryInformation Description="TI Revive - Total Integration for Access Virus TI on Windows 11" />
+-    <MajorUpgrade DowngradeErrorMessage="A newer version of TI Revive is already installed." />
++    <!-- the same version replaces too (release candidates, rebuilds), never two entries side by side -->
++    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of TI Revive is already installed." />
+     <MediaTemplate EmbedCab="yes" />
+     <Property Id="ARPCOMMENTS" Value="Total Integration for Access Virus TI on Windows 11 (WinUSB bridge)" />
+ 
+-- 
+2.53.0
+

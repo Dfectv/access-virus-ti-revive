@@ -1,0 +1,13 @@
+# never commit Access material (graphics, XML, firmware, decompiled code) or device recordings with patch data
+work/
+build/
+*.wav
+*.trace
+build-win/
+tools/uicompare/*.png
+tools/uicompare/*.ppm
+tools/uicompare/*.comp
+tools/uicompare/*.syx
+build-tsan/
+build-asan/
+__pycache__/

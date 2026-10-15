@@ -1,0 +1,84 @@
+From e2d8f085f6089547ae9120077782ba225a48a6ef Mon Sep 17 00:00:00 2001
+From: derpsn <callmederpsn@proton.me>
+Date: Wed, 14 Oct 2026 20:12:49 +0200
+Subject: [PATCH 05/13] README: the native plug-in TI Revive Virus Control
+ (0.8.0), status, building, layout
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ README.md | 38 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+
+diff --git a/README.md b/README.md
+index 38d272a..70aa904 100644
+--- a/README.md
++++ b/README.md
+@@ -21,6 +21,30 @@ current systems can no longer load. No kernel code of its own is installed.
+ | **Virus Control Center** | yes | not on current macOS (the Access app is 32-bit) | no |
+ | **Tested with** | Ableton Live 11 (Windows 11 PC and VM, Windows 10); REAPER connects | Ableton Live 12 (VST3) and GarageBand (Audio Unit, passes Apple's `auval`) on a MacBook Air M3, macOS 26; Logic Pro and other hosts untested | REAPER 7.82 on Ubuntu 26.04 (GNOME, Wayland), Wine 10.0 |
+ 
++### New: the native plug-in "TI Revive Virus Control"
++
++Since 0.8.0 TI Revive also installs **"TI Revive Virus Control"**: a new plug-in written from scratch that looks and
++works like the original Virus Control - same pages, browser, patch libraries, automation, bank sync - but runs
++natively on Windows, on Apple Silicon and Intel Macs, and on Linux, **without Rosetta, Wine or yabridge**. It loads
++the skin, the parameter descriptions and the ROM banks at runtime from your own Access installation; no Access
++material is part of TI Revive.
++
++| | Windows | macOS | Linux |
++|---|---|---|---|
++| plug-in | VST3 "TI Revive Virus Control" | VST3 (universal: Apple Silicon and Intel) | VST3 in `~/.vst3` (Ubuntu 22.04 / Debian 12 or newer) |
++| sound card | ASIO device **"TI Revive Virus Audio"**: 6 in (analog in, USB 1, USB 2) / 2 out, no Access driver needed | - | - |
++| tested | Ableton Live 11 (Windows 11 PC) | Ableton Live 12 (M3) | REAPER 7.82 |
++
++- Timing: notes land sample-accurately on the grid (measured < 0.1 ms jitter on Linux and macOS), the plug-in
++  reports its latency so the DAW compensates it. Any host sample rate works (the Virus runs at 44.1 kHz, the plug-in
++  converts).
++- The first start reads RAM A-D from the Virus (a few minutes without a cache); you can play meanwhile - the sync
++  pauses while notes arrive.
++- It has its own plug-in ID: projects saved with "Virus TI (TI Revive)" keep using that plug-in, which stays
++  installed as before. Audio Unit (Logic, GarageBand) and Virus Control Center are still provided by the classic
++  TI Revive plug-in only.
++- **Virus TI Snow:** not supported by the native plug-in yet.
++
+ **Virus TI Snow:** being tested. If TI Revive does not find your Snow, please run
+ [`tirevive-usbinfo.ps1`](scripts/tirevive-usbinfo.ps1) (also attached to each release: right-click → *Run with
+ PowerShell*) with the Snow connected and attach the `TI-Revive-usbinfo.txt` it saves on your Desktop to a
+@@ -318,6 +342,10 @@ measurements: [`findings/design-linux.md`](findings/design-linux.md), evidence E
+ | Broker with USB audio on libusb, device handed back to Linux | done |
+ | Windows wrapper under Wine/yabridge (sync, MIDI, audio, editor) | done, tested in REAPER 7.82 (Ubuntu 26.04): timing sample-accurate |
+ | Installer (`install.sh`, systemd user socket, GitHub Actions build) | done, released as 0.7.0 |
++| **Native plug-in "TI Revive Virus Control" (all platforms)** | |
++| Plug-in (editor, browser, libraries, bank sync, automation, state), timing + latency reporting | done: tested in REAPER (Linux), Ableton Live 12 (macOS M3), Ableton Live 11 (Windows 11 PC) |
++| ASIO driver "TI Revive Virus Audio" (Windows, no Access driver) | done: clean on a real PC |
++| Virus TI Snow | open |
+ 
+ ## Building
+ 
+@@ -341,6 +369,15 @@ scripts/mac-build-release.sh <repo> <version>   # TI-Revive-<version>-mac.zip (b
+ scripts/mac-build-bridge.sh <repo> --install    # development build into ~/Library/Audio/Plug-Ins/VST3
+ ```
+ 
++**Native plug-in.** CMake, with the VST3 SDK as a submodule (`git submodule update --init --recursive`):
++
++```sh
++cmake -S native -B build-native -DCMAKE_BUILD_TYPE=Release && cmake --build build-native && ctest --test-dir build-native
++```
++
++Windows needs MSVC (Visual Studio 2022), macOS Xcode, Linux the X11/cairo development packages listed in the
++release workflow. Details: `native/README.md`.
++
+ **Releases.** GitHub Actions (`.github/workflows/build.yml`) builds both, but only when a version tag `vX.Y.Z` is
+ pushed (`git tag -a v0.5.0 -m ... && git push origin v0.5.0`): it then publishes a **Release** with
+ `TI-Revive-X.Y.Z-setup.exe`, `TI-Revive-X.Y.Z.msi` and `TI-Revive-X.Y.Z-mac.zip`. Branch pushes and pull requests do not build.
+@@ -349,6 +386,7 @@ pushed (`git tag -a v0.5.0 -m ... && git push origin v0.5.0`): it then publishes
+ 
+ | Path | Content |
+ |---|---|
++| `native/` | the native plug-in "TI Revive Virus Control" (VST3, all platforms) and the ASIO driver "TI Revive Virus Audio": `native/README.md`, `native/docs/architecture.md` |
+ | `findings/` | the research: `spec.md` (protocol), `evidence.md` (every observation with its source), `claims.md` (community claims checked), `design*.md`, `HANDOFF.md` (working log) |
+ | `src/broker/` | device access (WinUSB / libusb / named-pipe backends), broker (Windows and macOS, incl. the macOS MIDI driver stand-in), hardware test tools |
+ | `src/wrapper/` | Windows: driver-interface emulation, VST3 wrapper, audio bridge, ASIO wrapper, Control Center launcher |
+-- 
+2.53.0
+
