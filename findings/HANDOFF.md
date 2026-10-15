@@ -23,6 +23,10 @@ Evidence: [evidence.md](evidence.md) (E001-E145), protocol: [spec.md](spec.md); 
   banks, backup with progress/cancel, library conversion; packaged (MSI + Start menu, /Applications, Linux
   ~/.local/bin + desktop entry, needs gtkmm 3). Tested: Linux with the TI2 (Xvfb + XTest), Windows VM start (no
   Virus). Open: start on macOS (user), file dialogs on Windows/macOS. RAM restore only after a separate review.
+- **Nerd mode** (user's idea 2026-10-15, agreed plan): (1) DONE logs + debug switches (page of the main window,
+  `tirevive-cc logs` / `debug on|off`), tested on Linux (Xvfb). (2) NEXT broker observer role (read-only copy of the
+  traffic + status; writes/control from observers rejected; bounded queue, drops only for the observer), Linux
+  first. (3) decoded live traffic. (4) Windows broker + macOS, CI, VM/Mac checks. No "send SysEx" console (rule 2).
 - Mac broker: the MIDI driver stand-in (`vtimidi_start`, VirusTICommMem, E100) only served the original plug-in of
   the classic path; it is now opt-in (`VTI_BROKER_MIDISHIM=1`). Without a reader its ring overflowed ("MDR ring full,
   dropping" in 0.8.1 broker logs). Tested on the M3 + TI2 with a broker built there: autest (native AU) connects,

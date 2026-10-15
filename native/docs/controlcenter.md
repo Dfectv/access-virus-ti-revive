@@ -11,6 +11,8 @@ does not work with TI Revive. Its replacement is built in steps: a core library,
 | Device info (USB identity, RAM banks compared with the cache) | app (Refresh), `tirevive-cc info` |
 | Backup of the RAM banks as patch libraries (`RAM A.mid` .. `RAM D.mid`) | app, `tirevive-cc backup` |
 | List / convert patch libraries (.mid <-> .syx), no Virus needed | app (Convert library), `tirevive-cc list`, `export` |
+| Nerd mode: plug-in and broker log live, plug-in log switch, logs for a bug report (anonymized) | app (View > Nerd mode, or the button), `tirevive-cc logs`, `debug on/off` |
+| Nerd mode: live broker status and USB traffic, decoded (read-only observer role in the broker) | in progress |
 | Restore a backup into the Virus' RAM | later, after a separate review (writes stored patches) |
 | Firmware / OS update, Burn To Flash, factory reset, device name | **not supported, on purpose** |
 
@@ -33,6 +35,12 @@ The uninstallers remove them. The release workflow builds both with the plug-in 
 for the window and file dialogs). One window: the device line and the four RAM banks (Refresh), the backup folder
 (Change...), "Back up RAM banks" with progress and Cancel, "Convert library..." (open a .mid/.syx, save as the other).
 The work runs on a worker thread; the app connects to the broker only while an action runs.
+
+**Nerd mode** (`ccapp/nerdmode.cpp`, `src/cc/diag.*`): a second page of the same window (a second window stayed
+blank on Linux/GTK under Xvfb). It shows the end of the plug-in's `diag.log` or of the broker's log (Windows
+`%TEMP%\vtibroker.log`, macOS `/tmp/tirevive-vtibroker.log`, Linux the user journal), refreshed every second, with
+Pause; switches the plug-in log (`diag.on`, read when the plug-in starts); "Save logs..." writes one text file for a
+bug report with the home folder replaced by `~` and the user name by `<user>`.
 
 ## How it works
 

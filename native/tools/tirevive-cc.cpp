@@ -5,11 +5,14 @@
 //                                             Access Music/Virus TI/Backups/<date time>)
 //   tirevive-cc list FILE                     patch names in a library (.mid or .syx), no Virus needed
 //   tirevive-cc export FILE OUT.syx|OUT.mid   convert a library, no Virus needed
+//   tirevive-cc logs [--out FILE]             plug-in + broker logs in one file for a bug report (anonymized)
+//   tirevive-cc debug on|off                  the plug-in's log (diag.on; takes effect when the plug-in starts)
 // Firmware/OS update, Burn To Flash, factory reset and renaming the Virus are not supported, on purpose: they write
 // the Virus' flash (AGENTS.md rule 2).
 #include "../src/access/accessfiles.h"
 #include "../src/access/library.h"
 #include "../src/cc/controlcenter.h"
+#include "../src/cc/diag.h"
 #include "../src/model/remotedevice.h"
 #include <cstdio>
 #include <algorithm>
@@ -25,6 +28,8 @@ static int usage()
                     "       tirevive-cc backup [--out DIR] [--banks 1234]\n"
                     "       tirevive-cc list FILE.mid|FILE.syx\n"
                     "       tirevive-cc export FILE.mid|FILE.syx OUT.syx|OUT.mid\n"
+                    "       tirevive-cc logs [--out FILE]\n"
+                    "       tirevive-cc debug on|off\n"
                     "Read-only: nothing is written to the Virus. Close the TI Revive plug-in (or your DAW) first:\n"
                     "the Virus serves one program at a time.\n");
     return 2;
@@ -166,6 +171,42 @@ static int export_(const char *in, const char *out)
     return 0;
 }
 
+#ifndef TIREVIVE_VERSION
+#define TIREVIVE_VERSION "0.0.0"
+#endif
+
+static int logs(int argc, char **argv)
+{
+    std::string out = "TI-Revive-logs.txt", err;
+    if (argc == 4 && !strcmp(argv[2], "--out"))
+        out = argv[3];
+    else if (argc != 2)
+        return usage();
+    if (!vti::cc::collect_logs(out, TIREVIVE_VERSION, err)) {
+        fprintf(stderr, "tirevive-cc: %s\n", err.c_str());
+        return 1;
+    }
+    printf("Logs written to %s (home folder and user name replaced). Check it before you attach it.\n", out.c_str());
+    if (!vti::cc::plugin_log_enabled())
+        printf("The plug-in log is off: \"tirevive-cc debug on\", restart the plug-in, reproduce, collect again.\n");
+    return 0;
+}
+
+static int debug(const char *arg)
+{
+    bool on = !strcmp(arg, "on");
+    if (!on && strcmp(arg, "off"))
+        return usage();
+    std::string err;
+    if (!vti::cc::set_plugin_log(on, err)) {
+        fprintf(stderr, "tirevive-cc: %s\n", err.c_str());
+        return 1;
+    }
+    printf("Plug-in log %s (%s); takes effect when the plug-in starts.\n", on ? "on" : "off",
+           vti::cc::plugin_log_path().c_str());
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2)
@@ -179,5 +220,9 @@ int main(int argc, char **argv)
         return list(argv[2]);
     if (cmd == "export" && argc == 4)
         return export_(argv[2], argv[3]);
+    if (cmd == "logs")
+        return logs(argc, argv);
+    if (cmd == "debug" && argc == 3)
+        return debug(argv[2]);
     return usage();
 }

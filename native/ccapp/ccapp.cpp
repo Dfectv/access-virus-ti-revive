@@ -9,6 +9,7 @@
 #include "access/accessfiles.h"
 #include "access/library.h"
 #include "cc/controlcenter.h"
+#include "nerdmode.h"
 #include "model/remotedevice.h"
 #include "vstgui/lib/cfileselector.h"
 #include "vstgui/lib/cframe.h"
@@ -20,6 +21,7 @@
 #include "vstgui/standalone/include/helpers/windowcontroller.h"
 #include "vstgui/standalone/include/helpers/windowlistener.h"
 #include "vstgui/standalone/include/iapplication.h"
+#include "vstgui/standalone/include/icommand.h"
 #include "vstgui/standalone/include/iwindow.h"
 #include <atomic>
 #include <filesystem>
@@ -38,7 +40,8 @@ namespace {
 
 const CColor kBack(43, 43, 43), kText(230, 230, 230), kDim(160, 160, 160), kAccent(240, 170, 60);
 constexpr CCoord W = 640, H = 470, M = 20;
-enum Tag { kRefresh = 1, kBackup, kCancel, kFolder, kExport };
+enum Tag { kRefresh = 1, kBackup, kCancel, kFolder, kExport, kNerd };
+const Command kNerdCommand{"View", "Nerd mode"};
 
 // What the worker reports; the UI thread reads it in the timer.
 struct Shared {
@@ -48,7 +51,10 @@ struct Shared {
     bool dirty = true;
 };
 
-class App : public Application::DelegateAdapter, public WindowListenerAdapter, public IControlListener {
+class App : public Application::DelegateAdapter,
+            public WindowListenerAdapter,
+            public IControlListener,
+            public ICommandHandler {
 public:
     App() : DelegateAdapter({"TI Revive Control Center", TIREVIVE_VERSION, "io.github.derpsn.tirevive.controlcenter"}) {}
     ~App() override { join(); }
@@ -60,13 +66,19 @@ public:
         config.autoSaveFrameName = "ControlCenterWindow";
         config.style.border().close().centered();
         config.size = {W, H};
+        IApplication::instance().registerCommand(kNerdCommand, 0);
         window_ = IApplication::instance().createWindow(config, std::make_shared<WindowControllerAdapter>());
         // (a controller, not nullptr: VSTGUI builds the window menu through it without a null check)
         if (!window_)
             return IApplication::instance().quit();
         frame_ = makeOwned<CFrame>(CRect(0, 0, W, H), nullptr);
         frame_->setBackgroundColor(kBack);
+        main_ = new CViewContainer(CRect(0, 0, W, H));
+        main_->setBackgroundColor(kBack);
+        frame_->addView(main_);
         build();
+        nerd_ = tirevive::make_nerd_page(TIREVIVE_VERSION, [this] { show_nerd(false); });
+        frame_->addView(nerd_);
         window_->setContentView(frame_);
         window_->setSize({W, H}); // the GTK backend does not apply config.size by itself
         window_->registerWindowListener(this);
@@ -75,8 +87,20 @@ public:
         set(&Shared::folder, vti::cc::default_backup_dir());
         refresh();
     }
-    void onClosed(const IWindow &) override
+    // "View > Nerd mode" in the menu (macOS menu bar, the window's menu on Windows)
+    bool canHandleCommand(const Command &c) override { return c == kNerdCommand; }
+    bool handleCommand(const Command &c) override
     {
+        if (c != kNerdCommand)
+            return false;
+        show_nerd(true);
+        return true;
+    }
+
+    void onClosed(const IWindow &w) override
+    {
+        if (&w != window_.get()) // another window (Nerd mode)
+            return;
         stop_ = true;
         IApplication::instance().quit();
     }
@@ -91,15 +115,17 @@ public:
         case kCancel: stop_ = true; break;
         case kFolder: choose_folder(); break;
         case kExport: export_library(); break;
+        case kNerd: show_nerd(true); break;
         }
     }
 
 private:
     WindowPtr window_;
     SharedPointer<CFrame> frame_;
+    CViewContainer *main_ = nullptr, *nerd_ = nullptr; // the two pages, owned by the frame
     SharedPointer<CVSTGUITimer> timer_;
     CTextLabel *device_ = nullptr, *banks_[4] = {}, *status_ = nullptr, *folder_ = nullptr;
-    CTextButton *buttons_[5] = {};
+    CTextButton *buttons_[6] = {};
     Shared sh_;
     std::thread worker_;
     std::atomic<bool> busy_{false}, stop_{false};
@@ -113,13 +139,13 @@ private:
         l->setHoriAlign(kLeftText);
         l->setTransparency(true);
         l->setTextTruncateMode(CTextLabel::kTruncateHead);
-        frame_->addView(l);
+        main_->addView(l);
         return l;
     }
     CTextButton *button(CCoord x, CCoord y, CCoord w, int tag, const char *title)
     {
         auto *b = new CTextButton(CRect(x, y, x + w, y + 28), this, tag, title);
-        frame_->addView(b);
+        main_->addView(b);
         return b;
     }
 
@@ -146,7 +172,8 @@ private:
         status_->setHoriAlign(kLeftText);
         status_->setTransparency(true);
         static_cast<CMultiLineTextLabel *>(status_)->setLineLayout(CMultiLineTextLabel::LineLayout::wrap);
-        frame_->addView(status_);
+        main_->addView(status_);
+        buttons_[5] = button(W - M - 110, 14, 110, kNerd, "Nerd mode");
         auto *note = new CMultiLineTextLabel(CRect(M, 372, W - M, H - 10));
         note->setText("Read-only: nothing is written to the Virus. Close the TI Revive plug-in (or your DAW) first: "
                       "the Virus serves one program at a time. Firmware/OS updates, Burn To Flash and factory reset "
@@ -157,7 +184,19 @@ private:
         note->setHoriAlign(kLeftText);
         note->setTransparency(true);
         note->setLineLayout(CMultiLineTextLabel::LineLayout::wrap);
-        frame_->addView(note);
+        main_->addView(note);
+    }
+
+    // Nerd mode is a page of this window (a second window stayed blank on Linux/GTK); the window grows for it
+    void show_nerd(bool on)
+    {
+        CCoord w = on ? tirevive::kNerdWidth : W, h = on ? tirevive::kNerdHeight : H;
+        main_->setVisible(!on);
+        tirevive::set_nerd_page_active(nerd_, on);
+        frame_->setSize(w, h);
+        window_->setSize({w, h});
+        window_->setTitle(on ? "TI Revive Control Center - Nerd mode" : "TI Revive Control Center");
+        frame_->invalid();
     }
 
     void tick()
