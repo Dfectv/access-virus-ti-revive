@@ -4,6 +4,14 @@ _Last updated: 2026-10-15 (0.8.0). Chronological notes until now: [HANDOFF-histo
 Evidence: [evidence.md](evidence.md) (E001-E145), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
+## 0.8.1 (2026-10-15): native Audio Unit, Mac without Rosetta
+
+- `native/au/tirevive_au.mm`: the plug-in as AUv2 for Logic / GarageBand (Steinberg's wrapper, AudioUnitSDK 1.4 built
+  by CMake), with the classic Audio Unit's codes; its old projects open (E146). `auval` passes, user-tested.
+- Mac package: VST3 + AU + broker only; `Set up Access Virus TI files.command` unpacks the Access `.pkg`; the classic
+  bridge, Rosetta helper and libVirusUSB are gone (src/mac/ kept for reference). Workflow `dev-mac` (manual) builds
+  the Mac plug-in and package from any branch.
+
 ## 0.8.0 (2026-10-15): the native plug-in replaces the classic one
 
 - **"TI Revive Virus Control"** (`native/`, moved in from the private workshop repo virus-ti-native with its full
@@ -19,8 +27,7 @@ Evidence: [evidence.md](evidence.md) (E001-E145), protocol: [spec.md](spec.md); 
 - Tested by the user on real hardware: Windows 11 PC (Ableton 11, ASIO), MacBook Air M3 (Ableton 12), Linux REAPER
   (44.1/48 kHz). Release workflow rehearsed in a private repo (all jobs green).
 - Not in 0.8.0: Virus TI Snow (owners stay on 0.7.4), Virus Control Center, Windows MIDI ports.
-- Next: Snow in the native plug-in (needs a tester), OSC display for mixed shapes (wave tables), AU of the native
-  plug-in, possibly the third USB return (cf. github.com/Give-me-a-signal/virus-ti-rework: Global USB controller 9)
+- Next: Snow in the native plug-in (needs a tester), OSC display for mixed shapes (wave tables), possibly the third USB return (cf. github.com/Give-me-a-signal/virus-ti-rework: Global USB controller 9)
   and RAM restore on exit; contact with that project pending.
 
 ## Status
