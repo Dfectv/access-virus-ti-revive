@@ -415,7 +415,7 @@ measurements: [`findings/design-linux.md`](findings/design-linux.md), evidence E
 | MSI + setup.exe (GitHub Actions build) | done |
 | 0.2-0.7.x: user-mode driver emulation for the original plug-in, ASIO wrapper, Control Center | done, replaced by 0.8.0 |
 | **macOS** | |
-| USB broker, MIDI driver stand-in (no Access kernel extension) | done |
+| USB broker (no Access kernel extension); the MIDI driver stand-in of the classic path is opt-in since 0.8.2 (`VTI_BROKER_MIDISHIM=1`) | done |
 | Installer (.pkg + Access file setup, GitHub Actions build) | done |
 | 0.5-0.7.x: bridge (VST3 + AU) with a Rosetta helper hosting the original, own libVirusUSB | done, replaced by 0.8.x |
 | **Linux** | |
@@ -462,7 +462,7 @@ Branch pushes and pull requests do not build.
 |---|---|
 | `native/` | the native plug-in "TI Revive Virus Control" (VST3, all platforms) and the ASIO driver "TI Revive Virus Audio": `native/README.md`, `native/docs/architecture.md` |
 | `findings/` | the research: `spec.md` (protocol), `evidence.md` (every observation with its source), `claims.md` (community claims checked), `design*.md`, `HANDOFF.md` (working log) |
-| `src/broker/` | device access (WinUSB / libusb / named-pipe backends), broker (Windows and macOS, incl. the macOS MIDI driver stand-in), hardware test tools |
+| `src/broker/` | device access (WinUSB / libusb / named-pipe backends), broker (Windows and macOS; the macOS MIDI driver stand-in for the classic plug-in is opt-in), hardware test tools |
 | `src/wrapper/` | the classic Windows plug-in of 0.7.x (driver-interface emulation, VST3 wrapper, ASIO wrapper, Control Center launcher); not shipped since 0.8.0 |
 | `src/inf/` | Windows: the WinUSB driver package |
 | `src/installer/` | Windows: MSI (WiX), driver script, `tirevive-access.ps1` (unpacks the Access files) |

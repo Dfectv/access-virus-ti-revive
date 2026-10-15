@@ -20,11 +20,16 @@ Evidence: [evidence.md](evidence.md) (E001-E145), protocol: [spec.md](spec.md); 
   from cache, full RAM D fetch byte-identical (2 min 9 s). Shipped in all packages (MSI: Program Files\TI Revive,
   pkg: /Library/Application Support/TI Revive, Linux: ~/.local/bin via install.sh); README "Backups" section.
   Next: a UI; RAM restore only after a separate review with the user.
+- Mac broker: the MIDI driver stand-in (`vtimidi_start`, VirusTICommMem, E100) only served the original plug-in of
+  the classic path; it is now opt-in (`VTI_BROKER_MIDISHIM=1`). Without a reader its ring overflowed ("MDR ring full,
+  dropping" in 0.8.1 broker logs). Tested on the M3 + TI2 with a broker built there: autest (native AU) connects,
+  VTI_TRACE shows 434 writes to EP 0x06 and 129 reads from EP 0x86, tirevive-cc info works; no stand-in log lines.
+  Audio could not be checked over SSH (no microphone permission: peak 0 also with the installed 0.8.1 broker) -
+  a DAW check by the user is still open.
 - `build.yml` can now run by hand: `gh workflow run build --ref <branch> -f version=0.0.1` builds all packages as
   artifacts (the release job still needs a tag). Use it instead of the rehearsal repo before a tag.
 - Later: Linux `library_dir()` and install.sh use `~/Documents` even where the XDG documents folder is localized
-  (e.g. `~/Dokumente`); consistent today, nicer with `xdg-user-dir DOCUMENTS`. Mac broker MIDI stand-in
-  (`vtimidi_start`, needs the Mac); USB3 output (Global USB controller 9); real readiness instead of the fixed 4 s
+  (e.g. `~/Dokumente`); consistent today, nicer with `xdg-user-dir DOCUMENTS`. USB3 output (Global USB controller 9); real readiness instead of the fixed 4 s
   note hold. **No flash writes, no OS update, ever** (AGENTS.md rule 2).
 
 ## 0.8.1 (2026-10-15): native Audio Unit, Mac without Rosetta

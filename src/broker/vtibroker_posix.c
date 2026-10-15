@@ -848,8 +848,14 @@ int main(int argc, char **argv)
 #endif
     blog("vtibroker starting (protocol %d, %s)", VTI_PROTO_VERSION, sa.sun_path);
 #ifdef __APPLE__
-    if (vtimidi_start(midi_write)) // stands in for Access' MIDI driver towards Virus Control (E100)
-        blog("MIDI slot memory could not be created");
+    // stand-in for Access' MIDI driver towards the original Virus Control (E100): only the classic path of 0.7.x
+    // (bridge + Rosetta helper, src/mac) used it; the native plug-in talks to the broker directly. Opt-in.
+    if (getenv("VTI_BROKER_MIDISHIM") && atoi(getenv("VTI_BROKER_MIDISHIM")) == 1) {
+        if (vtimidi_start(midi_write))
+            blog("MIDI slot memory could not be created");
+        else
+            blog("MIDI driver stand-in for the original plug-in started (VTI_BROKER_MIDISHIM=1)");
+    }
 #endif
     pthread_t t;
     pthread_create(&t, NULL, signal_thread, &sigs);
