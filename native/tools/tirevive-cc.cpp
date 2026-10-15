@@ -7,15 +7,22 @@
 //   tirevive-cc export FILE OUT.syx|OUT.mid   convert a library, no Virus needed
 //   tirevive-cc logs [--out FILE]             plug-in + broker logs in one file for a bug report (anonymized)
 //   tirevive-cc debug on|off                  the plug-in's log (diag.on; takes effect when the plug-in starts)
+//   tirevive-cc watch [--seconds N]           Nerd mode in the terminal: broker status, log and the traffic, decoded
+//                                             (a read-only observer: works while the plug-in uses the Virus)
 // Firmware/OS update, Burn To Flash, factory reset and renaming the Virus are not supported, on purpose: they write
 // the Virus' flash (AGENTS.md rule 2).
 #include "../src/access/accessfiles.h"
 #include "../src/access/library.h"
 #include "../src/cc/controlcenter.h"
+#include "../src/cc/decode.h"
 #include "../src/cc/diag.h"
 #include "../src/model/remotedevice.h"
+#include "vtiproto.h"
 #include <cstdio>
 #include <algorithm>
+#include <chrono>
+#include <mutex>
+#include <thread>
 #include <cstring>
 #include <filesystem>
 #include <string>
@@ -30,6 +37,7 @@ static int usage()
                     "       tirevive-cc export FILE.mid|FILE.syx OUT.syx|OUT.mid\n"
                     "       tirevive-cc logs [--out FILE]\n"
                     "       tirevive-cc debug on|off\n"
+                    "       tirevive-cc watch [--seconds N]\n"
                     "Read-only: nothing is written to the Virus. Close the TI Revive plug-in (or your DAW) first:\n"
                     "the Virus serves one program at a time.\n");
     return 2;
@@ -38,6 +46,7 @@ static int usage()
 static bool connect(vti::Broker &broker)
 {
     std::string err;
+    broker.set_name("tirevive-cc");
     if (!broker.open(err) || !broker.device_present()) {
         fprintf(stderr, "tirevive-cc: %s\n", err.empty() ? "no Virus (not connected, or another program owns it)"
                                                          : err.c_str());
@@ -207,6 +216,55 @@ static int debug(const char *arg)
     return 0;
 }
 
+static int watch(int argc, char **argv)
+{
+    int secs = 0;
+    if (argc == 4 && !strcmp(argv[2], "--seconds"))
+        secs = atoi(argv[3]);
+    else if (argc != 2)
+        return usage();
+    // parameter names from the device model when the Access files are there
+    std::string err;
+    auto files = vti::AccessFiles::open("", err);
+    vti::RemoteDevice model;
+    bool have_model = files && model.load(files->get("remotedevice.xml"), err);
+    vti::cc::TrafficDecoder dec(have_model ? &model : nullptr);
+    vti::Broker broker;
+    broker.set_name("tirevive-cc watch");
+    std::mutex mu;
+    if (!broker.open(err)) {
+        fprintf(stderr, "tirevive-cc: %s\n", err.c_str());
+        return 1;
+    }
+    bool ok = broker.observe([&](uint16_t type, const uint8_t *d, size_t n) {
+        std::lock_guard<std::mutex> l(mu);
+        if (type == VTIMSG_OBS_LOG) {
+            printf("log     %.*s\n", (int)n, (const char *)d);
+        } else if (type == VTIMSG_OBS_STATUS) {
+            std::string s((const char *)d, n);
+            for (auto &c : s)
+                c = c == '\t' ? ' ' : c;
+            printf("status  %s\n", s.c_str());
+        } else if (type == VTIMSG_OBS_TRAFFIC) {
+            dec.feed(d, n, [](vti::cc::TrafficLine &&t) {
+                static const char *dir[] = {"-> Virus", "<- Virus", "USB ctl "};
+                printf("%4u.%03u %s %s\n", t.ms / 1000, t.ms % 1000, dir[t.dir], t.text.c_str());
+            });
+        }
+        fflush(stdout);
+    }, err);
+    if (!ok) {
+        fprintf(stderr, "tirevive-cc: %s\n", err.c_str());
+        return 1;
+    }
+    printf("Watching (read-only; %s). Ctrl+C ends.\n", have_model ? "parameter names from the Access files"
+                                                                  : "no Access files: parameters as numbers");
+    for (int i = 0; secs == 0 || i < secs * 10; i++)
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    broker.close();
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2)
@@ -220,6 +278,8 @@ int main(int argc, char **argv)
         return list(argv[2]);
     if (cmd == "export" && argc == 4)
         return export_(argv[2], argv[3]);
+    if (cmd == "watch")
+        return watch(argc, argv);
     if (cmd == "logs")
         return logs(argc, argv);
     if (cmd == "debug" && argc == 3)

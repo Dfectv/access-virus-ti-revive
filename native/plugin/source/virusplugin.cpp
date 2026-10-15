@@ -221,6 +221,7 @@ void DeviceOut::run()
                 broker_.on_rx([parser](uint8_t ep, const uint8_t *d, size_t len) { parser->feed(ep, d, len); });
                 rx_set_ = true;
             }
+            broker_.set_name("TI Revive Virus Control");
             open_ = broker_.open(err);
             if (open_ && !audio_ok_) { // the owner starts the Virus audio stream (Linux: shm ring)
 #ifdef __APPLE__

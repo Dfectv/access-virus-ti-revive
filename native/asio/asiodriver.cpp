@@ -208,6 +208,7 @@ public:
         if (inited_)
             return 1;
         std::string err;
+        broker_.set_name("TI Revive Virus Audio (ASIO)");
         if (!broker_.open(err)) { // starts vtibroker.exe on demand, like the plug-in
             error_ = "TI Revive broker not available: " + err;
             return 0;

@@ -251,6 +251,7 @@ private:
     bool connect(vti::Broker &broker)
     {
         std::string err;
+        broker.set_name("TI Revive Control Center");
         if (broker.open(err) && broker.device_present())
             return true;
         set(&Shared::device, err.empty() ? "No Virus: not connected, or the plug-in (another program) is using it."

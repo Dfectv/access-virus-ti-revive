@@ -12,7 +12,7 @@ does not work with TI Revive. Its replacement is built in steps: a core library,
 | Backup of the RAM banks as patch libraries (`RAM A.mid` .. `RAM D.mid`) | app, `tirevive-cc backup` |
 | List / convert patch libraries (.mid <-> .syx), no Virus needed | app (Convert library), `tirevive-cc list`, `export` |
 | Nerd mode: plug-in and broker log live, plug-in log switch, logs for a bug report (anonymized) | app (View > Nerd mode, or the button), `tirevive-cc logs`, `debug on/off` |
-| Nerd mode: live broker status and USB traffic, decoded (read-only observer role in the broker) | in progress |
+| Nerd mode "Live": broker status (device, owner, clients, audio, counters) and the traffic, decoded | app (Live tab), `tirevive-cc watch`; broker of macOS/Linux (Windows: next) |
 | Restore a backup into the Virus' RAM | later, after a separate review (writes stored patches) |
 | Firmware / OS update, Burn To Flash, factory reset, device name | **not supported, on purpose** |
 
@@ -41,6 +41,18 @@ blank on Linux/GTK under Xvfb). It shows the end of the plug-in's `diag.log` or 
 `%TEMP%\vtibroker.log`, macOS `/tmp/tirevive-vtibroker.log`, Linux the user journal), refreshed every second, with
 Pause; switches the plug-in log (`diag.on`, read when the plug-in starts); "Save logs..." writes one text file for a
 bug report with the home folder replaced by `~` and the user name by `<user>`.
+
+**Live** (protocol 4, `src/broker/vtiproto.h`): the page connects to the broker as a read-only *observer* while the
+tab is shown. The broker never makes an observer the owner (it hands the Virus on if it had it), refuses its
+writes, USB requests and audio, and sends it a copy of the traffic it passes on (the same records as its
+`VTI_TRACE` file), its log lines and a status line once a second, through a 512 KB queue with its own writer
+thread: if the observer falls behind, only its copy is dropped (counted, shown as "Dropped here"); the plug-in
+and the libusb thread never wait for it. The client checks the broker's `OBSERVE_REPLY`: an older broker would keep
+it as the owner, so it disconnects and says the broker is too old. `src/cc/decode.*` puts USB-MIDI packets back
+together and names them: notes, CCs, clock, the Access SysEx commands documented in findings/spec.md §6 (single
+dump / request, multi dump, bank info / request, sync ping), parameter changes by name through the device model
+(the user's Access files; without them as page/id/value). Clients name themselves in HELLO (plug-in "TI Revive
+Virus Control", ASIO driver, Control Center, tirevive-cc).
 
 ## How it works
 
@@ -74,6 +86,10 @@ bug report with the home folder replaced by `~` and the user name by `<user>`.
   first build crashed at start: VSTGUI's menu building calls the window controller without a null check, so the app
   now passes one.
 - macOS: the app bundle from the pkg is universal and signed; not started yet (needs the GUI session).
+- 2026-10-15, Linux, TI2 (new broker run by hand, the installed one stopped meanwhile): `tirevive-cc watch` as
+  observer while `tirevive-cc info` owned the Virus (both in the status; descriptor requests and bank info requests /
+  replies decoded) and while the plug-in started in `nativehost` (globals by name, multi dump, 16 single dumps
+  " -Init-", notes off at the end; 0 dropped over 1266 lines). The app's Live tab on Xvfb shows the same.
 - Linux: builds, `list`/`export` round trips on factory libraries (patch data unchanged; only program byte and
   checksums differ). Windows: cross-compiles with mingw-w64.
 - Packages (CI run 38709651579, manual, test version 0.0.1): the pkg's binary is universal and signed and runs

@@ -1,13 +1,25 @@
 // nerdmode.cpp - see nerdmode.h.
 #include "nerdmode.h"
+#include "access/accessfiles.h"
+#include "cc/decode.h"
 #include "cc/diag.h"
+#include "device/broker.h"
+#include "model/remotedevice.h"
+#include "vtiproto.h"
 #include "vstgui/lib/cfileselector.h"
 #include "vstgui/lib/cframe.h"
 #include "vstgui/lib/controls/cbuttons.h"
 #include "vstgui/lib/controls/ctextlabel.h"
 #include "vstgui/lib/controls/icontrollistener.h"
 #include "vstgui/lib/cvstguitimer.h"
+#include <algorithm>
+#include <atomic>
+#include <map>
+#include <memory>
 #include <ctime>
+#include <deque>
+#include <mutex>
+#include <thread>
 
 using namespace VSTGUI;
 
@@ -16,7 +28,118 @@ namespace {
 
 const CColor kBack(30, 30, 30), kText(220, 220, 220), kDim(150, 150, 150), kAccent(240, 170, 60), kGreen(10, 110, 30);
 constexpr CCoord W = kNerdWidth, H = kNerdHeight, M = 16, kLine = 15;
-enum Tag { kBack_ = 1, kPluginTab, kBrokerTab, kPause, kPluginLog, kSave };
+enum Tag { kBack_ = 1, kLiveTab, kPluginTab, kBrokerTab, kPause, kClock, kPluginLog, kSave };
+enum Page { kLive, kPluginPage, kBrokerPage };
+
+// The live view: a read-only observer connection to the broker (protocol 4) while the "Live" tab is shown. The
+// broker's reader thread fills the lines; the UI timer shows them.
+class Live {
+public:
+    ~Live() { stop(); }
+    void start()
+    {
+        if (running_.exchange(true))
+            return;
+        join();
+        thread_ = std::thread([this] { connect(); });
+    }
+    void stop()
+    {
+        running_ = false;
+        join();
+        std::lock_guard<std::mutex> l(conn_);
+        broker_.reset();
+    }
+    // the lines to show (newest last) and the status line; `clock` = with clock / Active Sensing / F5 lines
+    void snapshot(size_t n, bool clock, std::vector<std::string> &lines, std::string &status)
+    {
+        std::lock_guard<std::mutex> l(mu_);
+        status = status_;
+        for (auto it = lines_.rbegin(); it != lines_.rend() && lines.size() < n; ++it)
+            if (clock || !it->second)
+                lines.push_back(it->first);
+        std::reverse(lines.begin(), lines.end());
+    }
+
+private:
+    std::atomic<bool> running_{false};
+    std::thread thread_;
+    std::mutex mu_, conn_;
+    std::unique_ptr<vti::Broker> broker_;
+    std::unique_ptr<vti::RemoteDevice> model_;
+    std::unique_ptr<vti::cc::TrafficDecoder> dec_;
+    std::deque<std::pair<std::string, bool>> lines_; // text, is a clock line
+    std::string status_ = "Connecting to the TI Revive broker...";
+
+    void join()
+    {
+        if (thread_.joinable())
+            thread_.join();
+    }
+    void add(const std::string &line, bool clock) // mu_ held
+    {
+        lines_.emplace_back(line, clock);
+        if (lines_.size() > 3000)
+            lines_.pop_front();
+    }
+    static std::string pretty_status(const std::string &raw)
+    {
+        // "device=1<TAB>owner=...<TAB>..." -> one readable line
+        std::map<std::string, std::string> f;
+        size_t i = 0;
+        while (i <= raw.size()) {
+            size_t e = raw.find('\t', i);
+            std::string kv = raw.substr(i, e == std::string::npos ? std::string::npos : e - i);
+            size_t eq = kv.find('=');
+            if (eq != std::string::npos)
+                f[kv.substr(0, eq)] = kv.substr(eq + 1);
+            if (e == std::string::npos)
+                break;
+            i = e + 1;
+        }
+        return std::string("Virus: ") + (f["device"] == "1" ? "connected" : "not connected") + "   Owner: " +
+               (f["owner"] == "-" ? "nobody" : f["owner"]) + "   Audio: " + (f["audio"] == "1" ? "streaming" : "off") +
+               "   Packets to / from the Virus: " + f["to_device"] + " / " + f["from_device"] + "   Dropped here: " +
+               f["dropped"] + "\nClients: " + f["clients"];
+    }
+    void connect()
+    {
+        if (!model_) { // parameter names from the user's Access files, if they are there
+            std::string err;
+            auto files = vti::AccessFiles::open("", err);
+            auto m = std::make_unique<vti::RemoteDevice>();
+            if (files && m->load(files->get("remotedevice.xml"), err))
+                model_ = std::move(m);
+            dec_ = std::make_unique<vti::cc::TrafficDecoder>(model_.get());
+        }
+        auto b = std::make_unique<vti::Broker>();
+        b->set_name("TI Revive Control Center (Nerd mode)");
+        std::string err;
+        bool ok = b->open(err) && b->observe([this](uint16_t type, const uint8_t *d, size_t n) {
+            std::lock_guard<std::mutex> l(mu_);
+            if (type == VTIMSG_OBS_STATUS)
+                status_ = pretty_status(std::string((const char *)d, n));
+            else if (type == VTIMSG_OBS_LOG)
+                add("broker  " + std::string((const char *)d, n), false);
+            else if (type == VTIMSG_OBS_TRAFFIC)
+                dec_->feed(d, n, [this](vti::cc::TrafficLine &&t) {
+                    static const char *dir[] = {"-> Virus", "<- Virus", "USB ctl "};
+                    char ts[24]; // by hand: GTK sets the locale's decimal comma
+                    snprintf(ts, sizeof ts, "%4u.%03u ", t.ms / 1000, t.ms % 1000);
+                    add(ts + std::string(dir[t.dir]) + " " + t.text, t.kind == "clock");
+                });
+        }, err);
+        std::lock_guard<std::mutex> l(mu_);
+        if (!ok) {
+            status_ = "No live view: " + err;
+            running_ = false;
+            return;
+        }
+        status_ = "Connected (read-only observer), waiting for the broker's status...";
+        std::lock_guard<std::mutex> lc(conn_);
+        broker_ = std::move(b);
+    }
+};
 
 #if defined(_WIN32)
 const char *kMono = "Consolas";
@@ -43,11 +166,15 @@ public:
     void activate(bool on)
     {
         setVisible(on);
+        active_ = on;
         if (!on) {
             timer_ = nullptr;
+            live_.stop();
             return;
         }
-        timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) { refresh(); }, 1000, true);
+        if (page_ == kLive)
+            live_.start();
+        timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) { refresh(); }, 250, true);
         refresh(true);
     }
 
@@ -57,9 +184,11 @@ public:
             return;
         switch (c->getTag()) {
         case kBack_: back_(); return;
-        case kPluginTab: broker_ = false; break;
-        case kBrokerTab: broker_ = true; break;
+        case kLiveTab: page_ = kLive; live_.start(); break;
+        case kPluginTab: page_ = kPluginPage; live_.stop(); break;
+        case kBrokerTab: page_ = kBrokerPage; live_.stop(); break;
         case kPause: paused_ = !paused_; break;
+        case kClock: show_clock_ = !show_clock_; break;
         case kPluginLog: {
             std::string err;
             if (!vti::cc::set_plugin_log(!vti::cc::plugin_log_enabled(), err))
@@ -79,11 +208,14 @@ private:
     std::string version_;
     std::function<void()> back_;
     SharedPointer<CVSTGUITimer> timer_;
-    CTextButton *tabs_[2] = {}, *pause_ = nullptr, *log_switch_ = nullptr;
-    CTextLabel *where_ = nullptr, *state_ = nullptr;
+    CTextButton *tabs_[3] = {}, *pause_ = nullptr, *clock_ = nullptr, *log_switch_ = nullptr;
+    CMultiLineTextLabel *where_ = nullptr;
+    CTextLabel *state_ = nullptr;
     CMultiLineTextLabel *text_ = nullptr;
     std::string message_;
-    bool broker_ = false, paused_ = false;
+    int page_ = kLive, ticks_ = 0;
+    bool paused_ = false, show_clock_ = false, active_ = false;
+    Live live_;
 
     CTextLabel *label(const CRect &r, const CColor &color, CFontRef font)
     {
@@ -110,15 +242,22 @@ private:
         title->setStyle(kBoldFace);
         label(CRect(M, 10, W - M - 100, 34), kText, title)->setText("Nerd mode: what TI Revive is doing");
         button(W - M - 90, 10, 90, kBack_, "Back");
-        tabs_[0] = button(M, 44, 110, kPluginTab, "Plug-in log");
-        tabs_[1] = button(M + 116, 44, 110, kBrokerTab, "Broker log");
-        pause_ = button(M + 240, 44, 80, kPause, "Pause");
+        tabs_[0] = button(M, 44, 80, kLiveTab, "Live");
+        tabs_[1] = button(M + 86, 44, 100, kPluginTab, "Plug-in log");
+        tabs_[2] = button(M + 192, 44, 100, kBrokerTab, "Broker log");
+        pause_ = button(M + 304, 44, 70, kPause, "Pause");
+        clock_ = button(M + 380, 44, 110, kClock, "");
         log_switch_ = button(W - M - 330, 44, 160, kPluginLog, "");
         button(W - M - 160, 44, 160, kSave, "Save logs...");
-        where_ = label(CRect(M, 78, W - M, 96), kDim, kNormalFontSmall);
+        where_ = new CMultiLineTextLabel(CRect(M, 76, W - M, 108));
+        where_->setFontColor(kDim);
+        where_->setFont(kNormalFontSmall);
+        where_->setHoriAlign(kLeftText);
+        where_->setTransparency(true);
+        addView(where_);
         state_ = label(CRect(M, H - 26, W - M, H - 8), kAccent, kNormalFontSmall);
         auto mono = makeOwned<CFontDesc>(kMono, 11);
-        text_ = new CMultiLineTextLabel(CRect(M, 102, W - M, H - 32));
+        text_ = new CMultiLineTextLabel(CRect(M, 110, W - M, H - 32));
         text_->setFontColor(kText);
         text_->setFont(mono);
         text_->setHoriAlign(kLeftText);
@@ -134,23 +273,38 @@ private:
         bool on = vti::cc::plugin_log_enabled();
         log_switch_->setTitle(on ? "Plug-in log: ON" : "Plug-in log: OFF");
         log_switch_->setTextColor(on ? kGreen : kText);
-        tabs_[0]->setAlphaValue(broker_ ? 0.55f : 1.f);
-        tabs_[1]->setAlphaValue(broker_ ? 1.f : 0.55f);
+        for (int i = 0; i < 3; i++)
+            tabs_[i]->setAlphaValue(page_ == i ? 1.f : 0.55f);
         pause_->setTitle(paused_ ? "Resume" : "Pause");
-        where_->setText((broker_ ? "Broker log: " + vti::cc::broker_log_location()
-                                 : "Plug-in log: " + vti::cc::plugin_log_path() +
-                                       (on ? "" : "  (off: switch it on to see what the plug-in does)"))
-                            .c_str());
+        clock_->setTitle(show_clock_ ? "Clock: shown" : "Clock: hidden");
+        clock_->setVisible(page_ == kLive);
         state_->setText(message_.c_str());
+        const size_t n = (size_t)((H - 32 - 110 - 8) / kLine);
+        std::vector<std::string> lines;
+        std::string where;
+        if (page_ == kLive) {
+            live_.snapshot(n, show_clock_, lines, where);
+        } else {
+            where = page_ == kBrokerPage ? "Broker log: " + vti::cc::broker_log_location()
+                                         : "Plug-in log: " + vti::cc::plugin_log_path() +
+                                               (on ? "" : "  (off: switch it on to see what the plug-in does)");
+            if (++ticks_ % 4 && !force) // the log files once a second
+                return;
+        }
+        where_->setText(where.c_str());
         if (paused_ && !force)
             return;
-        const size_t n = (size_t)((H - 32 - 102 - 8) / kLine);
-        auto lines = broker_ ? vti::cc::broker_log_tail(n) : vti::cc::tail_file(vti::cc::plugin_log_path(), n);
+        if (page_ == kBrokerPage)
+            lines = vti::cc::broker_log_tail(n);
+        else if (page_ == kPluginPage)
+            lines = vti::cc::tail_file(vti::cc::plugin_log_path(), n);
         std::string t;
         for (auto &l : lines)
             t += l + "\n";
         if (lines.empty())
-            t = broker_ ? "(no broker log yet: it is written while a program uses the Virus)" : "(no plug-in log yet)";
+            t = page_ == kLive      ? "(nothing yet: start the plug-in or use the Control Center to see the traffic)"
+                : page_ == kBrokerPage ? "(no broker log yet: it is written while a program uses the Virus)"
+                                       : "(no plug-in log yet)";
         text_->setText(t.c_str());
     }
 

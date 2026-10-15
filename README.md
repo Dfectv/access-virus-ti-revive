@@ -169,8 +169,10 @@ same with Access' own driver.
 Start **TI Revive Control Center** (Windows: Start menu, folder "TI Revive"; macOS: Applications; Linux: the
 application menu, or `tirevive-control-center`). Close the plug-in (or your DAW) first: the Virus serves one program
 at a time. The window shows the connected Virus and its RAM banks, backs them up as patch libraries and converts
-libraries between `.mid` and `.syx`. **Nerd mode** (button or *View > Nerd mode*) shows the plug-in's and the
-broker's logs live, switches the plug-in log on and off and saves all logs for a bug report in one file. The same
+libraries between `.mid` and `.syx`. **Nerd mode** (button or *View > Nerd mode*) shows live what goes between
+TI Revive and the Virus (decoded: notes, parameter changes by name, dumps, bank sync), which programs use the Virus,
+the plug-in's and the broker's logs; it switches the plug-in log on and off and saves all logs for a bug report in
+one file. It only watches: it never sends anything to the Virus. The same
 from a terminal:
 
 ```
@@ -180,6 +182,7 @@ tirevive-cc list FILE.mid             # the patch names in a library
 tirevive-cc export FILE.mid OUT.syx   # convert a library (.mid <-> .syx)
 tirevive-cc logs      # plug-in + broker logs in one file for a bug report (home folder and user name removed)
 tirevive-cc debug on  # the plug-in's log (from the next start of the plug-in)
+tirevive-cc watch     # Nerd mode in the terminal: the traffic, decoded, while the plug-in plays
 ```
 
 Where it is: Windows `C:\Program Files\TI Revive\tirevive-cc.exe`, macOS

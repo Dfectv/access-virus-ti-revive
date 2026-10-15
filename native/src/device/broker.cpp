@@ -231,7 +231,7 @@ bool Broker::open(std::string &error)
     if (fd_ < 0)
         return false;
     uint32_t ver = VTI_PROTO_VERSION;
-    send(VTIMSG_HELLO, &ver, 4);
+    send(VTIMSG_HELLO, &ver, 4, name_.data(), name_.size()); // older brokers read only the version
     stop_ = false;
     reader_done_ = false;
     reader_ = std::thread([this] {
@@ -331,6 +331,23 @@ int Broker::audio(bool on, int timeout_ms)
     return audio_reply_;
 }
 
+bool Broker::observe(ObserveHandler h, std::string &error)
+{
+    observe_ = std::move(h); // set before the request: messages follow the reply at once
+    if (!send(VTIMSG_OBSERVE, nullptr, 0)) {
+        error = "broker connection lost";
+        return false;
+    }
+    std::unique_lock<std::mutex> l(ctl_);
+    if (!ctl_cv_.wait_for(l, std::chrono::milliseconds(1500), [&] { return observe_reply_ != 0; })) {
+        l.unlock();
+        close();
+        error = "the TI Revive broker is too old for Nerd mode (needs TI Revive 0.8.2 or newer)";
+        return false;
+    }
+    return true;
+}
+
 void Broker::read_loop()
 {
     std::vector<uint8_t> buf(VTIMSG_MAX);
@@ -356,6 +373,19 @@ void Broker::read_loop()
                 replies_[seq].assign(buf.begin() + 4, buf.begin() + h.len);
                 ctl_cv_.notify_all();
             }
+            break;
+        case VTIMSG_OBSERVE_REPLY:
+            if (h.len >= 4) {
+                std::lock_guard<std::mutex> g(ctl_);
+                memcpy(&observe_reply_, buf.data(), 4);
+                ctl_cv_.notify_all();
+            }
+            break;
+        case VTIMSG_OBS_TRAFFIC:
+        case VTIMSG_OBS_LOG:
+        case VTIMSG_OBS_STATUS:
+            if (observe_)
+                observe_(h.type, buf.data(), h.len);
             break;
         case VTIMSG_AUDIO_REPLY:
             if (h.len >= 4) {

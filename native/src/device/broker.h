@@ -17,12 +17,20 @@ class Broker {
 public:
     using RxHandler = std::function<void(uint8_t ep, const uint8_t *data, size_t len)>;
     using StateHandler = std::function<void(bool connected)>;
+    // observer messages (VTIMSG_OBS_TRAFFIC / _LOG / _STATUS, protocol 4)
+    using ObserveHandler = std::function<void(uint16_t type, const uint8_t *data, size_t len)>;
 
     ~Broker();
     // Connect (POSIX: Unix socket /tmp/vtibroker-<uid>.sock; Windows: named pipe \\.\pipe\vtibroker), say HELLO, start the reader.
     bool open(std::string &error);
     void close();
     bool device_present() const { return present_; }
+    // shown in the broker's status for observers ("TI Revive Virus Control", "tirevive-cc", ...); before open()
+    void set_name(const std::string &name) { name_ = name; }
+    // Become a read-only observer (after open): the broker refuses our writes and sends a copy of the traffic,
+    // its log lines and a status line once a second to `h`. False if the broker does not confirm (older than
+    // protocol 4: it would have kept us as the owner of the Virus, so the connection is closed).
+    bool observe(ObserveHandler h, std::string &error);
 
     void on_rx(RxHandler h) { rx_ = std::move(h); }
     void on_state(StateHandler h) { state_ = std::move(h); }
@@ -40,6 +48,9 @@ private:
     intptr_t fd_ = -1; // POSIX socket / Windows pipe HANDLE (overlapped)
     int audio_reply_ = 0;
     bool audio_replied_ = false;
+    uint32_t observe_reply_ = 0;
+    std::string name_;
+    ObserveHandler observe_;
     std::thread reader_;
     std::mutex wr_, ctl_;
     std::condition_variable ctl_cv_;

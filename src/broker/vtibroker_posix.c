@@ -51,6 +51,9 @@ typedef struct {
     int audio;          // Linux: wants VTIMSG_AUDIO_TICK
     int tcp;            // Linux: came in over TCP (Wine), must send VTIMSG_AUTH first
     int notes;          // has sent note-ons: silence the Virus when it goes away (hanging-note protection)
+    int observer;       // protocol 4: read-only observer (never the owner; gets everything through `q`)
+    struct obsq *q;
+    char name[48];      // from HELLO (protocol 4), for the status
 } client;
 
 static client *g_clients[MAX_CLIENTS];
@@ -59,20 +62,25 @@ static pthread_mutex_t g_cs_clients = PTHREAD_MUTEX_INITIALIZER, g_cs_dev = PTHR
 static vti *g_dev;
 static int g_verbose, g_stay;
 
+static void obs_log(const char *line); // observers get every log line (below)
+
 static void blog(const char *fmt, ...)
 {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     struct tm tm;
     localtime_r(&ts.tv_sec, &tm);
-    pthread_mutex_lock(&g_cs_log);
-    fprintf(stderr, "%02d:%02d:%02d.%03ld ", tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec / 1000000);
+    char line[1024];
+    int n = snprintf(line, sizeof line, "%02d:%02d:%02d.%03ld ", tm.tm_hour, tm.tm_min, tm.tm_sec,
+                     ts.tv_nsec / 1000000);
     va_list ap;
     va_start(ap, fmt);
-    vfprintf(stderr, fmt, ap);
+    vsnprintf(line + n, sizeof line - (size_t)n, fmt, ap);
     va_end(ap);
-    fputc('\n', stderr);
+    pthread_mutex_lock(&g_cs_log);
+    fprintf(stderr, "%s\n", line);
     pthread_mutex_unlock(&g_cs_log);
+    obs_log(line);
 }
 
 static void on_vti_log(const char *fmt, ...)
@@ -141,10 +149,214 @@ static int is_owner(client *c)
 static void send_states(int dev_open) // g_cs_clients held
 {
     for (int i = 0; i < MAX_CLIENTS; i++)
-        if (g_clients[i]) {
+        if (g_clients[i] && !g_clients[i]->observer) {
             uint32_t st = dev_open && g_clients[i] == g_owner;
             send_msg(g_clients[i], VTIMSG_STATE, &st, 4, NULL, 0);
         }
+}
+
+// ---- observers (protocol 4, the Control Center's Nerd mode) ----
+// Each observer has a byte ring of framed messages and a writer thread, so the libusb thread and the owner never wait
+// for a slow observer: when its ring is full, the message is dropped for that observer only (counted in the status).
+#define OBS_RING (512 * 1024)
+typedef struct obsq {
+    pthread_mutex_t mu;
+    pthread_cond_t cv;
+    uint8_t *ring;
+    size_t head, len; // read position, bytes queued
+    uint64_t dropped;
+    int stop;
+    client *c;
+    pthread_t th;
+} obsq;
+static obsq *g_obs[MAX_CLIENTS]; // g_cs_obs
+static int g_obs_count;          // g_cs_obs (read without it as a quick check)
+static pthread_mutex_t g_cs_obs = PTHREAD_MUTEX_INITIALIZER;
+static uint64_t g_cnt_out, g_cnt_in, g_cnt_ctl; // packets passed on (status)
+static struct timespec g_t0;
+
+static uint32_t uptime_ms(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint32_t)((ts.tv_sec - g_t0.tv_sec) * 1000 + (ts.tv_nsec - g_t0.tv_nsec) / 1000000);
+}
+
+static void ring_put(obsq *q, const void *p, size_t n) // q->mu held, room checked
+{
+    const uint8_t *b = p;
+    size_t tail = (q->head + q->len) % OBS_RING, first = n < OBS_RING - tail ? n : OBS_RING - tail;
+    memcpy(q->ring + tail, b, first);
+    memcpy(q->ring, b + first, n - first);
+    q->len += n;
+}
+
+// queues one message for every observer
+static void obs_push(uint16_t type, const void *a, int alen, const void *b, int blen)
+{
+    if (alen + blen > VTIMSG_MAX)
+        blen = VTIMSG_MAX - alen;
+    vtimsg h = {type, (uint16_t)(alen + blen)};
+    pthread_mutex_lock(&g_cs_obs);
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        obsq *q = g_obs[i];
+        if (!q)
+            continue;
+        pthread_mutex_lock(&q->mu);
+        if (q->len + sizeof h + h.len > OBS_RING) {
+            q->dropped++;
+        } else {
+            ring_put(q, &h, sizeof h);
+            if (alen)
+                ring_put(q, a, (size_t)alen);
+            if (blen > 0)
+                ring_put(q, b, (size_t)blen);
+            pthread_cond_signal(&q->cv);
+        }
+        pthread_mutex_unlock(&q->mu);
+    }
+    pthread_mutex_unlock(&g_cs_obs);
+}
+
+static void obs_traffic(uint8_t kind, uint8_t ep, const void *a, int alen, const void *b, int blen)
+{
+    __atomic_add_fetch(kind == 0 ? &g_cnt_out : kind == 1 ? &g_cnt_in : &g_cnt_ctl, 1, __ATOMIC_RELAXED);
+    if (!__atomic_load_n(&g_obs_count, __ATOMIC_RELAXED))
+        return;
+    uint8_t hdr[6] = {kind, ep};
+    uint32_t t = uptime_ms();
+    memcpy(hdr + 2, &t, 4);
+    uint8_t body[VTIMSG_MAX];
+    int n = alen < (int)sizeof body ? alen : (int)sizeof body;
+    memcpy(body, a, (size_t)n);
+    if (blen > 0 && n + blen <= (int)sizeof body)
+        memcpy(body + n, b, (size_t)blen), n += blen;
+    obs_push(VTIMSG_OBS_TRAFFIC, hdr, 6, body, n);
+}
+
+static void *obs_writer(void *arg) // sends the queued bytes; any byte range of the stream may go at once
+{
+    obsq *q = arg;
+    uint8_t *out = malloc(64 * 1024);
+    for (;;) {
+        pthread_mutex_lock(&q->mu);
+        while (!q->len && !q->stop)
+            pthread_cond_wait(&q->cv, &q->mu);
+        if (q->stop) {
+            pthread_mutex_unlock(&q->mu);
+            break;
+        }
+        size_t n = q->len < 64 * 1024 ? q->len : 64 * 1024, first = n < OBS_RING - q->head ? n : OBS_RING - q->head;
+        memcpy(out, q->ring + q->head, first);
+        memcpy(out + first, q->ring, n - first);
+        q->head = (q->head + n) % OBS_RING;
+        q->len -= n;
+        pthread_mutex_unlock(&q->mu);
+        pthread_mutex_lock(&q->c->wr);
+        int r = write_all(q->c->fd, out, n);
+        pthread_mutex_unlock(&q->c->wr);
+        if (r) // the observer went away; its client thread notices on read
+            break;
+    }
+    free(out);
+    return NULL;
+}
+
+static void obs_log(const char *line)
+{
+    if (__atomic_load_n(&g_obs_count, __ATOMIC_RELAXED))
+        obs_push(VTIMSG_OBS_LOG, line, (int)strlen(line), NULL, 0);
+}
+
+static int g_audio_on; // Linux: the broker streams the Virus' audio (status only)
+
+// once a second: device, owner, clients, counters (tab-separated key=value, see vtiproto.h)
+static void obs_status(int dev_open)
+{
+    if (!__atomic_load_n(&g_obs_count, __ATOMIC_RELAXED))
+        return;
+    char st[1024], clients[600] = "";
+    const char *owner = "-";
+    pthread_mutex_lock(&g_cs_clients);
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        client *c = g_clients[i];
+        if (!c)
+            continue;
+        const char *nm = c->name[0] ? c->name : "unnamed client";
+        if (c == g_owner)
+            owner = nm;
+        size_t l = strlen(clients);
+        snprintf(clients + l, sizeof clients - l, "%s%s%s", l ? ", " : "", nm,
+                 c->observer ? " (observer)" : c == g_owner ? " (owner)" : " (waiting)");
+    }
+    char own[48];
+    snprintf(own, sizeof own, "%s", owner);
+    pthread_mutex_unlock(&g_cs_clients);
+    snprintf(st, sizeof st,
+             "device=%d\towner=%s\tclients=%s\taudio=%d\tto_device=%llu\tfrom_device=%llu\tcontrol=%llu\tuptime_s=%u",
+             dev_open, own, clients, g_audio_on, (unsigned long long)g_cnt_out, (unsigned long long)g_cnt_in,
+             (unsigned long long)g_cnt_ctl, uptime_ms() / 1000);
+    // the drop counter differs per observer: appended per queue
+    pthread_mutex_lock(&g_cs_obs);
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        obsq *q = g_obs[i];
+        if (!q)
+            continue;
+        char line[1100];
+        pthread_mutex_lock(&q->mu);
+        int n = snprintf(line, sizeof line, "%s\tdropped=%llu", st, (unsigned long long)q->dropped);
+        vtimsg h = {VTIMSG_OBS_STATUS, (uint16_t)n};
+        if (q->len + sizeof h + (size_t)n <= OBS_RING) {
+            ring_put(q, &h, sizeof h);
+            ring_put(q, line, (size_t)n);
+            pthread_cond_signal(&q->cv);
+        }
+        pthread_mutex_unlock(&q->mu);
+    }
+    pthread_mutex_unlock(&g_cs_obs);
+}
+
+static void obs_attach(client *c)
+{
+    obsq *q = calloc(1, sizeof *q);
+    q->ring = malloc(OBS_RING);
+    q->c = c;
+    pthread_mutex_init(&q->mu, NULL);
+    pthread_cond_init(&q->cv, NULL);
+    c->q = q;
+    pthread_create(&q->th, NULL, obs_writer, q);
+    pthread_mutex_lock(&g_cs_obs);
+    for (int i = 0; i < MAX_CLIENTS; i++)
+        if (!g_obs[i]) {
+            g_obs[i] = q;
+            g_obs_count++;
+            break;
+        }
+    pthread_mutex_unlock(&g_cs_obs);
+}
+
+static void obs_detach(client *c)
+{
+    obsq *q = c->q;
+    if (!q)
+        return;
+    pthread_mutex_lock(&g_cs_obs);
+    for (int i = 0; i < MAX_CLIENTS; i++)
+        if (g_obs[i] == q) {
+            g_obs[i] = NULL;
+            g_obs_count--;
+        }
+    pthread_mutex_unlock(&g_cs_obs);
+    pthread_mutex_lock(&q->mu);
+    q->stop = 1;
+    pthread_cond_signal(&q->cv);
+    pthread_mutex_unlock(&q->mu);
+    pthread_join(q->th, NULL);
+    pthread_mutex_destroy(&q->mu);
+    pthread_cond_destroy(&q->cv);
+    free(q->ring);
+    free(q);
+    c->q = NULL;
 }
 
 // ---- trace recorder (VTI_TRACE=<file>): every plug-in channel packet and control request with time stamps ----
@@ -158,6 +370,7 @@ static int64_t trace_frame(void); // defined below (Linux: synth frame counter)
 
 static void trace_rec(uint8_t kind, uint8_t ep, const void *a, int alen, const void *b, int blen)
 {
+    obs_traffic(kind, ep, a, alen, b, blen);
     if (!g_trace)
         return;
     struct timespec ts;
@@ -437,6 +650,7 @@ static int audio_start(void) // g_cs_dev held, device open
 {
     if (vla_running())
         return 1;
+    g_audio_on = 0;
     if (shm_create())
         return -1;
     struct libusb_context *ctx;
@@ -451,6 +665,7 @@ static int audio_start(void) // g_cs_dev held, device open
     if (vla_start(ctx, h, audio_in, audio_out, NULL))
         return -1;
     g_shm->streaming = 1;
+    g_audio_on = 1;
     return 1;
 }
 
@@ -460,6 +675,7 @@ static void audio_stop(void) // g_cs_dev held
         return;
     vla_stop();
     g_shm->streaming = 0;
+    g_audio_on = 0;
     if (g_out_frames)
         blog("audio out: %llu frames played, %llu underruns, %llu frames dropped", (unsigned long long)g_out_frames,
              (unsigned long long)g_out_underruns, (unsigned long long)g_out_dropped);
@@ -523,7 +739,12 @@ static void *device_thread(void *unused)
         }
         int open = g_dev != NULL;
         pthread_mutex_unlock(&g_cs_dev);
-        usleep(open ? 500000 : 2000000);
+        static uint32_t last_status;
+        if (uptime_ms() - last_status >= 1000) {
+            last_status = uptime_ms();
+            obs_status(open);
+        }
+        usleep(open ? 500000 : 1000000);
     }
     return NULL;
 }
@@ -653,8 +874,41 @@ static void *client_thread(void *arg)
             break;
         switch (h.type) {
         case VTIMSG_HELLO:
-            blog("client hello, protocol %u", h.len >= 4 ? *(uint32_t *)buf : 0);
+            if (h.len > 4) { // protocol 4: the client's name
+                size_t n = h.len - 4u < sizeof c->name - 1 ? h.len - 4u : sizeof c->name - 1;
+                pthread_mutex_lock(&g_cs_clients);
+                memcpy(c->name, buf + 4, n);
+                c->name[n] = 0;
+                for (char *p = c->name; *p; p++)
+                    if ((unsigned char)*p < 32 || *p == '\t')
+                        *p = ' ';
+                pthread_mutex_unlock(&g_cs_clients);
+            }
+            blog("client hello, protocol %u%s%s", h.len >= 4 ? *(uint32_t *)buf : 0, c->name[0] ? ": " : "", c->name);
             break;
+        case VTIMSG_OBSERVE: { // read-only observer: give the Virus to the next program if we got it
+            pthread_mutex_lock(&g_cs_dev);
+            pthread_mutex_lock(&g_cs_clients);
+            c->observer = 1;
+            if (g_owner == c) {
+                g_owner = NULL;
+                for (int i = 0; i < MAX_CLIENTS && !g_owner; i++)
+                    if (g_clients[i] && !g_clients[i]->observer)
+                        g_owner = g_clients[i];
+                if (g_owner) {
+                    uint32_t st1 = g_dev != NULL;
+                    send_msg(g_owner, VTIMSG_STATE, &st1, 4, NULL, 0);
+                }
+            }
+            pthread_mutex_unlock(&g_cs_clients);
+            pthread_mutex_unlock(&g_cs_dev);
+            uint32_t ver = VTI_PROTO_VERSION, st0 = 0;
+            send_msg(c, VTIMSG_STATE, &st0, 4, NULL, 0); // an observer has no device
+            send_msg(c, VTIMSG_OBSERVE_REPLY, &ver, 4, NULL, 0);
+            obs_attach(c); // from here on everything goes through the queue
+            blog("client is an observer (read-only)");
+            break;
+        }
         case VTIMSG_WRITE:
             if (h.len >= 1 && is_owner(c)) {
                 if (buf[0] == VTI_EP_MI04_OUT && !c->notes && vti_has_note_on(buf + 1, h.len - 1))
@@ -680,6 +934,8 @@ static void *client_thread(void *arg)
             }
             break;
         case VTIMSG_CONTROL:
+            if (c->observer) // read-only; and nothing may be written to an observer outside its queue
+                break;
             if (h.len >= 12) {
                 uint32_t seq;
                 memcpy(&seq, buf, 4);
@@ -695,7 +951,7 @@ static void *client_thread(void *arg)
                                                 (uint16_t)(s[4] | s[5] << 8), data, wl)
                                   : -1;
                 pthread_mutex_unlock(&g_cs_dev);
-                if (g_trace) {
+                { // trace file and observers
                     uint8_t rec[8 + 4];
                     memcpy(rec, s, 8);
                     memcpy(rec + 8, &r, 4);
@@ -708,6 +964,8 @@ static void *client_thread(void *arg)
             }
             break;
         case VTIMSG_AUDIO: { // macOS: audio comes from Core Audio, not from the broker (reply 0)
+            if (c->observer)
+                break;
             int32_t r = 0;
 #ifdef __linux__
             uint32_t on = h.len >= 4 ? *(uint32_t *)buf : 0;
@@ -730,7 +988,9 @@ static void *client_thread(void *arg)
             blog("client: unknown message %u", h.type);
         }
     }
-    blog("client disconnected");
+    if (c->observer)
+        obs_detach(c);
+    blog("client disconnected%s", c->observer ? " (observer)" : "");
     pthread_mutex_lock(&g_cs_dev);
     if (c->notes && g_dev) { // a DAW that crashed or was killed cannot send its note-offs any more
         uint8_t off[256];
@@ -745,7 +1005,8 @@ static void *client_thread(void *arg)
         g_owner = NULL;
         audio_stop();
         for (int i = 0; i < MAX_CLIENTS && !g_owner; i++)
-            g_owner = g_clients[i];
+            if (g_clients[i] && !g_clients[i]->observer)
+                g_owner = g_clients[i];
         if (g_owner) {
             uint32_t st = g_dev != NULL;
             blog("next client becomes the owner");
@@ -767,6 +1028,7 @@ int main(int argc, char **argv)
         g_stay |= !strcmp(argv[i], "-stay");
     }
     signal(SIGPIPE, SIG_IGN);
+    clock_gettime(CLOCK_MONOTONIC, &g_t0);
     static sigset_t sigs; // handled by signal_thread; blocked in every thread created after this
     sigemptyset(&sigs);
     sigaddset(&sigs, SIGINT);
