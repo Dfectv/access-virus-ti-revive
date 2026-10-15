@@ -15,7 +15,7 @@ on Windows, macOS (Apple Silicon and Intel) and Linux, without the old Access dr
 reads the skin, the parameter descriptions and the ROM banks from your own Access installer at runtime; TI Revive
 contains no Access material. No kernel code of its own is installed.
 
-> 🙋 **Testers wanted!** TI Revive is tested on a TI2 Desktop with Ableton Live, REAPER and GarageBand. Help us
+> **Testers wanted.** TI Revive is tested on a TI2 Desktop with Ableton Live, REAPER and GarageBand. Help us
 > cover more: **Virus TI Snow** (not supported by 0.8.0 yet - your test results are what makes it possible),
 > **Polar and Keyboard** models, other DAWs (**Logic Pro**, Cubase, Bitwig, FL Studio, Studio One), **Intel Macs**,
 > other **Linux** distributions and **Windows 10**. No coding needed: follow the
