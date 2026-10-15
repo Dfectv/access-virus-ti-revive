@@ -172,3 +172,11 @@ State at pause:
 2. Test C7 "needs": does the synth behave differently without F5/F8 (needs a host-side sender; Linux amidi to hw:Virus with snd-usb-audio is one option).
 3. (done) Phase 2.2 IOCTL semantics, see E034/E035. Remaining: confirm raw pipe = EP 0x06/0x86 at runtime; 0x220408/410 meaning.
 4. Tip: objdump -d -M intel + scanning for `mov edx,imm` before `call [IAT]` is much faster than per-function decompile for listing call-site constants.
+
+## 0.7.x release summary (moved from HANDOFF.md "Status", 2026-10-15)
+
+v0.7.4 (2026-10-12, macOS driver-conflict detection; 0.7.3 = universal macOS bridge; 0.7.2 CI run 38291289944,
+automatically "Latest": CI no longer marks 0.x as pre-release). 0.7.2 = macOS hides the Intel-only Access plug-ins +
+Rosetta check, Linux ring polling. Contents: All Notes Off when a client that played notes disconnects (all brokers),
+Linux PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `tirevive-usbinfo.ps1` (Snow
+testers).

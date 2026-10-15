@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-15 (0.8.5: single-instance fix, issue #6). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-15 (0.8.5: single-instance fix, issue #6; Status table brought up to date). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E148), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
@@ -123,13 +123,13 @@ Evidence: [evidence.md](evidence.md) (E001-E148), protocol: [spec.md](spec.md); 
 
 | Platform | State | Released | Key docs |
 |---|---|---|---|
-| Windows 10/11 | 0.8.0: native plug-in + ASIO "TI Revive Virus Audio", WinUSB binding, broker with USB audio | MSI + setup.exe (Burn bundle) | native/docs/architecture.md, design.md |
-| macOS | 0.8.0: native plug-in (VST3, universal); Audio Unit = bridge + Rosetta helper; own libVirusUSB, broker | `-mac.zip` (pkg + scripts) | native/docs/architecture.md, design-macos*.md |
-| Linux | 0.8.0: native plug-in (VST3); native broker owns the whole Virus (MIDI + iso audio) | `-linux.tar.gz` (install.sh) | native/docs/architecture.md, design-linux.md |
+| Windows 10/11 | native plug-in (VST3) + ASIO "TI Revive Virus Audio", WinUSB binding, broker with USB audio, Control Center app | `-setup.exe` (Burn bundle) + `.msi` | native/docs/architecture.md, design.md |
+| macOS 14.4+ | native plug-in (VST3 + AUv2, universal, no Rosetta since 0.8.1), broker, Control Center app | `-mac.zip` (pkg + setup scripts) | native/docs/architecture.md, design-macos*.md |
+| Linux | native plug-in (VST3), native broker owns the whole Virus (MIDI + iso audio), Control Center app | `-linux.tar.gz` (install.sh) | native/docs/architecture.md, design-linux.md |
 
-Latest release: **v0.7.4** (2026-10-12, macOS driver-conflict detection; 0.7.3 = universal macOS bridge; 0.7.2 CI run 38291289944, automatically "Latest": CI no longer marks 0.x as
-pre-release). 0.7.2 = macOS hides the Intel-only Access plug-ins + Rosetta check, Linux ring polling. Contents: All Notes Off when a client that played notes disconnects (all brokers), Linux
-PipeWire-JACK docs, yabridge check in install.sh, Windows setup.exe, Mac AU, `tirevive-usbinfo.ps1` (Snow testers).
+Latest release: **v0.8.5** (2026-10-15, one plug-in instance per process talks to the Virus, issue #6). The 0.8.x
+releases are summarised in the sections above; 0.7.x and older in [HANDOFF-history.md](HANDOFF-history.md).
+Virus TI Snow owners stay on **v0.7.4** (classic plug-in) until the native plug-in supports the Snow.
 
 ## Open items (order agreed with the user 2026-10-12: easy first; deferred stays deferred)
 
