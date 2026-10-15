@@ -50,6 +50,15 @@ Open:
    rc3 = the release workflow's own output (rehearsal repo, tag v0.8.0 at branch rc3, run 38629368510): kit patches
    0001-0009 + native incl. the stats fix. Linux rc2 tested by the user (install.sh, REAPER 44.1 + 48 kHz). Next:
    user tests rc3 setup.exe on the Windows PC (download from derpsn/tirevive-rehearsal releases).
+   rc3 user test on Windows (2026-10-15): the classic plug-in and its ASIO device next to the new ones confused;
+   the plug-in under vendor TI Revive instead of Access Music. Decisions (user): 0.8.0 REPLACES the classic plug-in
+   (native takes its class id: Windows/Linux wrapper id, macOS bridge id; moduleinfo Compatibility for the others;
+   a state saved by the original loads, round trip identical), vendor stays TI Revive (trademark), the Access .msi
+   is only unpacked (Windows msiexec /a, Linux msiextract or Wine; Mac unchanged: the AU needs the Access install).
+   Patches 0010-0013: MSI without classic parts, new tirevive-access.ps1 (unpack, offer removal of an earlier full
+   Access install, dead Access ASIO entry removed), Linux without Wine/yabridge, Mac without bridge VST3, README.
+   VM tests passed (upgrade, setup.exe bundle replace, Access removal, extraction). Snow owners: stay on 0.7.4.
+   rc4 = rehearsal repo tag v0.8.0 at branch rc4 (run 38683084205).
 2. The user's go for the move into TI Revive (docs/migration.md), then tag v0.8.0
 Later: Snow, OSC mixed-shape display, AU, Control Center, the user's empty-cache test.
 
