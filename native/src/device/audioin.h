@@ -11,7 +11,9 @@ class AudioIn {
 public:
     static constexpr int IN_CHANNELS = 6; // ring order: analog in L/R, USB 1 L/R, USB 2 L/R
     ~AudioIn();
-    bool open();  // Linux: map /dev/shm/tirevive-audio-<uid>; Windows: the broker's mapping; macOS: Core Audio input
+    // Linux: map /dev/shm/tirevive-audio-<uid> (or the POSIX shm `linux_name`: unit tests with their own ring);
+    // Windows: the broker's mapping; macOS: Core Audio input
+    bool open(const char *linux_name = nullptr);
     void close();
     bool streaming() const;
     // n frames into usb1 (L, R) and usb2 (L, R); missing data -> silence. `latency` = target distance in frames.

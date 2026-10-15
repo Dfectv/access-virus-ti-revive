@@ -27,6 +27,9 @@ public:
     bool device_present() const { return present_; }
     // shown in the broker's status for observers ("TI Revive Virus Control", "tirevive-cc", ...); before open()
     void set_name(const std::string &name) { name_ = name; }
+    // POSIX: another socket path instead of /tmp/vtibroker-<uid>.sock (unit tests with a fake broker); "" = the
+    // broker's own. Set before open(); only code sets it, never the environment.
+    void set_endpoint(const std::string &path) { endpoint_ = path; }
     // Become a read-only observer (after open): the broker refuses our writes and sends a copy of the traffic,
     // its log lines and a status line once a second to `h`. False if the broker does not confirm (older than
     // protocol 4: it would have kept us as the owner of the Virus, so the connection is closed).
@@ -49,7 +52,7 @@ private:
     int audio_reply_ = 0;
     bool audio_replied_ = false;
     uint32_t observe_reply_ = 0;
-    std::string name_;
+    std::string name_, endpoint_;
     ObserveHandler observe_;
     std::thread reader_;
     std::mutex wr_, ctl_;

@@ -99,8 +99,9 @@ static bool start_broker()
     return true;
 }
 
-static intptr_t os_connect(std::string &error)
+static intptr_t os_connect(const std::string &endpoint, std::string &error)
 {
+    (void)endpoint; // the broker's named pipe only
     HANDLE h = INVALID_HANDLE_VALUE;
     bool started = false;
     for (int i = 0; i < 40 && h == INVALID_HANDLE_VALUE; i++) { // up to ~4 s for a starting or busy broker
@@ -189,15 +190,22 @@ static bool start_broker()
 }
 #endif
 
-static intptr_t os_connect(std::string &error)
+static intptr_t os_connect(const std::string &endpoint, std::string &error)
 {
     sockaddr_un sa{};
     sa.sun_family = AF_UNIX;
-    snprintf(sa.sun_path, sizeof sa.sun_path, "/tmp/vtibroker-%u.sock", (unsigned)getuid());
+    if (endpoint.empty())
+        snprintf(sa.sun_path, sizeof sa.sun_path, "/tmp/vtibroker-%u.sock", (unsigned)getuid());
+    else if (endpoint.size() < sizeof sa.sun_path)
+        memcpy(sa.sun_path, endpoint.c_str(), endpoint.size() + 1);
+    else {
+        error = "socket path too long: " + endpoint;
+        return -1;
+    }
     int fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
     bool ok = fd >= 0 && !::connect(fd, (sockaddr *)&sa, sizeof sa);
 #ifdef __APPLE__
-    if (fd >= 0 && !ok && start_broker())
+    if (fd >= 0 && !ok && endpoint.empty() && start_broker()) // never start the real broker for another endpoint
         for (int i = 0; i < 40 && !ok; i++) { // up to ~4 s for the broker to listen
             usleep(100000);
             ::close(fd);
@@ -227,7 +235,7 @@ static void os_release(intptr_t fd)
 
 bool Broker::open(std::string &error)
 {
-    fd_ = os_connect(error);
+    fd_ = os_connect(endpoint_, error);
     if (fd_ < 0)
         return false;
     uint32_t ver = VTI_PROTO_VERSION;
