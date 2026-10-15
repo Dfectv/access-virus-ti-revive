@@ -101,9 +101,23 @@ void DeviceOut::release_owner()
 void DeviceOut::send(std::vector<uint8_t> msg)
 {
     std::lock_guard<std::mutex> lk(mu_);
-    queue_.push_back(std::move(msg));
+    queue_.push_back({std::move(msg), false});
     queued_++;
     cv_.notify_one();
+}
+
+int DeviceOut::send_state(std::vector<std::vector<uint8_t>> records)
+{
+    std::lock_guard<std::mutex> lk(mu_);
+    size_t before = queue_.size();
+    queue_.erase(std::remove_if(queue_.begin(), queue_.end(), [](const Queued &q) { return q.state; }), queue_.end());
+    int dropped = (int)(before - queue_.size());
+    queued_ -= dropped;
+    for (auto &r : records)
+        queue_.push_back({std::move(r), true});
+    queued_ += (int)records.size();
+    cv_.notify_one();
+    return dropped;
 }
 
 bool DeviceOut::send_rt(const uint8_t *msg, size_t n, int64_t stamp)
@@ -321,7 +335,7 @@ void DeviceOut::run()
                 rt_run_++;
             } else if (!queue_.empty()) {
                 rt_run_ = 0;
-                msg = std::move(queue_.front());
+                msg = std::move(queue_.front().msg);
                 queue_.pop_front();
                 pending_send_ = true; // counted down after the write, so busy() covers the transfer
             }
@@ -2051,14 +2065,15 @@ void VirusPlugin::send_state()
     if (!out_)
         return;
     std::lock_guard<std::mutex> lk(state_mu_);
-    int n = 0;
+    std::vector<std::vector<uint8_t>> recs;
     for (auto &r : state_)
-        if (!r.empty() && !(r.size() > 2 && r[0] == 0xF0 && r[1] == 0x7D)) { // not our editor-only records
-            out_->send(r);
-            n++;
-        }
-    out_->log("Virus TI native: state sent (%d messages, part 1 \"%s\", device %s)\n", n, part1_name(state_).c_str(),
-              out_->connected() ? "connected" : "not yet connected");
+        if (!r.empty() && !(r.size() > 2 && r[0] == 0xF0 && r[1] == 0x7D)) // not our editor-only records
+            recs.push_back(r);
+    const int n = (int)recs.size();
+    const int dropped = out_->send_state(std::move(recs));
+    out_->log("Virus TI native: state sent (%d messages, part 1 \"%s\", device %s)%s\n", n, part1_name(state_).c_str(),
+              out_->connected() ? "connected" : "not yet connected",
+              dropped ? (" - replaces " + std::to_string(dropped) + " queued records of the previous state").c_str() : "");
 }
 
 tresult PLUGIN_API VirusPlugin::setState(IBStream *state)

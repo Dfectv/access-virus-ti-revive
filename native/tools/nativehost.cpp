@@ -371,6 +371,11 @@ int main(int argc, char **argv)
         proc2->setProcessing(true);
         data2.prepare(*comp2, block, kSample32);
         data2.numSamples = block;
+        // a DAW's duplicate gets the original's state after its activation (Ableton: a second state upload, E149)
+        auto st = get_state(comp);
+        auto *ms = new MemoryStream(st.data(), (TSize)st.size());
+        printf("duplicate: setState(%zu bytes) -> %d\n", st.size(), (int)comp2->setState(ms));
+        ms->release();
     }
     HostProcessData *outd = &data; // the instance whose output is measured / written
     ParameterChanges pc, outpc;

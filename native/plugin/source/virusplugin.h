@@ -42,6 +42,9 @@ public:
     // setActive(true). A host's plug-in scan (initialize + terminate, no activation) never reaches the Virus.
     void start() { go_ = true; }
     void send(std::vector<uint8_t> msg); // a complete MIDI message (SysEx or channel message); not from process()
+    // a whole state upload: replaces the records of an earlier upload that are still queued (only the newest state
+    // counts; a waiting instance got two before its takeover, E149). Returns how many queued records it dropped.
+    int send_state(std::vector<std::vector<uint8_t>> records);
     // from process() only (single producer, lock-free): a message of up to 16 bytes; false if the ring is full
     // `stamp` = frame on the Virus timeline (F5 time stamp before the message), -1 = the latest timeline position
     bool send_rt(const uint8_t *msg, size_t n, int64_t stamp = -1);
@@ -137,7 +140,11 @@ private:
     std::atomic<int> pings_out_{0}; // pings sent whose marker has not been seen yet
     int64_t marker_skip_ = -1;      // worker: frames up to here belong to the last marker
     int64_t scanned_ = -1; // ring frames up to here were looked at
-    std::deque<std::vector<uint8_t>> queue_;
+    struct Queued {
+        std::vector<uint8_t> msg;
+        bool state; // part of a state upload (send_state)
+    };
+    std::deque<Queued> queue_;
     std::atomic<int> queued_{0};
     struct Slot {
         uint8_t len, data[16];
