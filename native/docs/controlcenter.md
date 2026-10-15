@@ -111,7 +111,9 @@ installation in `/Applications` works too (checked on the M3: 106 files, layout 
 - 2026-10-15, Windows 11 VM (no Virus): the app from the MSI of CI run 38713953474 starts and shows "No Virus". The
   first build crashed at start: VSTGUI's menu building calls the window controller without a null check, so the app
   now passes one.
-- macOS: the app bundle from the pkg is universal and signed; not started yet (needs the GUI session).
+- macOS: the app bundle from the pkg is universal and signed. 2026-10-15, the user on the M3 with the TI2 (test
+  package of CI run 38732935398): the app starts in the Access look and works; sound in the DAW with the new broker
+  (MIDI stand-in off) is fine.
 - 2026-10-15, Linux, TI2, Access look (Xvfb + XTest, Access' Control Center from the Wine prefix): device selector
   with the Virus, OK to Backup & Restore, BACKUP + OK wrote RAM A..D (cache current, 0 read), Burn Flash and OS
   Updater show the note, footer buttons to Nerd mode / plain view and back. Not checked: the folder dialog (zenity's

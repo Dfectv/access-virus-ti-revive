@@ -211,6 +211,14 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
+          **New in 0.8.2: TI Revive Control Center** - in the look of Access' Virus Control Center (taken from your
+          Access installer, like the plug-in's skin): device info, backup of the RAM banks as patch libraries, library
+          conversion (.mid / .syx), and a **Nerd mode** that shows live what goes between TI Revive and the Virus
+          (decoded, read-only) plus the logs for bug reports. Also as the command line tool \`tirevive-cc\`. Firmware /
+          OS updates and flash functions are not supported, on purpose. Linux: the app needs gtkmm 3. Clean-ups: the
+          Linux broker no longer opens a TCP port; the macOS broker no longer runs the MIDI stand-in of the old
+          Access plug-in.
+
           **Windows 10/11 x64:** download \`TI-Revive-$v-setup.exe\` (or the same installer as \`TI-Revive-$v.msi\`)
           and put your own Access "Virus TI Software Suite" 64-bit \`.msi\` next to it. Run it (not code-signed:
           SmartScreen -> More info -> Run anyway) and keep "Set up the Access Virus TI files now" checked: the Access
@@ -226,7 +234,7 @@ jobs:
 
           **Coming from 0.7.x:** the classic plug-in "Virus TI (TI Revive)" is replaced; its projects open with
           "TI Revive Virus Control". **Virus TI Snow owners: please stay with 0.7.4 for now** - the Snow is not
-          supported by 0.8.0 yet. Virus Control Center is not part of 0.8.0.
+          supported by 0.8.x yet (testers welcome).
 
           Not affiliated with Access Music or Kemper. Contains no Access software. See the
           [README](https://github.com/$GITHUB_REPOSITORY#readme) for how it works, limitations and uninstall.
