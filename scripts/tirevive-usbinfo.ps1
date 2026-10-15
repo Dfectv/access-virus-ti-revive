@@ -58,7 +58,7 @@ Add 'TI Revive logs (newest):'
 $diag = Join-Path $env:LOCALAPPDATA 'virus-ti-native\diag.log'
 if (Test-Path $diag) {
     Add "   $diag"
-    Select-String -Path $diag -Pattern 'device|setState|state sent|sync|disconnected|audio' |
+    Select-String -Path $diag -Pattern 'Virus TI native:' |
         Select-Object -Last 15 | ForEach-Object { Add "   $($_.Line.Trim())" }
 } elseif (-not (Test-Path (Join-Path $env:LOCALAPPDATA 'virus-ti-native\diag.on'))) {
     Add '   (plug-in log off: create an empty file diag.on in %LOCALAPPDATA%\virus-ti-native, reproduce, run this again)'
