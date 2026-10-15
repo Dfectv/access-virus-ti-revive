@@ -4,6 +4,10 @@
 
 **Total Integration for the Access Virus TI on Windows 11, macOS and Linux — without the old drivers.**
 
+> ☕ **Free, and it will stay free.** If TI Revive gives your Virus a second life and you'd like to say thanks, you
+> can [buy me a coffee](https://buymeacoffee.com/callmederpsn) - entirely optional, every feature works the same
+> either way. A test report or a kind word helps just as much.
+
 TI Revive brings the Access Virus TI (Desktop, Polar, Keyboard) back to current computers. Since 0.8.0 it comes
 with **"TI Revive Virus Control"**: a plug-in written from scratch that looks and works like the original Virus
 Control - parameter sync, preset browser, patch libraries, automation, the Virus audio in your DAW - and runs natively
@@ -29,11 +33,6 @@ contains no Access material. No kernel code of its own is installed.
 > updates, no writing stored patches, a disposable DAW project), collect the logs and draft a test report for
 > me to review before posting it as a GitHub issue.
 > ```
-
-> ☕ **TI Revive is free, and it will stay free.** The whole idea is to bring the Virus TI back to life for
-> everyone, at no cost. If it gives your Virus a second life and you'd like to say thanks, you're welcome to
-> [buy me a coffee](https://buymeacoffee.com/callmederpsn). That's entirely optional and never expected:
-> every feature works the same either way. A bug report, a test with your setup or a kind word helps just as much.
 
 | | Windows 11 | macOS | Linux |
 |---|---|---|---|
