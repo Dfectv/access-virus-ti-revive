@@ -15,6 +15,8 @@
 #include "vstgui/lib/cfileselector.h"
 #include "vstgui/lib/cframe.h"
 #include "vstgui/lib/controls/cbuttons.h"
+#include "vstgui/standalone/include/ipreference.h"
+#include "vstgui/lib/controls/coptionmenu.h"
 #include "vstgui/lib/controls/icontrollistener.h"
 #include "vstgui/lib/controls/ctextlabel.h"
 #include "vstgui/lib/cvstguitimer.h"
@@ -25,6 +27,7 @@
 #include "vstgui/standalone/include/icommand.h"
 #include "vstgui/standalone/include/iwindow.h"
 #include <atomic>
+#include <cmath>
 #include <filesystem>
 #include <mutex>
 #include <thread>
@@ -44,6 +47,10 @@ constexpr CCoord W = 640, H = 470, M = 20;
 enum Tag { kRefresh = 1, kBackup, kCancel, kFolder, kExport, kNerd, kSkin };
 enum UiPage { kPlainPage, kSkinPage, kNerdPage };
 const Command kNerdCommand{"View", "Nerd mode"};
+// the window's size (the original layout is small on today's screens); kept in the app's preferences
+const double kSizes[] = {1.0, 1.25, 1.5, 1.75, 2.0};
+const Command kSizeCommands[] = {{"View", "Size 100 %"}, {"View", "Size 125 %"}, {"View", "Size 150 %"},
+                                 {"View", "Size 175 %"}, {"View", "Size 200 %"}};
 
 // What the worker reports; the UI thread reads it in the timer.
 struct Shared {
@@ -69,6 +76,10 @@ public:
         config.style.border().close().centered();
         config.size = {W, H};
         IApplication::instance().registerCommand(kNerdCommand, 0);
+        for (auto &c : kSizeCommands)
+            IApplication::instance().registerCommand(c, 0);
+        if (auto z = IApplication::instance().getPreferences().get("Zoom"))
+            zoom_ = std::clamp(atof(z->data()), 1.0, 2.0);
         window_ = IApplication::instance().createWindow(config, std::make_shared<WindowControllerAdapter>());
         // (a controller, not nullptr: VSTGUI builds the window menu through it without a null check)
         if (!window_)
@@ -85,7 +96,7 @@ public:
         std::string err;
         skin_ = tirevive::make_skin_page(vti::AccessFiles::open_control_center(err), TIREVIVE_VERSION,
                                          {[this] { show_page(kNerdPage); }, [this] { export_library(); },
-                                          [this] { show_page(kPlainPage); }},
+                                          [this] { show_page(kPlainPage); }, [this](CPoint p) { size_menu(p); }},
                                          err);
         if (skin_)
             frame_->addView(skin_);
@@ -99,9 +110,20 @@ public:
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) { tick(); }, 100, true);
     }
     // "View > Nerd mode" in the menu (macOS menu bar, the window's menu on Windows)
-    bool canHandleCommand(const Command &c) override { return c == kNerdCommand; }
+    bool canHandleCommand(const Command &c) override
+    {
+        for (auto &s : kSizeCommands)
+            if (c == s)
+                return true;
+        return c == kNerdCommand;
+    }
     bool handleCommand(const Command &c) override
     {
+        for (int i = 0; i < 5; i++)
+            if (c == kSizeCommands[i]) {
+                set_zoom(kSizes[i]);
+                return true;
+            }
         if (c != kNerdCommand)
             return false;
         show_page(kNerdPage);
@@ -136,6 +158,32 @@ private:
     SharedPointer<CFrame> frame_;
     CViewContainer *main_ = nullptr, *nerd_ = nullptr, *skin_ = nullptr; // the pages, owned by the frame
     UiPage look_ = kPlainPage; // plain or Access look: where Nerd mode's "Back" returns to
+    UiPage page_ = kPlainPage;
+    double zoom_ = 1.0;
+
+    void set_zoom(double z)
+    {
+        zoom_ = z;
+        char t[16];
+        snprintf(t, sizeof t, "%g", z);
+        IApplication::instance().getPreferences().set("Zoom", t);
+        show_page(page_);
+    }
+    void size_menu(CPoint where) // right-click in the Access look (the plain pages: View menu)
+    {
+        auto *menu = new COptionMenu();
+        for (int i = 0; i < 5; i++) {
+            auto *item = menu->addEntry(kSizeCommands[i].name);
+            if (std::fabs(zoom_ - kSizes[i]) < 0.01)
+                item->setChecked(true);
+        }
+        menu->popup(frame_, where, [this](COptionMenu *m) {
+            int idx = m->getLastResult();
+            if (idx >= 0 && idx < 5)
+                set_zoom(kSizes[idx]);
+        });
+        menu->forget();
+    }
     bool plain_refreshed_ = false;
     SharedPointer<CVSTGUITimer> timer_;
     CTextLabel *device_ = nullptr, *banks_[4] = {}, *status_ = nullptr, *folder_ = nullptr;
@@ -215,8 +263,12 @@ private:
         tirevive::set_nerd_page_active(nerd_, p == kNerdPage);
         if (skin_)
             tirevive::set_skin_page_active(skin_, p == kSkinPage);
+        // the page's own size, then the zoom (VSTGUI scales drawing and mouse events)
+        frame_->setZoom(1.0);
         frame_->setSize(size.x, size.y);
-        window_->setSize(size);
+        frame_->setZoom(zoom_);
+        window_->setSize({size.x * zoom_, size.y * zoom_});
+        page_ = p;
         window_->setTitle(p == kNerdPage ? "TI Revive Control Center - Nerd mode" : "TI Revive Control Center");
         frame_->invalid();
         if (p == kPlainPage && !plain_refreshed_) {

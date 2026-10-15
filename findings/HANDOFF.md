@@ -4,6 +4,15 @@ _Last updated: 2026-10-15 (0.8.3 released). Chronological notes until now: [HAND
 Evidence: [evidence.md](evidence.md) (E001-E147), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
+## Branch `ui-scaling` (user feedback: "make the UI scalable, at least 150 % / 200 %")
+
+- Plug-in: display scale from the host (IPlugViewContentScaleSupport) x user size (right-click menu 100-200 %, file
+  ui-zoom), resizeView; tested on Linux with nativehost (--rclick added; its window follows resizeView): 150 %/200 %
+  rendering, menu, runtime resize, saved choice. Control Center: View > Size + right-click in the Access look
+  (preference "Zoom"), tested on Xvfb. User tests 2026-10-15: Linux (REAPER + Control Center) works; macOS with
+  the CI package of run 38754600760 works in Ableton (VST3) and GarageBand (AU). Open: Windows with display
+  scaling; merge after the user's OK.
+
 ## 0.8.3 (2026-10-15, RELEASED: CI run 38750678863, all jobs green, Latest)
 
 - The fixes from issue #5 (scan, state growth E147, first-sync estimate, dev tools). Open: the user's Windows check

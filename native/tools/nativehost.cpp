@@ -85,7 +85,20 @@ struct RunLoop : Steinberg::Linux::IRunLoop, IPlugFrame {
         timers.erase(std::remove_if(timers.begin(), timers.end(), [&](const Tm &t) { return t.h == h; }), timers.end());
         return kResultOk;
     }
-    tresult PLUGIN_API resizeView(IPlugView *view, ViewRect *r) override { return view->onSize(r); }
+    // the plug-in asks for a new size (its size menu): resize our window, then confirm with onSize like a DAW
+    Display *dpy = nullptr;
+    unsigned long win = 0;
+    tresult PLUGIN_API resizeView(IPlugView *view, ViewRect *r) override
+    {
+#ifdef __linux__
+        if (dpy && win) {
+            XResizeWindow(dpy, (Window)win, (unsigned)r->getWidth(), (unsigned)r->getHeight());
+            XFlush(dpy);
+        }
+#endif
+        printf("resizeView %dx%d\n", r->getWidth(), r->getHeight());
+        return view->onSize(r);
+    }
     void pump()
     {
         for (size_t i = 0; i < fds.size(); i++) {
@@ -223,9 +236,10 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--scan")) // what a DAW's plug-in scan does: initialize, query, terminate
             scan = true;
         else if ((!strcmp(argv[i], "--click") || !strcmp(argv[i], "--drag") || !strcmp(argv[i], "--shot") ||
-                  !strcmp(argv[i], "--twice") || !strcmp(argv[i], "--type") || !strcmp(argv[i], "--move")) &&
+                  !strcmp(argv[i], "--twice") || !strcmp(argv[i], "--type") || !strcmp(argv[i], "--move") ||
+                  !strcmp(argv[i], "--rclick")) &&
                  i + 1 < argc) {
-            // --click x,y@t  --drag x,y,dy@t  --shot file.ppm@t
+            // --click x,y@t  --rclick x,y@t (right button)  --drag x,y,dy@t  --shot file.ppm@t
             Action a{};
             a.kind = !strcmp(argv[i], "--type") ? 'y' : !strcmp(argv[i], "--move") ? 'm' : argv[i][2];
             std::string v = argv[++i];
@@ -310,6 +324,8 @@ int main(int argc, char **argv)
         win = XCreateSimpleWindow(dpy, DefaultRootWindow(dpy), 0, 0, r.getWidth(), r.getHeight(), 0, 0, 0);
         XMapWindow(dpy, win);
         XFlush(dpy);
+        runloop.dpy = dpy;
+        runloop.win = win;
         view->setFrame(&runloop);
         printf("editor %dx%d attached -> %d\n", r.getWidth(), r.getHeight(),
                (int)view->attached((void *)(uintptr_t)win, kPlatformTypeX11EmbedWindowID));
@@ -491,7 +507,8 @@ int main(int argc, char **argv)
                         printf("move %d,%d at %.1f s\n", a.x, a.y, now);
                         continue;
                     }
-                    XTestFakeButtonEvent(dpy, 1, True, 0);
+                    const unsigned button = a.kind == 'r' ? 3 : 1;
+                    XTestFakeButtonEvent(dpy, button, True, 0);
                     XFlush(dpy);
                     for (int k = 1; a.kind == 'd' && k <= 10; k++) { // drag in 10 steps
                         runloop.pump();
@@ -500,7 +517,7 @@ int main(int argc, char **argv)
                         XFlush(dpy);
                     }
                     runloop.pump();
-                    XTestFakeButtonEvent(dpy, 1, False, 0);
+                    XTestFakeButtonEvent(dpy, button, False, 0);
                     XFlush(dpy);
                     if (a.kind == 't') { // double click
                         runloop.pump();
@@ -511,7 +528,7 @@ int main(int argc, char **argv)
                         XTestFakeButtonEvent(dpy, 1, False, 0);
                         XFlush(dpy);
                     }
-                    printf("%s %d,%d at %.1f s\n", a.kind == 'c' ? "click" : a.kind == 't' ? "double click" : "drag", a.x, a.y, now);
+                    printf("%s %d,%d at %.1f s\n", a.kind == 'c' ? "click" : a.kind == 'r' ? "right click" : a.kind == 't' ? "double click" : "drag", a.x, a.y, now);
                 }
             runloop.pump();
         }

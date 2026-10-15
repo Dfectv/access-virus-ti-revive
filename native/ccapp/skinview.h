@@ -12,6 +12,7 @@
 #include "cc/ccskin.h"
 #include "vstgui/lib/cbitmap.h"
 #include "vstgui/lib/cview.h"
+#include "vstgui/lib/cpoint.h"
 #include <map>
 #include <string>
 
@@ -30,6 +31,7 @@ public:
     // animbutton: ready = pulsing
     virtual bool ready(const vti::cc::SkinNode &n) = 0;
     virtual void clicked(const vti::cc::SkinNode &n) = 0;
+    virtual void right_click(VSTGUI::CPoint where) { (void)where; } // not on a control
 };
 
 class SkinView : public VSTGUI::CView {

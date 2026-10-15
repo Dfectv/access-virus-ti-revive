@@ -123,6 +123,16 @@ Access is installed or registered. These are the files it loads:
   banks as patch libraries, library export). No flash writes and no OS update, ever. See
   [controlcenter.md](controlcenter.md).
 
+### Editor size
+- The editor's size = the original layout (907 x 513) x the display scale the host reports
+  (`IPlugViewContentScaleSupport`: Windows/Linux hosts pass e.g. 1.5 at 150 % display scaling; macOS scales itself
+  and passes 1) x the user's choice. A right-click where there is no control opens "Size 100 % .. 200 %"; the choice
+  is kept per user in `<plug-in folder>/ui-zoom` (`VTI_NATIVE_ZOOM` overrides it for tests).
+- `CFrame::setZoom` scales drawing and mouse events; the new size goes to the host with `IPlugFrame::resizeView`
+  (from `beforeSizeChange`); a host that refuses keeps the old size. No free resizing by dragging (`canResize` false).
+- The original images exist at one size only: enlarged they are interpolated (soft at 200 %); the displays (filter,
+  envelopes) and values are drawn as lines and text and stay sharp.
+
 ### Device ownership
 - One broker owns the Virus' USB interfaces; it serves **one program at a time** (the owner). Others wait and
   take over when the owner disconnects. A second program restarting the stream in a running session left the Virus

@@ -11,6 +11,7 @@
 #include "vstgui/lib/cvstguitimer.h"
 #include "vstgui/lib/events.h"
 #include "vstgui/lib/platform/platformfactory.h"
+#include "cc/diag.h"
 #include <algorithm>
 #include <chrono>
 #include <functional>
@@ -242,8 +243,8 @@ private:
 
 class EditorCanvasView : public CView, public IControlListener, public TextEditListenerAdapter {
 public:
-    EditorCanvasView(VirusPlugin *plugin, const CRect &r)
-        : CView(r), plugin_(plugin), renderer_(plugin->layout(), plugin->conditions(), plugin->device(), plugin->editor_device()),
+    EditorCanvasView(VirusPlugin *plugin, const CRect &r, VirusEditor *editor)
+        : CView(r), plugin_(plugin), editor_(editor), renderer_(plugin->layout(), plugin->conditions(), plugin->device(), plugin->editor_device()),
           canvas_(plugin->files(), bitmaps_)
     {
         renderer_.values = [this](const std::string &path, int part) { return plugin_->ui_value(path, part); };
@@ -445,6 +446,12 @@ public:
         if (env_debug())
             fprintf(stderr, "mouse down %.0f,%.0f -> %s %s\n", event.mousePosition.x, event.mousePosition.y,
                     h.element ? h.element->type.c_str() : "-", h.element ? h.element->get("Parameter").c_str() : "");
+        // right-click where there is no control: the editor's size (the original has no such setting)
+        if (event.buttonState.isRight() && (!h.element || h.element->get("Parameter").empty())) {
+            size_menu(event.mousePosition);
+            event.consumed = true;
+            return;
+        }
         if (!h.element)
             return;
         const Element &e = *h.element;
@@ -907,6 +914,26 @@ private:
     }
 
     VirusPlugin *plugin_;
+    VirusEditor *editor_;
+
+    void size_menu(const CPoint &where)
+    {
+        static const double sizes[] = {1.0, 1.25, 1.5, 1.75, 2.0};
+        auto *menu = new COptionMenu();
+        for (double z : sizes) {
+            char t[32];
+            snprintf(t, sizeof t, "Size %d %%", (int)std::lround(z * 100));
+            auto *item = menu->addEntry(t);
+            if (std::fabs(editor_->user_zoom() - z) < 0.01)
+                item->setChecked(true);
+        }
+        menu->popup(getFrame(), where, [this](COptionMenu *m) {
+            int idx = m->getLastResult();
+            if (idx >= 0 && idx < (int)(sizeof sizes / sizeof sizes[0]))
+                editor_->set_user_zoom(sizes[idx]);
+        });
+        menu->forget();
+    }
     EditorRenderer renderer_;
     std::map<std::string, SharedPointer<CBitmap>> bitmaps_;
     VstguiCanvas canvas_;
@@ -920,9 +947,83 @@ private:
     int drag_value_ = 0;
 };
 
-VirusEditor::VirusEditor(VirusPlugin *plugin) : VSTGUIEditor(plugin), plugin_(plugin)
+// the user's size choice, kept for every editor (not per project): <plug-in folder>/ui-zoom ("1.5");
+// VTI_NATIVE_ZOOM overrides it (tests)
+static std::string zoom_file() { return vti::cc::plugin_dir() + "/ui-zoom"; }
+
+static double load_zoom()
 {
-    rect = Steinberg::ViewRect(0, 0, plugin->layout().width, plugin->layout().height);
+    double z = 1.0;
+    if (const char *e = getenv("VTI_NATIVE_ZOOM"))
+        z = atof(e);
+    else if (FILE *f = fopen(zoom_file().c_str(), "r")) {
+        if (fscanf(f, "%lf", &z) != 1)
+            z = 1.0;
+        fclose(f);
+    }
+    return z >= 0.5 && z <= 4.0 ? z : 1.0;
+}
+
+VirusEditor::VirusEditor(VirusPlugin *plugin) : VSTGUIEditor(plugin), plugin_(plugin), user_zoom_(load_zoom())
+{
+    apply_zoom(); // no frame yet: only the size the host asks for before open()
+}
+
+Steinberg::tresult PLUGIN_API VirusEditor::queryInterface(const Steinberg::TUID iid, void **obj)
+{
+    QUERY_INTERFACE(iid, obj, Steinberg::IPlugViewContentScaleSupport::iid, Steinberg::IPlugViewContentScaleSupport)
+    return VSTGUIEditor::queryInterface(iid, obj);
+}
+
+void VirusEditor::apply_zoom()
+{
+    if (!frame) {
+        rect = Steinberg::ViewRect(0, 0, (int)std::lround(plugin_->layout().width * zoom()),
+                                   (int)std::lround(plugin_->layout().height * zoom()));
+        return;
+    }
+    // scales drawing and mouse events; the new size goes to the host through beforeSizeChange (resizeView); if the
+    // host refuses, VSTGUI keeps the old zoom
+    frame->setZoom(zoom());
+}
+
+Steinberg::tresult PLUGIN_API VirusEditor::setContentScaleFactor(ScaleFactor factor)
+{
+    content_scale_ = factor > 0 ? factor : 1.0;
+    apply_zoom();
+    return Steinberg::kResultTrue;
+}
+
+void VirusEditor::set_user_zoom(double z)
+{
+    if (z == user_zoom_)
+        return;
+    user_zoom_ = z;
+    apply_zoom();
+    if (FILE *f = fopen(zoom_file().c_str(), "w")) {
+        fprintf(f, "%g\n", z);
+        fclose(f);
+    }
+}
+
+bool VirusEditor::beforeSizeChange(const CRect &newSize, const CRect &)
+{
+    if (resizing_ || !plugFrame)
+        return true;
+    resizing_ = true; // the host answers with onSize, which sets the frame size again
+    Steinberg::ViewRect vr(0, 0, (int)std::lround(newSize.getWidth()), (int)std::lround(newSize.getHeight()));
+    bool ok = plugFrame->resizeView(this, &vr) == Steinberg::kResultTrue;
+    resizing_ = false;
+    return ok;
+}
+
+Steinberg::tresult PLUGIN_API VirusEditor::onSize(Steinberg::ViewRect *newSize)
+{
+    bool was = resizing_;
+    resizing_ = true;
+    auto r = VSTGUIEditor::onSize(newSize);
+    resizing_ = was;
+    return r;
 }
 
 bool PLUGIN_API VirusEditor::open(void *parent, const PlatformType &platformType)
@@ -957,7 +1058,12 @@ bool PLUGIN_API VirusEditor::open(void *parent, const PlatformType &platformType
 #else
     frame->open(parent, platformType);
 #endif
-    frame->addView(new EditorCanvasView(plugin_, size));
+    frame->addView(new EditorCanvasView(plugin_, size, this));
+    if (zoom() != 1.0) { // the host already got the scaled size from getSize()
+        resizing_ = true;
+        frame->setZoom(zoom());
+        resizing_ = false;
+    }
     return true;
 }
 

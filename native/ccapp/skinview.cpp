@@ -162,6 +162,12 @@ const SkinNode *SkinView::hit(const std::vector<SkinNode> &nodes, int x, int y)
 
 void SkinView::onMouseDownEvent(MouseDownEvent &event)
 {
+    if (event.buttonState.isRight()) {
+        if (!hit(layout_.nodes, (int)event.mousePosition.x, (int)event.mousePosition.y))
+            state_.right_click(event.mousePosition);
+        event.consumed = true;
+        return;
+    }
     pressed_ = hit(layout_.nodes, (int)event.mousePosition.x, (int)event.mousePosition.y);
     if (pressed_)
         invalid();

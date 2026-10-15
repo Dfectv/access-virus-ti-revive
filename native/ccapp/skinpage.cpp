@@ -154,6 +154,11 @@ public:
         return true;
     }
     bool ready(const SkinNode &n) override { return n.expression.empty() || visible(n.expression); }
+    void right_click(CPoint where) override
+    {
+        if (actions_.size_menu)
+            actions_.size_menu(where);
+    }
 
     void clicked(const SkinNode &n) override
     {
