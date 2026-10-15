@@ -17,6 +17,7 @@
 #include "vstgui/lib/controls/ctextlabel.h"
 #include "vstgui/lib/cvstguitimer.h"
 #include "vstgui/standalone/include/helpers/appdelegate.h"
+#include "vstgui/standalone/include/helpers/windowcontroller.h"
 #include "vstgui/standalone/include/helpers/windowlistener.h"
 #include "vstgui/standalone/include/iapplication.h"
 #include "vstgui/standalone/include/iwindow.h"
@@ -59,7 +60,8 @@ public:
         config.autoSaveFrameName = "ControlCenterWindow";
         config.style.border().close().centered();
         config.size = {W, H};
-        window_ = IApplication::instance().createWindow(config, nullptr);
+        window_ = IApplication::instance().createWindow(config, std::make_shared<WindowControllerAdapter>());
+        // (a controller, not nullptr: VSTGUI builds the window menu through it without a null check)
         if (!window_)
             return IApplication::instance().quit();
         frame_ = makeOwned<CFrame>(CRect(0, 0, W, H), nullptr);
