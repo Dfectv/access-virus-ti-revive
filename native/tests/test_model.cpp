@@ -45,6 +45,12 @@ static const char *XML = R"(<?xml version="1.0"?>
    <byte index="6" content="byte" tag="247"/>
   </MIDIMessage>
  </MIDIMessages>
+ <SoftknobMapping>
+  <Mapping index="0" parameter="Dummy/Do Nothing"/>
+  <Mapping index="1" parameter="Osc/Shape"/>
+  <Mapping index="3" parameter="Osc/Density"/>
+  <Mapping index="4" parameter="Osc/Gone"/>
+ </SoftknobMapping>
 </Remotedevice>)";
 
 static RemoteDevice &device()
@@ -67,6 +73,19 @@ TEST(model_load)
     CHECK(d.find("Osc/Shape") && d.find("Global/Panel"));
     CHECK(!d.find("Osc/Nothing"));
     CHECK(d.message("Dump"));
+}
+
+TEST(model_softknob_targets)
+{
+    // a soft knob is a proxy of the parameter its destination selects (E150); 0 and unknown entries select nothing
+    RemoteDevice &d = device();
+    CHECK(d.softknob_parameter(1) == "Osc/Shape");
+    CHECK(d.softknob_parameter(3) == "Osc/Density");
+    CHECK(d.softknob_parameter(0).empty());  // "Do Nothing"
+    CHECK(d.softknob_parameter(2).empty());  // a gap in the list
+    CHECK(d.softknob_parameter(4).empty());  // a path that is no parameter of the device
+    CHECK(d.softknob_parameter(5).empty());  // beyond the list
+    CHECK(d.softknob_parameter(-1).empty());
 }
 
 TEST(conditions)

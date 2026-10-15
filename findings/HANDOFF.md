@@ -1,8 +1,17 @@
 # HANDOFF
 
 _Last updated: 2026-10-15 (0.8.6: readiness probe at start-up / takeover, E149). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E149), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E150), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
+
+## After 0.8.6 (branch `softknobs`): soft knobs (issue #4)
+
+- Soft knobs on the Easy page did nothing (nasguile, Snow; every TI): now a proxy of the parameter their destination
+  selects, like the original (E150, REA analysis of Virus Control.dll). Tested on Linux with nativehost + TI Desktop
+  (editor under Xvfb). Open: Virus' own soft knobs by hand, Snow/DAW test, release with the next fixes. Replies on
+  #4 posted 2026-10-15 (both users: fixes in the next release; logs asked for the RAM "Init" banks and FX 1).
+- AGENTS.md "Before you change code" step 4: unsure how the original works -> REA, then implement efficiently and
+  safely. Branch `tests-coverage`: 16 new unit tests (vticore 51 -> 60 %), not merged.
 
 ## 0.8.5 (2026-10-15): issue #6, duplicated track puts the Virus out of time (merged from branch single-instance)
 

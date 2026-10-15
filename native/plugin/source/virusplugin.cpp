@@ -1065,8 +1065,19 @@ IPlugView *PLUGIN_API VirusPlugin::createView(FIDString name)
     return nullptr;
 }
 
+std::string VirusPlugin::softknob_target(const std::string &path, int part)
+{
+    static const std::string prefix = "Softknobs/Softknob ";
+    if (path.size() <= prefix.size() || path.compare(0, prefix.size(), prefix) != 0)
+        return {};
+    // only real device parameters come back, so a target is never a soft knob itself (no recursion)
+    return dev_.softknob_parameter(ui_value("Soft Knobs/Destination " + path.substr(prefix.size()), part));
+}
+
 int VirusPlugin::ui_value(const std::string &path, int part)
 {
+    if (std::string t = softknob_target(path, part); !t.empty())
+        return ui_value(t, part); // the soft knob shows its target's value (original: 0x1800a2890)
     int browser_bank;
     // the original's internal browser parameters: browser N shows RAM bank N until changed
     if (path.rfind("Browser ", 0) == 0 && path.find("/Selected Bank") != std::string::npos &&
@@ -1127,6 +1138,10 @@ std::string VirusPlugin::live_text(const std::string &param)
 
 void VirusPlugin::ui_set(const std::string &path, int part, int value)
 {
+    if (std::string t = softknob_target(path, part); !t.empty()) {
+        ui_set(t, part, value); // turning a soft knob edits its target (original: 0x1800a2840)
+        return;
+    }
     if (!dev_.find(path) && !ed_.find(path)) { // the original's internal parameters (browser state)
         if (path == "Repository Actions/Category Filter") { // the original shows it on the LCD like a parameter
             std::string before = category_name_();

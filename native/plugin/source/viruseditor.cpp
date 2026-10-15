@@ -251,6 +251,7 @@ public:
         renderer_.patch_name = [this](int part) { return plugin_->patch_name(part); };
         renderer_.bank_patch = [this](int bank, int prog) { return plugin_->bank_patch(bank, prog); };
         renderer_.live_text = [this](const std::string &p) { return plugin_->live_text(p); };
+        renderer_.proxy_target = [this](const std::string &p, int part) { return plugin_->softknob_target(p, part); };
         renderer_.meter = [this](int ch) { return plugin_->meter(ch); };
         // device changes (knobs on the Virus, automation) repaint the view
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) {
@@ -463,7 +464,8 @@ public:
         // knobs and sliders: Ctrl+click or double click = back to the parameter's default value
         if ((e.type.find("Knob") != std::string::npos || e.type.find("Slider") != std::string::npos) &&
             (event.modifiers.has(ModifierKey::Control) || event.clickCount >= 2)) {
-            plugin_->ui_set(param, h.part, plugin_->conditions().default_value(param));
+            std::string t = plugin_->softknob_target(param, h.part); // a soft knob: its target's default
+            plugin_->ui_set(param, h.part, plugin_->conditions().default_value(t.empty() ? param : t));
             invalid();
             event.consumed = true;
             return;
@@ -589,7 +591,8 @@ public:
         if (e.type.find("Knob") == std::string::npos && e.type.find("Slider") == std::string::npos)
             return;
         const std::string &param = e.get("Parameter");
-        const Parameter *p = plugin_->conditions().find(param);
+        const std::string target = plugin_->softknob_target(param, drag_.part); // a soft knob: its target's range
+        const Parameter *p = plugin_->conditions().find(target.empty() ? param : target);
         int lo = p ? p->min : 0, hi = p ? p->max : 127;
         // knobs and text sliders: full range over 200 pixels upwards, like a VSTGUI knob; sliders follow the mouse
         // 1:1 along their track (the handle stays under the cursor)

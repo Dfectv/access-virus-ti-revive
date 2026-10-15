@@ -51,6 +51,11 @@ Read this file completely before changing anything. Human contributors: see [CON
 2. Find the path involved: since 0.8.0 the native plug-in (`native/`) on all platforms; the macOS Audio Unit still
    uses the bridge/helper; reports about "Virus TI (TI Revive)" VST3 come from 0.7.x or older.
 3. Read the code around the change and match its style: C/C++, short functions, comments that explain *why*.
+4. **Unsure how the original Virus Control does something? Look it up, do not guess.** Use the REA MCP (skill
+   `reverse-engineer-anything`) for static analysis of the user's own Access files (e.g. `Virus Control.dll`), not
+   ad-hoc disassembly in a shell. Then implement that behaviour in the most efficient and reliable way, with
+   performance (no extra work on the audio thread) and safety (rule 2) in mind. Rule 1 still applies: the repo gets
+   the behaviour in your own words plus function addresses (an evidence entry), never decompiled code.
 
 ## Building and checking
 

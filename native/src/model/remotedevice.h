@@ -107,6 +107,14 @@ public:
     std::multimap<std::string, Condition> conditions; // several entries per name = alternatives
     std::vector<MidiMessage> messages;
     std::vector<std::string> softknobs;                  // index -> parameter path
+    // the parameter a soft knob with destination `dest` controls (SoftknobMapping); "" for 0 ("Do Nothing"), out of
+    // range or a path that is no parameter of this device
+    std::string softknob_parameter(int dest) const
+    {
+        if (dest <= 0 || dest >= (int)softknobs.size() || !find(softknobs[(size_t)dest]))
+            return {};
+        return softknobs[(size_t)dest];
+    }
     std::vector<std::pair<std::string, std::string>> global_init;
     struct ParamInit {
         std::string param, value;

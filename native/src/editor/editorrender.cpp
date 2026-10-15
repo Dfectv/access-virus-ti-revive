@@ -444,8 +444,10 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
         static_key.push_back(&e); // visible conditional static elements: the cache's identity
     if (!skip_self) {
     dep_rect_ = {x, y, e.w, e.h};
-    const Parameter *p = param.empty() ? nullptr : cond_.find(param);
-    int v = param.empty() ? 0 : values(param, pt);
+    const std::string target = proxy_target && !param.empty() ? proxy_target(param, pt) : std::string();
+    const std::string &vparam = target.empty() ? param : target; // read through `values`: a repaint dependency
+    const Parameter *p = param.empty() ? nullptr : cond_.find(vparam);
+    int v = param.empty() ? 0 : values(vparam, pt);
     // inactive controls (the parameter's own condition is false; soft knobs without destination) are translucent
     double alpha = param.empty() || param_active(param, pt) ? 1.0 : disabled_alpha;
     int lo = p ? p->min : 0, hi = p ? p->max : 127;
@@ -515,8 +517,8 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
                  !param.empty()) {
             str = live_text ? live_text(param) : std::string();
             if (str.empty())
-                str = value_text(param, v);
-            if (e.type == "SearchEdit" && str == value_text(param, v))
+                str = value_text(vparam, v);
+            if (e.type == "SearchEdit" && str == value_text(vparam, v))
                 str.clear();
             if (e.type != "TextSlider") // valuelists indent entries for the popup (" Mod Wheel"); the control shows them trimmed
                 str.erase(0, str.find_first_not_of(' ') == std::string::npos ? str.size() : str.find_first_not_of(' '));

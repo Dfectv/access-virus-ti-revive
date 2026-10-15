@@ -47,6 +47,9 @@ public:
     std::function<bool(int bank, int program)> browser_match;     // category filter / search (false = dimmed)
     // live texts (LCD: "VirusControl/Display Parameter" / "Display Value" / "Display Part"); empty = valuelist
     std::function<std::string(const std::string &param)> live_text;
+    // a proxy control's target (the soft knobs: the parameter their destination points to), "" for others; the
+    // control then shows the target's value, range and value list like the original (E150)
+    std::function<std::string(const std::string &param, int part)> proxy_target;
     std::function<int(int channel)> meter;           // MIDI activity 0..127 per channel (part strip VU meters)
     int part = 0;                                    // the current (panel) part
     int layer = 0;                                   // 0 = everything, 1 = static only, 2 = controls only

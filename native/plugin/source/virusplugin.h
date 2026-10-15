@@ -277,6 +277,9 @@ public:
     int tick_meters(int step);
     int meter(int channel) const { return channel >= 0 && channel < 16 ? meter_shown_[channel] : 0; }
     std::string live_text(const std::string &param); // LCD texts of the last edited parameter
+    // "Softknobs/Softknob N" of a part: the parameter its "Soft Knobs/Destination N" points to (SoftknobMapping),
+    // "" when unassigned or for other paths. The original's soft knob is a proxy of that parameter (E150).
+    std::string softknob_target(const std::string &path, int part);
 
     // IMidiMapping: channel aftertouch / pitch bend -> the original's per-channel parameters
     Steinberg::tresult PLUGIN_API getMidiControllerAssignment(Steinberg::int32 busIndex, Steinberg::int16 channel,
