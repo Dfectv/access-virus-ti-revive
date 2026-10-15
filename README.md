@@ -8,6 +8,17 @@
 > can [buy me a coffee](https://buymeacoffee.com/callmederpsn) - entirely optional, every feature works the same
 > either way. A test report or a kind word helps just as much.
 
+<p align="center">
+  <img src="docs/images/plugin-filter-page.png" alt="TI Revive Virus Control, the filter page" width="680"><br>
+  <em>"TI Revive Virus Control" in the DAW: the original layout, drawn natively</em>
+</p>
+<p align="center">
+  <img src="docs/images/control-center.png" alt="TI Revive Control Center in the look of Access' Virus Control Center" width="520"><br>
+  <em>TI Revive Control Center: device, backups, Nerd mode</em>
+</p>
+<p align="center"><sub>Both take their look from your own Access installer at runtime; the screenshots show it,
+the software itself contains no Access material.</sub></p>
+
 TI Revive brings the Access Virus TI (Desktop, Polar, Keyboard) back to current computers. Since 0.8.0 it comes
 with **"TI Revive Virus Control"**: a plug-in written from scratch that looks and works like the original Virus
 Control - parameter sync, preset browser, patch libraries, automation, the Virus audio in your DAW - and runs natively

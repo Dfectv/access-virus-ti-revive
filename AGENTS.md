@@ -11,7 +11,8 @@ Read this file completely before changing anything. Human contributors: see [CON
 1. **No Access material in the repository**: no Access binaries, installers, plug-ins, firmware images, skin PNGs,
    XML resources, patch banks, and no decompiled or disassembled Access code (not even excerpts in comments).
    Describe behaviour in your own words; function addresses/offsets are fine. If a task seems to need Access
-   material in git, stop and ask the human.
+   material in git, stop and ask the human. The one exception (decided by the maintainer, 2026-10-15): screenshots
+   of the running plug-in and Control Center in `docs/images/` for the README - never the skin files themselves.
 2. **Do not risk the user's hardware.** Never send untested USB vendor requests or SysEx to a Virus, never trigger
    firmware/OS updates, never write to the Virus' flash. Keep MIDI rates bounded (a parameter flood can hang the
    Virus' audio until a power cycle — see evidence on automation limits). Prefer read-only diagnostics.
