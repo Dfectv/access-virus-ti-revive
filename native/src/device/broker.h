@@ -1,4 +1,4 @@
-// broker.h - connection to the TI Revive broker (external/ti-revive/src/broker, protocol vtiproto.h), which owns the
+// broker.h - connection to the TI Revive broker (src/broker, protocol vtiproto.h), which owns the
 // Virus TI's USB interfaces on every platform. The rewrite talks to the device only through it.
 #pragma once
 #include <atomic>

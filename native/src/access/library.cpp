@@ -10,6 +10,36 @@ namespace vti {
 
 namespace fs = std::filesystem;
 
+bool load_library_file(const std::string &path, PatchLibrary &lib, const std::vector<uint8_t> &page_b)
+{
+    std::ifstream f(path, std::ios::binary);
+    if (!f)
+        return false;
+    std::vector<uint8_t> d((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    lib.path = path;
+    lib.dumps.clear();
+    // SysEx single dumps anywhere in the file (SMF sysex events or raw .syx): 00 20 33 01 <dev> 10 ... F7
+    for (size_t i = 0; i + 8 < d.size(); i++) {
+        if (!(d[i] == 0x00 && d[i + 1] == 0x20 && d[i + 2] == 0x33 && d[i + 3] == 0x01 && d[i + 5] == 0x10))
+            continue;
+        auto end = std::find(d.begin() + i, d.end(), 0xF7);
+        if (end == d.end())
+            break;
+        std::vector<uint8_t> m = {0xF0};
+        m.insert(m.end(), d.begin() + i, end + 1);
+        if (m.size() == 524) {
+            lib.dumps.push_back(m);
+        } else if (m.size() == 267 && page_b.size() == 256) { // Virus C: page A only -> upgrade like the original
+            m.resize(524, 0);
+            m[523] = 0xF7;
+            if (RemoteDevice::upgrade_single(m, page_b))
+                lib.dumps.push_back(m);
+        }
+        i = end - d.begin();
+    }
+    return true;
+}
+
 std::vector<PatchLibrary> load_libraries(const std::string &dir, const std::vector<uint8_t> &page_b)
 {
     std::vector<PatchLibrary> out;
@@ -23,32 +53,12 @@ std::vector<PatchLibrary> load_libraries(const std::string &dir, const std::vect
             ch = (char)tolower(ch);
         if (ext != ".mid" && ext != ".syx")
             continue;
-        std::ifstream f(e.path(), std::ios::binary);
-        std::vector<uint8_t> d((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
         PatchLibrary lib;
+        if (!load_library_file(e.path().string(), lib, page_b))
+            continue;
         lib.name = (e.path().parent_path().lexically_relative(dir) / e.path().stem()).generic_string();
         if (lib.name.rfind("./", 0) == 0)
             lib.name = lib.name.substr(2);
-        lib.path = e.path().string();
-        // SysEx single dumps anywhere in the file (SMF sysex events or raw .syx): 00 20 33 01 <dev> 10 ... F7
-        for (size_t i = 0; i + 8 < d.size(); i++) {
-            if (!(d[i] == 0x00 && d[i + 1] == 0x20 && d[i + 2] == 0x33 && d[i + 3] == 0x01 && d[i + 5] == 0x10))
-                continue;
-            auto end = std::find(d.begin() + i, d.end(), 0xF7);
-            if (end == d.end())
-                break;
-            std::vector<uint8_t> m = {0xF0};
-            m.insert(m.end(), d.begin() + i, end + 1);
-            if (m.size() == 524) {
-                lib.dumps.push_back(m);
-            } else if (m.size() == 267 && page_b.size() == 256) { // Virus C: page A only -> upgrade like the original
-                m.resize(524, 0);
-                m[523] = 0xF7;
-                if (RemoteDevice::upgrade_single(m, page_b))
-                    lib.dumps.push_back(m);
-            }
-            i = end - d.begin();
-        }
         out.push_back(std::move(lib));
     }
     std::sort(out.begin(), out.end(), [](const PatchLibrary &a, const PatchLibrary &b) { return a.name < b.name; });

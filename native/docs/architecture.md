@@ -118,6 +118,11 @@ Access is installed or registered. These are the files it loads:
   - checks bank fingerprints against the cache, and requests single dumps only for changed programs;
   - one request at a time, at the Virus' pace of about 1 s per request.
 
+### Control Center: `src/cc/*`, `tools/tirevive-cc.cpp`
+- The standalone replacement of Access' Virus Control Center, phase 1 read-only (device info, backup of the RAM
+  banks as patch libraries, library export). No flash writes and no OS update, ever. See
+  [controlcenter.md](controlcenter.md).
+
 ### Identity and old projects
 - Name **"TI Revive Virus Control"**, vendor **TI Revive**, bundle `TI Revive Virus Control.vst3`, version = the TI
   Revive release (CMake project version).

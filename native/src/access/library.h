@@ -12,6 +12,8 @@ struct PatchLibrary {
     std::vector<std::vector<uint8_t>> dumps; // 524-byte single dumps (TI format)
 };
 
+// one .mid or .syx file (`lib.name` is left to the caller); false if it cannot be read
+bool load_library_file(const std::string &path, PatchLibrary &lib, const std::vector<uint8_t> &page_b = {});
 // `page_b`: AccessFiles::default_page_b() - with it, old Virus C (267-byte) dumps are upgraded to the TI format
 std::vector<PatchLibrary> load_libraries(const std::string &dir, const std::vector<uint8_t> &page_b = {});
 // writes `lib.dumps` to `lib.path` in the original's file layout (SMF type 0, one track, a SysEx per patch with
