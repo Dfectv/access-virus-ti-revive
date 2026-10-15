@@ -211,7 +211,12 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
-          **New in 0.8.4: bigger editor.** Right-click an empty spot of the plug-in's editor and choose a size from
+          **New in 0.8.5: one plug-in instance per Virus, also on Windows.** Duplicating a track with the plug-in
+          (e.g. in Ableton) no longer puts the Virus out of time: the copy shows "Virus unavailable" like the original
+          Virus Control, and when you delete the first instance, the copy takes over the Virus and plays in time
+          after a short start-up. Thanks for the report (issue #6)!
+
+          **Since 0.8.4: bigger editor.** Right-click an empty spot of the plug-in's editor and choose a size from
           100 to 200 %; the choice is kept for new editors. The plug-in also follows the display scaling Windows
           reports (e.g. 150 %). The Control Center has the same sizes under View > Size. Thanks for the suggestion!
 

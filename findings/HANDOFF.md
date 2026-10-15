@@ -1,10 +1,10 @@
 # HANDOFF
 
-_Last updated: 2026-10-15 (0.8.3 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-15 (0.8.5: single-instance fix, issue #6). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E148), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## Issue #6: duplicated track puts the Virus out of time (branch single-instance, 2026-10-15)
+## 0.8.5 (2026-10-15): issue #6, duplicated track puts the Virus out of time (merged from branch single-instance)
 
 - Cause (E148, MEDIUM): on Windows a second plug-in instance (Ableton: duplicate track) got the Virus too, sent its own
   sync ping and reset the Virus' only stamp clock; the original kept its old marker -> its stamps off by 13312 frames
@@ -17,7 +17,8 @@ Evidence: [evidence.md](evidence.md) (E001-E148), protocol: [spec.md](spec.md); 
   stopped playing; once the marker came, K = 2559/2560 like the original. Changes after test 1: waiting instance shows
   the original's "Virus unavailable" page (SystemStatus/Error = 2, checked with vtirender), and after a takeover the
   sync thread runs the start-up again (start page, 4 s note hold, bank sync).
-- Open: test 2 of that build on the VM; macOS/Linux quick check; reply on #6 after the test.
+- Test 2 (CI run 38793336069): works (user); the first ping after a takeover still unanswered, marker ~13 s later
+  (open, minor). Merged to main, released as 0.8.5. Open: macOS/Linux quick check of a duplicate.
 - Not covered: two different DAWs on Windows still share the Virus (broker without owner on Windows).
 
 ## 0.8.4 (2026-10-15): editor sizes (merged from branch ui-scaling)
