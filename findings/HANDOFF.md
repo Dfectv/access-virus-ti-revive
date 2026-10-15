@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-15 (0.8.5: single-instance fix, issue #6; Status table brought up to date). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-15 (0.8.6: readiness probe at start-up / takeover, E149). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E149), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
@@ -20,14 +20,15 @@ Evidence: [evidence.md](evidence.md) (E001-E149), protocol: [spec.md](spec.md); 
 - Test 2 (CI run 38793336069): works (user); the first ping after a takeover still unanswered, marker ~13 s later
   (open, minor). Merged to main, released as 0.8.5. Open: macOS/Linux quick check of a duplicate.
 - Not covered: two different DAWs on Windows still share the Virus (broker without owner on Windows).
-- Branch `virus-ready` (after 0.8.5, E149): the fixed 4 s note hold is replaced by a readiness probe (single dump
+- **0.8.6** (merged from branch `virus-ready`, E149): the fixed 4 s note hold is replaced by a readiness probe (single dump
   request `30 00 00` queued behind the start-up messages + state; its reply = the Virus is through); the timeline
   anchors and pings only after it, notes wait up to 3 s for the marker. Cause of the unanswered first ping: the
   Virus was still digesting 530 queued messages (two state uploads queued while waiting). nativehost `--duplicate T`
   = takeover test. Tested on Linux (TI Desktop): first start + takeover, marker on the first ping, K 6024 for all
   notes. Windows (VM, Ableton 11, CI run 38797985200, package 0.8.7): first start + takeover playing/stopped,
-  ready after 3.9 / 6.9 / 6.8 s, marker on every first ping, works (user). Open: the double state upload of a waiting instance (only the newest is
-  needed), the reconnect path (device back) still has no note hold.
+  ready after 3.9 / 6.9 / 6.8 s, marker on every first ping, works (user). Then: a state upload replaces the
+  queued records of an earlier one (takeover queue 285 instead of ~530; Linux only, nativehost duplicate with
+  setState). Open: the reconnect path (device back) still has no note hold; macOS not tested.
 
 ## 0.8.4 (2026-10-15): editor sizes (merged from branch ui-scaling)
 
@@ -135,7 +136,7 @@ Evidence: [evidence.md](evidence.md) (E001-E149), protocol: [spec.md](spec.md); 
 | macOS 14.4+ | native plug-in (VST3 + AUv2, universal, no Rosetta since 0.8.1), broker, Control Center app | `-mac.zip` (pkg + setup scripts) | native/docs/architecture.md, design-macos*.md |
 | Linux | native plug-in (VST3), native broker owns the whole Virus (MIDI + iso audio), Control Center app | `-linux.tar.gz` (install.sh) | native/docs/architecture.md, design-linux.md |
 
-Latest release: **v0.8.5** (2026-10-15, one plug-in instance per process talks to the Virus, issue #6). The 0.8.x
+Latest release: **v0.8.6** (2026-10-15, start-up waits for the Virus, E149; 0.8.5: one plug-in instance per process, issue #6). The 0.8.x
 releases are summarised in the sections above; 0.7.x and older in [HANDOFF-history.md](HANDOFF-history.md).
 Virus TI Snow owners stay on **v0.7.4** (classic plug-in) until the native plug-in supports the Snow.
 

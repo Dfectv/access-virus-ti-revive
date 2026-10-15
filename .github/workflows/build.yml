@@ -211,7 +211,12 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
-          **New in 0.8.5: one plug-in instance per Virus, also on Windows.** Duplicating a track with the plug-in
+          **New in 0.8.6: steadier start-up.** The plug-in now waits until the Virus has really worked through its
+          start-up messages and your project's sound, instead of a fixed 4 seconds: the first notes play in time,
+          also when a duplicated track takes over the Virus (before, the first notes after the takeover could be
+          up to 2 s late).
+
+          **Since 0.8.5: one plug-in instance per Virus, also on Windows.** Duplicating a track with the plug-in
           (e.g. in Ableton) no longer puts the Virus out of time: the copy shows "Virus unavailable" like the original
           Virus Control, and when you delete the first instance, the copy takes over the Virus and plays in time
           after a short start-up. Thanks for the report (issue #6)!
