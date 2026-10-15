@@ -1,10 +1,11 @@
 #!/bin/bash
 # linux-build-release.sh - build the Linux release of TI Revive (findings/design-linux.md):
 #   TI-Revive-<version>-linux.tar.gz = install.sh, uninstall.sh, README-linux.txt,
-#     bin/vtibroker (native, libusb linked statically), wine/VirusTI_TIRevive.vst3 + wine/vtimsipatch.exe (mingw),
+#     bin/vtibroker (native, libusb linked statically), native/TI Revive Virus Control.vst3 (the plug-in),
 #     systemd/ (user socket + service), udev/70-tirevive-virus-ti.rules
+# (0.8.0: no Wine-side files - the classic plug-in under yabridge is replaced by the native plug-in)
 # usage: linux-build-release.sh <repo dir> <version> [out dir]
-# needs: gcc, make, mingw-w64 (x86_64), curl, bzip2
+# needs: gcc, make, curl, bzip2, cmake + the native plug-in's build dependencies (or NATIVE_PREBUILT)
 set -euo pipefail
 REPO="$(cd "${1:?repo dir}" && pwd)"
 VERSION="${2:?version}"
@@ -28,13 +29,6 @@ B="$REPO/src/broker"
 gcc -O2 -Wall -Wextra -I"$LIBUSB/include/libusb-1.0" -o "$BUILD/vtibroker" "$B/vtibroker_posix.c" "$B/vticore.c" \
     "$B/vtiusbaudio_libusb.c" "$B/vticore_midi.c" "$LIBUSB/lib/libusb-1.0.a" -lpthread
 ! ldd "$BUILD/vtibroker" | grep -q libusb || { echo "broker still links libusb dynamically"; exit 1; }
-echo "== Windows side (mingw): wrapper for Wine, MSI patch tool"
-x86_64-w64-mingw32-gcc -O2 -Wall -Wextra -DVTIEMU_NO_DLLMAIN -DVTIEMU_VIRTUAL_DEVICE -shared -o "$BUILD/VirusTI_TIRevive.vst3" \
-    -I"$REPO/src/wrapper" "$REPO/src/wrapper/vtiwrap.c" "$REPO/src/wrapper/vtiemu.c" "$REPO/src/wrapper/vtiaudio.c" \
-    "$REPO/src/wrapper/vtiusbaudio.c" "$B/vticore_sock.c" "$B/vticore_midi.c" -lwinusb -lsetupapi -lshlwapi \
-    -lshell32 -lole32 -luuid -lws2_32 -lwinmm -static -lpthread
-x86_64-w64-mingw32-gcc -O2 -Wall -o "$BUILD/vtimsipatch.exe" "$REPO/src/installer-linux/vtimsipatch.c" -lmsi -static
-
 NATIVE=""
 if [ -n "${NATIVE_PREBUILT:-}" ]; then # built elsewhere (the release workflow builds it on an older Ubuntu, glibc)
     NATIVE="$NATIVE_PREBUILT"
@@ -51,13 +45,13 @@ echo "== package"
 NAME="TI-Revive-$VERSION-linux"
 P="$BUILD/$NAME"
 I="$REPO/src/installer-linux"
-mkdir -p "$P/bin" "$P/wine" "$P/systemd" "$P/udev"
+[ -n "$NATIVE" ] || { echo "the native plug-in is required (native/ or NATIVE_PREBUILT)"; exit 1; }
+mkdir -p "$P/bin" "$P/systemd" "$P/udev"
 install -m 0755 "$BUILD/vtibroker" "$P/bin/"
-install -m 0644 "$BUILD/VirusTI_TIRevive.vst3" "$BUILD/vtimsipatch.exe" "$P/wine/"
 install -m 0644 "$I/tirevive-broker.socket" "$I/tirevive-broker.service" "$P/systemd/"
 install -m 0644 "$I/70-tirevive-virus-ti.rules" "$P/udev/"
 install -m 0755 "$I/install.sh" "$I/uninstall.sh" "$P/"
-[ -n "$NATIVE" ] && mkdir -p "$P/native" && cp -R "$NATIVE" "$P/native/"
+mkdir -p "$P/native" && cp -R "$NATIVE" "$P/native/"
 sed "s/@VERSION@/$VERSION/g" "$I/README-linux.txt" > "$P/README-linux.txt"
 install -m 0644 "$REPO/LICENSE" "$P/"
 tar -C "$BUILD" -czf "$OUT/$NAME.tar.gz" "$NAME"

@@ -1,49 +1,42 @@
-TI Revive @VERSION@ for Linux (EXPERIMENTAL)
-==========================================
+TI Revive @VERSION@ for Linux
+=========================
 
-Brings back the Access Virus TI's "Total Integration" plug-in on Linux, without the old Access drivers: your own
-Access Virus TI plug-in (Windows version) runs through Wine + yabridge in your Linux DAW, and the TI Revive broker
-(a small native Linux program) talks to the Virus over USB - MIDI, patch sync and the Virus' USB audio.
+Brings back the Access Virus TI's "Total Integration" on Linux, without the old Access drivers: the plug-in
+"TI Revive Virus Control" (a native Linux VST3, no Wine, no yabridge) looks and works like the original Virus
+Control, and the TI Revive broker (a small native Linux program) talks to the Virus over USB - MIDI, patch sync and
+the Virus' USB audio.
 
 You need
-- an Access Virus TI on USB (tested: TI2 Desktop)
-- Wine (e.g. "sudo apt install wine") and yabridge (https://github.com/robbert-vdh/yabridge).
-  IMPORTANT: with Wine 9.22 or newer (Ubuntu 26.04 ships Wine 10) the official yabridge 5.1.1 release shows the
-  plug-in window but ignores all mouse clicks (yabridge issue #382/#409). Use a newer yabridge build from the
-  project's "Automated builds" (GitHub Actions, master branch) or a release newer than 5.1.1.
+- an Access Virus TI on USB (tested: TI2 Desktop; the Virus TI Snow is not supported yet)
+- a Linux DAW that hosts VST3 plug-ins (REAPER, Bitwig Studio, Ardour, ...), x86_64, Ubuntu 22.04 / Debian 12 or newer
+- your own copy of the Access installer "Virus TI Software Suite 5.1.7.00 64-bit.msi" (not included): the plug-in
+  reads the Virus skin, the parameter descriptions and the ROM banks from it. To unpack it, install msitools
+  ("sudo apt install msitools") or Wine. The Access software itself is NOT installed.
 - For stable real-time audio, let your user use real-time priority (Ubuntu: sudo usermod -aG pipewire $USER, then
-  log out and in again) - otherwise yabridge warns about "low memory locking".
-- a Linux DAW that hosts VST3 plug-ins (REAPER, Bitwig Studio, Ardour, ...)
-- your own copy of the Access installer "Virus TI Software Suite 5.1.7.00 64-bit.msi" (not included)
+  log out and in again).
 
 Install
 1. Unpack this folder and open a terminal in it.
 2. ./install.sh "/path/to/Virus TI Software Suite 5.1.7.00 64-bit.msi"
-   (it asks for your password once to allow USB access to the Virus; the Access software goes into your Wine
-   prefix, ~/.wine or $WINEPREFIX, WITHOUT its old drivers and firmware updater)
-3. In your DAW, rescan plug-ins and load the VST3 "Virus TI (TI Revive)" (Snow: "Virus TI Snow (TI Revive)").
-   The first start syncs the Virus' patch memory, which takes about 7 minutes (the Virus sends about one patch per
-   second, as with the original driver); later starts use the cache and play after a few seconds.
+   (it asks for your password once to allow USB access to the Virus; the Access files go to
+   ~/.local/share/tirevive/access, the factory patch libraries to ~/Documents/Access Music/Virus TI/Patches)
+3. In your DAW, rescan plug-ins and load the VST3 "TI Revive Virus Control" (vendor TI Revive).
+   The first start reads the Virus' RAM banks, which takes a few minutes; you can play meanwhile (the sync pauses
+   while notes arrive). Later starts use the cache and are ready after a few seconds.
+
+Coming from TI Revive 0.7
+- install.sh removes the classic plug-in "Virus TI (TI Revive)" (Wine + yabridge). Projects saved with it open with
+  "TI Revive Virus Control" (same plug-in ID); the Access files are taken from your Wine prefix.
 
 Good to know
-- Audio system in your DAW: JACK through PipeWire works best (tested in REAPER):
-      sudo apt install pipewire-jack                          (once)
-      pw-metadata -n settings 0 clock.force-rate 44100        (until the next login; or permanently, see below)
-      pw-metadata -n settings 0 clock.force-quantum 512
-      pw-jack reaper                                          (start the DAW through PipeWire's JACK; in REAPER
-                                                               choose Audio system "JACK")
-  To keep 44.1 kHz / 512 permanently, create ~/.config/pipewire/pipewire.conf.d/tirevive.conf with
-      context.properties = { default.clock.rate = 44100  default.clock.allowed-rates = [ 44100 48000 ]
-                             default.clock.quantum = 512 }
-  and log out and in. ALSA directly works as well (but takes the sound card exclusively).
-  NOT PulseAudio: it hands the plug-in irregular block sizes, the Virus then reports timing errors, playback
-  sounds messy and notes can hang. Use a buffer size of 64, 128, 256 or 512 at 44.1 kHz.
-- Close your DAW normally (File -> Quit). The plug-in saves the synced Virus memory only then; if the DAW is
-  killed (e.g. Ctrl+C in a terminal), the next start syncs again (about 7 minutes).
+- Any sample rate works (the Virus runs at 44.1 kHz; the plug-in converts). JACK through PipeWire works well
+  ("pw-jack reaper"); avoid PulseAudio as the DAW's audio system.
+- The plug-in reports its latency to the DAW, so recorded and played notes line up with the grid.
 - While TI Revive uses the Virus, Linux cannot use it as a normal sound card; it is handed back automatically when
   the plug-in is closed (about 30 seconds later).
 - One program at a time uses the Virus; a second one shows "no Virus TI connected".
-- Uninstall: ./uninstall.sh
+- Uninstall: ./uninstall.sh (your patch libraries in ~/Documents stay)
 
-Logs: broker "journalctl --user -u tirevive-broker", plug-in "$WINEPREFIX/drive_c/users/$USER/AppData/Local/Temp/vtiemu-*.log".
-TI Revive is not affiliated with Access Music. MIT license, https://github.com/derpsn/access-virus-ti-revive
+Logs: broker "journalctl --user -u tirevive-broker"; plug-in: create ~/.local/share/virus-ti-native/diag.on, then
+see diag.log in the same folder.
+TI Revive is not affiliated with Access Music or Kemper. MIT license, https://github.com/derpsn/access-virus-ti-revive

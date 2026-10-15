@@ -1,7 +1,6 @@
 #!/bin/sh
-# TI Revive for Linux - uninstaller. Removes the broker, its systemd user units, the token and the plug-in from the
-# Wine prefix. The Access software in the Wine prefix and Wine / yabridge stay (remove them yourself if you like);
-# the udev rule is removed with sudo.
+# TI Revive for Linux - uninstaller. Removes the broker, its systemd user units, the token, the plug-in, the unpacked
+# Access files and the classic plug-in of TI Revive 0.7 from the Wine prefix; the udev rule is removed with sudo.
 set -u
 PREFIX="${WINEPREFIX:-$HOME/.wine}"
 UNITS="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
@@ -16,8 +15,9 @@ rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/tirevive/broker.token"
 rm -f "$PREFIX/drive_c/Program Files/Common Files/VST3/Virus TI (TI Revive).vst3"
 rm -rf "$HOME/.vst3/TI Revive Virus Control.vst3" "$HOME/.vst3/VirusTINative.vst3"
 rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/tirevive/access-dir"
+rm -rf "$HOME/.local/share/tirevive/access" # the unpacked Access files (your patch libraries in Documents stay)
 command -v yabridgectl >/dev/null 2>&1 && yabridgectl sync --prune >/dev/null 2>&1
 if [ -f /etc/udev/rules.d/70-tirevive-virus-ti.rules ]; then
     sudo rm -f /etc/udev/rules.d/70-tirevive-virus-ti.rules && sudo udevadm control --reload
 fi
-echo "TI Revive removed. The Access software is still in the Wine prefix $PREFIX."
+echo "TI Revive removed. Your patch libraries in ~/Documents/Access Music stay."
