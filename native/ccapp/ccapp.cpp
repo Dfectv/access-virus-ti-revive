@@ -1,0 +1,351 @@
+// ccapp.cpp - "TI Revive Control Center": the window around src/cc/controlcenter.h (phase 1, read-only), built with
+// VSTGUI's standalone library like the plug-in's editor. One window: the connected Virus and its RAM banks, backup
+// of the RAM banks as patch libraries, export of a library (.mid <-> .syx).
+//
+// The work (broker requests, ~1 s per program) runs on a worker thread; a timer copies its state into the labels.
+// The broker serves one program at a time, so the app connects only while an action runs and never keeps the Virus
+// from the plug-in. Firmware/OS update, Burn To Flash, factory reset and renaming are not offered, on purpose: they
+// write the Virus' flash (AGENTS.md rule 2).
+#include "access/accessfiles.h"
+#include "access/library.h"
+#include "cc/controlcenter.h"
+#include "model/remotedevice.h"
+#include "vstgui/lib/cfileselector.h"
+#include "vstgui/lib/cframe.h"
+#include "vstgui/lib/controls/cbuttons.h"
+#include "vstgui/lib/controls/icontrollistener.h"
+#include "vstgui/lib/controls/ctextlabel.h"
+#include "vstgui/lib/cvstguitimer.h"
+#include "vstgui/standalone/include/helpers/appdelegate.h"
+#include "vstgui/standalone/include/helpers/windowlistener.h"
+#include "vstgui/standalone/include/iapplication.h"
+#include "vstgui/standalone/include/iwindow.h"
+#include <atomic>
+#include <filesystem>
+#include <mutex>
+#include <thread>
+
+using namespace VSTGUI;
+using namespace VSTGUI::Standalone;
+namespace fs = std::filesystem;
+
+#ifndef TIREVIVE_VERSION
+#define TIREVIVE_VERSION "0.0.0"
+#endif
+
+namespace {
+
+const CColor kBack(43, 43, 43), kText(230, 230, 230), kDim(160, 160, 160), kAccent(240, 170, 60);
+constexpr CCoord W = 640, H = 470, M = 20;
+enum Tag { kRefresh = 1, kBackup, kCancel, kFolder, kExport };
+
+// What the worker reports; the UI thread reads it in the timer.
+struct Shared {
+    std::mutex mu;
+    std::string device = "Press Refresh to look for the Virus.", status;
+    std::string banks[4], folder;
+    bool dirty = true;
+};
+
+class App : public Application::DelegateAdapter, public WindowListenerAdapter, public IControlListener {
+public:
+    App() : DelegateAdapter({"TI Revive Control Center", TIREVIVE_VERSION, "io.github.derpsn.tirevive.controlcenter"}) {}
+    ~App() override { join(); }
+
+    void finishLaunching() override
+    {
+        WindowConfiguration config;
+        config.title = "TI Revive Control Center";
+        config.autoSaveFrameName = "ControlCenterWindow";
+        config.style.border().close().centered();
+        config.size = {W, H};
+        window_ = IApplication::instance().createWindow(config, nullptr);
+        if (!window_)
+            return IApplication::instance().quit();
+        frame_ = makeOwned<CFrame>(CRect(0, 0, W, H), nullptr);
+        frame_->setBackgroundColor(kBack);
+        build();
+        window_->setContentView(frame_);
+        window_->setSize({W, H}); // the GTK backend does not apply config.size by itself
+        window_->registerWindowListener(this);
+        window_->show();
+        timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) { tick(); }, 100, true);
+        set(&Shared::folder, vti::cc::default_backup_dir());
+        refresh();
+    }
+    void onClosed(const IWindow &) override
+    {
+        stop_ = true;
+        IApplication::instance().quit();
+    }
+
+    void valueChanged(CControl *c) override
+    {
+        if (c->getValue() < 0.5f) // buttons: act on press only
+            return;
+        switch (c->getTag()) {
+        case kRefresh: refresh(); break;
+        case kBackup: backup(); break;
+        case kCancel: stop_ = true; break;
+        case kFolder: choose_folder(); break;
+        case kExport: export_library(); break;
+        }
+    }
+
+private:
+    WindowPtr window_;
+    SharedPointer<CFrame> frame_;
+    SharedPointer<CVSTGUITimer> timer_;
+    CTextLabel *device_ = nullptr, *banks_[4] = {}, *status_ = nullptr, *folder_ = nullptr;
+    CTextButton *buttons_[5] = {};
+    Shared sh_;
+    std::thread worker_;
+    std::atomic<bool> busy_{false}, stop_{false};
+
+    CTextLabel *label(CCoord y, CCoord h, const char *text, const CColor &color, CFontRef font = kNormalFont,
+                      CCoord x = M, CCoord w = W - 2 * M)
+    {
+        auto *l = new CTextLabel(CRect(x, y, x + w, y + h), text);
+        l->setFontColor(color);
+        l->setFont(font);
+        l->setHoriAlign(kLeftText);
+        l->setTransparency(true);
+        l->setTextTruncateMode(CTextLabel::kTruncateHead);
+        frame_->addView(l);
+        return l;
+    }
+    CTextButton *button(CCoord x, CCoord y, CCoord w, int tag, const char *title)
+    {
+        auto *b = new CTextButton(CRect(x, y, x + w, y + 28), this, tag, title);
+        frame_->addView(b);
+        return b;
+    }
+
+    void build()
+    {
+        auto title = makeOwned<CFontDesc>(*kSystemFont);
+        title->setSize(18);
+        title->setStyle(kBoldFace);
+        label(14, 28, "TI Revive Control Center", kText, title);
+        device_ = label(48, 22, "", kAccent);
+        label(80, 20, "RAM banks", kDim, kNormalFontSmall);
+        for (int i = 0; i < 4; i++)
+            banks_[i] = label(100 + i * 22, 22, "", kText);
+        label(196, 20, "Backup folder", kDim, kNormalFontSmall);
+        folder_ = label(216, 22, "", kText, kNormalFont, M, W - 2 * M - 110);
+        buttons_[3] = button(W - M - 100, 213, 100, kFolder, "Change...");
+        buttons_[0] = button(M, 256, 110, kRefresh, "Refresh");
+        buttons_[1] = button(M + 120, 256, 180, kBackup, "Back up RAM banks");
+        buttons_[2] = button(M + 310, 256, 90, kCancel, "Cancel");
+        buttons_[4] = button(W - M - 150, 256, 150, kExport, "Convert library...");
+        status_ = new CMultiLineTextLabel(CRect(M, 298, W - M, 360));
+        status_->setFontColor(kText);
+        status_->setFont(kNormalFont);
+        status_->setHoriAlign(kLeftText);
+        status_->setTransparency(true);
+        static_cast<CMultiLineTextLabel *>(status_)->setLineLayout(CMultiLineTextLabel::LineLayout::wrap);
+        frame_->addView(status_);
+        auto *note = new CMultiLineTextLabel(CRect(M, 372, W - M, H - 10));
+        note->setText("Read-only: nothing is written to the Virus. Close the TI Revive plug-in (or your DAW) first: "
+                      "the Virus serves one program at a time. Firmware/OS updates, Burn To Flash and factory reset "
+                      "are not supported, on purpose (they write the Virus' flash). Backups open in the plug-in once "
+                      "their .mid files are copied into the Patches folder.");
+        note->setFontColor(kDim);
+        note->setFont(kNormalFontSmall);
+        note->setHoriAlign(kLeftText);
+        note->setTransparency(true);
+        note->setLineLayout(CMultiLineTextLabel::LineLayout::wrap);
+        frame_->addView(note);
+    }
+
+    void tick()
+    {
+        bool busy = busy_;
+        for (int i = 0; i < 5; i++) { // while an action runs only Cancel; otherwise everything but Cancel
+            bool on = (i == 2) == busy;
+            buttons_[i]->setMouseEnabled(on);
+            buttons_[i]->setAlphaValue(on ? 1.f : 0.4f);
+        }
+        std::lock_guard<std::mutex> lk(sh_.mu);
+        if (!sh_.dirty)
+            return;
+        sh_.dirty = false;
+        device_->setText(sh_.device.c_str());
+        folder_->setText(sh_.folder.c_str());
+        for (int i = 0; i < 4; i++)
+            banks_[i]->setText(sh_.banks[i].c_str());
+        status_->setText(sh_.status.c_str());
+    }
+    void set(std::string Shared::*field, const std::string &v)
+    {
+        std::lock_guard<std::mutex> lk(sh_.mu);
+        sh_.*field = v;
+        sh_.dirty = true;
+    }
+    void set_bank(int i, const std::string &v)
+    {
+        std::lock_guard<std::mutex> lk(sh_.mu);
+        sh_.banks[i] = v;
+        sh_.dirty = true;
+    }
+
+    void join()
+    {
+        if (worker_.joinable())
+            worker_.join();
+    }
+    template <class F> void run(F &&f)
+    {
+        if (busy_.exchange(true))
+            return;
+        join();
+        stop_ = false;
+        worker_ = std::thread([this, f = std::forward<F>(f)] {
+            f();
+            busy_ = false;
+        });
+    }
+
+    // a broker connection for one action; false (and the reason in the device line) if there is no Virus for us
+    bool connect(vti::Broker &broker)
+    {
+        std::string err;
+        if (broker.open(err) && broker.device_present())
+            return true;
+        set(&Shared::device, err.empty() ? "No Virus: not connected, or the plug-in (another program) is using it."
+                                         : "No connection to the TI Revive broker: " + err);
+        for (int i = 0; i < 4; i++)
+            set_bank(i, "");
+        return false;
+    }
+
+    void refresh()
+    {
+        run([this] {
+            set(&Shared::status, "Looking for the Virus...");
+            vti::Broker broker;
+            if (!connect(broker))
+                return set(&Shared::status, "Close the plug-in (or your DAW), connect the Virus and press Refresh.");
+            std::string err;
+            vti::cc::DeviceInfo di;
+            if (!vti::cc::read_device_info(broker, di, err))
+                return set(&Shared::status, err);
+            char line[160];
+            snprintf(line, sizeof line, "%s %s  (USB %04x:%04x, bcdDevice %x.%02x)", di.manufacturer.c_str(),
+                     di.product_name.c_str(), di.vendor, di.product, di.bcd >> 8, di.bcd & 0xFF);
+            set(&Shared::device, line);
+            vti::MemorySync sync(broker);
+            std::string cache = vti::cc::cache_dir();
+            for (int bank = 1; bank <= 4 && !stop_; bank++) {
+                std::string name = std::string("RAM ") + (char)('A' + bank - 1);
+                auto fp = sync.bank_info(bank);
+                if (fp.size() != 128) {
+                    set_bank(bank - 1, name + ":  no answer");
+                    continue;
+                }
+                vti::Bank b;
+                int current = 0;
+                if (vti::load_bank_file(cache + "/" + name, b))
+                    for (int p = 0; p < 128; p++)
+                        current += vti::RemoteDevice::single_fingerprint(b[p]) == fp[p];
+                std::string s = name + ":  128 programs, " + std::to_string(current) + " current in the cache";
+                if (current)
+                    s += "  (1: " + vti::cc::patch_name(b[0]) + ")";
+                set_bank(bank - 1, s);
+            }
+            set(&Shared::status, "Ready. A backup takes a few seconds for programs that are current in the cache, "
+                                 "about 1 s for each other one.");
+        });
+    }
+
+    void backup()
+    {
+        std::string out;
+        {
+            std::lock_guard<std::mutex> lk(sh_.mu);
+            out = sh_.folder;
+        }
+        run([this, out] {
+            vti::Broker broker;
+            if (!connect(broker))
+                return set(&Shared::status, "Close the plug-in (or your DAW), connect the Virus and try again.");
+            std::string err;
+            int fetched = 0;
+            bool ok = vti::cc::backup_ram(broker, "1234", out, [&](int bank, int p, bool f, const vti::Dump &d) {
+                fetched += f;
+                char s[160];
+                snprintf(s, sizeof s, "Backing up RAM %c: %d / 128%s%s", 'A' + bank - 1, p + 1, f ? "  read: " : "",
+                         f ? vti::cc::patch_name(d).c_str() : "");
+                set(&Shared::status, s);
+            }, err, &stop_);
+            if (ok)
+                set(&Shared::status, "Backup done (" + std::to_string(fetched) + " programs read from the Virus): " +
+                                         out);
+            else
+                set(&Shared::status, "Backup not finished: " + err);
+            if (ok) // the next backup gets its own folder
+                set(&Shared::folder, vti::cc::default_backup_dir());
+        });
+    }
+
+    void choose_folder()
+    {
+        auto sel = owned(CNewFileSelector::create(frame_, CNewFileSelector::kSelectDirectory));
+        if (!sel)
+            return;
+        sel->setTitle("Backup folder");
+        sel->run([this](CNewFileSelector *s) {
+            if (s->getNumSelectedFiles())
+                set(&Shared::folder, s->getSelectedFile(0));
+        });
+    }
+
+    void export_library()
+    {
+        auto open = owned(CNewFileSelector::create(frame_, CNewFileSelector::kSelectFile));
+        if (!open)
+            return;
+        open->setTitle("Patch library to convert (.mid or .syx)");
+        open->setInitialDirectory(vti::library_dir().c_str());
+        open->addFileExtension(CFileExtension("Patch library", "mid"));
+        open->addFileExtension(CFileExtension("SysEx file", "syx"));
+        open->run([this](CNewFileSelector *s) {
+            if (!s->getNumSelectedFiles())
+                return;
+            std::string in = s->getSelectedFile(0);
+            vti::PatchLibrary lib;
+            std::string err;
+            auto files = vti::AccessFiles::open("", err);
+            if (!vti::load_library_file(in, lib, files ? files->default_page_b() : std::vector<uint8_t>()) ||
+                lib.dumps.empty())
+                return set(&Shared::status, "No Virus TI patches in " + in);
+            bool to_syx = fs::path(in).extension() != ".syx";
+            auto save = owned(CNewFileSelector::create(frame_, CNewFileSelector::kSelectSaveFile));
+            if (!save)
+                return;
+            save->setTitle(to_syx ? "Save as .syx" : "Save as .mid library");
+            save->setDefaultSaveName((fs::path(in).stem().string() + (to_syx ? ".syx" : ".mid")).c_str());
+            save->setDefaultExtension(to_syx ? CFileExtension("SysEx file", "syx") : CFileExtension("Patch library", "mid"));
+            save->run([this, lib, to_syx](CNewFileSelector *s2) mutable {
+                if (!s2->getNumSelectedFiles())
+                    return;
+                std::string out = s2->getSelectedFile(0), e;
+                bool ok;
+                if (to_syx) {
+                    ok = vti::cc::write_syx(lib.dumps, out, e);
+                } else {
+                    if (lib.dumps.size() > 128)
+                        lib.dumps.resize(128); // a library holds 128 patches
+                    lib.path = out;
+                    ok = vti::save_library(lib, e);
+                }
+                set(&Shared::status, ok ? std::to_string(lib.dumps.size()) + " patches saved: " + out
+                                        : "Not saved: " + e);
+            });
+        });
+    }
+};
+
+Application::Init gApp(std::make_unique<App>());
+
+} // namespace

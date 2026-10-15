@@ -33,10 +33,12 @@ std::string default_backup_dir();
 
 // Reads RAM banks 1..4 (`banks`, e.g. "1234") - cached programs whose fingerprint still matches are not requested
 // again - and writes "RAM A.mid".. to `out_dir` in the original's library format (readable by the TI Revive plug-in
-// and Access' Virus Control). progress(bank, program, fetched) per program. The plug-in must not run at the same time:
-// overlapping requests make the Virus truncate its replies (E145).
+// and Access' Virus Control). progress(bank, program, fetched) per program. `stop` (optional) cancels between two
+// requests (what was fetched stays in the cache, no library is written for the bank). The broker serves one program
+// at a time: while the plug-in has the Virus, open() reports no device.
 bool backup_ram(Broker &broker, const std::string &banks, const std::string &out_dir,
-                const std::function<void(int, int, bool, const Dump &)> &progress, std::string &error);
+                const std::function<void(int, int, bool, const Dump &)> &progress, std::string &error,
+                const std::atomic<bool> *stop = nullptr);
 
 // Writes the dumps as one .syx file (the single dumps back to back, as patch librarians expect).
 bool write_syx(const std::vector<Dump> &dumps, const std::string &path, std::string &error);

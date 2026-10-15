@@ -72,7 +72,8 @@ std::string default_backup_dir()
 }
 
 bool backup_ram(Broker &broker, const std::string &banks, const std::string &out_dir,
-                const std::function<void(int, int, bool, const Dump &)> &progress, std::string &error)
+                const std::function<void(int, int, bool, const Dump &)> &progress, std::string &error,
+                const std::atomic<bool> *stop)
 {
     std::error_code ec;
     fs::create_directories(out_dir, ec);
@@ -95,11 +96,15 @@ bool backup_ram(Broker &broker, const std::string &banks, const std::string &out
         int n = sync.sync_bank(bank, b, [&](int p, bool fetched) {
             if (progress)
                 progress(bank, p, fetched, b[p]);
-        });
+        }, stop);
         if (!cache.empty())
             save_bank_file(cache + "/" + name, b); // also what was fetched before a failure
+        if (n == -2) {
+            error = "cancelled";
+            return false;
+        }
         if (n < 0) {
-            error = name + ": the Virus did not answer (is the plug-in or another program using it?)";
+            error = name + ": the Virus did not answer";
             return false;
         }
         PatchLibrary lib;

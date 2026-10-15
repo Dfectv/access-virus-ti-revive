@@ -56,8 +56,8 @@ contains no Access material. No kernel code of its own is installed.
   [`tirevive-usbinfo.ps1`](scripts/tirevive-usbinfo.ps1) with the Snow connected and attach the
   `TI-Revive-usbinfo.txt` it saves on your Desktop to a [GitHub issue](https://github.com/derpsn/access-virus-ti-revive/issues).
 - **Virus Control Center**: Access' app does not work without its old driver. TI Revive brings its own, step by
-  step; the first step is the command line tool `tirevive-cc` (device info, backup of the RAM banks, library
-  export; see "Backups" below). Firmware/OS updates and flash functions are not supported, on purpose.
+  step: **TI Revive Control Center** (device info, backup of the RAM banks, library export; also as the command
+  line tool `tirevive-cc`; see "Backups" below). Firmware/OS updates and flash functions are not supported, on purpose.
 
 > TI Revive is an independent project. It is **not affiliated with Access Music Electronics GmbH or
 > Kemper GmbH**. "Access", "Virus" and "Virus TI" are trademarks of their owners and are used only to
@@ -164,9 +164,12 @@ same with Access' own driver.
   `~/.local/share/virus-ti-native`), reproduce the problem and attach `diag.log` from there (see CONTRIBUTING.md).
 - Do not run firmware/OS updates of the Virus through TI Revive; that path is not verified.
 
-**Backups (`tirevive-cc`, read-only)**
+**Backups: TI Revive Control Center (read-only)**
 
-The command line part of TI Revive's Control Center. Close the plug-in (or your DAW) first, then in a terminal:
+Start **TI Revive Control Center** (Windows: Start menu, folder "TI Revive"; macOS: Applications; Linux: the
+application menu, or `tirevive-control-center`). Close the plug-in (or your DAW) first: the Virus serves one program
+at a time. The window shows the connected Virus and its RAM banks, backs them up as patch libraries and converts
+libraries between `.mid` and `.syx`. The same from a terminal:
 
 ```
 tirevive-cc info      # the connected Virus and its RAM banks
@@ -407,8 +410,8 @@ measurements: [`findings/design-linux.md`](findings/design-linux.md), evidence E
 | Installers: Access software only unpacked (Windows/Linux), clean-up of earlier versions | done |
 | Virus TI Snow | open (Snow owners: 0.7.4) |
 | Audio Unit (AUv2) of the native plug-in, with the classic Audio Unit's codes (its Logic / GarageBand projects open) | done: passes `auval`, tested in GarageBand |
-| Control Center: command line `tirevive-cc` (device info, backup, library export; read-only) | done: tested on macOS (M3) with a TI2 |
-| Control Center: restore into RAM, UI | open (flash functions and OS update: never) |
+| Control Center app + command line `tirevive-cc` (device info, backup, library export; read-only) | done: CLI tested on macOS (M3), app on Linux, both with a TI2 |
+| Control Center: restore into RAM | open (flash functions and OS update: never) |
 | Windows MIDI ports | open |
 | **Windows** | |
 | WinUSB driver package, broker with USB audio, unplug recovery, Windows 11 with memory integrity (HVCI) | done |

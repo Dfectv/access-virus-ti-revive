@@ -44,6 +44,20 @@ add_executable(virussync tools/virussync.cpp)
 target_link_libraries(virussync PRIVATE vticore)
 add_executable(tirevive-cc tools/tirevive-cc.cpp)
 target_link_libraries(tirevive-cc PRIVATE vticore)
+# Control Center app (ccapp/, docs/controlcenter.md): a window around src/cc, VSTGUI's standalone library
+vstgui_add_executable(TIReviveControlCenter ccapp/ccapp.cpp)
+target_link_libraries(TIReviveControlCenter PRIVATE vticore)
+target_include_directories(TIReviveControlCenter PRIVATE external/vst3sdk/vstgui4)
+target_compile_definitions(TIReviveControlCenter PRIVATE TIREVIVE_VERSION="${PROJECT_VERSION}")
+# one place for every generator (the generator expression keeps MSVC/Xcode from adding a config folder):
+# <build>/ccapp/TIReviveControlCenter[.exe], on macOS <build>/ccapp/TI Revive Control Center.app
+set_target_properties(TIReviveControlCenter PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/ccapp/$<0:>")
+if(APPLE)
+    set(TIREVIVE_APP_VERSION ${PROJECT_VERSION})
+    configure_file(ccapp/Info.plist ${CMAKE_CURRENT_BINARY_DIR}/ccapp-Info.plist @ONLY)
+    set_target_properties(TIReviveControlCenter PROPERTIES OUTPUT_NAME "TI Revive Control Center"
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_BINARY_DIR}/ccapp-Info.plist)
+endif()
 
 add_subdirectory(plugin)
 

@@ -25,7 +25,8 @@ static int usage()
                     "       tirevive-cc backup [--out DIR] [--banks 1234]\n"
                     "       tirevive-cc list FILE.mid|FILE.syx\n"
                     "       tirevive-cc export FILE.mid|FILE.syx OUT.syx|OUT.mid\n"
-                    "Read-only: nothing is written to the Virus. Close the TI Revive plug-in (or your DAW) first.\n");
+                    "Read-only: nothing is written to the Virus. Close the TI Revive plug-in (or your DAW) first:\n"
+                    "the Virus serves one program at a time.\n");
     return 2;
 }
 

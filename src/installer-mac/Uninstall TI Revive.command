@@ -10,7 +10,8 @@ sudo pkill -x vtihelper 2>/dev/null
 sudo rm -rf "/Library/Audio/Plug-Ins/VST3/TI Revive Virus Control.vst3" "/Library/Audio/Plug-Ins/Components/TI Revive Virus Control.component" \
     "$HOME/Library/Audio/Plug-Ins/VST3/VirusTINative.vst3"
 sudo rm -rf "/Library/Audio/Plug-Ins/VST3/Virus TI (TI Revive).vst3" \
-    "/Library/Audio/Plug-Ins/Components/Virus TI (TI Revive).component" "/Library/Application Support/TI Revive"
+    "/Library/Audio/Plug-Ins/Components/Virus TI (TI Revive).component" "/Library/Application Support/TI Revive" \
+    "/Applications/TI Revive Control Center.app"
 # TI Revive 0.7's replacement of Access' driver-package library
 sudo rm -f "/Library/Application Support/Access Music/Virus TI/Common/libVirusUSB.dylib"
 sudo pkgutil --forget io.github.derpsn.tirevive >/dev/null 2>&1

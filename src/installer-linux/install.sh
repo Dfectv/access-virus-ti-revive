@@ -48,6 +48,22 @@ mkdir -p "$LIB" "$UNITS" "$CONF"
 install -m 0755 "$HERE/bin/vtibroker" "$LIB/vtibroker"
 # the Control Center command line (read-only: device info, backup of the RAM banks, library export)
 mkdir -p "$HOME/.local/bin" && install -m 0755 "$HERE/bin/tirevive-cc" "$HOME/.local/bin/tirevive-cc"
+# ... and the same in a window, with a menu entry; it needs GTK 3 / gtkmm (the plug-in does not)
+install -m 0755 "$HERE/bin/tirevive-control-center" "$HOME/.local/bin/tirevive-control-center"
+APPS="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+mkdir -p "$APPS" && cat > "$APPS/tirevive-control-center.desktop" <<EOF_DESKTOP
+[Desktop Entry]
+Type=Application
+Name=TI Revive Control Center
+Comment=Access Virus TI: device info, backup of the RAM banks, patch library export
+Exec=$HOME/.local/bin/tirevive-control-center
+Terminal=false
+Categories=AudioVideo;Audio;Utility;
+EOF_DESKTOP
+if ldd "$HOME/.local/bin/tirevive-control-center" 2>/dev/null | grep -q "not found"; then
+    echo "NOTE: the Control Center app needs gtkmm 3 (Debian/Ubuntu: sudo apt install libgtkmm-3.0-1v5; Fedora: gtkmm3.0);"
+    echo "      the plug-in and tirevive-cc work without it."
+fi
 install -m 0644 "$HERE/systemd/tirevive-broker.socket" "$HERE/systemd/tirevive-broker.service" "$UNITS/"
 rm -f "$CONF/broker.token" # TI Revive 0.7: the TCP socket for the plug-in under Wine is gone
 if command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then

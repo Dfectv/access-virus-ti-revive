@@ -9,7 +9,8 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl --user stop tirevive-broker.service 2>/dev/null
 fi
 rm -f "$UNITS/tirevive-broker.socket" "$UNITS/tirevive-broker.service"
-rm -f "$HOME/.local/bin/tirevive-cc"
+rm -f "$HOME/.local/bin/tirevive-cc" "$HOME/.local/bin/tirevive-control-center"
+rm -f "${XDG_DATA_HOME:-$HOME/.local/share}/applications/tirevive-control-center.desktop"
 command -v systemctl >/dev/null 2>&1 && systemctl --user daemon-reload 2>/dev/null
 rm -rf "$HOME/.local/lib/tirevive"
 rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/tirevive/broker.token"
