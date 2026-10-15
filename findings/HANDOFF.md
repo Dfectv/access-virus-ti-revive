@@ -1,10 +1,13 @@
 # HANDOFF
 
-_Last updated: 2026-10-15 (0.8.2 clean-up). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-15 (0.8.2 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E145), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## 0.8.2 (in progress, branch cleanup-0.8.2)
+## 0.8.2 (2026-10-15, RELEASED: CI run 38734447522, all jobs green, Latest)
+
+- Open after the release: Windows check with a Virus (Control Center, Nerd mode while Ableton plays) - the user
+  checks it later.
 
 - Clean-up after 0.8: the 0.7.x migration kit and test-package scripts in `native/` removed, broker headers only from
   `src/broker`; Linux broker without the TCP listener (opt-in `VTI_BROKER_TCP=1`, socket unit has no TCP port, install.sh
