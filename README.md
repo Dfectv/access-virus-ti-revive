@@ -55,7 +55,9 @@ contains no Access material. No kernel code of its own is installed.
   plug-in "Virus TI Snow (TI Revive)" works on Windows). If TI Revive does not find your Snow, run
   [`tirevive-usbinfo.ps1`](scripts/tirevive-usbinfo.ps1) with the Snow connected and attach the
   `TI-Revive-usbinfo.txt` it saves on your Desktop to a [GitHub issue](https://github.com/derpsn/access-virus-ti-revive/issues).
-- **Virus Control Center** (Windows) is not part of 0.8.0; it needed the full Access installation.
+- **Virus Control Center**: Access' app does not work without its old driver. TI Revive brings its own, step by
+  step; the first step is the command line tool `tirevive-cc` (device info, backup of the RAM banks, library
+  export; see "Backups" below). Firmware/OS updates and flash functions are not supported, on purpose.
 
 > TI Revive is an independent project. It is **not affiliated with Access Music Electronics GmbH or
 > Kemper GmbH**. "Access", "Virus" and "Virus TI" are trademarks of their owners and are used only to
@@ -162,6 +164,24 @@ same with Access' own driver.
   `~/.local/share/virus-ti-native`), reproduce the problem and attach `diag.log` from there (see CONTRIBUTING.md).
 - Do not run firmware/OS updates of the Virus through TI Revive; that path is not verified.
 
+**Backups (`tirevive-cc`, read-only)**
+
+The command line part of TI Revive's Control Center. Close the plug-in (or your DAW) first, then in a terminal:
+
+```
+tirevive-cc info      # the connected Virus and its RAM banks
+tirevive-cc backup    # RAM A..D as patch libraries (.mid) in Documents/Access Music/Virus TI/Backups/<date time>
+tirevive-cc list FILE.mid             # the patch names in a library
+tirevive-cc export FILE.mid OUT.syx   # convert a library (.mid <-> .syx)
+```
+
+Where it is: Windows `C:\Program Files\TI Revive\tirevive-cc.exe`, macOS
+`"/Library/Application Support/TI Revive/tirevive-cc"`, Linux `~/.local/bin/tirevive-cc`. A backup takes a few
+seconds when the plug-in's bank sync is current, otherwise about 2 minutes per bank. To open a backup in the plug-in,
+copy its `.mid` files into the `Patches` folder. `tirevive-cc` only reads from the Virus; restoring a backup into the
+Virus comes later. Firmware/OS updates, "Burn To Flash" and factory reset are not supported, on purpose: they write
+the Virus' flash and can brick it. Details: [native/docs/controlcenter.md](native/docs/controlcenter.md).
+
 **Windows**
 
 - REAPER loads and connects the plug-in; make sure the track is record-armed with a MIDI input and monitoring on.
@@ -185,7 +205,7 @@ same with Access' own driver.
   Instruments → TI Revive → TI Revive Virus Control*; in GarageBand under *Smart Controls → Plug-ins*) use the same
   native plug-in. Tested: Ableton Live 12 (VST3), GarageBand (AU); other hosts should work — reports welcome. Each
   DAW needs its own microphone permission.
-- **Virus Control Center** (32-bit) does not run on current macOS.
+- Access' **Virus Control Center** (32-bit) does not run on current macOS; for backups use `tirevive-cc` (above).
 - The Virus' audio comes from macOS' own USB audio driver (the "Virus TI" audio device, 44.1 kHz); unplugging and
   replugging the Virus is detected by the plug-in.
 - Logs for bug reports: the plug-in's `diag.log` (see above) and `/tmp/tirevive-vtibroker.log`.
@@ -387,7 +407,9 @@ measurements: [`findings/design-linux.md`](findings/design-linux.md), evidence E
 | Installers: Access software only unpacked (Windows/Linux), clean-up of earlier versions | done |
 | Virus TI Snow | open (Snow owners: 0.7.4) |
 | Audio Unit (AUv2) of the native plug-in, with the classic Audio Unit's codes (its Logic / GarageBand projects open) | done: passes `auval`, tested in GarageBand |
-| Virus Control Center, Windows MIDI ports | open |
+| Control Center: command line `tirevive-cc` (device info, backup, library export; read-only) | done: tested on macOS (M3) with a TI2 |
+| Control Center: restore into RAM, UI | open (flash functions and OS update: never) |
+| Windows MIDI ports | open |
 | **Windows** | |
 | WinUSB driver package, broker with USB audio, unplug recovery, Windows 11 with memory integrity (HVCI) | done |
 | MSI + setup.exe (GitHub Actions build) | done |

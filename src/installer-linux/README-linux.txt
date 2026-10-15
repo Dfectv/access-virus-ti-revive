@@ -35,6 +35,8 @@ Good to know
 - While TI Revive uses the Virus, Linux cannot use it as a normal sound card; it is handed back automatically when
   the plug-in is closed (about 30 seconds later).
 - One program at a time uses the Virus; a second one shows "no Virus TI connected".
+- Backups of the Virus' RAM banks (read-only, close the plug-in first): "tirevive-cc backup" (also "info", "list",
+  "export"; installed to ~/.local/bin). Firmware/OS updates are not supported.
 - Uninstall: ./uninstall.sh (your patch libraries in ~/Documents stay)
 
 Logs: broker "journalctl --user -u tirevive-broker"; plug-in: create ~/.local/share/virus-ti-native/diag.on, then

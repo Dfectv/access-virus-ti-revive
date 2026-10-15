@@ -18,6 +18,12 @@ later.
 The last row stays out for good: these functions write the Virus' flash, and a failure there can brick the device
 (AGENTS.md rule 2). If you really need them, use Access' original software on a system that still runs it.
 
+## Where it is installed
+
+Windows `C:\Program Files\TI Revive\tirevive-cc.exe` (MSI), macOS `/Library/Application Support/TI Revive/tirevive-cc`
+(pkg; removed by the uninstaller with the folder), Linux `~/.local/bin/tirevive-cc` (install.sh; uninstall.sh removes
+it). The release workflow builds it with the plug-in on each platform.
+
 ## How it works
 
 - `src/cc/controlcenter.*` (in `vticore`) and `tools/tirevive-cc.cpp`. They talk to the Virus through the TI Revive

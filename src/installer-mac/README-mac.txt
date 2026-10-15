@@ -27,6 +27,11 @@ How it works
 2 and talks to the Virus through TI Revive's broker (vtibroker, started on demand by the plug-in, ends 30 s after the
 last use). Audio comes from macOS' built-in USB audio driver (the "Virus TI" audio device, 44.1 kHz).
 
+Backups
+"/Library/Application Support/TI Revive/tirevive-cc" backup  (in Terminal, with the plug-in closed) saves the Virus'
+RAM banks as patch libraries in Documents/Access Music/Virus TI/Backups; also "info", "list", "export". It only
+reads from the Virus. Firmware/OS updates are not supported.
+
 Uninstall
 Double-click "Uninstall TI Revive.command" (also in /Library/Application Support/TI Revive). The Virus TI files and
 your patch libraries stay.
