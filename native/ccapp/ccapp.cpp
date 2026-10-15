@@ -294,10 +294,11 @@ private:
         if (!sel)
             return;
         sel->setTitle("Backup folder");
-        sel->run([this](CNewFileSelector *s) {
-            if (s->getNumSelectedFiles())
-                set(&Shared::folder, s->getSelectedFile(0));
-        });
+        if (!sel->run([this](CNewFileSelector *s) {
+                if (s->getNumSelectedFiles())
+                    set(&Shared::folder, s->getSelectedFile(0));
+            }))
+            no_dialog();
     }
 
     void export_library()
@@ -309,7 +310,7 @@ private:
         open->setInitialDirectory(vti::library_dir().c_str());
         open->addFileExtension(CFileExtension("Patch library", "mid"));
         open->addFileExtension(CFileExtension("SysEx file", "syx"));
-        open->run([this](CNewFileSelector *s) {
+        bool shown = open->run([this](CNewFileSelector *s) {
             if (!s->getNumSelectedFiles())
                 return;
             std::string in = s->getSelectedFile(0);
@@ -326,7 +327,7 @@ private:
             save->setTitle(to_syx ? "Save as .syx" : "Save as .mid library");
             save->setDefaultSaveName((fs::path(in).stem().string() + (to_syx ? ".syx" : ".mid")).c_str());
             save->setDefaultExtension(to_syx ? CFileExtension("SysEx file", "syx") : CFileExtension("Patch library", "mid"));
-            save->run([this, lib, to_syx](CNewFileSelector *s2) mutable {
+            bool saved = save->run([this, lib, to_syx](CNewFileSelector *s2) mutable {
                 if (!s2->getNumSelectedFiles())
                     return;
                 std::string out = s2->getSelectedFile(0), e;
@@ -342,7 +343,16 @@ private:
                 set(&Shared::status, ok ? std::to_string(lib.dumps.size()) + " patches saved: " + out
                                         : "Not saved: " + e);
             });
+            if (!saved)
+                no_dialog();
         });
+        if (!shown)
+            no_dialog();
+    }
+    void no_dialog()
+    {
+        // Linux: VSTGUI's file dialogs run zenity or kdialog
+        set(&Shared::status, "No file dialog could be opened (Linux: install zenity or kdialog).");
     }
 };
 
