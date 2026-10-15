@@ -173,8 +173,11 @@ at a time. The window shows the connected Virus and its RAM banks, backs them up
 libraries between `.mid` and `.syx`. **Nerd mode** (button or *View > Nerd mode*) shows live what goes between
 TI Revive and the Virus (decoded: notes, parameter changes by name, dumps, bank sync), which programs use the Virus,
 the plug-in's and the broker's logs; it switches the plug-in log on and off and saves all logs for a bug report in
-one file. It only watches: it never sends anything to the Virus. The same
-from a terminal:
+one file. It only watches: it never sends anything to the Virus.
+
+![Nerd mode: the plug-in plays notes and checks its bank cache, decoded live](docs/images/control-center-nerd-mode.png)
+
+The same from a terminal:
 
 ```
 tirevive-cc info      # the connected Virus and its RAM banks

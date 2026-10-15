@@ -12,6 +12,10 @@
 !/CONTRIBUTING.md
 !/AGENTS.md
 !/CLAUDE.md
+# screenshots for the README (our own UI only: no Access artwork, no personal data)
+!/docs/
+/docs/*
+!/docs/images/
 # the repository's Claude Code skills only (a contributor's local .claude settings stay out)
 !/.claude/
 /.claude/*
