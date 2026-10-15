@@ -75,6 +75,27 @@ DeviceOut::~DeviceOut()
     stop_ = true;
     cv_.notify_all();
     worker_.join();
+    release_owner(); // a waiting instance takes over within ~2 s (start-up messages, state, a new sync ping)
+}
+
+static std::mutex g_owner_mu;
+static const DeviceOut *g_owner; // the instance of this process that talks to the Virus
+
+bool DeviceOut::claim_owner()
+{
+    std::lock_guard<std::mutex> g(g_owner_mu);
+    if (!g_owner)
+        g_owner = this;
+    owner_ = g_owner == this;
+    return owner_;
+}
+
+void DeviceOut::release_owner()
+{
+    std::lock_guard<std::mutex> g(g_owner_mu);
+    if (g_owner == this)
+        g_owner = nullptr;
+    owner_ = false;
 }
 
 void DeviceOut::send(std::vector<uint8_t> msg)
@@ -223,6 +244,30 @@ void DeviceOut::run()
                 broker_.on_rx([parser](uint8_t ep, const uint8_t *d, size_t len) { parser->feed(ep, d, len); });
                 rx_set_ = true;
             }
+            if (!owner_ && !claim_owner()) {
+                if (!wait_reported_) {
+                    wait_reported_ = true;
+                    log("Virus TI native: another instance of the plug-in uses the Virus - waiting\n");
+                    if (on_waiting_)
+                        on_waiting_(true);
+                }
+                for (int i = 0; i < 200 && !stop_; i++) { // keep the state current, try again in 2 s
+                    // notes played meanwhile are dropped: sent at a takeover they would sound late, a full ring would
+                    // lose their note-offs
+                    rt_r_.store(rt_w_.load(std::memory_order_acquire), std::memory_order_release);
+                    if (idle_)
+                        idle_();
+                    std::unique_lock<std::mutex> lk(mu_);
+                    cv_.wait_for(lk, std::chrono::milliseconds(10), [this] { return stop_.load(); });
+                }
+                continue;
+            }
+            if (wait_reported_) {
+                wait_reported_ = false;
+                log("Virus TI native: the other instance is gone - this one takes over the Virus\n");
+                if (on_waiting_)
+                    on_waiting_(false);
+            }
             broker_.set_name("TI Revive Virus Control");
             open_ = broker_.open(err);
             if (open_ && !audio_ok_) { // the owner starts the Virus audio stream (Linux: shm ring)
@@ -300,7 +345,6 @@ void DeviceOut::run()
         if ((env_stats() || diag_on_.load(std::memory_order_acquire)) && std::chrono::steady_clock::now() >= stats_next_) { // endurance tests
             stats_next_ = std::chrono::steady_clock::now() + std::chrono::seconds(10);
             int64_t newest = audio_ok_ ? audio_.newest_frame() : -1, pos = audio_ok_ ? audio_.position() : -1;
-            static int64_t newest_before = -1;
             log("stats: audio %d drops %lld distance %lld queued %d | marker %lld aligned blocks %lld, read margin min "
                 "%lld, timeline steps %lld, last sound %lld frames ago | host frames %lld / virus frames %lld, anchors "
                 "%lld, err %lld..%lld\n",
@@ -308,9 +352,9 @@ void DeviceOut::run()
                 (long long)(newest >= 0 && pos >= 0 ? newest - pos : -1), queued_.load(), (long long)marker.load(),
                 (long long)aligned_blocks.exchange(0), (long long)read_margin_min.exchange(INT64_MAX),
                 (long long)tl_steps.exchange(0), (long long)(newest - last_sound.load()), (long long)host_frames.exchange(0),
-                (long long)(newest_before >= 0 ? newest - newest_before : -1), (long long)anchors.exchange(0),
+                (long long)(stats_newest_ >= 0 ? newest - stats_newest_ : -1), (long long)anchors.exchange(0),
                 (long long)err_min.exchange(INT64_MAX), (long long)err_max.exchange(INT64_MIN));
-            newest_before = newest;
+            stats_newest_ = newest;
         }
         // the broker may refuse the audio start right after another session ended (stress test: every second
         // quick re-open had no sound): retry every 500 ms while connected without audio
@@ -484,6 +528,12 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
         return true;
     });
     out_->on_reply([this](const std::vector<uint8_t> &m) { sync_->feed(m); });
+    out_->on_waiting([this](bool waiting) { // worker thread
+        if (waiting)
+            set_lcd("Virus in use", "by another instance", std::string(), std::string());
+        else
+            set_lcd("Virus connected", std::string(), std::string(), std::string());
+    });
     out_->on_device([this](bool present) { // worker thread
         out_->log("Virus TI native: device %s\n", present ? (device_seen_ ? "reconnected" : "connected") : "disconnected");
         if (!present) {

@@ -1,8 +1,19 @@
 # HANDOFF
 
 _Last updated: 2026-10-15 (0.8.3 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E147), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E148), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
+
+## Issue #6: duplicated track puts the Virus out of time (branch single-instance, 2026-10-15)
+
+- Cause (E148, MEDIUM): on Windows a second plug-in instance (Ableton: duplicate track) got the Virus too, sent its own
+  sync ping and reset the Virus' only stamp clock; the original kept its old marker -> its stamps off by 13312 frames
+  until a DAW restart. Fix: one instance per process (DeviceOut::claim_owner), others wait (LCD "Virus in use / by
+  another instance"), takeover with state + new ping when the owner is removed; waiting instances drop their notes.
+  Also: stats "virus frames" per instance. Built + ctest on Linux only.
+- Open: Windows hardware test (Ableton 11: duplicate -> original stays in time, duplicate shows the message; delete the
+  original -> the duplicate takes over and plays in time); macOS/Linux quick check; reply on #6 after the test.
+- Not covered: two different DAWs on Windows still share the Virus (broker without owner on Windows).
 
 ## 0.8.4 (2026-10-15): editor sizes (merged from branch ui-scaling)
 

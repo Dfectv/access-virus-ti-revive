@@ -62,6 +62,8 @@ public:
     void on_idle(std::function<void()> h) { idle_ = std::move(h); }
     // the Virus went away (USB unplugged / switched off) or came back while the broker connection stays
     void on_device(std::function<void(bool present)> h) { device_ = std::move(h); }
+    // another instance in this process owns the Virus: this one waits (true), or takes over after the wait (false)
+    void on_waiting(std::function<void(bool waiting)> h) { on_waiting_ = std::move(h); }
     std::atomic<int> generation{0}; // +1 on every return of the Virus (process() re-anchors its timeline)
     bool connected() const { return broker_.device_present(); }
     AudioIn &audio() { return audio_; } // read from process(); valid once audio_ready()
@@ -105,6 +107,15 @@ public:
 
 private:
     std::function<void(bool)> device_;
+    std::function<void(bool)> on_waiting_;
+    // One instance per process talks to the Virus (README "One plug-in instance per synth"; issue #6). The Virus has
+    // one stamp clock and every sync ping resets it, so a second instance (Ableton: duplicated track) shifted the
+    // first one's time stamps for good. The Windows broker shares the Virus between all clients (the ASIO driver
+    // runs in the same process), so the guard lives here; macOS/Linux brokers also give it to one client only.
+    bool claim_owner();
+    void release_owner();
+    bool owner_ = false;         // worker: this instance holds the process-wide claim
+    bool wait_reported_ = false; // worker: the wait was reported (log + LCD once)
     int present_seen_ = -1; // worker: last device presence handled (-1 = unknown)
     Broker broker_;
     std::mutex mu_;
@@ -141,6 +152,7 @@ private:
     std::atomic<bool> audio_ok_{false};
     std::chrono::steady_clock::time_point audio_retry_{}; // next audio start attempt (worker thread)
     std::chrono::steady_clock::time_point stats_next_{};  // VTI_NATIVE_STATS output
+    int64_t stats_newest_ = -1; // worker: the newest ring frame at the last stats line (per instance, issue #6)
     std::function<void(const std::vector<uint8_t> &)> panel_, reply_;
     std::function<void()> idle_;
     bool rx_set_ = false, pending_send_ = false;
