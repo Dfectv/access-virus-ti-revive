@@ -211,7 +211,11 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
-          **New in 0.8.3:** a DAW's plug-in scan no longer talks to the Virus (it connects only when the plug-in is
+          **New in 0.8.4: bigger editor.** Right-click an empty spot of the plug-in's editor and choose a size from
+          100 to 200 %; the choice is kept for new editors. The plug-in also follows the display scaling Windows
+          reports (e.g. 150 %). The Control Center has the same sizes under View > Size. Thanks for the suggestion!
+
+          **Since 0.8.3:** a DAW's plug-in scan no longer talks to the Virus (it connects only when the plug-in is
           used); saved projects no longer grow by a few bytes on every save; on a first setup the start page shows how
           long reading the Virus' banks will take (8-9 minutes once, then seconds). Thanks to the virus-ti-rework
           project for the findings.
