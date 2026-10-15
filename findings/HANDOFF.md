@@ -11,6 +11,7 @@ Evidence: [evidence.md](evidence.md) (E001-E147), protocol: [spec.md](spec.md); 
 - After 0.8.2 (findings from issue #5, collaboration with virus-ti-rework - findings only, never code): plug-in scan
   no longer reaches the Virus, state growth fixed (E147), start page shows the time left for a long first sync,
   autest --no-notes / no crash after --png, nativehost --scan; their third-output finding recorded as C10 (UNTESTED).
+  Replied in #5; our findings posted in their repo: Give-me-a-signal/virus-ti-rework#5 (allowed by the user).
 
 - Clean-up after 0.8: the 0.7.x migration kit and test-package scripts in `native/` removed, broker headers only from
   `src/broker`; Linux broker without the TCP listener (opt-in `VTI_BROKER_TCP=1`, socket unit has no TCP port, install.sh

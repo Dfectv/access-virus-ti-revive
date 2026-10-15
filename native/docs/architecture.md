@@ -123,6 +123,17 @@ Access is installed or registered. These are the files it loads:
   banks as patch libraries, library export). No flash writes and no OS update, ever. See
   [controlcenter.md](controlcenter.md).
 
+### Device ownership
+- One broker owns the Virus' USB interfaces; it serves **one program at a time** (the owner). Others wait and
+  take over when the owner disconnects. A second program restarting the stream in a running session left the Virus
+  without USB audio until a power cycle (E112), hence the rule.
+- Read-only observers (the Control Center's Nerd mode, protocol 4) never become the owner and cannot write.
+- The plug-in connects only from its first activation (`setActive(true)`): a DAW's plug-in scan (initialize +
+  terminate) never reaches the Virus (E147). The Control Center and `tirevive-cc` connect only while an action runs.
+- Other software that drives the Virus over USB (Access' old drivers, another editor's driver, another project's
+  plug-in) must not hold the interfaces at the same time: on macOS TI Revive's setup offers to park known conflicting
+  drivers (E134); the broker log shows `LIBUSB_ERROR_ACCESS` when another driver owns them.
+
 ### Identity and old projects
 - Name **"TI Revive Virus Control"**, vendor **TI Revive**, bundle `TI Revive Virus Control.vst3`, version = the TI
   Revive release (CMake project version).
