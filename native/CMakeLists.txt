@@ -51,6 +51,53 @@ target_link_libraries(virussync PRIVATE vticore)
 
 add_subdirectory(plugin)
 
+# macOS: the Audio Unit (AUv2) for Logic / GarageBand - Steinberg's AU wrapper around the VST3 plug-in, with the
+# codes of the classic TI Revive Audio Unit (au/tirevive_au.mm). Apple's AudioUnitSDK (Apache 2.0) is built from
+# source here, so no Xcode project is needed.
+if(APPLE)
+    option(VTI_NATIVE_AU "build the Audio Unit" ON)
+endif()
+if(APPLE AND VTI_NATIVE_AU)
+    include(FetchContent)
+    FetchContent_Declare(audiounitsdk GIT_REPOSITORY https://github.com/apple/AudioUnitSDK.git
+                         GIT_TAG AudioUnitSDK-1.4.0 GIT_SHALLOW TRUE)
+    FetchContent_GetProperties(audiounitsdk)
+    if(NOT audiounitsdk_POPULATED)
+        FetchContent_Populate(audiounitsdk)
+    endif()
+    file(GLOB VTI_AUSDK_SOURCES ${audiounitsdk_SOURCE_DIR}/src/AudioUnitSDK/*.cpp)
+    add_library(vti_ausdk STATIC ${VTI_AUSDK_SOURCES})
+    target_include_directories(vti_ausdk PUBLIC ${audiounitsdk_SOURCE_DIR}/include)
+    target_compile_features(vti_ausdk PUBLIC cxx_std_17)
+
+    if(NOT TARGET sdk_hosting)
+        smtg_create_public_sdk_hosting_target()
+    endif()
+    set(VTI_AU_SDK ${vst3sdk_SOURCE_DIR}/public.sdk/source/vst/auwrapper)
+    add_library(VirusTINative_AU MODULE au/tirevive_au.mm ${VTI_AU_SDK}/aucocoaview.mm ${VTI_AU_SDK}/NSDataIBStream.mm)
+    target_compile_definitions(VirusTINative_AU PRIVATE SMTG_AUWRAPPER_USES_AUSDK CA_USE_AUDIO_PLUGIN_ONLY=0
+                               SMTG_AUCocoaUIBase_CLASS_NAME=TIReviveVirusControlAUCocoaView)
+    target_compile_options(VirusTINative_AU PRIVATE -Wno-deprecated-declarations)
+    target_include_directories(VirusTINative_AU PRIVATE ${vst3sdk_SOURCE_DIR})
+    target_link_libraries(VirusTINative_AU PRIVATE vti_ausdk sdk_hosting "-framework AudioUnit" "-framework CoreMIDI"
+                          "-framework AudioToolbox" "-framework CoreFoundation" "-framework Cocoa" "-framework CoreAudio")
+    # version as the classic Audio Unit encoded it: major << 16 | minor << 8 | patch
+    math(EXPR VTI_AU_VERSION "(${PROJECT_VERSION_MAJOR} << 16) | (${PROJECT_VERSION_MINOR} << 8) | ${PROJECT_VERSION_PATCH}")
+    configure_file(au/Info.plist.in ${CMAKE_CURRENT_BINARY_DIR}/au-Info.plist @ONLY)
+    set_target_properties(VirusTINative_AU PROPERTIES
+        BUNDLE TRUE BUNDLE_EXTENSION component OUTPUT_NAME "TI Revive Virus Control"
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_BINARY_DIR}/au-Info.plist
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/AU)
+    add_dependencies(VirusTINative_AU VirusTINative)
+    # the component carries the VST3 plug-in it wraps (a copy, not a link: the bundle is installed on its own)
+    get_target_property(VTI_VST3_PACKAGE VirusTINative SMTG_PLUGIN_PACKAGE_PATH)
+    add_custom_command(TARGET VirusTINative_AU POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E rm -rf "$<TARGET_BUNDLE_DIR:VirusTINative_AU>/Contents/Resources/plugin.vst3"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_DIR:VirusTINative_AU>/Contents/Resources"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${VTI_VST3_PACKAGE}"
+                "$<TARGET_BUNDLE_DIR:VirusTINative_AU>/Contents/Resources/plugin.vst3")
+endif()
+
 # Windows: the Virus as an ASIO sound card (asio/asiodriver.cpp), register with regsvr32
 if(WIN32)
     add_library(VirusTINative_ASIO SHARED asio/asiodriver.cpp asio/asiodriver.def)
