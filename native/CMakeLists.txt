@@ -25,7 +25,7 @@ FetchContent_Declare(pugixml GIT_REPOSITORY https://github.com/zeux/pugixml.git 
 FetchContent_MakeAvailable(pugixml)
 
 # core library: Access files + device model (no Access material in this repo; loaded at runtime)
-add_library(vticore STATIC src/access/accessfiles.cpp src/model/remotedevice.cpp src/model/state.cpp src/device/broker.cpp src/device/memsync.cpp src/device/audioin.cpp src/editor/editormodel.cpp src/editor/editorrender.cpp src/access/firmware.cpp src/access/library.cpp src/cc/controlcenter.cpp src/cc/diag.cpp src/cc/decode.cpp)
+add_library(vticore STATIC src/access/accessfiles.cpp src/model/remotedevice.cpp src/model/state.cpp src/device/broker.cpp src/device/memsync.cpp src/device/audioin.cpp src/editor/editormodel.cpp src/editor/editorrender.cpp src/access/firmware.cpp src/access/library.cpp src/cc/controlcenter.cpp src/cc/diag.cpp src/cc/decode.cpp src/cc/ccskin.cpp)
 # TI Revive's broker headers (vtiproto.h, vtiaudioshm.h) from the repository's src/broker
 target_include_directories(vticore PUBLIC src ${CMAKE_CURRENT_SOURCE_DIR}/../src/broker)
 find_package(Threads REQUIRED)
@@ -46,7 +46,7 @@ add_executable(tirevive-cc tools/tirevive-cc.cpp)
 target_link_libraries(tirevive-cc PRIVATE vticore)
 target_compile_definitions(tirevive-cc PRIVATE TIREVIVE_VERSION="${PROJECT_VERSION}")
 # Control Center app (ccapp/, docs/controlcenter.md): a window around src/cc, VSTGUI's standalone library
-vstgui_add_executable(TIReviveControlCenter "ccapp/ccapp.cpp;ccapp/nerdmode.cpp")
+vstgui_add_executable(TIReviveControlCenter "ccapp/ccapp.cpp;ccapp/nerdmode.cpp;ccapp/skinpage.cpp;ccapp/skinview.cpp")
 target_link_libraries(TIReviveControlCenter PRIVATE vticore)
 target_include_directories(TIReviveControlCenter PRIVATE external/vst3sdk/vstgui4)
 target_compile_definitions(TIReviveControlCenter PRIVATE TIREVIVE_VERSION="${PROJECT_VERSION}")
@@ -121,7 +121,7 @@ endif()
 enable_testing()
 add_executable(vtitests tests/main.cpp tests/test_usbmidi.cpp tests/test_state.cpp tests/test_model.cpp
                tests/test_access.cpp tests/test_automation.cpp tests/test_upgrade.cpp tests/test_resampler.cpp
-               tests/test_library.cpp tests/test_decode.cpp)
+               tests/test_library.cpp tests/test_decode.cpp tests/test_ccskin.cpp)
 target_link_libraries(vtitests PRIVATE vticore)
 add_test(NAME vtitests COMMAND vtitests)
 

@@ -36,7 +36,7 @@ template <class T> static bool rd(const std::vector<uint8_t> &d, size_t off, T &
     return true;
 }
 
-bool AccessFiles::load_pe(const std::string &dll, std::string &error)
+bool AccessFiles::load_pe(const std::string &dll, std::string &error, const char *required)
 {
     std::vector<uint8_t> d;
     if (!read_file(dll, d)) {
@@ -118,7 +118,7 @@ bool AccessFiles::load_pe(const std::string &dll, std::string &error)
             files_[name].assign(d.begin() + (long)off, d.begin() + (long)(off + dsz));
         }
     }
-    if (!files_.count("remotedevice.xml")) {
+    if (!files_.count(required)) {
         error = dll + " does not contain the Virus TI resources";
         return false;
     }
@@ -126,7 +126,7 @@ bool AccessFiles::load_pe(const std::string &dll, std::string &error)
     return true;
 }
 
-bool AccessFiles::load_dir(const std::string &dir, std::string &error)
+bool AccessFiles::load_dir(const std::string &dir, std::string &error, const char *required)
 {
     std::error_code ec;
     for (auto &e : fs::directory_iterator(dir, ec)) {
@@ -135,7 +135,7 @@ bool AccessFiles::load_dir(const std::string &dir, std::string &error)
             continue;
         read_file(e.path(), files_[lower(e.path().filename().string())]);
     }
-    if (!files_.count("remotedevice.xml")) {
+    if (!files_.count(required)) {
         error = dir + " does not contain the Virus TI resources";
         return false;
     }
@@ -235,6 +235,42 @@ std::unique_ptr<AccessFiles> AccessFiles::open(const std::string &hint, std::str
         std::unique_ptr<AccessFiles> a(new AccessFiles);
         bool ok = fs::is_directory(p, ec) ? a->load_dir(p.string(), last) : a->load_pe(p.string(), last);
         if (ok)
+            return a;
+    }
+    error = last;
+    return nullptr;
+}
+
+std::unique_ptr<AccessFiles> AccessFiles::open_control_center(std::string &error)
+{
+    const char *exe = "Virus Control Center.exe";
+    std::vector<fs::path> cands;
+    if (const char *e = std::getenv("VTI_ACCESS_CC"))
+        cands.push_back(e);
+    std::string err;
+    if (auto plugin = open("", err)) { // the Control Center sits next to the plug-in in the installer's Common folder
+        fs::path src(plugin->source());
+        cands.push_back(src.parent_path() / exe);
+    }
+#if defined(_WIN32)
+    for (const char *pf : {"ProgramW6432", "ProgramFiles"})
+        if (const char *p = std::getenv(pf))
+            cands.push_back(fs::path(p) / "Access Music/Virus TI/Common" / exe);
+#elif !defined(__APPLE__)
+    const char *home = std::getenv("HOME");
+    std::string prefix = std::getenv("WINEPREFIX") ? std::getenv("WINEPREFIX") : (home ? std::string(home) + "/.wine" : "");
+    if (!prefix.empty())
+        cands.push_back(fs::path(prefix) / "drive_c/Program Files/Access Music/Virus TI/Common" / exe);
+#endif
+    std::string last = "Access' Virus Control Center not found (it comes with the Virus TI Software Suite installer)";
+    for (auto &p : cands) {
+        std::error_code ec;
+        if (!fs::exists(p, ec))
+            continue;
+        std::unique_ptr<AccessFiles> a(new AccessFiles);
+        bool ok = fs::is_directory(p, ec) ? a->load_dir(p.string(), last, "engine.xml")
+                                          : a->load_pe(p.string(), last, "engine.xml");
+        if (ok && a->files_.count("editor.xml"))
             return a;
     }
     error = last;

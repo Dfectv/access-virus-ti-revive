@@ -80,11 +80,14 @@ fi
 # --- 3. the Access files ---------------------------------------------------------------------------------------------
 say "Access Virus TI files"
 OLD_COMMON="$PREFIX/drive_c/Program Files/Access Music/Virus TI/Common" # TI Revive 0.7 installed Access into Wine
+CC_EXE="Virus Control Center.exe" # optional: the Control Center app takes its look from it
 if [ -f "$ACCESS/Common/Virus Control.dll" ] && [ -f "$ACCESS/Common/firmware.bin" ]; then
     echo "already set up in $ACCESS"
+    [ -f "$ACCESS/Common/$CC_EXE" ] || [ ! -f "$OLD_COMMON/$CC_EXE" ] || cp "$OLD_COMMON/$CC_EXE" "$ACCESS/Common/"
 elif [ -f "$OLD_COMMON/Virus Control.dll" ] && [ -f "$OLD_COMMON/firmware.bin" ]; then
     mkdir -p "$ACCESS/Common"
     cp "$OLD_COMMON/Virus Control.dll" "$OLD_COMMON/firmware.bin" "$ACCESS/Common/"
+    [ ! -f "$OLD_COMMON/$CC_EXE" ] || cp "$OLD_COMMON/$CC_EXE" "$ACCESS/Common/"
     echo "taken from the Access installation in the Wine prefix $PREFIX"
 else
     MSI="${1:-}"
@@ -115,6 +118,7 @@ else
     SRC=$(dirname "$(dirname "$DLL")") # .../Access Music/Virus TI
     mkdir -p "$ACCESS/Common"
     cp "$SRC/Common/Virus Control.dll" "$SRC/Common/firmware.bin" "$ACCESS/Common/"
+    [ ! -f "$SRC/Common/$CC_EXE" ] || cp "$SRC/Common/$CC_EXE" "$ACCESS/Common/"
     [ -d "$SRC/Documentation" ] && cp -R "$SRC/Documentation" "$ACCESS/"
     LIB_SRC=$(find "$TMP" -type d -path '*Access Music/Virus TI/Patches' | grep -v '/Common/' | head -1)
     if [ -n "$LIB_SRC" ]; then # factory patch libraries; existing files (your own libraries) stay untouched

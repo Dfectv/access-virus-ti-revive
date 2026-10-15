@@ -55,6 +55,29 @@ dump / request, multi dump, bank info / request, sync ping), parameter changes b
 Virus Control", ASIO driver, Control Center, tirevive-cc). The Windows broker has no owner (every client
 shares the Virus, as before); there an observer simply gets no raw RX and the status says "owner=shared".
 
+## The Access look
+
+When the user's Access installer contains Access' "Virus Control Center" (Windows/Linux: `Virus Control
+Center.exe`; the setup scripts copy it next to `Virus Control.dll`, the Wine prefix of 0.7 also works), the app looks
+like it: `AccessFiles::open_control_center` reads its resources at runtime (layout `editor.xml`, 103 PNGs; nothing of
+it is in this repository), `src/cc/ccskin.*` reads the layout (containers and controls with positions, images and
+visibility expressions), `ccapp/skinview.*` draws it with the original's image conventions (two-frame buttons,
+pressed `_PRS` images, the pulsing OK strip, the 6 x 9 LCD font) and `ccapp/skinpage.*` puts TI Revive's logic behind
+it (`engine.xml`, the original's logic, is not used):
+
+- start and device selector as in the original (one Virus; the model picture: TI Desktop, TI Snow when the USB
+  product says so - USB does not tell Desktop, Keyboard and Polar apart; OS version "-": no request for it is
+  documented);
+- Backup & Restore: BACKUP proposes a dated folder in `Virus TI/Backups` (a click on the path field chooses
+  another), OK runs the backup; progress and result in the footer. RESTORE is dimmed (later);
+- Burn Flash ROM and OS Updater: the original pages with a note that TI Revive does not offer them; their controls
+  are hidden or dimmed;
+- our additions in the original's empty footer (with its blank button image): NERD MODE, CONVERT LIBRARY, PLAIN VIEW;
+  the plain page has an "Access look" button back.
+
+Without the file the app shows its plain page. macOS: not yet (the original there is an old 32-bit app; where its
+images are is still to check).
+
 ## How it works
 
 - `src/cc/controlcenter.*` (in `vticore`), `tools/tirevive-cc.cpp` and `ccapp/ccapp.cpp`. They talk to the Virus through the TI Revive
@@ -87,6 +110,10 @@ shares the Virus, as before); there an observer simply gets no raw RX and the st
   first build crashed at start: VSTGUI's menu building calls the window controller without a null check, so the app
   now passes one.
 - macOS: the app bundle from the pkg is universal and signed; not started yet (needs the GUI session).
+- 2026-10-15, Linux, TI2, Access look (Xvfb + XTest, Access' Control Center from the Wine prefix): device selector
+  with the Virus, OK to Backup & Restore, BACKUP + OK wrote RAM A..D (cache current, 0 read), Burn Flash and OS
+  Updater show the note, footer buttons to Nerd mode / plain view and back. Not checked: the folder dialog (zenity's
+  GTK 4 dialog does not draw on a bare Xvfb), Windows (only built).
 - 2026-10-15, Linux, TI2 (new broker run by hand, the installed one stopped meanwhile): `tirevive-cc watch` as
   observer while `tirevive-cc info` owned the Virus (both in the status; descriptor requests and bank info requests /
   replies decoded) and while the plug-in started in `nativehost` (globals by name, multi dump, 16 single dumps

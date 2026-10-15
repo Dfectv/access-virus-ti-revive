@@ -16,6 +16,7 @@ $ErrorActionPreference = 'Stop'
 $title = 'TI Revive'
 $target = Join-Path $env:ProgramW6432 'Access Music\Virus TI'
 $needed = 'Virus Control.dll', 'firmware.bin' # in ...\Common
+$optional = 'Virus Control Center.exe'      # ...\Common: the TI Revive Control Center takes its look from it
 function Say([string]$text, [string]$icon = 'Information') {
     if ($Quiet) { Write-Host "$icon`: $text"; return }
     Add-Type -AssemblyName System.Windows.Forms
@@ -39,7 +40,7 @@ if ($Elevated) {
     if ($RemoveAccess -and ($p = AccessProduct)) {
         Remove-Item -Recurse -Force $keep -ErrorAction SilentlyContinue
         New-Item -ItemType Directory -Force "$keep\Common" | Out-Null
-        foreach ($f in $needed) { Copy-Item (Join-Path $target "Common\$f") "$keep\Common\" -ErrorAction SilentlyContinue }
+        foreach ($f in $needed + $optional) { Copy-Item (Join-Path $target "Common\$f") "$keep\Common\" -ErrorAction SilentlyContinue }
         if (Test-Path "$target\Documentation") { Copy-Item -Recurse "$target\Documentation" $keep }
         $r = Start-Process msiexec.exe -ArgumentList "/x $($p.PSChildName) /qb /norestart" -Wait -PassThru
         Write-Host "removing the Access installation: $($r.ExitCode)"
@@ -59,6 +60,7 @@ if ($Elevated) {
         $src = Join-Path $Extracted 'Access Music\Virus TI'
         New-Item -ItemType Directory -Force "$target\Common" | Out-Null
         foreach ($f in $needed) { Copy-Item (Join-Path $src "Common\$f") "$target\Common\" -Force }
+        foreach ($f in $optional) { Copy-Item (Join-Path $src "Common\$f") "$target\Common\" -Force -ErrorAction SilentlyContinue }
         if (Test-Path "$src\Documentation") { Copy-Item -Recurse -Force "$src\Documentation" $target }
     }
     exit 0

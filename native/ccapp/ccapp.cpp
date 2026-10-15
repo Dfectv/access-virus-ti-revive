@@ -10,6 +10,7 @@
 #include "access/library.h"
 #include "cc/controlcenter.h"
 #include "nerdmode.h"
+#include "skinpage.h"
 #include "model/remotedevice.h"
 #include "vstgui/lib/cfileselector.h"
 #include "vstgui/lib/cframe.h"
@@ -40,7 +41,8 @@ namespace {
 
 const CColor kBack(43, 43, 43), kText(230, 230, 230), kDim(160, 160, 160), kAccent(240, 170, 60);
 constexpr CCoord W = 640, H = 470, M = 20;
-enum Tag { kRefresh = 1, kBackup, kCancel, kFolder, kExport, kNerd };
+enum Tag { kRefresh = 1, kBackup, kCancel, kFolder, kExport, kNerd, kSkin };
+enum UiPage { kPlainPage, kSkinPage, kNerdPage };
 const Command kNerdCommand{"View", "Nerd mode"};
 
 // What the worker reports; the UI thread reads it in the timer.
@@ -77,15 +79,24 @@ public:
         main_->setBackgroundColor(kBack);
         frame_->addView(main_);
         build();
-        nerd_ = tirevive::make_nerd_page(TIREVIVE_VERSION, [this] { show_nerd(false); });
+        nerd_ = tirevive::make_nerd_page(TIREVIVE_VERSION, [this] { show_page(look_); });
         frame_->addView(nerd_);
+        // the look of Access' Virus Control Center, when the user's installer has it (else the plain page)
+        std::string err;
+        skin_ = tirevive::make_skin_page(vti::AccessFiles::open_control_center(err), TIREVIVE_VERSION,
+                                         {[this] { show_page(kNerdPage); }, [this] { export_library(); },
+                                          [this] { show_page(kPlainPage); }},
+                                         err);
+        if (skin_)
+            frame_->addView(skin_);
+        else
+            buttons_[6]->setVisible(false);
         window_->setContentView(frame_);
-        window_->setSize({W, H}); // the GTK backend does not apply config.size by itself
         window_->registerWindowListener(this);
+        set(&Shared::folder, vti::cc::default_backup_dir());
+        show_page(skin_ ? kSkinPage : kPlainPage); // also sets the window size (GTK does not apply config.size)
         window_->show();
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) { tick(); }, 100, true);
-        set(&Shared::folder, vti::cc::default_backup_dir());
-        refresh();
     }
     // "View > Nerd mode" in the menu (macOS menu bar, the window's menu on Windows)
     bool canHandleCommand(const Command &c) override { return c == kNerdCommand; }
@@ -93,7 +104,7 @@ public:
     {
         if (c != kNerdCommand)
             return false;
-        show_nerd(true);
+        show_page(kNerdPage);
         return true;
     }
 
@@ -115,17 +126,20 @@ public:
         case kCancel: stop_ = true; break;
         case kFolder: choose_folder(); break;
         case kExport: export_library(); break;
-        case kNerd: show_nerd(true); break;
+        case kNerd: show_page(kNerdPage); break;
+        case kSkin: show_page(kSkinPage); break;
         }
     }
 
 private:
     WindowPtr window_;
     SharedPointer<CFrame> frame_;
-    CViewContainer *main_ = nullptr, *nerd_ = nullptr; // the two pages, owned by the frame
+    CViewContainer *main_ = nullptr, *nerd_ = nullptr, *skin_ = nullptr; // the pages, owned by the frame
+    UiPage look_ = kPlainPage; // plain or Access look: where Nerd mode's "Back" returns to
+    bool plain_refreshed_ = false;
     SharedPointer<CVSTGUITimer> timer_;
     CTextLabel *device_ = nullptr, *banks_[4] = {}, *status_ = nullptr, *folder_ = nullptr;
-    CTextButton *buttons_[6] = {};
+    CTextButton *buttons_[7] = {};
     Shared sh_;
     std::thread worker_;
     std::atomic<bool> busy_{false}, stop_{false};
@@ -174,6 +188,7 @@ private:
         static_cast<CMultiLineTextLabel *>(status_)->setLineLayout(CMultiLineTextLabel::LineLayout::wrap);
         main_->addView(status_);
         buttons_[5] = button(W - M - 110, 14, 110, kNerd, "Nerd mode");
+        buttons_[6] = button(W - M - 230, 14, 110, kSkin, "Access look");
         auto *note = new CMultiLineTextLabel(CRect(M, 372, W - M, H - 10));
         note->setText("Read-only: nothing is written to the Virus. Close the TI Revive plug-in (or your DAW) first: "
                       "the Virus serves one program at a time. Firmware/OS updates, Burn To Flash and factory reset "
@@ -187,16 +202,27 @@ private:
         main_->addView(note);
     }
 
-    // Nerd mode is a page of this window (a second window stayed blank on Linux/GTK); the window grows for it
-    void show_nerd(bool on)
+    // The pages share this window (a second window stayed blank on Linux/GTK); the window takes each one's size.
+    // Only one page talks to the broker at a time: it serves one program (and one connection) at a time.
+    void show_page(UiPage p)
     {
-        CCoord w = on ? tirevive::kNerdWidth : W, h = on ? tirevive::kNerdHeight : H;
-        main_->setVisible(!on);
-        tirevive::set_nerd_page_active(nerd_, on);
-        frame_->setSize(w, h);
-        window_->setSize({w, h});
-        window_->setTitle(on ? "TI Revive Control Center - Nerd mode" : "TI Revive Control Center");
+        if (p != kNerdPage)
+            look_ = p;
+        CPoint size = p == kNerdPage ? CPoint(tirevive::kNerdWidth, tirevive::kNerdHeight)
+                      : p == kSkinPage ? tirevive::skin_page_size(skin_)
+                                       : CPoint(W, H);
+        main_->setVisible(p == kPlainPage);
+        tirevive::set_nerd_page_active(nerd_, p == kNerdPage);
+        if (skin_)
+            tirevive::set_skin_page_active(skin_, p == kSkinPage);
+        frame_->setSize(size.x, size.y);
+        window_->setSize(size);
+        window_->setTitle(p == kNerdPage ? "TI Revive Control Center - Nerd mode" : "TI Revive Control Center");
         frame_->invalid();
+        if (p == kPlainPage && !plain_refreshed_) {
+            plain_refreshed_ = true;
+            refresh();
+        }
     }
 
     void tick()

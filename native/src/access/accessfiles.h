@@ -17,6 +17,10 @@ public:
     // Locate and open the Access installation. `hint` may name Virus Control.dll / .bundle or its folder; empty =
     // search the standard locations (and $VTI_ACCESS_DIR). Returns nullptr and sets `error` if nothing is found.
     static std::unique_ptr<AccessFiles> open(const std::string &hint, std::string &error);
+    // The skin of Access' "Virus Control Center" (layout editor.xml + engine.xml and its PNGs, resources of
+    // "Virus Control Center.exe"; a folder with those files also works), for TI Revive's Control Center app.
+    // Searched next to the plug-in's Access files, in the Wine prefix and in Program Files; $VTI_ACCESS_CC overrides.
+    static std::unique_ptr<AccessFiles> open_control_center(std::string &error);
 
     // File by its Access name, case-insensitive ("editor.xml", "BG_Page_Browser.png"); empty if missing.
     const std::vector<uint8_t> &get(const std::string &name) const;
@@ -36,8 +40,9 @@ private:
                                    std::vector<uint8_t> *binary = nullptr, size_t *offset = nullptr) const;
     std::map<std::string, std::vector<uint8_t>> files_; // key: lower-case name
     std::string source_;
-    bool load_pe(const std::string &dll, std::string &error);
-    bool load_dir(const std::string &dir, std::string &error);
+    // `required`: a resource the file must contain to count (the plug-in's: remotedevice.xml)
+    bool load_pe(const std::string &dll, std::string &error, const char *required = "remotedevice.xml");
+    bool load_dir(const std::string &dir, std::string &error, const char *required = "remotedevice.xml");
 };
 
 } // namespace vti

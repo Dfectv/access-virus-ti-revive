@@ -29,7 +29,11 @@ Evidence: [evidence.md](evidence.md) (E001-E145), protocol: [spec.md](spec.md); 
   (installed 0.8.1 broker stopped for the test and restored). (4) Windows broker observer DONE (VM test without Virus),
   macOS broker + CLI built on the M3 and tested without Virus (Virus is on the Linux PC), CI run 38718444950 green,
   merged. Open: the app's Nerd mode page on Windows/macOS only built, not looked at; Live with the Virus on
-  Windows/macOS. Later ideas: timing view (klog as a switch), filter by part/kind, save the live view. No "send SysEx" console (rule 2).
+  Windows/macOS. Later ideas: timing view (klog as a switch), filter by part/kind, save the live view.
+- **Access look of the Control Center** (branch `cc-skin`, user's wish 2026-10-15): layout + images of Access'
+  Control Center exe at runtime (native/docs/controlcenter.md "The Access look"), tested on Linux under Xvfb.
+  Setup scripts copy `Virus Control Center.exe` (Linux/Windows). Open: Windows look check, macOS source of the
+  images, model choice (Desktop/Keyboard/Polar), real folder dialog check on a desktop. No "send SysEx" console (rule 2).
 - Mac broker: the MIDI driver stand-in (`vtimidi_start`, VirusTICommMem, E100) only served the original plug-in of
   the classic path; it is now opt-in (`VTI_BROKER_MIDISHIM=1`). Without a reader its ring overflowed ("MDR ring full,
   dropping" in 0.8.1 broker logs). Tested on the M3 + TI2 with a broker built there: autest (native AU) connects,
