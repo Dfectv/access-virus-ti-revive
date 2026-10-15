@@ -1,8 +1,13 @@
 # HANDOFF
 
-_Last updated: 2026-10-15 (0.8.2 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-15 (0.8.3 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E147), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
+
+## 0.8.3 (2026-10-15, RELEASED: CI run 38750678863, all jobs green, Latest)
+
+- The fixes from issue #5 (scan, state growth E147, first-sync estimate, dev tools). Open: the user's Windows check
+  with a Virus (0.8.2 + 0.8.3 parts: Control Center, Nerd mode, plug-in).
 
 ## 0.8.2 (2026-10-15, RELEASED: CI run 38734447522, all jobs green, Latest)
 
