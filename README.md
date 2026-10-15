@@ -2,53 +2,40 @@
 
 **Total Integration for the Access Virus TI on Windows 11, on Apple Silicon Macs and (experimental) on Linux — without the old drivers.**
 
-TI Revive brings the Access Virus TI (Desktop, Polar, Keyboard, Snow) back to current computers: the original
-Virus TI plug-in with its "Total Integration" works again — parameter sync, preset browsing, the Virus audio
-streamed into your DAW through the plug-in — using your own Access software, without the old Access drivers that
-current systems can no longer load. No kernel code of its own is installed.
+TI Revive brings the Access Virus TI (Desktop, Polar, Keyboard) back to current computers. Since 0.8.0 it comes
+with **"TI Revive Virus Control"**: a plug-in written from scratch that looks and works like the original Virus
+Control - parameter sync, preset browser, patch libraries, automation, the Virus audio in your DAW - and runs natively
+on Windows, macOS (Apple Silicon and Intel) and Linux, without the old Access drivers, Rosetta, Wine or yabridge. It
+reads the skin, the parameter descriptions and the ROM banks from your own Access installer at runtime; TI Revive
+contains no Access material. No kernel code of its own is installed.
 
 > ☕ **TI Revive is free, and it will stay free.** The whole idea is to bring the Virus TI back to life for
 > everyone, at no cost. If it gives your Virus a second life and you'd like to say thanks, you're welcome to
 > [buy me a coffee](https://buymeacoffee.com/callmederpsn). That's entirely optional and never expected:
 > every feature works the same either way. A bug report, a test with your setup or a kind word helps just as much.
 
-| | Windows 11 | macOS on Apple Silicon | Linux (experimental) |
+| | Windows 11 | macOS | Linux |
 |---|---|---|---|
-| **Download** ([Releases](https://github.com/derpsn/access-virus-ti-revive/releases)) | `TI-Revive-<version>-setup.exe` (or the same as `.msi`) | `TI-Revive-<version>-mac.zip` (since 0.5.0, beta) | `TI-Revive-<version>-linux.tar.gz` (since 0.7.0) |
-| **System** | Windows 11 x64 (also Windows 10) | M1 or newer, macOS 14.4 or newer, Rosetta 2 | x86_64, Wine 9.22+ / 10, yabridge newer than 5.1.1, systemd |
-| **You need** | your own Access "Virus TI Software Suite" 64-bit `.msi` | your own Access "Virus TI Software Suite" `.pkg` | your own Access 64-bit `.msi` (installed into Wine) |
-| **In your DAW** | plug-in **"Virus TI (TI Revive)"** (VST3), ASIO device "Virus TI (TI Revive)" | plug-in **"Virus TI (TI Revive)"** (VST3 and Audio Unit); the DAW runs natively | plug-in **"Virus TI (TI Revive)"** (VST3 through yabridge); the DAW runs natively |
-| **Virus Control Center** | yes | not on current macOS (the Access app is 32-bit) | no |
-| **Tested with** | Ableton Live 11 (Windows 11 PC and VM, Windows 10); REAPER connects | Ableton Live 12 (VST3) and GarageBand (Audio Unit, passes Apple's `auval`) on a MacBook Air M3, macOS 26; Logic Pro and other hosts untested | REAPER 7.82 on Ubuntu 26.04 (GNOME, Wayland), Wine 10.0 |
+| **Download** ([Releases](https://github.com/derpsn/access-virus-ti-revive/releases)) | `TI-Revive-<version>-setup.exe` (or the same as `.msi`) | `TI-Revive-<version>-mac.zip` | `TI-Revive-<version>-linux.tar.gz` |
+| **System** | Windows 11 x64 (also Windows 10) | macOS 14.4 or newer (the plug-in itself: Apple Silicon and Intel) | x86_64, Ubuntu 22.04 / Debian 12 or newer, systemd |
+| **You need** | your own Access "Virus TI Software Suite" 64-bit `.msi` (only unpacked, not installed) | your own Access "Virus TI Software Suite" `.pkg` | your own Access 64-bit `.msi` (only unpacked: msitools or Wine) |
+| **In your DAW** | VST3 **"TI Revive Virus Control"**; ASIO device **"TI Revive Virus Audio"** (the Virus as sound card) | VST3 **"TI Revive Virus Control"**; Logic/GarageBand: Audio Unit "Virus TI (TI Revive)" | VST3 **"TI Revive Virus Control"** |
+| **Tested with** | Ableton Live 11 (Windows 11 PC and VM) | Ableton Live 12 on a MacBook Air M3 (VST3), GarageBand (AU) | REAPER 7.82 on Ubuntu 26.04 |
 
-### New: the native plug-in "TI Revive Virus Control"
-
-Since 0.8.0 TI Revive also installs **"TI Revive Virus Control"**: a new plug-in written from scratch that looks and
-works like the original Virus Control - same pages, browser, patch libraries, automation, bank sync - but runs
-natively on Windows, on Apple Silicon and Intel Macs, and on Linux, **without Rosetta, Wine or yabridge**. It loads
-the skin, the parameter descriptions and the ROM banks at runtime from your own Access installation; no Access
-material is part of TI Revive.
-
-| | Windows | macOS | Linux |
-|---|---|---|---|
-| plug-in | VST3 "TI Revive Virus Control" | VST3 (universal: Apple Silicon and Intel) | VST3 in `~/.vst3` (Ubuntu 22.04 / Debian 12 or newer) |
-| sound card | ASIO device **"TI Revive Virus Audio"**: 6 in (analog in, USB 1, USB 2) / 2 out, no Access driver needed | - | - |
-| tested | Ableton Live 11 (Windows 11 PC) | Ableton Live 12 (M3) | REAPER 7.82 |
-
-- Timing: notes land sample-accurately on the grid (measured < 0.1 ms jitter on Linux and macOS), the plug-in
+- **Timing:** notes land sample-accurately on the grid (measured < 0.1 ms jitter on Linux and macOS); the plug-in
   reports its latency so the DAW compensates it. Any host sample rate works (the Virus runs at 44.1 kHz, the plug-in
   converts).
-- The first start reads RAM A-D from the Virus (a few minutes without a cache); you can play meanwhile - the sync
-  pauses while notes arrive.
-- It has its own plug-in ID: projects saved with "Virus TI (TI Revive)" keep using that plug-in, which stays
-  installed as before. Audio Unit (Logic, GarageBand) and Virus Control Center are still provided by the classic
-  TI Revive plug-in only.
-- **Virus TI Snow:** not supported by the native plug-in yet.
-
-**Virus TI Snow:** being tested. If TI Revive does not find your Snow, please run
-[`tirevive-usbinfo.ps1`](scripts/tirevive-usbinfo.ps1) (also attached to each release: right-click → *Run with
-PowerShell*) with the Snow connected and attach the `TI-Revive-usbinfo.txt` it saves on your Desktop to a
-[GitHub issue](https://github.com/derpsn/access-virus-ti-revive/issues). It only reads USB information.
+- **First start:** the plug-in reads RAM A-D from the Virus (a few minutes without a cache); you can play meanwhile -
+  the sync pauses while notes arrive.
+- **Coming from 0.7.x:** the classic plug-in "Virus TI (TI Revive)" (the original Access plug-in in a wrapper) is
+  replaced. Projects saved with it open with "TI Revive Virus Control" (same plug-in ID). The Access software that
+  earlier versions installed is offered for removal; the files the plug-in needs stay.
+- **Virus TI Snow:** not supported by 0.8.0 yet. **Snow owners please stay with
+  [TI Revive 0.7.4](https://github.com/derpsn/access-virus-ti-revive/releases/tag/v0.7.4)** for now (its classic
+  plug-in "Virus TI Snow (TI Revive)" works on Windows). If TI Revive does not find your Snow, run
+  [`tirevive-usbinfo.ps1`](scripts/tirevive-usbinfo.ps1) with the Snow connected and attach the
+  `TI-Revive-usbinfo.txt` it saves on your Desktop to a [GitHub issue](https://github.com/derpsn/access-virus-ti-revive/issues).
+- **Virus Control Center** (Windows) is not part of 0.8.0; it needed the full Access installation.
 
 > TI Revive is an independent project. It is **not affiliated with Access Music Electronics GmbH or
 > Kemper GmbH**. "Access", "Virus" and "Virus TI" are trademarks of their owners and are used only to
@@ -65,23 +52,25 @@ Requirements: Windows 11 x64 (TI Revive also runs on Windows 10, but there the o
 work and are the simpler choice), an Access Virus TI on USB, your own **Access "Virus TI Software Suite"
 64-bit installer** (`.msi`, e.g. 5.1.7), a VST3 host.
 
-1. Do **not** install the Access software on its own first (it would try to install the blocked driver
-   and run its firmware updater). If it is already installed, that is fine — TI Revive removes the
-   old driver packages.
+1. You do **not** need to install the Access software: TI Revive only unpacks the files its plug-in needs. If the
+   Access software is already installed (TI Revive 0.7 installed it), that is fine - TI Revive offers to remove
+   it and keeps those files.
 2. Put `TI-Revive-<version>-setup.exe` and the Access `.msi` in the same folder (or in *Downloads*).
    The `.msi` of the same release is the identical installer without the `setup.exe` wrapper; use either one
    (if double-clicking an `.msi` does nothing on your PC, take the `setup.exe`).
 3. Run it. The installer is not code-signed (a certificate costs money), so Windows SmartScreen
    may show **"Windows protected your PC"**: click **More info → Run anyway**. On the last page keep
-   **"Install the Access Virus TI software now"** checked: TI Revive installs your Access software **without its
-   old drivers and without the firmware updater** (a local copy of the MSI with those steps disabled).
-4. Connect the Virus TI. In your DAW, rescan plug-ins and use **"Virus TI (TI Revive)"** (not the
-   original "Virus TI"). Start Control Center from **Start → TI Revive → Virus Control Center (TI Revive)**.
+   **"Set up the Access Virus TI files now"** checked: TI Revive unpacks your Access `.msi` (nothing of it is
+   installed) and copies `Virus Control.dll`, `firmware.bin` and the manuals to `C:\Program Files\Access Music\Virus
+   TI` and the factory patch libraries to *Documents\Access Music\Virus TI\Patches*. Later: *Start → TI Revive →
+   Set up Access Virus TI files*.
+4. Connect the Virus TI. In your DAW, rescan plug-ins and use **"TI Revive Virus Control"** (vendor *TI Revive*).
+   For the Virus as a sound card choose the ASIO device **"TI Revive Virus Audio"**.
 
-Uninstall via *Settings → Apps → TI Revive* (removes driver package, certificate, broker, plug-in and
-shortcuts). The Access software is uninstalled separately.
+Uninstall via *Settings → Apps → TI Revive* (removes driver package, certificate, broker, plug-in, ASIO driver and
+shortcuts). Your patch libraries and the Access files stay.
 
-### macOS (Apple Silicon)
+### macOS
 
 Requirements: a Mac with Apple Silicon (M1 or newer), macOS 14.4 or newer, Rosetta 2 (`Install Access Virus TI software.command`
 checks it and offers to install it — a DAW starting the plug-in does not trigger macOS' own Rosetta prompt),
@@ -92,49 +81,42 @@ Intel-only plug-ins), that works too since 0.7.3: TI Revive's plug-in is univers
 
 Unpack `TI-Revive-<version>-mac.zip`. Both parts are needed, in any order:
 
-1. **`TI Revive.pkg`** installs TI Revive: the native plug-in (VST3 and Audio Unit), its helper, the USB service and TI Revive's
-   replacement for Access' driver library. It is not signed: right-click → *Open*, or *System Settings → Privacy &
-   Security → Open Anyway*.
-2. **`Install Access Virus TI software.command`** installs **your own, unmodified Access plug-ins** from your
-   Access `.pkg` (put it next to the script) — only the plug-in and Virus Control parts, **without** Access'
-   driver packages, which the Access installer cannot leave out and which cannot run on Apple Silicon anyway.
+1. **`TI Revive.pkg`** installs TI Revive: the plug-in **"TI Revive Virus Control"** (VST3, native on Apple Silicon
+   and Intel), the Audio Unit for Logic/GarageBand with its helper, the USB service and TI Revive's replacement for
+   Access' driver library. It is not signed: right-click → *Open*, or *System Settings → Privacy & Security → Open
+   Anyway*.
+2. **`Install Access Virus TI software.command`** installs **your own, unmodified Access software** from your
+   Access `.pkg` (put it next to the script) - only the plug-in and Virus Control parts, **without** Access' driver
+   packages. The plug-in reads its skin and ROM banks from there; the Audio Unit runs the original under Rosetta.
    If the Access software is already installed, skip this step.
 
 Then connect the Virus, start your DAW and **allow it to use the microphone** when macOS asks (*System Settings →
 Privacy & Security → Microphone*): macOS gives the Virus' audio only to apps with that permission. Rescan
-plug-ins and use **"Virus TI (TI Revive)"**. After loading, the sound starts after about 5 seconds.
-
-Your DAW will also list (or, like Cubase, blocklist) the original **"Virus TI"** plug-in as unusable: it is Intel-only
-and cannot load in a native DAW — that is expected; TI Revive loads it in the background. Use only **"Virus TI (TI Revive)"**.
-Tested additionally with Cubase 15 (VST3).
+plug-ins and use **"TI Revive Virus Control"** (VST3). Projects saved with the VST3 "Virus TI (TI Revive)" of
+earlier versions open with it. Your DAW may also list the original **"Virus TI"** plug-in as unusable (Intel-only):
+that is expected.
 
 Uninstall with `Uninstall TI Revive.command` (also in `/Library/Application Support/TI Revive`); it removes only
-TI Revive (the Access plug-ins are removed with Access' own uninstaller). Without TI Revive a native DAW has no
-usable Virus plug-in, and sets that use "Virus TI (TI Revive)" cannot load.
+TI Revive (the Access plug-ins are removed with Access' own uninstaller).
 
-### Linux (experimental)
+### Linux
 
-Requirements: an x86_64 Linux with systemd (tested: Ubuntu 26.04), **Wine** (e.g. `sudo apt install wine`),
-**yabridge newer than 5.1.1** — the 5.1.1 release ignores mouse clicks in plug-in windows with Wine 9.22 and newer
-(yabridge [#409](https://github.com/robbert-vdh/yabridge/issues/409)); use a build from the project's *Automated
-builds* until a new release is out — a native VST3 host (REAPER, Bitwig, Ardour, …) and your own Access 64-bit
-`.msi`.
+Requirements: an x86_64 Linux with systemd (Ubuntu 22.04 / Debian 12 or newer; tested: Ubuntu 26.04), a VST3 host
+(REAPER, Bitwig, Ardour, …), your own Access 64-bit `.msi` and, to unpack it, **msitools** (`sudo apt install
+msitools`) or Wine. Wine and yabridge are no longer needed for the plug-in.
 
 1. Unpack `TI-Revive-<version>-linux.tar.gz` and run `./install.sh "/path/to/Virus TI Software Suite 5.1.7.00 64-bit.msi"`.
    It allows your user to use the Virus over USB (udev rule, asks for your password once), installs the TI Revive
-   broker as a systemd user socket, installs your Access software into your Wine prefix **without its old drivers
-   and firmware updater**, copies the plug-in and bridges it with yabridge.
+   broker as a systemd user socket, unpacks the Access files the plug-in needs (nothing of Access is installed)
+   and copies **"TI Revive Virus Control"** to `~/.vst3`. The classic plug-in of 0.7 (Wine + yabridge) is removed;
+   its projects open with the new one.
 2. For stable real-time audio, let your user use real-time priority (Ubuntu: `sudo usermod -aG pipewire $USER`,
    then log out and in).
-3. In your DAW, rescan plug-ins and use **"Virus TI (TI Revive)"**. The first start syncs the Virus' memory once
-   (about 7 minutes); later starts play after a few seconds.
+3. In your DAW, rescan plug-ins and use **"TI Revive Virus Control"**.
 
-Audio in your DAW: **JACK through PipeWire** works best (`sudo apt install pipewire-jack`, PipeWire at 44.1 kHz / 512 —
-see `README-linux.txt` — and start the DAW with `pw-jack`); ALSA directly works too. **Not PulseAudio** — its irregular
-block sizes make the Virus report timing errors (messy sound, hanging notes). Also quit the DAW normally: the plug-in
-saves the synced Virus memory only on a clean exit (killing it, e.g. Ctrl+C in a terminal, means another sync).
-While TI Revive uses the Virus, it is not available as a Linux sound card; it is handed back about 30 seconds after
-the plug-in is closed. Uninstall with `./uninstall.sh`. Details: `README-linux.txt` in the package.
+Any sample rate works; JACK through PipeWire (`pw-jack reaper`) works well, avoid PulseAudio as the DAW's audio
+system. While TI Revive uses the Virus, it is not available as a Linux sound card; it is handed back about 30 seconds
+after the plug-in is closed. Uninstall with `./uninstall.sh`. Details: `README-linux.txt` in the package.
 
 ## Good to know
 
@@ -164,12 +146,8 @@ same with Access' own driver.
 **Windows**
 
 - REAPER loads and connects the plug-in; make sure the track is record-armed with a MIDI input and monitoring on.
-- **Audio buffer size** must be 64, 128, 256 or 512 samples, otherwise the plug-in reports
-  "communication problems" (original behaviour).
-- **Virus as sound card**: choose the ASIO device **"Virus TI (TI Revive)"** (not the Access "Virus USB ASIO
-  driver" entry) to play your DAW through the Virus outputs and record its analog inputs; buffer 256 samples.
-  Keep the Virus "USB Audio mode" (Patch Utility -> Config) at **2 outs / no input**: that is the sound card
-  mode ("3 outs / 1 input" disables it).
+- **Virus as sound card**: choose the ASIO device **"TI Revive Virus Audio"** to play your DAW through the Virus
+  outputs and record its inputs (analog in, USB 1, USB 2); buffer 256 samples. No Access driver is needed.
 - **No Windows (WDM) sound card**: the Virus audio function runs on WinUSB and is streamed by TI Revive itself
   (as with the old Access driver), so "Line (Virus TI)" / "Speakers (Virus TI)" no longer appear in Windows;
   use the ASIO device in your DAW. When you update from TI Revive 0.2.x, the audio part of the Virus switches to
@@ -213,6 +191,11 @@ understand what the old drivers actually do, and to replace them with something 
 accept — so the synth, the plug-in and the user's existing Access software keep working.
 
 ## How it works
+
+Since 0.8.0 the plug-in is **"TI Revive Virus Control"**, a native rewrite: how it works per platform is in
+[`native/docs/architecture.md`](native/docs/architecture.md). The sections below describe the classic plug-in of
+TI Revive 0.7.x (the original Access plug-in in a wrapper), which 0.8.0 replaces; the broker, the USB layer and the
+driver package described there are still the ones the native plug-in uses.
 
 ### Windows
 

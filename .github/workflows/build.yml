@@ -210,24 +210,25 @@ jobs:
         run: |
           v="${GITHUB_REF_NAME#v}"
           cat > notes.md <<EOF_NOTES
-          **TI Revive $v** - Total Integration for the Access Virus TI without the old Access drivers.
+          **TI Revive $v** - Total Integration for the Access Virus TI without the old Access drivers, now with the
+          native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
+          natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
           **Windows 10/11 x64:** download \`TI-Revive-$v-setup.exe\` (or the same installer as \`TI-Revive-$v.msi\`)
           and put your own Access "Virus TI Software Suite" 64-bit \`.msi\` next to it. Run it (not code-signed:
-          SmartScreen -> More info -> Run anyway) and keep "Install the Access Virus TI software now" checked on the
-          last page.
+          SmartScreen -> More info -> Run anyway) and keep "Set up the Access Virus TI files now" checked: the Access
+          .msi is only unpacked, not installed. Sound card: ASIO device **"TI Revive Virus Audio"**.
 
-          **macOS on Apple Silicon (14.4+):** download \`TI-Revive-$v-mac.zip\`, run \`TI Revive.pkg\`
-          (not signed: right-click > Open), then \`Install Access Virus TI software.command\` with your own
-          Access \`.pkg\` next to it. Your DAW runs natively; allow it to use the microphone. Details: README-mac.txt.
+          **macOS 14.4+:** download \`TI-Revive-$v-mac.zip\`, run \`TI Revive.pkg\` (not signed: right-click > Open),
+          then \`Install Access Virus TI software.command\` with your own Access \`.pkg\` next to it. Allow your DAW
+          to use the microphone. Logic/GarageBand: Audio Unit "Virus TI (TI Revive)". Details: README-mac.txt.
 
-          **Linux (x86_64):** download \`TI-Revive-$v-linux.tar.gz\`, unpack it and run \`./install.sh\` (details:
-          README-linux.txt).
+          **Linux (x86_64, Ubuntu 22.04 / Debian 12+):** download \`TI-Revive-$v-linux.tar.gz\`, unpack it and run
+          \`./install.sh\` with your Access \`.msi\` (unpacked with msitools or Wine). Details: README-linux.txt.
 
-          In your DAW use the plug-in **"Virus TI (TI Revive)"** - or the new native plug-in **"TI Revive Virus
-          Control"** (VST3 on Windows, macOS and Linux; runs without Rosetta, Wine or yabridge). On Windows the
-          Virus is also a sound card: ASIO device **"TI Revive Virus Audio"**. Virus TI Snow: use "Virus TI (TI
-          Revive)" for now.
+          **Coming from 0.7.x:** the classic plug-in "Virus TI (TI Revive)" is replaced; its projects open with
+          "TI Revive Virus Control". **Virus TI Snow owners: please stay with 0.7.4 for now** - the Snow is not
+          supported by 0.8.0 yet. Virus Control Center is not part of 0.8.0.
 
           Not affiliated with Access Music or Kemper. Contains no Access software. See the
           [README](https://github.com/$GITHUB_REPOSITORY#readme) for how it works, limitations and uninstall.
