@@ -3,7 +3,7 @@
 // (ClassInfo, e.g. one in the classic TI Revive Audio Unit's format) and saves the current one, plays notes and
 // renders, and saves the Cocoa view as PNG.
 // Build: clang++ -std=c++17 -fobjc-arc -o autest autest.mm -framework Cocoa -framework AudioToolbox -framework AudioUnit
-// usage: autest <X.component> [--load state.plist] [--save state.plist] [--png view.png] [--seconds N]
+// usage: autest <X.component> [--load state.plist] [--save state.plist] [--png view.png] [--seconds N] [--no-notes]
 #import <AudioToolbox/AudioToolbox.h>
 #import <AudioUnit/AUCocoaUIView.h>
 #import <Cocoa/Cocoa.h>
@@ -18,9 +18,13 @@
 int main(int argc, char **argv)
 {
     if (argc < 2)
-        return fprintf(stderr, "usage: autest <X.component> [--load f] [--save f] [--png f] [--seconds N]\n"), 1;
+        return fprintf(stderr, "usage: autest <X.component> [--load f] [--save f] [--png f] [--seconds N] [--no-notes]\n"), 1;
     const char *load = nullptr, *save = nullptr, *png = nullptr;
     int secs = 2;
+    bool notes = true;
+    for (int i = 2; i < argc; i++)
+        if (!strcmp(argv[i], "--no-notes")) // e.g. to watch a bank sync run (notes pause it)
+            notes = false;
     for (int i = 2; i + 1 < argc; i += 2) {
         if (!strcmp(argv[i], "--load")) load = argv[i + 1];
         else if (!strcmp(argv[i], "--save")) save = argv[i + 1];
@@ -75,9 +79,9 @@ int main(int argc, char **argv)
         float peak = 0;
         int blocks = secs * 44100 / 512;
         for (int i = 0; i < blocks; i++) {
-            if (i % 86 == 0)
+            if (notes && i % 86 == 0)
                 MusicDeviceMIDIEvent(au, 0x90, 60, 100, 0);
-            if (i % 86 == 43)
+            if (notes && i % 86 == 43)
                 MusicDeviceMIDIEvent(au, 0x80, 60, 0, 0);
             struct { UInt32 n; AudioBuffer b[2]; } abl = {2, {{1, 512 * 4, l.data()}, {1, 512 * 4, r.data()}}};
             AudioUnitRenderActionFlags fl = 0;
@@ -99,7 +103,8 @@ int main(int argc, char **argv)
             printf("ClassInfo get -> %d, saved %s\n", (int)st, [out writeToFile:[NSString stringWithUTF8String:save]
                                                                     atomically:YES] ? save : "FAILED");
         }
-        if (png) { // the Cocoa view, drawn offscreen
+        if (png) @autoreleasepool { // the Cocoa view, drawn offscreen; released (pool drained) before the unit closes:
+            // its tracking-area helpers otherwise outlived the editor and crashed at the outer pool pop (issue #5)
             UInt32 vsz = 0;
             Boolean w;
             if (AudioUnitGetPropertyInfo(au, kAudioUnitProperty_CocoaUI, kAudioUnitScope_Global, 0, &vsz, &w) == noErr && vsz) {
@@ -117,6 +122,11 @@ int main(int argc, char **argv)
                 NSData *p = [rep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
                 printf("view %.0fx%.0f, png %s\n", v.bounds.size.width, v.bounds.size.height,
                        [p writeToFile:[NSString stringWithUTF8String:png] atomically:YES] ? "written" : "FAILED");
+                [v removeFromSuperview]; // the AU's view closes its editor here
+                v = nil;
+                factory = nil;
+                for (int k = 0; k < 10; k++) // let deferred editor work finish while the unit still exists
+                    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.02]];
             } else
                 printf("no Cocoa view\n");
         }

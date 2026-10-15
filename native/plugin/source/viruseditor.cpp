@@ -417,6 +417,11 @@ public:
         renderer_.deps = nullptr;
         if (plugin_->sync_paused()) // under the sync page's progress bar (the original hides the LCD meanwhile)
             renderer_.status_text(canvas_, "FNT_LCD_5x7_Rot.png", "SYNC PAUSED WHILE YOU PLAY", 480, 290, 381, 12);
+        else if (int eta = plugin_->sync_eta(); eta >= 60) { // a first sync: tell how long, not "a couple of seconds"
+            char t[64];
+            snprintf(t, sizeof t, "READING THE VIRUS' BANKS: ABOUT %d MIN LEFT", (eta + 59) / 60);
+            renderer_.status_text(canvas_, "FNT_LCD_5x7_Rot.png", t, 480, 290, 381, 12);
+        }
         {
             long us = (long)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - t0).count();
             plugin_->diag.draw_us += us;

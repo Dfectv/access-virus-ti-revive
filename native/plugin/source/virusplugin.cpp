@@ -1424,8 +1424,14 @@ void VirusPlugin::sync_banks()
                 for (size_t p = 0; p < 128 && p < it->second.size(); p++)
                     bank[p] = it->second[p];
         }
-        int n = sync_->sync_bank(b + 1, bank, [this, b, &bank](int p, bool fetched) {
+        int n = sync_->sync_bank(b + 1, bank, [this, b, &bank, sync_t0](int p, bool fetched) {
             set_sync_progress((b * 128 + p + 1) * 126 / 512);
+            // remaining time at the pace so far (pauses for notes not counted): the original's start page promises
+            // "a couple of seconds", but a first sync takes 8-9 minutes (issue #5)
+            int done = b * 128 + p + 1;
+            int64_t worked = now_ms() - sync_t0 - sync_paused_ms_;
+            if (done >= 8 && worked > 0)
+                sync_eta_s_ = (int)((512 - done) * worked / done / 1000);
             {
                 std::lock_guard<std::mutex> lk(values_mu_); // progress on the LCD
                 lcd_param_ = "Synchronizing " + bank_name(b);
@@ -1458,6 +1464,7 @@ void VirusPlugin::sync_banks()
     rise = false;
     riser.join();
     syncing_ = false;
+    sync_eta_s_ = -1;
     set_sync_progress(127);
     out_->log("Virus TI native: bank sync done in %.1f s\n", (now_ms() - sync_t0) / 1000.0);
     {

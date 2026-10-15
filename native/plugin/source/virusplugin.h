@@ -194,6 +194,7 @@ public:
     std::atomic<int64_t> last_note_ms_{0}; // last note-on from the host (pauses the bank sync)
     int64_t sync_paused_ms_ = 0;           // bank sync thread only: time paused for notes so far
     std::atomic<bool> sync_paused_{false}; // the bank sync waits for a gap between notes
+    std::atomic<int> sync_eta_s_{-1};       // see sync_eta()
     int marker_retries_ = 0; // process(): sync pings sent again after "no marker"
     static int64_t now_ms()
     {
@@ -240,6 +241,8 @@ public:
     }
     bool ui_changed() { return ui_dirty_.exchange(false); }
     bool sync_paused() const { return syncing_.load() && sync_paused_.load(); } // the sync page's note
+    // estimated seconds the bank sync still needs (-1: unknown or done); a first sync reads 512 programs at ~1 s each
+    int sync_eta() const { return syncing_.load() ? sync_eta_s_.load() : -1; }
     bool lcd_changed() { return lcd_dirty_.exchange(false); } // only the LCD texts changed
     // field diagnostics (file ~/.local/share/virus-ti-native/diag.on enables a log every 10 s in diag.log)
     struct Diag {
