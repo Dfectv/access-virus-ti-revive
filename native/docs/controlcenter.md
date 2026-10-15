@@ -60,7 +60,12 @@ The work runs on a worker thread; the app connects to the broker only while an a
   in 2 min 9 s, the library byte-identical to the one from the cache.
 - 2026-10-15, Linux, Virus TI2 Desktop: the app on a virtual X display (Xvfb, clicks through XTest): Refresh shows
   the device and 4 x 128 programs current in the cache; "Back up RAM banks" writes RAM A..D.mid (progress, Cancel
-  active while running, done message), libraries readable with `tirevive-cc list`. File dialogs not tried yet.
+  active while running, done message), libraries readable with `tirevive-cc list`. "Convert library..." opens the
+  zenity file dialog (the conversion itself is the tested `export` code).
+- 2026-10-15, Windows 11 VM (no Virus): the app from the MSI of CI run 38713953474 starts and shows "No Virus". The
+  first build crashed at start: VSTGUI's menu building calls the window controller without a null check, so the app
+  now passes one.
+- macOS: the app bundle from the pkg is universal and signed; not started yet (needs the GUI session).
 - Linux: builds, `list`/`export` round trips on factory libraries (patch data unchanged; only program byte and
   checksums differ). Windows: cross-compiles with mingw-w64.
 - Packages (CI run 38709651579, manual, test version 0.0.1): the pkg's binary is universal and signed and runs

@@ -19,13 +19,16 @@ Evidence: [evidence.md](evidence.md) (E001-E145), protocol: [spec.md](spec.md); 
   and `-isysroot .../MacOSX26.sdk`: the CLT linker rejects the default 27 SDK; no cmake on the Mac): info, backup
   from cache, full RAM D fetch byte-identical (2 min 9 s). Shipped in all packages (MSI: Program Files\TI Revive,
   pkg: /Library/Application Support/TI Revive, Linux: ~/.local/bin via install.sh); README "Backups" section.
-  Next: a UI; RAM restore only after a separate review with the user.
+  **App "TI Revive Control Center"** (native/ccapp, VSTGUI standalone, the user chose it 2026-10-15): device +
+  banks, backup with progress/cancel, library conversion; packaged (MSI + Start menu, /Applications, Linux
+  ~/.local/bin + desktop entry, needs gtkmm 3). Tested: Linux with the TI2 (Xvfb + XTest), Windows VM start (no
+  Virus). Open: start on macOS (user), file dialogs on Windows/macOS. RAM restore only after a separate review.
 - Mac broker: the MIDI driver stand-in (`vtimidi_start`, VirusTICommMem, E100) only served the original plug-in of
   the classic path; it is now opt-in (`VTI_BROKER_MIDISHIM=1`). Without a reader its ring overflowed ("MDR ring full,
   dropping" in 0.8.1 broker logs). Tested on the M3 + TI2 with a broker built there: autest (native AU) connects,
   VTI_TRACE shows 434 writes to EP 0x06 and 129 reads from EP 0x86, tirevive-cc info works; no stand-in log lines.
   Audio could not be checked over SSH (no microphone permission: peak 0 also with the installed 0.8.1 broker) -
-  a DAW check by the user is still open.
+  a DAW check by the user is still open (the user will test sound later). The Virus is back on the Linux PC.
 - `build.yml` can now run by hand: `gh workflow run build --ref <branch> -f version=0.0.1` builds all packages as
   artifacts (the release job still needs a tag). Use it instead of the rehearsal repo before a tag.
 - Later: Linux `library_dir()` and install.sh use `~/Documents` even where the XDG documents folder is localized
