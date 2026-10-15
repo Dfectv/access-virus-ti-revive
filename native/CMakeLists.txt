@@ -68,7 +68,7 @@ if(APPLE AND VTI_NATIVE_AU)
     file(GLOB VTI_AUSDK_SOURCES ${audiounitsdk_SOURCE_DIR}/src/AudioUnitSDK/*.cpp)
     add_library(vti_ausdk STATIC ${VTI_AUSDK_SOURCES})
     target_include_directories(vti_ausdk PUBLIC ${audiounitsdk_SOURCE_DIR}/include)
-    set_target_properties(vti_ausdk PROPERTIES CXX_STANDARD 20) # AudioUnitSDK 1.4 uses C++20 (std::span, concepts)
+    set_target_properties(vti_ausdk PROPERTIES CXX_STANDARD 23) # AudioUnitSDK 1.4: C++23 (std::expected, std::span)
 
     if(NOT TARGET sdk_hosting)
         smtg_create_public_sdk_hosting_target()
@@ -84,7 +84,7 @@ if(APPLE AND VTI_NATIVE_AU)
     # version as the classic Audio Unit encoded it: major << 16 | minor << 8 | patch
     math(EXPR VTI_AU_VERSION "(${PROJECT_VERSION_MAJOR} << 16) | (${PROJECT_VERSION_MINOR} << 8) | ${PROJECT_VERSION_PATCH}")
     configure_file(au/Info.plist.in ${CMAKE_CURRENT_BINARY_DIR}/au-Info.plist @ONLY)
-    set_target_properties(VirusTINative_AU PROPERTIES CXX_STANDARD 20
+    set_target_properties(VirusTINative_AU PROPERTIES CXX_STANDARD 23
         BUNDLE TRUE BUNDLE_EXTENSION component OUTPUT_NAME "TI Revive Virus Control"
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_BINARY_DIR}/au-Info.plist
         LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/AU)
