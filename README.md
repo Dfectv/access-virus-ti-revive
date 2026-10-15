@@ -174,6 +174,62 @@ same with Access' own driver.
 - Logs for bug reports: `/tmp/tirevive-bridge.log`, `/tmp/tirevive-helper.log`, `/tmp/tirevive-libvirususb.log`,
   `/tmp/tirevive-vtibroker.log`.
 
+## Performance and improvements (0.8.0)
+
+What the native plug-in "TI Revive Virus Control" does better than the classic plug-in of 0.7.x, measured on real
+hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](findings/evidence.md) and
+[`native/docs/status.md`](native/docs/status.md).
+
+**Timing** (16th notes at 120 BPM recorded from the Virus' USB audio, onset analysis)
+
+| | Notes on the grid | Jitter (std. dev.) | Max. deviation | Drift |
+|---|---|---|---|---|
+| Classic plug-in 0.7.x (Linux, REAPER) | first note late, second missing | 0.06 ms | 1.31 ms | - |
+| **0.8.0, Linux** (REAPER render) | 256 / 256, first at exactly 2000.00 ms | **0.01 ms** | 0.05 ms | 0 ppm |
+| **0.8.0, macOS** (Ableton 12, M3) | 256 / 256 | **0.02 ms** | 0.28 ms | 0 ppm |
+| **0.8.0, Windows 11 PC** (Ableton 11) | 304 / 304 | ≤ 0.66 ms (upper bound of the method) | - | 0 ppm |
+
+- The plug-in finds the Virus' own clock (a sync marker the Virus puts on USB 2), stamps every event against it and
+  **reports its latency to the DAW**, so delay compensation lines recordings up with the grid (E139-E141, E143).
+- **Any sample rate:** the Virus runs at 44.1 kHz; at other host rates a 32-tap windowed-sinc resampler converts
+  with -90 dB error (1 kHz and 10 kHz test tones at 32/48/88.2/96 kHz), no clicks, same timing.
+
+**CPU and real-time safety**
+
+| | Before | After |
+|---|---|---|
+| Idle CPU (plug-in loaded, Virus connected) | 5 % | **1.4 %** |
+| Stress test (notes on 16 channels + 32 automated parameters every block) | 19 % | **2.9 %** |
+| Automation worker thread | 12.4 % | **~3 %** |
+| `process()` per audio block, 3 Max for Live LFOs on Virus parameters, ~40 min | - | max 122 µs (~1 % of the block), 0 dropouts |
+
+- The audio thread never allocates or locks; events go through fixed buffers, and note-offs always get a slot, so
+  no note hangs.
+- **Automation rate limit** (250 messages/s, coalesced per parameter): unthrottled parameter floods hung the Virus'
+  audio until a power cycle within 4 minutes; with the limit a 4-minute full-load test (16 channels of notes + 32
+  automation lanes) passes.
+- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 28 unit
+  tests run in CI on all three platforms.
+
+**Editor**
+
+| | Before | After |
+|---|---|---|
+| Full repaint on Linux | ~70 ms | **1-7 ms** (bitmaps kept as X pixmaps, static layer cached) |
+| Knob drag step | ~5 ms | **< 1 ms** (only the changed controls are redrawn) |
+| Full repaints during 4 s of automation | 56 | **4** |
+| First visit of a page | 27-52 ms | **10-13 ms** (8 pages cached, bitmaps preloaded) |
+
+**Reliability fixes found with the Virus**
+
+- New projects reliably reset the Virus: it drops the message that follows a multi dump, so the plug-in now pauses
+  250 ms after one (part 1 kept its old patch in 3 of 11 start-ups before, 0 of 8 after; E145).
+- Notes play while the bank sync runs: the sync pauses while you play (dump requests delay the Virus' notes by
+  ~130 ms) and continues in the gaps; notes are only held back for the first ~4 s, when the Virus would play them
+  up to 1.6 s late (E144).
+- Big knobs on Windows (images over Direct2D's 16384-pixel limit are drawn in tiles), unplug/replug recovery,
+  project state byte-identical to the original's.
+
 ## Why
 
 **Windows.** The Virus TI talks to its plug-in through a custom USB kernel driver (`VirusUSB.sys`, version 2.9.66
