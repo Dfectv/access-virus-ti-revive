@@ -38,6 +38,9 @@ class DeviceOut {
 public:
     DeviceOut();
     ~DeviceOut();
+    // Connect to the broker (and send what is queued) only from now on: the plug-in calls it on its first
+    // setActive(true). A host's plug-in scan (initialize + terminate, no activation) never reaches the Virus.
+    void start() { go_ = true; }
     void send(std::vector<uint8_t> msg); // a complete MIDI message (SysEx or channel message); not from process()
     // from process() only (single producer, lock-free): a message of up to 16 bytes; false if the ring is full
     // `stamp` = frame on the Virus timeline (F5 time stamp before the message), -1 = the latest timeline position
@@ -141,6 +144,7 @@ private:
     std::function<void(const std::vector<uint8_t> &)> panel_, reply_;
     std::function<void()> idle_;
     bool rx_set_ = false, pending_send_ = false;
+    std::atomic<bool> go_{false};
     std::thread worker_;
     void run();
 };

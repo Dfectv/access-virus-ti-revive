@@ -201,6 +201,8 @@ void DeviceOut::scan_audio()
 
 void DeviceOut::run()
 {
+    while (!stop_ && !go_) // until the plug-in is activated (see start())
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     while (!stop_) {
         if (!open_) {
             std::string err;
@@ -514,6 +516,8 @@ tresult PLUGIN_API VirusPlugin::terminate()
 
 tresult PLUGIN_API VirusPlugin::setActive(TBool state)
 {
+    if (state && out_)
+        out_->start(); // the first activation connects to the Virus (a plug-in scan never gets here)
     if (out_)
         out_->log("Virus TI native: setActive(%d), state loaded %d\n", (int)state, (int)state_loaded_);
     if (!state && out_ && out_->connected()) { // nothing keeps sounding after the plug-in stops (removed, closed)
@@ -620,7 +624,9 @@ void VirusPlugin::set_part_value(int part, const std::string &path, int value)
         state_index_data_ = state_.data();
         state_index_size_ = state_.size();
     }
-    std::string key = path + '#' + std::to_string(part);
+    // the same part slot as the index (globals: -1); with the raw part a global reported by the Virus (part 16 or
+    // its SysEx part byte) was never found and appended again on every load/save cycle (+45 bytes, issue #5)
+    std::string key = path + '#' + std::to_string(state_part(path, part));
     auto it = state_index_.find(key);
     if (it != state_index_.end() && it->second < state_.size()) {
         state_[it->second] = msg;

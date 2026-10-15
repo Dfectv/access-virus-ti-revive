@@ -1,5 +1,5 @@
 // nativehost - minimal VST3 test host for the native plug-in on Linux/macOS (R3 checks).
-//   nativehost <plugin.vst3> [--state FILE] [--param ID=NORM]... [--save FILE] [--seconds N] [--notes] [--wav FILE]
+//   nativehost <plugin.vst3> [--state FILE] [--param ID=NORM]... [--save FILE] [--seconds N] [--notes] [--wav FILE] [--scan]
 // --notes plays C4 (channel 1) for the first half of every second, --wav writes Out 1 (16-bit stereo 44.1 kHz).
 // --state loads a state (a raw component state, or vtihost's VTISTATE file: the original's state), checks that
 // getState returns it unchanged, --param applies parameter changes through process(), --save writes getState.
@@ -177,7 +177,7 @@ int main(int argc, char **argv)
         return 2;
     }
     const char *state = nullptr, *save = nullptr, *wav = nullptr;
-    bool notes = false, editor = false, stress = false, stress_notes = true, stress_params = true;
+    bool notes = false, editor = false, stress = false, stress_notes = true, stress_params = true, scan = false;
     double stress_stop = 1e9;
     std::vector<std::pair<double, double>> aheads; // (at s, ms)
     int block = 512; // --block N: host block size
@@ -220,6 +220,8 @@ int main(int argc, char **argv)
             rate = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--editor"))
             editor = true;
+        else if (!strcmp(argv[i], "--scan")) // what a DAW's plug-in scan does: initialize, query, terminate
+            scan = true;
         else if ((!strcmp(argv[i], "--click") || !strcmp(argv[i], "--drag") || !strcmp(argv[i], "--shot") ||
                   !strcmp(argv[i], "--twice") || !strcmp(argv[i], "--type") || !strcmp(argv[i], "--move")) &&
                  i + 1 < argc) {
@@ -276,6 +278,12 @@ int main(int argc, char **argv)
     FUnknownPtr<IEditController> ctl(comp);
     if (ctl)
         printf("parameters: %d\n", (int)ctl->getParameterCount());
+    if (scan) { // no activation: the plug-in must not have touched the Virus (broker log: no client)
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        printf("terminate -> %d\n", (int)comp->terminate());
+        comp->release();
+        return 0;
+    }
 
     if (state) {
         auto in = read_file(state);
@@ -317,7 +325,7 @@ int main(int argc, char **argv)
         XFlush(dpy);
     }
 #endif
-    ProcessSetup ps{kRealtime, kSample32, block, rate};
+    ProcessSetup ps{kRealtime, kSample32, block, static_cast<SampleRate>(rate)}; // explicit: newer clang refuses narrowing
     proc->setupProcessing(ps);
     comp->setActive(true);
     proc->setProcessing(true);
