@@ -1,6 +1,7 @@
 // audioin.h - the Virus' audio (USB 1 / USB 2) from the TI Revive broker's ring (vtiaudioshm.h). The broker streams
 // once its owner asked for it (Broker::audio); the synth is the clock master, so the reader keeps a fixed distance
-// behind the newest frame and corrects drift by dropping/repeating single frames (TODO R5: resampling / F5 sync).
+// behind the newest frame and corrects drift by dropping/repeating single frames (read()); the plug-in reads
+// stamp-aligned positions (read_at()) and resamples itself at host rates other than 44.1 kHz.
 #pragma once
 #include <cstdint>
 

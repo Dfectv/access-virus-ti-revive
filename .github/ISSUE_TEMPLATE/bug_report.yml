@@ -35,9 +35,11 @@ body:
     attributes:
       label: Logs
       description: |
-        Windows: TI-Revive-usbinfo.txt from scripts/tirevive-usbinfo.ps1 (Virus connected), %TEMP%\vtiemu-*.log, %TEMP%\vtibroker.log
-        macOS: /tmp/tirevive-bridge.log, /tmp/tirevive-helper.log, /tmp/tirevive-libvirususb.log, /tmp/tirevive-vtibroker.log
-        Linux: journalctl --user -u tirevive-broker -b, vtiemu-*.log from the Wine prefix's Temp folder
+        Plug-in (all systems): create an empty file diag.on in the plug-in's folder (Windows %LOCALAPPDATA%\virus-ti-native,
+        macOS ~/Library/Application Support/virus-ti-native, Linux ~/.local/share/virus-ti-native), reproduce, attach diag.log from there.
+        Windows: also TI-Revive-usbinfo.txt from scripts/tirevive-usbinfo.ps1 (Virus connected) and %TEMP%\vtibroker.log
+        macOS: also /tmp/tirevive-vtibroker.log
+        Linux: also journalctl --user -u tirevive-broker -b
         Drag the files here. Remove anything private first.
   - type: checkboxes
     id: other

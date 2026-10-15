@@ -19,7 +19,7 @@ public:
     using StateHandler = std::function<void(bool connected)>;
 
     ~Broker();
-    // Connect (POSIX: Unix socket /tmp/vtibroker-<uid>.sock; Windows: named pipe - TODO), say HELLO, start the reader.
+    // Connect (POSIX: Unix socket /tmp/vtibroker-<uid>.sock; Windows: named pipe \\.\pipe\vtibroker), say HELLO, start the reader.
     bool open(std::string &error);
     void close();
     bool device_present() const { return present_; }

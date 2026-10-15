@@ -54,6 +54,22 @@ if ($access) {
 # BusReportedDeviceDesc above. The model (TI / TI2 / Snow) is decided from these two.
 Add ''
 Add 'TI Revive logs (newest):'
+# 0.8+: the plug-in "TI Revive Virus Control" writes diag.log when diag.on exists in its folder; the broker its own log
+$diag = Join-Path $env:LOCALAPPDATA 'virus-ti-native\diag.log'
+if (Test-Path $diag) {
+    Add "   $diag"
+    Select-String -Path $diag -Pattern 'device|setState|state sent|sync|disconnected|audio' |
+        Select-Object -Last 15 | ForEach-Object { Add "   $($_.Line.Trim())" }
+} elseif (-not (Test-Path (Join-Path $env:LOCALAPPDATA 'virus-ti-native\diag.on'))) {
+    Add '   (plug-in log off: create an empty file diag.on in %LOCALAPPDATA%\virus-ti-native, reproduce, run this again)'
+}
+$blog = Join-Path $env:TEMP 'vtibroker.log'
+if (Test-Path $blog) {
+    Add "   $blog"
+    Select-String -Path $blog -Pattern 'device open|claim|not found|no device|error|failed' |
+        Select-Object -Last 10 | ForEach-Object { Add "   $($_.Line.Trim())" }
+}
+# 0.7.x: the classic plug-in's emulation log
 Get-ChildItem $env:TEMP -Filter 'vtiemu-*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending |
     Select-Object -First 1 | ForEach-Object {
         Add "   $($_.FullName)"
