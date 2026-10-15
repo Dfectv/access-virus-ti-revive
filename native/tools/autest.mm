@@ -22,14 +22,15 @@ int main(int argc, char **argv)
     const char *load = nullptr, *save = nullptr, *png = nullptr;
     int secs = 2;
     bool notes = true;
-    for (int i = 2; i < argc; i++)
+    for (int i = 2; i < argc; i++) {
         if (!strcmp(argv[i], "--no-notes")) // e.g. to watch a bank sync run (notes pause it)
             notes = false;
-    for (int i = 2; i + 1 < argc; i += 2) {
-        if (!strcmp(argv[i], "--load")) load = argv[i + 1];
-        else if (!strcmp(argv[i], "--save")) save = argv[i + 1];
-        else if (!strcmp(argv[i], "--png")) png = argv[i + 1];
-        else if (!strcmp(argv[i], "--seconds")) secs = atoi(argv[i + 1]);
+        else if (i + 1 >= argc)
+            break;
+        else if (!strcmp(argv[i], "--load")) load = argv[++i];
+        else if (!strcmp(argv[i], "--save")) save = argv[++i];
+        else if (!strcmp(argv[i], "--png")) png = argv[++i];
+        else if (!strcmp(argv[i], "--seconds")) secs = atoi(argv[++i]);
     }
     @autoreleasepool {
         [NSApplication sharedApplication];
