@@ -25,7 +25,8 @@ Evidence: [evidence.md](evidence.md) (E001-E149), protocol: [spec.md](spec.md); 
   anchors and pings only after it, notes wait up to 3 s for the marker. Cause of the unanswered first ping: the
   Virus was still digesting 530 queued messages (two state uploads queued while waiting). nativehost `--duplicate T`
   = takeover test. Tested on Linux (TI Desktop): first start + takeover, marker on the first ping, K 6024 for all
-  notes. Open: Windows check (CI package), the double state upload of a waiting instance (only the newest is
+  notes. Windows (VM, Ableton 11, CI run 38797985200, package 0.8.7): first start + takeover playing/stopped,
+  ready after 3.9 / 6.9 / 6.8 s, marker on every first ping, works (user). Open: the double state upload of a waiting instance (only the newest is
   needed), the reconnect path (device back) still has no note hold.
 
 ## 0.8.4 (2026-10-15): editor sizes (merged from branch ui-scaling)
