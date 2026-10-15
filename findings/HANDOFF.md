@@ -1,17 +1,56 @@
 # HANDOFF
 
-_Last updated: 2026-10-15 (0.8.6: readiness probe at start-up / takeover, E149). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E150), protocol: [spec.md](spec.md); the native plug-in:
+_Last updated: 2026-10-15 late (CONTINUE HERE below; branches softknobs + tests-coverage local). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+Evidence: [evidence.md](evidence.md) (E001-E151), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## After 0.8.6 (branch `softknobs`): soft knobs (issue #4)
+## CONTINUE HERE (state at the end of 2026-10-15, PC shut down)
 
-- Soft knobs on the Easy page did nothing (nasguile, Snow; every TI): now a proxy of the parameter their destination
-  selects, like the original (E150, REA analysis of Virus Control.dll). Tested on Linux with nativehost + TI Desktop
-  (editor under Xvfb). Open: Virus' own soft knobs by hand, Snow/DAW test, release with the next fixes. Replies on
-  #4 posted 2026-10-15 (both users: fixes in the next release; logs asked for the RAM "Init" banks and FX 1).
-- AGENTS.md "Before you change code" step 4: unsure how the original works -> REA, then implement efficiently and
-  safely. Branch `tests-coverage`: 16 new unit tests (vticore 51 -> 60 %), not merged.
+**Released:** v0.8.6 (Latest, CI run 38800047856, all 7 jobs green): start-up waits for the Virus (readiness probe),
+first ping answered after a takeover, one state upload per waiting instance (E149). Tested by the user on Windows
+(VM, Ableton 11) and by us on Linux.
+
+**Two local branches, NOT pushed, NOT merged** (the user decides; both build, ctest green on Linux):
+- `softknobs` (this file's branch, from main after 0.8.6): soft knobs control the parameter their destination
+  selects, like the original (E150); AGENTS.md step 4 (REA when unsure); E150, E151; this handoff.
+- `tests-coverage` (from main after 0.8.6): 45 new unit tests (vticore line coverage 51.2 % -> 81.8 % with the
+  Access files on this PC, 54.1 % without them = what CI sees; 7 tests skip there). Production code touched: only
+  test hooks `Broker::set_endpoint(path)` and `AudioIn::open(name)` (code-only, default unchanged; Windows connect got
+  the extra parameter but was not compiled). New files: tests/test_memsync, test_cc, test_broker, test_audioin;
+  more in test_decode, test_access (every editor page, ROM banks), test_model (soft knob targets is on `softknobs`).
+- Merge order suggestion: `softknobs` then `tests-coverage` (HANDOFF/evidence only on `softknobs`; CMakeLists test
+  list only on `tests-coverage`) -> release 0.8.7 with the soft-knob fix -> tell #4 (promised: "next release").
+
+**Open, in order of value:**
+1. Soft knobs, hardware direction (E151 open): when the knob on the Virus itself is turned, the Virus reports
+   `Global Soft Knob Configuration/Value Softknob0..2` (page 73, ids 10..12; to confirm) and the original listens to
+   those (listener of its main device object, pointers at +0xccea8/b0/b8, set up in 0x180071f00). Next: (a) REA -
+   find that listener method (vtable of the object at +0x10; look for reads of +0xccea8) and what it does (probably
+   sets the knob's target for the panel part); (b) hardware: user turns the TI2's soft knobs while Nerd mode / Control
+   Center Live shows the traffic. Then implement the same in panel_message. Ask nasguile whether the Snow's own knobs
+   change the sound (asked on #4).
+2. #4 ManuAnilkumar23: RAM banks "Init" on the Snow. The Snow description = TI description (E151), so not that;
+   wait for his diag.log (asked on #4: "RAM A sync" lines) and broker log.
+3. #4 nasguile: FX 1 changes only after re-triggering. Asked which knobs and whether the Snow's own knobs behave the
+   same. With the answer: check with REA how the original sends those parameters (message type, part) and compare
+   with ours (vtimodel encode <path>).
+4. CI coverage to 80 % (now 54 %): a small hand-written editor layout (editor.xml format, no Access content) for the
+   renderer (0 % in CI), more synthetic model/condition tests; accessfiles needs fake installation folders.
+5. Readiness probe (E149) vs the original: not checked how the original itself waits after its start-up messages
+   (REA: what follows the GlobalInit/ParamInit sending before notes are allowed). Works on Linux + Windows anyway.
+6. Older items unchanged: USB 3 output (C10, measure on our TI2 first), reconnect path without note hold, macOS
+   duplicate-track check, two DAWs sharing the Virus on Windows, Snow in the native plug-in "officially" (it works
+   per nasguile; record a test report).
+
+**Environment at shutdown:** the Virus is on the Linux PC (not passed through to the VM); win11 VM is off; Xvfb
+stopped. REA analysis of Virus Control.dll saved: work/rea/virus-control-5.1.7-x64.ghidra-snapshot (git-ignored;
+open with provider_id "ghidra" + snapshot_path). Scratch probes (lay, skq, rdx, edq: layout/softknob/description
+dumps) were in the session scratchpad only - recreate from E150/E151 if needed. The installed broker on this PC
+(~/.local/lib/tirevive/vtibroker) is from 13:44 today; the "Environments" section below is partly outdated (0.7.0
+test package, TCP listener).
+
+**Replies posted today:** #4 (both users: fixes in the next release, logs asked). Memory: always REA for RE
+(AGENTS.md step 4).
 
 ## 0.8.5 (2026-10-15): issue #6, duplicated track puts the Virus out of time (merged from branch single-instance)
 
