@@ -1,0 +1,36 @@
+# Development build of the plug-in for macOS (VST3 + Audio Unit), started by hand: `gh workflow run dev-mac`.
+# Uploads the bundles as an artifact for tests on a Mac; publishes nothing. Releases: build.yml (version tags).
+name: dev-mac
+on:
+  workflow_dispatch:
+jobs:
+  mac:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Build (universal)
+        run: |
+          cmake -S native -B build-native -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+          cmake --build build-native --config Release --target VirusTINative VirusTINative_AU -- -quiet
+      - name: Check the Audio Unit
+        run: |
+          C="build-native/AU/Release/TI Revive Virus Control.component"
+          ls -R "$C" | head -30
+          lipo -info "$C/Contents/MacOS/TI Revive Virus Control"
+          /usr/libexec/PlistBuddy -c "Print :AudioComponents:0" "$C/Contents/Info.plist"
+          codesign --force --deep --sign - "$C"
+          mkdir -p ~/Library/Audio/Plug-Ins/Components && cp -R "$C" ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          auval -a | grep -i "TIRv" || true
+          auval -v aumu VTIr TIRv || echo "auval failed (the runner has no Access files and no Virus)"
+      - name: Collect
+        run: |
+          mkdir dev && cp -R "build-native/AU/Release/TI Revive Virus Control.component" dev/
+          cp -R "build-native/VST3/Release/TI Revive Virus Control.vst3" dev/
+          codesign --force --deep --sign - "dev/TI Revive Virus Control.component" "dev/TI Revive Virus Control.vst3"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dev-mac
+          path: dev
