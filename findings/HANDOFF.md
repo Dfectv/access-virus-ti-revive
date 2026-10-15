@@ -11,8 +11,13 @@ Evidence: [evidence.md](evidence.md) (E001-E148), protocol: [spec.md](spec.md); 
   until a DAW restart. Fix: one instance per process (DeviceOut::claim_owner), others wait (LCD "Virus in use / by
   another instance"), takeover with state + new ping when the owner is removed; waiting instances drop their notes.
   Also: stats "virus frames" per instance. Built + ctest on Linux only.
-- Open: Windows hardware test (Ableton 11: duplicate -> original stays in time, duplicate shows the message; delete the
-  original -> the duplicate takes over and plays in time); macOS/Linux quick check; reply on #6 after the test.
+- Test 1 (2026-10-15, Win11 VM, Ableton 11, TI Desktop, CI run 38791531643): original stays in time with a duplicate
+  (user); the duplicate showed the LCD text only; takeover worked but notes were up to ~1.9 s late (klog) for ~25 s:
+  the 529 queued start-up messages went out while notes played (E144) and the ping found no marker until the user
+  stopped playing; once the marker came, K = 2559/2560 like the original. Changes after test 1: waiting instance shows
+  the original's "Virus unavailable" page (SystemStatus/Error = 2, checked with vtirender), and after a takeover the
+  sync thread runs the start-up again (start page, 4 s note hold, bank sync).
+- Open: test 2 of that build on the VM; macOS/Linux quick check; reply on #6 after the test.
 - Not covered: two different DAWs on Windows still share the Virus (broker without owner on Windows).
 
 ## 0.8.4 (2026-10-15): editor sizes (merged from branch ui-scaling)

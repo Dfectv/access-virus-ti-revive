@@ -529,6 +529,10 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
     });
     out_->on_reply([this](const std::vector<uint8_t> &m) { sync_->feed(m); });
     out_->on_waiting([this](bool waiting) { // worker thread
+        // the original's page for a Virus that another program holds (SystemStatus/Error 2 = "VDM not Master":
+        // "Virus unavailable"), plus the LCD
+        if (ui_state_set("SystemStatus/Error", waiting ? 2 : 0))
+            ui_dirty_ = true;
         if (waiting)
             set_lcd("Virus in use", "by another instance", std::string(), std::string());
         else
@@ -1440,6 +1444,17 @@ void VirusPlugin::sync_banks()
     // until here the Virus works through the start-up messages and the state and plays notes up to 1.6 s late, so
     // note-ons were held back; from now on notes play, and the sync pauses while they arrive (dump requests delay
     // the Virus' notes by ~130 ms and the sync stalls - measured 2026-10-14)
+    if (!stop_warm_ && out_ && out_->waiting()) {
+        // another instance owns the Virus (issue #6): this one starts up when it takes over, with the same start
+        // page and note hold as a first start - else its notes play up to 1.6 s late behind its start-up SysEx and
+        // the sync ping finds no marker (seen in the first takeover test)
+        set_sync_progress(127); // the "Virus unavailable" page instead of the start page
+        while (!stop_warm_ && out_->waiting())
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        set_sync_progress(0);
+        for (int i = 0; i < 40 && !stop_warm_; i++)
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
     starting_ = false;
     if (stop_warm_ || !out_ || !out_->connected()) { // no Virus: no sync, the editor as usual
         syncing_ = false;

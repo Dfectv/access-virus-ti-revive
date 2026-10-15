@@ -64,6 +64,7 @@ public:
     void on_device(std::function<void(bool present)> h) { device_ = std::move(h); }
     // another instance in this process owns the Virus: this one waits (true), or takes over after the wait (false)
     void on_waiting(std::function<void(bool waiting)> h) { on_waiting_ = std::move(h); }
+    bool waiting() const { return wait_reported_.load(); }
     std::atomic<int> generation{0}; // +1 on every return of the Virus (process() re-anchors its timeline)
     bool connected() const { return broker_.device_present(); }
     AudioIn &audio() { return audio_; } // read from process(); valid once audio_ready()
@@ -115,7 +116,7 @@ private:
     bool claim_owner();
     void release_owner();
     bool owner_ = false;         // worker: this instance holds the process-wide claim
-    bool wait_reported_ = false; // worker: the wait was reported (log + LCD once)
+    std::atomic<bool> wait_reported_{false}; // waiting for the other instance (set by the worker)
     int present_seen_ = -1; // worker: last device presence handled (-1 = unknown)
     Broker broker_;
     std::mutex mu_;
