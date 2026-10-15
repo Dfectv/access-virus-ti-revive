@@ -49,4 +49,7 @@ it). The release workflow builds it with the plug-in on each platform.
   4 s); `backup` from a current cache (3.5 s); `backup --banks 4` with the RAM D cache moved aside: 128 programs read
   in 2 min 9 s, the library byte-identical to the one from the cache.
 - Linux: builds, `list`/`export` round trips on factory libraries (patch data unchanged; only program byte and
-  checksums differ). Windows: cross-compiles with mingw-w64, not run yet.
+  checksums differ). Windows: cross-compiles with mingw-w64.
+- Packages (CI run 38709651579, manual, test version 0.0.1): the pkg's binary is universal and signed and runs
+  `info` on the M3 with the TI2 (not installed, run from the expanded pkg); the MSI's `tirevive-cc.exe` runs in a
+  Windows 11 VM (`list`, `export`; `info` without a Virus: "no Virus", exit 1); the Linux tarball contains it.
