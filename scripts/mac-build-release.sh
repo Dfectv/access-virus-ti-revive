@@ -51,7 +51,8 @@ ROOT="$BUILD/root"
 SUP="$ROOT/Library/Application Support"
 mkdir -p "$ROOT/Library/Audio/Plug-Ins/VST3" "$ROOT/Library/Audio/Plug-Ins/Components" "$SUP/TI Revive" \
     "$SUP/Access Music/Virus TI/Common"
-cp -R "$BUILD/Virus TI (TI Revive).vst3" "$ROOT/Library/Audio/Plug-Ins/VST3/"
+# 0.8.0: no bridge VST3 - "TI Revive Virus Control" (native) has its class id and opens its projects; the bridge's
+# Audio Unit stays (Logic / GarageBand)
 cp -R "$BUILD/Virus TI (TI Revive).component" "$ROOT/Library/Audio/Plug-Ins/Components/"
 [ -n "$NATIVE" ] && cp -R "$NATIVE" "$ROOT/Library/Audio/Plug-Ins/VST3/"
 cp "$BUILD/mac/vtibroker" "$SUP/TI Revive/vtibroker"

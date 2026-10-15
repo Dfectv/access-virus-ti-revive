@@ -17,5 +17,7 @@ fi
 rm -f /Library/LaunchAgents/io.github.derpsn.tirevive.vtibroker.plist
 # a running broker is NOT stopped: it serves its current session to the end and exits 30 s after its last client;
 # the next start picks up the new binary (stopping it cut off a running DAW session, E112)
+# 0.8.0: the bridge VST3 "Virus TI (TI Revive)" is replaced by "TI Revive Virus Control" (same class id)
+rm -rf "/Library/Audio/Plug-Ins/VST3/Virus TI (TI Revive).vst3"
 killall -9 AudioComponentRegistrar 2>/dev/null || true # make macOS rescan Audio Units (the new component)
 exit 0

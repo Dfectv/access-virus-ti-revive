@@ -18,12 +18,16 @@ Install
 3. Connect the Virus TI by USB. Start your DAW and allow it to use the microphone when macOS asks
    (System Settings > Privacy & Security > Microphone): macOS only gives the Virus' audio to apps with that
    permission; without it the plug-in stays silent.
-4. Rescan plug-ins and use "Virus TI (TI Revive)" (vendor "TI Revive"). The first start of a session takes a few
-   seconds (the original plug-in starts in a helper under Rosetta).
+4. Rescan plug-ins and use the VST3 "TI Revive Virus Control" (vendor "TI Revive"): a native plug-in (Apple Silicon
+   and Intel) that looks and works like the original Virus Control, no Rosetta needed. Projects saved with the
+   VST3 "Virus TI (TI Revive)" of earlier versions open with it. Logic Pro / GarageBand: the Audio Unit
+   "Virus TI (TI Revive)" (runs the original plug-in under Rosetta, see below).
 
 How it works
+"TI Revive Virus Control" reads the skin, the parameter descriptions and the ROM banks from your Access
+installation and talks to the Virus through TI Revive's broker. The Audio Unit for Logic works the old way:
 The original Access plug-in is Intel-only and needs the Access kernel driver, which cannot load on Apple Silicon.
-"Virus TI (TI Revive)" is a native plug-in that runs the original in a helper process under Rosetta and shows its
+the Audio Unit "Virus TI (TI Revive)" runs the original in a helper process under Rosetta and shows its
 editor in your DAW. A small background service (vtibroker, started on demand by the plug-in, ends 30 s after the
 last use) talks to the Virus over USB, and TI Revive's own libVirusUSB.dylib takes the place of Access' driver
 library. Audio comes from macOS' built-in USB
