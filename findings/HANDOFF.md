@@ -33,7 +33,10 @@ Evidence: [evidence.md](evidence.md) (E001-E145), protocol: [spec.md](spec.md); 
 - **Access look of the Control Center** (branch `cc-skin`, user's wish 2026-10-15): layout + images of Access'
   Control Center exe at runtime (native/docs/controlcenter.md "The Access look"), tested on Linux under Xvfb.
   Setup scripts copy `Virus Control Center.exe` (Linux/Windows). Open: Windows look check, macOS source of the
-  images, model choice (Desktop/Keyboard/Polar), real folder dialog check on a desktop. No "send SysEx" console (rule 2).
+  images, model choice (Desktop/Keyboard/Polar), real folder dialog check on a desktop. MERGED to main.
+- README screenshots (docs/images/: plug-in filter page, Control Center Access look, Nerd mode): the maintainer
+  allowed screenshots as the only exception to AGENTS.md rule 1 (2026-10-15); made with nativehost --editor --shot
+  and the app on Xvfb (dbus-run-session, no paths / user names in the images). No "send SysEx" console (rule 2).
 - Mac broker: the MIDI driver stand-in (`vtimidi_start`, VirusTICommMem, E100) only served the original plug-in of
   the classic path; it is now opt-in (`VTI_BROKER_MIDISHIM=1`). Without a reader its ring overflowed ("MDR ring full,
   dropping" in 0.8.1 broker logs). Tested on the M3 + TI2 with a broker built there: autest (native AU) connects,
