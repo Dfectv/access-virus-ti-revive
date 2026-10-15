@@ -26,10 +26,16 @@ using namespace Steinberg::Vst;
 
 namespace vti {
 
-#ifdef VTI_NATIVE_DROPIN
+// The plug-in takes over the class id of the TI Revive plug-in it replaces (0.8.0), so projects saved with
+// "Virus TI (TI Revive)" open with it: Windows/Linux the wrapper's id (the original's with byte 15 ^ 0x5A, vtiwrap.c),
+// macOS the bridge's id (tirbridge_vst3.cpp). The other ids are declared compatible in moduleinfo.json
+// (plugin/CMakeLists.txt). VTI_NATIVE_DROPIN: the original Access id (tests with projects of the original).
+#if defined(VTI_NATIVE_DROPIN)
 const FUID kVirusTIClassId(0xB49F90D9, 0x735F4305, 0xAC5397BE, 0x8958CD31);
+#elif defined(__APPLE__)
+const FUID kVirusTIClassId(0x7A1E5C3B, 0x4D2F4E61, 0x9B0C8A17, 0x2F64D5E9);
 #else
-const FUID kVirusTIClassId(0xB49F90D9, 0x735F4305, 0xAC5397BE, 0x8958CD31 ^ 0xA5);
+const FUID kVirusTIClassId(0xB49F90D9, 0x735F4305, 0xAC5397BE, 0x8958CD31 ^ 0x5A);
 #endif
 
 static bool env_debug()
