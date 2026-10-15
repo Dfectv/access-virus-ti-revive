@@ -19,8 +19,18 @@
         </Directory>
       </Directory>
     </DirectoryRef>
+    <!-- the test packages' folder (install.ps1 of 0.1.0-testN: ASIO DLL, renamed old DLLs, uninstall scripts) -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="OLDTESTFOLDER" Name="virus-ti-native" />
+    </StandardDirectory>
 
     <ComponentGroup Id="Native">
+      <Component Directory="OLDTESTFOLDER" Guid="9D3A61F2-5C47-4E1B-A8E9-0B7D2C4F6E31">
+        <RegistryValue Root="HKLM" Key="Software\TI Revive\Installer" Name="NativeTestFolderRemoved" Type="integer"
+                       Value="1" KeyPath="yes" />
+        <RemoveFile Id="oldtestfiles" Name="*" On="install" />
+        <RemoveFolder Id="oldtestfolder" On="install" />
+      </Component>
       <!-- the VST3 bundle "TI Revive Virus Control" (vendor TI Revive) -->
       <Component Directory="NATIVEBIN">
         <File Id="nativevst3" Source="$(var.NativeBin)\TI Revive Virus Control.vst3\Contents\x86_64-win\TI Revive Virus Control.vst3" />
