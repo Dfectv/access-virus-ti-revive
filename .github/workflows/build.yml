@@ -211,7 +211,12 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
-          **New in 0.8.2: TI Revive Control Center** - in the look of Access' Virus Control Center (taken from your
+          **New in 0.8.3:** a DAW's plug-in scan no longer talks to the Virus (it connects only when the plug-in is
+          used); saved projects no longer grow by a few bytes on every save; on a first setup the start page shows how
+          long reading the Virus' banks will take (8-9 minutes once, then seconds). Thanks to the virus-ti-rework
+          project for the findings.
+
+          **Since 0.8.2: TI Revive Control Center** - in the look of Access' Virus Control Center (taken from your
           Access installer, like the plug-in's skin): device info, backup of the RAM banks as patch libraries, library
           conversion (.mid / .syx), and a **Nerd mode** that shows live what goes between TI Revive and the Virus
           (decoded, read-only) plus the logs for bug reports. Also as the command line tool \`tirevive-cc\`. Firmware /
