@@ -25,6 +25,9 @@ Evidence: [evidence.md](evidence.md) (E001-E147), protocol: [spec.md](spec.md); 
   the broker log (checked in the win11 VM). Release workflow builds only what ships (broker `vtibroker.exe`, no mingw
   in the Linux job) - rehearse before the next tag.
 - Issue #4 (Snow on macOS): status reply posted, both users asked to run the first test stages with 0.8.1.
+  2026-10-15: nasguile (comment on #5) reports the Snow "recognized and fully works", total recall works, USB 1/2 ok,
+  USB 3 silent (expected: Out 3 is silent by design, needs USB IO Configuration = 3 Outs, C10). Version not stated;
+  asked on #4 for version, DAW, macOS and logs before recording evidence.
 - Merged to main and pushed (1e88e73).
 - **Control Center phase 1** (branch `control-center`): `native/src/cc/` + `native/tools/tirevive-cc` (info, backup,
   list, export), read-only, docs in native/docs/controlcenter.md. Tested on the M3 + TI2 (built there with clang++
