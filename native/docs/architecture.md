@@ -28,9 +28,9 @@ classic TI Revive plug-in used) owns the Virus. It frames USB-MIDI, carries the 
 
 Access/Kemper have not open-sourced the Virus TI software. So the plug-in ships **none** of it: no graphics, no XML,
 no firmware, no decompiled code. At runtime it loads everything from the files of the user's own Access installer:
-on Windows and Linux TI Revive's installer only **unpacks** the Access `.msi` and copies `Virus Control.dll`,
-`firmware.bin`, the manuals and the factory patch libraries (nothing of Access is installed or registered); on macOS
-the Access software is installed (the Audio Unit for Logic still runs the original). These are the files it loads:
+TI Revive's installers only **unpack** the Access installer (`.msi` on Windows and Linux, `.pkg` on macOS) and copy
+`Virus Control.dll` / `Virus Control.bundle`, `firmware.bin`, the manuals and the factory patch libraries - nothing of
+Access is installed or registered. These are the files it loads:
 
 | loaded at runtime | from | used for |
 |---|---|---|
@@ -188,7 +188,8 @@ output crackles because QEMU's USB passthrough corrupts isochronous OUT data (TI
 | cache | `~/Library/Application Support/virus-ti-native/cache` |
 | Access files | `/Library/Application Support/Access Music/Virus TI/Common/Virus Control.bundle/Contents/Resources` (+ `firmware.bin` next to it); only read, the Intel-only Access plug-in is never loaded |
 | Personal Libraries | `~/Documents/Access Music/Virus TI/Patches` |
-| install | TI Revive's pkg (`scripts/mac-build-release.sh`): the VST3 into `/Library/Audio/Plug-Ins/VST3`, ad-hoc signed; the classic bridge's Audio Unit stays for Logic/GarageBand, its VST3 is removed |
+| Audio Unit | `au/tirevive_au.mm` (target `VirusTINative_AU`): Steinberg's AUv2 wrapper (VST3 SDK, MIT, compiled into this file) around the VST3 plug-in, which the component carries as `Contents/Resources/plugin.vst3`; Apple's AudioUnitSDK 1.4 (Apache 2.0) built from source by CMake (C++23). Codes of the classic TI Revive Audio Unit (`aumu`/`VTIr`/`TIRv`), version major<<16 \| minor<<8 \| patch; `RestoreState` translates the classic unit's state (AU preset key `data`) to the wrapper's `Processor State`, so old Logic / GarageBand projects open. Checked: `auval` passes (CI), GarageBand plays and shows the editor, an old-format state restores part 1's patch (`tools/autest.mm`: loads a component in-process, ClassInfo load/save, render, view PNG) |
+| install | TI Revive's pkg (`scripts/mac-build-release.sh`): VST3 into `/Library/Audio/Plug-Ins/VST3`, the Audio Unit into `.../Components`, ad-hoc signed; the classic bridge (VST3 + AU, Rosetta helper, libVirusUSB) is removed. `Set up Access Virus TI files.command` unpacks the Access `.pkg` (`pkgutil --expand-full`) instead of installing it |
 
 ## 4. Building and testing
 

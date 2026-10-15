@@ -38,8 +38,8 @@ contains no Access material. No kernel code of its own is installed.
 |---|---|---|---|
 | **Download** ([Releases](https://github.com/derpsn/access-virus-ti-revive/releases)) | `TI-Revive-<version>-setup.exe` (or the same as `.msi`) | `TI-Revive-<version>-mac.zip` | `TI-Revive-<version>-linux.tar.gz` |
 | **System** | Windows 11 x64 (also Windows 10) | macOS 14.4 or newer (the plug-in itself: Apple Silicon and Intel) | x86_64, Ubuntu 22.04 / Debian 12 or newer, systemd |
-| **You need** | your own Access "Virus TI Software Suite" 64-bit `.msi` (only unpacked, not installed) | your own Access "Virus TI Software Suite" `.pkg` | your own Access 64-bit `.msi` (only unpacked: msitools or Wine) |
-| **In your DAW** | VST3 **"TI Revive Virus Control"**; ASIO device **"TI Revive Virus Audio"** (the Virus as sound card) | VST3 **"TI Revive Virus Control"**; Logic/GarageBand: Audio Unit "Virus TI (TI Revive)" | VST3 **"TI Revive Virus Control"** |
+| **You need** | your own Access "Virus TI Software Suite" 64-bit `.msi` (only unpacked, not installed) | your own Access "Virus TI Software Suite" `.pkg` (only unpacked, not installed) | your own Access 64-bit `.msi` (only unpacked: msitools or Wine) |
+| **In your DAW** | VST3 **"TI Revive Virus Control"**; ASIO device **"TI Revive Virus Audio"** (the Virus as sound card) | **"TI Revive Virus Control"** as VST3 and Audio Unit (Logic, GarageBand) | VST3 **"TI Revive Virus Control"** |
 | **Tested with** | Ableton Live 11 (Windows 11 PC and VM) | Ableton Live 12 on a MacBook Air M3 (VST3), GarageBand (AU) | REAPER 7.82 on Ubuntu 26.04 |
 
 - **Timing:** notes land sample-accurately on the grid (measured < 0.1 ms jitter on Linux and macOS); the plug-in
@@ -92,27 +92,23 @@ shortcuts). Your patch libraries and the Access files stay.
 
 ### macOS
 
-Requirements: macOS 14.4 or newer, an Access Virus TI on USB, your own **Access "Virus TI Software Suite"
-installer** (`.pkg`, e.g. 5.1.7) and a VST3 host. The plug-in "TI Revive Virus Control" is universal: it runs
-natively on Apple Silicon and Intel Macs, without Rosetta, and your DAW does not need "Open using Rosetta". Only the
-Audio Unit for Logic Pro / GarageBand still runs the original Access plug-in and needs **Rosetta 2**
-(`Install Access Virus TI software.command` checks it and offers to install it).
+Requirements: macOS 14.4 or newer (Apple Silicon or Intel), an Access Virus TI on USB, your own **Access "Virus TI
+Software Suite" installer** (`.pkg`, e.g. 5.1.7) and a VST3 or Audio Unit host. No Rosetta needed: the plug-in "TI
+Revive Virus Control" runs natively as VST3 and as Audio Unit.
 
 Unpack `TI-Revive-<version>-mac.zip`. Both parts are needed, in any order:
 
-1. **`TI Revive.pkg`** installs TI Revive: the plug-in **"TI Revive Virus Control"** (VST3, native on Apple Silicon
-   and Intel), the Audio Unit for Logic/GarageBand with its helper, the USB service and TI Revive's replacement for
-   Access' driver library. It is not signed: right-click → *Open*, or *System Settings → Privacy & Security → Open
-   Anyway*.
-2. **`Install Access Virus TI software.command`** installs **your own, unmodified Access software** from your
-   Access `.pkg` (put it next to the script) - only the plug-in and Virus Control parts, **without** Access' driver
-   packages. The plug-in reads its skin and ROM banks from there; the Audio Unit runs the original under Rosetta.
-   If the Access software is already installed, skip this step.
+1. **`TI Revive.pkg`** installs TI Revive: the plug-in **"TI Revive Virus Control"** (VST3 and Audio Unit) and the USB
+   service. It is not signed: right-click → *Open*, or *System Settings → Privacy & Security → Open Anyway*.
+2. **`Set up Access Virus TI files.command`** unpacks **your own Access `.pkg`** (put it next to the script) and copies
+   only what the plug-in reads (skin and parameter descriptions, ROM banks), the manuals and the factory patch
+   libraries - the Access software itself is not installed. It parks old drivers that would block the Virus and
+   offers to remove the original Access plug-ins of earlier TI Revive versions (Intel-only, no longer used).
 
 Then connect the Virus, start your DAW and **allow it to use the microphone** when macOS asks (*System Settings →
 Privacy & Security → Microphone*): macOS gives the Virus' audio only to apps with that permission. Rescan
-plug-ins and use **"TI Revive Virus Control"** (VST3). Projects saved with the VST3 "Virus TI (TI Revive)" of
-earlier versions open with it. Your DAW may also list the original **"Virus TI"** plug-in as unusable (Intel-only):
+plug-ins and use **"TI Revive Virus Control"** (VST3, or the Audio Unit in Logic / GarageBand). Projects saved with
+"Virus TI (TI Revive)" of earlier versions (VST3 and Audio Unit) open with it. Your DAW may also list the original **"Virus TI"** plug-in as unusable (Intel-only):
 that is expected.
 
 Uninstall with `Uninstall TI Revive.command` (also in `/Library/Application Support/TI Revive`); it removes only
@@ -185,18 +181,14 @@ same with Access' own driver.
 - **One program at a time** uses the Virus (as with the Access driver): a second DAW or GarageBand next to it shows
   "no Virus TI connected" until the first one is closed. If the Virus ever stays silent although the plug-in is
   connected, switch the Virus off and on once.
-- **VST3 and Audio Unit**: VST3 hosts (Ableton Live, Cubase, Bitwig, REAPER, ...) use **"TI Revive Virus
-  Control"**. Logic Pro and GarageBand use the Audio Unit (*Audio Units → TI Revive → Virus TI (TI Revive)*; in
-  GarageBand under *Smart Controls → Plug-ins*), which still runs the original Access plug-in under Rosetta. Tested:
-  Ableton Live 12 (VST3), GarageBand (AU); other hosts should work — reports welcome. Each DAW needs its own
-  microphone permission.
-- Audio Unit only: it lists the original's 2700 automatable parameters, and in GarageBand / Logic the original may
-  report **"buffer size too high"** once: click it away.
+- **VST3 and Audio Unit**: VST3 hosts (Ableton Live, Cubase, Bitwig, REAPER, ...) and Logic Pro / GarageBand (*AU
+  Instruments → TI Revive → TI Revive Virus Control*; in GarageBand under *Smart Controls → Plug-ins*) use the same
+  native plug-in. Tested: Ableton Live 12 (VST3), GarageBand (AU); other hosts should work — reports welcome. Each
+  DAW needs its own microphone permission.
 - **Virus Control Center** (32-bit) does not run on current macOS.
 - The Virus' audio comes from macOS' own USB audio driver (the "Virus TI" audio device, 44.1 kHz); unplugging and
   replugging the Virus is detected by the plug-in.
-- Logs for bug reports: the plug-in's `diag.log` (see above), `/tmp/tirevive-vtibroker.log`; for the Audio Unit also
-  `/tmp/tirevive-bridge.log`, `/tmp/tirevive-helper.log`, `/tmp/tirevive-libvirususb.log`.
+- Logs for bug reports: the plug-in's `diag.log` (see above) and `/tmp/tirevive-vtibroker.log`.
 
 ## Performance and improvements (0.8.0)
 
@@ -337,7 +329,7 @@ initialisation handshake, keeps both IN endpoints drained, re-opens the device a
 errors, and multiplexes it for the plug-in and Control Center. It is not started at logon: the plug-in or
 Control Center starts it when they need the Virus, and it exits 30 seconds after the last of them has gone.
 
-### macOS (libVirusUSB and broker; the Audio Unit bridge hosting the original)
+### macOS (0.7.x: the bridge hosting the original under Rosetta; since 0.8.0 only the broker is still used)
 
 ```
  DAW (native, arm64) ── Virus TI (TI Revive).vst3 (native bridge)
@@ -394,15 +386,16 @@ measurements: [`findings/design-linux.md`](findings/design-linux.md), evidence E
 | ASIO sound card "TI Revive Virus Audio" (Windows, 6 in / 2 out, no Access driver) | done: clean on a real PC |
 | Installers: Access software only unpacked (Windows/Linux), clean-up of earlier versions | done |
 | Virus TI Snow | open (Snow owners: 0.7.4) |
-| Audio Unit of the native plug-in, Virus Control Center, Windows MIDI ports | open |
+| Audio Unit (AUv2) of the native plug-in, with the classic Audio Unit's codes (its Logic / GarageBand projects open) | done: passes `auval`, tested in GarageBand |
+| Virus Control Center, Windows MIDI ports | open |
 | **Windows** | |
 | WinUSB driver package, broker with USB audio, unplug recovery, Windows 11 with memory integrity (HVCI) | done |
 | MSI + setup.exe (GitHub Actions build) | done |
 | 0.2-0.7.x: user-mode driver emulation for the original plug-in, ASIO wrapper, Control Center | done, replaced by 0.8.0 |
 | **macOS** | |
-| Own libVirusUSB, USB broker, MIDI driver stand-in (no Access kernel extension) | done |
-| Audio Unit (AUv2) for Logic / GarageBand: bridge + Rosetta helper hosting the original | done, tested in GarageBand, passes `auval` |
-| Installer (.pkg + Access script, GitHub Actions build) | done |
+| USB broker, MIDI driver stand-in (no Access kernel extension) | done |
+| Installer (.pkg + Access file setup, GitHub Actions build) | done |
+| 0.5-0.7.x: bridge (VST3 + AU) with a Rosetta helper hosting the original, own libVirusUSB | done, replaced by 0.8.x |
 | **Linux** | |
 | Broker with USB audio on libusb, device handed back to Linux | done |
 | Installer (`install.sh`, systemd user socket, udev rule, GitHub Actions build) | done |
@@ -434,7 +427,7 @@ does the same round trip through a local Windows 11 build VM.
 
 **macOS package.** On a Mac with the Xcode Command Line Tools and the (MIT-licensed) VST3 `pluginterfaces` next to the
 repository: `scripts/mac-build-release.sh <repo> <version>` builds `TI-Revive-<version>-mac.zip` (native plug-in,
-Audio Unit bridge + helper, libVirusUSB, broker with libusb built from source, .pkg, scripts).
+broker with libusb built from source, .pkg, scripts).
 
 **Releases.** GitHub Actions (`.github/workflows/build.yml`) builds everything, but only when a version tag `vX.Y.Z`
 is pushed (`git tag -a v0.8.0 -m ... && git push origin v0.8.0`): it then publishes a **Release** with
@@ -451,7 +444,7 @@ Branch pushes and pull requests do not build.
 | `src/wrapper/` | the classic Windows plug-in of 0.7.x (driver-interface emulation, VST3 wrapper, ASIO wrapper, Control Center launcher); not shipped since 0.8.0 |
 | `src/inf/` | Windows: the WinUSB driver package |
 | `src/installer/` | Windows: MSI (WiX), driver script, `tirevive-access.ps1` (unpacks the Access files) |
-| `src/mac/` | macOS: `libvirususb/` (replacement libVirusUSB.dylib), `bridge/` (the Audio Unit; its VST3 was replaced by the native plug-in), `helper/` (Rosetta host), `common/` (bridge protocol), diagnostics tools |
+| `src/mac/` | macOS, the classic 0.5-0.7.x path (not shipped since 0.8.x, kept for reference): `libvirususb/` (replacement libVirusUSB.dylib), `bridge/` (VST3/AU bridge), `helper/` (Rosetta host), `common/` (bridge protocol), diagnostics tools |
 | `src/installer-mac/` | macOS: package scripts, Access installer script, uninstaller, README-mac |
 | `src/vtihook/` | research tools: IOCTL tracer with AudioSM monitor, process memory readers |
 | `scripts/` | capture/decode tools (usbmon + tshark), Windows 11 VM tooling, Mac build and lab scripts |
