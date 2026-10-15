@@ -17,8 +17,11 @@ Evidence: [evidence.md](evidence.md) (E001-E145), protocol: [spec.md](spec.md); 
 - **Control Center phase 1** (branch `control-center`): `native/src/cc/` + `native/tools/tirevive-cc` (info, backup,
   list, export), read-only, docs in native/docs/controlcenter.md. Tested on the M3 + TI2 (built there with clang++
   and `-isysroot .../MacOSX26.sdk`: the CLT linker rejects the default 27 SDK; no cmake on the Mac): info, backup
-  from cache, full RAM D fetch byte-identical (2 min 9 s). Not yet in any package/installer. Next: ship it in the
-  packages (Windows/Linux/Mac), then a UI; RAM restore only after a separate review with the user.
+  from cache, full RAM D fetch byte-identical (2 min 9 s). Shipped in all packages (MSI: Program Files\TI Revive,
+  pkg: /Library/Application Support/TI Revive, Linux: ~/.local/bin via install.sh); README "Backups" section.
+  Next: a UI; RAM restore only after a separate review with the user.
+- `build.yml` can now run by hand: `gh workflow run build --ref <branch> -f version=0.0.1` builds all packages as
+  artifacts (the release job still needs a tag). Use it instead of the rehearsal repo before a tag.
 - Later: Linux `library_dir()` and install.sh use `~/Documents` even where the XDG documents folder is localized
   (e.g. `~/Dokumente`); consistent today, nicer with `xdg-user-dir DOCUMENTS`. Mac broker MIDI stand-in
   (`vtimidi_start`, needs the Mac); USB3 output (Global USB controller 9); real readiness instead of the fixed 4 s
