@@ -13,7 +13,7 @@ first ping answered after a takeover, one state upload per waiting instance (E14
 **Two local branches, NOT pushed, NOT merged** (the user decides; both build, ctest green on Linux):
 - `softknobs` (this file's branch, from main after 0.8.6): soft knobs control the parameter their destination
   selects, like the original (E150); AGENTS.md step 4 (REA when unsure); E150, E151; this handoff.
-- `tests-coverage` (from main after 0.8.6): 45 new unit tests (vticore line coverage 51.2 % -> 81.8 % with the
+- `tests-coverage` (from main after 0.8.6): 30 new unit tests (31 -> 61) (vticore line coverage 51.2 % -> 81.8 % with the
   Access files on this PC, 54.1 % without them = what CI sees; 7 tests skip there). Production code touched: only
   test hooks `Broker::set_endpoint(path)` and `AudioIn::open(name)` (code-only, default unchanged; Windows connect got
   the extra parameter but was not compiled). New files: tests/test_memsync, test_cc, test_broker, test_audioin;
