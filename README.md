@@ -1,5 +1,7 @@
 # TI Revive
 
+*Turning on your Virus TI again feels like meeting an old best friend.*
+
 **Total Integration for the Access Virus TI on Windows 11, macOS and Linux — without the old drivers.**
 
 TI Revive brings the Access Virus TI (Desktop, Polar, Keyboard) back to current computers. Since 0.8.0 it comes
