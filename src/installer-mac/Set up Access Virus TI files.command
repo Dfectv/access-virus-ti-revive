@@ -69,6 +69,14 @@ sudo mkdir -p "$COMMON"
 sudo rm -rf "$COMMON/Virus Control.bundle"
 sudo cp -R "$SRC/Virus Control.bundle" "$COMMON/"
 sudo cp "$SRC/firmware.bin" "$COMMON/"
+# the look of Access' Control Center for TI Revive Control Center: only its images and layout files (its program is
+# 32-bit and does not run on current macOS)
+CCRES="$WORK/x/Core_components.pkg/Payload/Applications/Access Music/Virus TI/Virus Control Center.app/Contents/Resources"
+if [ -d "$CCRES" ]; then
+    sudo rm -rf "$COMMON/Virus Control Center Resources"
+    sudo mkdir -p "$COMMON/Virus Control Center Resources"
+    sudo find "$CCRES" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.xml' \) -exec cp {} "$COMMON/Virus Control Center Resources/" \;
+fi
 DOCS="$WORK/x/Additional_items.pkg/Payload/Library/Documentation/Access Music/Virus TI"
 if [ -d "$DOCS" ]; then
     sudo mkdir -p "/Library/Documentation/Access Music"

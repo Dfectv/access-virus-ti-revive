@@ -34,6 +34,8 @@ Evidence: [evidence.md](evidence.md) (E001-E145), protocol: [spec.md](spec.md); 
   Control Center exe at runtime (native/docs/controlcenter.md "The Access look"), tested on Linux under Xvfb.
   Setup scripts copy `Virus Control Center.exe` (Linux/Windows). Open: Windows look check, macOS source of the
   images, model choice (Desktop/Keyboard/Polar), real folder dialog check on a desktop. MERGED to main.
+  Then: macOS images (setup command copies Contents/Resources PNG+XML; loading checked on the M3), model choice by
+  clicking the picture (VSTGUI preferences), Nerd mode label for page-74 actions. Open: app start on macOS (user).
 - README screenshots (docs/images/: plug-in filter page, Control Center Access look, Nerd mode): the maintainer
   allowed screenshots as the only exception to AGENTS.md rule 1 (2026-10-15); made with nativehost --editor --shot
   and the app on Xvfb (dbus-run-session, no paths / user names in the images). No "send SysEx" console (rule 2).

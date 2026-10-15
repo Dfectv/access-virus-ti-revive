@@ -256,7 +256,11 @@ std::unique_ptr<AccessFiles> AccessFiles::open_control_center(std::string &error
     for (const char *pf : {"ProgramW6432", "ProgramFiles"})
         if (const char *p = std::getenv(pf))
             cands.push_back(fs::path(p) / "Access Music/Virus TI/Common" / exe);
-#elif !defined(__APPLE__)
+#elif defined(__APPLE__)
+    // TI Revive's "Set up Access Virus TI files" copies its images and layout there; else an Access installation
+    cands.push_back("/Library/Application Support/Access Music/Virus TI/Common/Virus Control Center Resources");
+    cands.push_back("/Applications/Access Music/Virus TI/Virus Control Center.app/Contents/Resources");
+#else
     const char *home = std::getenv("HOME");
     std::string prefix = std::getenv("WINEPREFIX") ? std::getenv("WINEPREFIX") : (home ? std::string(home) + "/.wine" : "");
     if (!prefix.empty())

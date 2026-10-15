@@ -70,6 +70,10 @@ std::string TrafficDecoder::describe(const std::vector<uint8_t> &m, std::string 
             kind = "param";
             if (model_)
                 for (auto &c : model_->decode(m)) {
+                    if (c.path.rfind("Actions/", 0) == 0) { // page 74 actions (display messages): no part
+                        snprintf(b, sizeof b, "%s = %d", c.path.c_str(), c.value);
+                        return b;
+                    }
                     bool global = c.part == 16 || cmd == 0x73;
                     if (global && c.path.rfind("Global", 0) == 0) // the path says it already
                         snprintf(b, sizeof b, "%s = %d", c.path.c_str(), c.value);

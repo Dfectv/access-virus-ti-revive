@@ -9,6 +9,8 @@
 #include "vstgui/lib/ccolor.h"
 #include "vstgui/lib/cframe.h"
 #include "vstgui/lib/cvstguitimer.h"
+#include "vstgui/standalone/include/iapplication.h"
+#include "vstgui/standalone/include/ipreference.h"
 #include <atomic>
 #include <filesystem>
 #include <cctype>
@@ -26,7 +28,13 @@ enum Page { kStartup, kSelector, kBackup, kBurn, kUpdate };
 
 // our parameters for the elements we add to the layout
 const char *kNotSupported = "TIRevive/NotSupported", *kStatus = "TIRevive/Status",
-           *kChangePath = "TIRevive/ChangePath";
+           *kChangePath = "TIRevive/ChangePath", *kModel = "TIRevive/Model";
+
+// USB does not tell the models apart (only the Snow by its product string): the user picks it by clicking the
+// picture. Frames of the original's model picture strip: 1 Desktop, 2 Polar, 3 Keyboard, 5 Snow.
+enum Model { kDesktop, kKeyboard, kPolar };
+const char *kModelNames[] = {"Desktop", "Keyboard", "Polar"};
+const int kModelFrames[] = {1, 3, 2};
 
 class SkinPage : public CViewContainer, public SkinState {
 public:
@@ -36,6 +44,10 @@ public:
           layout_(std::move(layout)), version_(std::move(version)), actions_(std::move(actions))
     {
         setBackgroundColor(CColor(0, 0, 0, 255));
+        if (auto m = VSTGUI::Standalone::IApplication::instance().getPreferences().get("Model"))
+            for (int i = 0; i < 3; i++)
+                if (*m == kModelNames[i])
+                    model_ = i;
         add_our_elements();
         view_ = new SkinView(CRect(0, 0, layout_.width, layout_.height), layout_, *files_, *this);
         addView(view_);
@@ -68,12 +80,11 @@ public:
             return page_ == kStartup;
         if (x == "tab5active")
             return page_ == kSelector;
-        if (x == "tab1activeDesktop")
-            return page_ == kBackup && !snow_;
         if (x == "tab1activeSnow")
             return page_ == kBackup && snow_;
-        if (x == "tab1activePolar" || x == "tab1activeKeyboard")
-            return false; // USB does not tell Desktop / Keyboard / Polar apart
+        for (int m = 0; m < 3; m++)
+            if (x == std::string("tab1active") + kModelNames[m])
+                return page_ == kBackup && !snow_ && model_ == m;
         if (x == "tab2active")
             return page_ == kBurn;
         if (x == "tab3active")
@@ -94,7 +105,7 @@ public:
         if (p == "ControlCenter/SelectVirus/SelectedRow")
             return found_ ? 0 : -1;
         if (p == "ControlCenter/SelectVirus/Family") // picture strip: 1 = TI Desktop, 5 = TI Snow
-            return !found_ ? 0 : snow_ ? 5 : 1;
+            return !found_ ? 0 : snow_ ? 5 : kModelFrames[model_];
         return 0;
     }
     std::string text(const std::string &p) override
@@ -103,8 +114,10 @@ public:
         std::string x = p.substr(p.rfind('/') + 1);
         if (x == "VersionText")
             return "TI REVIVE CONTROL CENTER " + version_ + "\n" + status_;
-        if (x == "Row0VirusName" || x == "SelectedVirusName")
+        if (x == "Row0VirusName")
             return found_ ? product_ : "";
+        if (x == "SelectedVirusName")
+            return !found_ ? "" : snow_ ? product_ : product_ + " " + kModelNames[model_];
         if (x == "Row0VirusTypeName")
             return found_ ? usb_ : "";
         if (x == "SelectedVirusOSLabel")
@@ -134,6 +147,8 @@ public:
             return false; // restore into the Virus: later, after a separate review
         if (p.find("TriggerBackup") != std::string::npos || p == kChangePath)
             return !busy_;
+        if (p == kModel)
+            return !snow_;
         if (p.find("BurnROMOK") != std::string::npos || p.find("VirusTI/Install") != std::string::npos)
             return false; // Burn Flash / OS update: not offered
         return true;
@@ -158,6 +173,11 @@ public:
             status_ = "OK starts the backup";
         } else if (p == kChangePath) {
             choose_target();
+        } else if (p == kModel) {
+            std::lock_guard<std::mutex> l(mu_);
+            model_ = (model_ + 1) % 3;
+            VSTGUI::Standalone::IApplication::instance().getPreferences().set("Model", kModelNames[model_]);
+            status_ = std::string("Model: ") + kModelNames[model_] + " (click picture)";
         } else if (p == "ControlCenter/VirusTI/BackupRestoreOK") {
             backup();
         } else {
@@ -184,6 +204,7 @@ private:
     std::mutex mu_; // the fields below; the worker writes them
     Page page_ = kStartup;
     bool found_ = false, snow_ = false, done_ = false;
+    int model_ = kDesktop;
     std::atomic<bool> busy_{false}, stop_{false};
     std::string product_, usb_, status_ = "Looking for the Virus...", backup_text_, target_;
     std::thread worker_;
@@ -209,6 +230,8 @@ private:
                     path.x = page.x + 18, path.y = page.y + 128, path.w = 650, path.h = 24;
                     path.parameter = kChangePath;
                     page.children.push_back(path);
+                } else if (page.container && page.expression.find("tab5active") != std::string::npos) {
+                    add_model_button(page);
                 } else if (page.container && page.expression.find("tab2active") != std::string::npos) {
                     auto t = label(page.x + 18, page.y + 185, 623, kNotSupported);
                     t.h = 20;
@@ -234,6 +257,26 @@ private:
             n.children.push_back(label(x + 4, n.y + 16, n.x + n.w - x - 18, kStatus));
         }
     }
+
+    // an invisible button over the model picture of the device selector (the picture is an "animation" element)
+    static bool add_model_button_in(std::vector<SkinNode> &nodes)
+    {
+        for (auto &n : nodes) {
+            if (n.container && add_model_button_in(n.children))
+                return true;
+            if (n.type == "animation" && n.parameter.find("SelectVirus/Family") != std::string::npos) {
+                SkinNode b;
+                b.type = "button";
+                b.x = n.x, b.y = n.y, b.w = n.w, b.h = n.h;
+                b.parameter = kModel;
+                b.expression = n.expression; // only with a Virus in the list
+                nodes.push_back(b);
+                return true;
+            }
+        }
+        return false;
+    }
+    void add_model_button(SkinNode &page) { add_model_button_in(page.children); }
 
     void set_status(const std::string &s)
     {

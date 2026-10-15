@@ -178,8 +178,9 @@ same with Access' own driver.
 **Backups: TI Revive Control Center (read-only)**
 
 Start **TI Revive Control Center** (Windows: Start menu, folder "TI Revive"; macOS: Applications; Linux: the
-application menu, or `tirevive-control-center`). On Windows and Linux it looks like Access' Virus Control Center
-when that is in your Access installer (the setup step copies it; it loads the look from there, like the plug-in). Close the plug-in (or your DAW) first: the Virus serves one program
+application menu, or `tirevive-control-center`). It looks like Access' Virus Control Center when that is in your
+Access installer (the setup step copies its images; it loads the look from there, like the plug-in). Click the Virus
+picture to choose your model (Desktop, Keyboard, Polar): USB does not tell them apart. Close the plug-in (or your DAW) first: the Virus serves one program
 at a time. The window shows the connected Virus and its RAM banks, backs them up as patch libraries and converts
 libraries between `.mid` and `.syx`. **Nerd mode** (button or *View > Nerd mode*) shows live what goes between
 TI Revive and the Virus (decoded: notes, parameter changes by name, dumps, bank sync), which programs use the Virus,

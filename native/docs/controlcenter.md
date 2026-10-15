@@ -65,9 +65,9 @@ visibility expressions), `ccapp/skinview.*` draws it with the original's image c
 pressed `_PRS` images, the pulsing OK strip, the 6 x 9 LCD font) and `ccapp/skinpage.*` puts TI Revive's logic behind
 it (`engine.xml`, the original's logic, is not used):
 
-- start and device selector as in the original (one Virus; the model picture: TI Desktop, TI Snow when the USB
-  product says so - USB does not tell Desktop, Keyboard and Polar apart; OS version "-": no request for it is
-  documented);
+- start and device selector as in the original (one Virus; OS version "-": no request for it is documented). USB
+  does not tell Desktop, Keyboard and Polar apart: a click on the model picture switches between them (kept in the
+  app's preferences) and picks the matching backup page; a Snow is recognised by its USB product string;
 - Backup & Restore: BACKUP proposes a dated folder in `Virus TI/Backups` (a click on the path field chooses
   another), OK runs the backup; progress and result in the footer. RESTORE is dimmed (later);
 - Burn Flash ROM and OS Updater: the original pages with a note that TI Revive does not offer them; their controls
@@ -75,8 +75,10 @@ it (`engine.xml`, the original's logic, is not used):
 - our additions in the original's empty footer (with its blank button image): NERD MODE, CONVERT LIBRARY, PLAIN VIEW;
   the plain page has an "Access look" button back.
 
-Without the file the app shows its plain page. macOS: not yet (the original there is an old 32-bit app; where its
-images are is still to check).
+Without the file the app shows its plain page. macOS: the original is an old 32-bit app whose images and layout are
+plain files in `Contents/Resources`; "Set up Access Virus TI files" copies only those (PNG, XML) to
+`/Library/Application Support/Access Music/Virus TI/Common/Virus Control Center Resources`, and an existing Access
+installation in `/Applications` works too (checked on the M3: 106 files, layout read).
 
 ## How it works
 
