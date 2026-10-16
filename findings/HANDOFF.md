@@ -15,6 +15,10 @@ coverage 93 %. Installed: win11 VM (release, /repair over the test build of the 
 unpacked in ~/Downloads (test builds renamed *-testbuild), the user installs (Linux needs sudo while the Virus is on
 the Mac). The Virus is on the Mac.
 
+**After the release (main, not in a release yet):** help mode framed an empty box next to the ? - the display-only
+"Global Section Lock Indicator" got a frame since 0.8.18 includes disabled controls; its note removed (commit 0b12af5),
+website screenshot corrected. Ships with the next version.
+
 **Next round:** (1) E175 on Linux: capture the IN stream in the stuck state (E112 pattern?), compare the broker's
 open/stream timing with macOS and the VM (the VM got the Virus late and recovered), REA: the original's start-up;
 (2) should param-inactive controls block clicks like Enabled="false" ones (REA); (3) Linux -> VM handover left the
