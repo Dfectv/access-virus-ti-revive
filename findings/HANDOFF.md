@@ -1,13 +1,63 @@
 # HANDOFF
 
-_Last updated: 2026-10-15 (0.8.6: readiness probe at start-up / takeover, E149). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E149), protocol: [spec.md](spec.md); the native plug-in:
+_Last updated: 2026-10-16 morning (CONTINUE HERE below; branches softknobs + tests-coverage local). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+Evidence: [evidence.md](evidence.md) (E001-E152), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE: read findings/HANDOFF.md on branch `softknobs`
+## CONTINUE HERE (state 2026-10-16 morning)
 
-Work after the 0.8.6 release is on two local branches (not pushed, not merged): `softknobs` (soft-knob fix E150,
-E151, the full "continue here" list) and `tests-coverage` (30 new unit tests). `git switch softknobs` first.
+**Released:** v0.8.6 (Latest, CI run 38800047856, all 7 jobs green): start-up waits for the Virus (readiness probe),
+first ping answered after a takeover, one state upload per waiting instance (E149).
+
+**Two local branches, NOT pushed, NOT merged** (the user decides; both build, ctest green on Linux):
+- `softknobs` (this file's branch, from main after 0.8.6):
+  - soft knobs in the editor control the parameter their destination selects, like the original (E150);
+  - NEW 2026-10-16: a preset chosen on the Virus itself is loaded into the part's edit buffer 150 ms after the
+    Virus reports it (bank cache, like the original) - before, the plug-in ignored it and the part kept its old
+    sound ("-INIT-", no soft-knob destinations) (E152 (1));
+  - NEW 2026-10-16: a soft knob turned on the Virus (it reports `Value Softknob0..2`) sets the destination
+    parameter of the panel part in the plug-in (state, editor, host), nothing sent back (E152 (2));
+  - AGENTS.md step 4 (REA when unsure); E150-E152; this handoff.
+  - Tested 2026-10-16 with the user on the TI2 (Linux, nativehost with the editor on the desktop): presets switched
+    on the TI2 load (display shows the destinations again), soft knobs 1-3 move knob + target in the editor.
+- `tests-coverage` (from main after 0.8.6): 30 new unit tests (31 -> 61) (vticore line coverage 51.2 % -> 81.8 % with the
+  Access files on this PC, 54.1 % without them = what CI sees; 7 tests skip there). Production code touched: only
+  test hooks `Broker::set_endpoint(path)` and `AudioIn::open(name)` (code-only, default unchanged; Windows connect got
+  the extra parameter but was not compiled). New files: tests/test_memsync, test_cc, test_broker, test_audioin;
+  more in test_decode, test_access (every editor page, ROM banks), test_model (soft knob targets is on `softknobs`).
+- Merge order suggestion: `softknobs` then `tests-coverage` (HANDOFF/evidence only on `softknobs`; CMakeLists test
+  list only on `tests-coverage`) -> release 0.8.7 (soft knobs both directions + presets chosen on the Virus) ->
+  tell #4 (promised: "next release"). The hardware preset bug affects every user since 0.8.0: worth the release.
+
+**Open, in order of value:**
+1. Release 0.8.7 (see above), then a Windows check of the hardware preset switch + soft knobs (VM, Ableton).
+2. E152 leftovers: (a) patch not in the bank cache (sync not done, cache miss): the original requests the part's
+   edit buffer from the Virus (`30 00 <part>`) and takes the reply - ours only logs "not in the bank cache";
+   (b) the original re-sends the part's controllers 1..16 after loading (mod wheel, breath, ... - value source in
+   ours unclear, not done); (c) not tested: parts other than 1, Snow, macOS/Windows, a DAW.
+3. #4 ManuAnilkumar23: RAM banks "Init" on the Snow. The Snow description = TI description (E151). Possibly
+   related to E152 (if he switches presets on the Snow, the plug-in stayed on "-INIT-") - ask him after 0.8.7;
+   else his diag.log ("RAM A sync" lines) and broker log.
+4. #4 nasguile: FX 1 changes only after re-triggering. Asked which knobs. Then: REA, how the original sends those
+   parameters, compared with ours (vtimodel encode <path>).
+5. CI coverage to 80 % (now 54 %): a small hand-written editor layout (editor.xml format, no Access content) for the
+   renderer (0 % in CI), more synthetic model/condition tests; accessfiles needs fake installation folders. A unit
+   test for the E152 paths needs a fake DeviceOut (panel_message -> load_reported_presets).
+6. Readiness probe (E149) vs the original: not checked how the original itself waits after its start-up messages.
+7. Older items unchanged: USB 3 output (C10), reconnect path without note hold, macOS duplicate-track check, two DAWs
+   sharing the Virus on Windows, Snow "officially" (record a test report).
+
+**Tools this session (scratchpad only, recreate if needed):** `virusmon` - a read-only broker observer (protocol 4,
+`Broker::observe` + `cc::TrafficDecoder`, prints one decoded line per message; built against build-native's
+libvticore.a + libpugixml.a with -DNDEBUG; rebuild vticore on the current branch first, a library from another branch
+crashed it - Broker layout differs on tests-coverage). Worth adding as `native/tools/virusmon.cpp` later.
+
+**Environment:** the Virus is on the Linux PC; win11 VM off. REA analysis of Virus Control.dll:
+work/rea/virus-control-5.1.7-x64.ghidra-snapshot (git-ignored; open the copy in
+~/.local/share/tirevive/access/... (sha256 a622f9a2...) with provider_id "ghidra" + snapshot_path). The user's
+installed plug-in is still 0.8.6 (REAPER test showed the bug). The "Environments" section below is partly outdated.
+
+**Replies posted:** #4 on 2026-10-15 (fixes in the next release, logs asked). Memory: always REA for RE.
 
 ## 0.8.5 (2026-10-15): issue #6, duplicated track puts the Virus out of time (merged from branch single-instance)
 

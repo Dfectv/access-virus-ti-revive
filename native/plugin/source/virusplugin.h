@@ -277,6 +277,9 @@ public:
     int tick_meters(int step);
     int meter(int channel) const { return channel >= 0 && channel < 16 ? meter_shown_[channel] : 0; }
     std::string live_text(const std::string &param); // LCD texts of the last edited parameter
+    // "Softknobs/Softknob N" of a part: the parameter its "Soft Knobs/Destination N" points to (SoftknobMapping),
+    // "" when unassigned or for other paths. The original's soft knob is a proxy of that parameter (E150).
+    std::string softknob_target(const std::string &path, int part);
 
     // IMidiMapping: channel aftertouch / pitch bend -> the original's per-channel parameters
     Steinberg::tresult PLUGIN_API getMidiControllerAssignment(Steinberg::int32 busIndex, Steinberg::int16 channel,
@@ -361,6 +364,12 @@ private:
     ParamUpdate pu_[PU_SLOTS];
     std::atomic<size_t> pu_w_{0}, pu_r_{0};
     void drain_param_updates();
+    // a preset chosen on the Virus itself (it reports the part's Bank / Patch): like the original, 150 ms after the
+    // last report the stored patch from the bank cache goes into that part's edit buffer (sender thread, idle hook)
+    std::mutex preset_mu_;
+    unsigned preset_parts_ = 0; // bit per part
+    std::chrono::steady_clock::time_point preset_due_;
+    void load_reported_presets();
     std::map<int, std::vector<std::vector<uint8_t>>> banks_; // RAM A..D (bank cache, see load_banks), ROM, libraries
     std::vector<std::string> lib_names_, lib_paths_;
     std::mutex banks_mu_;
