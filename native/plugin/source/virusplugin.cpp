@@ -581,6 +581,8 @@ tresult PLUGIN_API VirusPlugin::terminate()
     stop_warm_ = true;
     if (sync_thread_.joinable())
         sync_thread_.join(); // stop_warm_ also cancels the bank sync between two requests (<= ~1 s)
+    if (edit_req_.joinable())
+        edit_req_.join(); // an edit-buffer request: at most its 3 s timeout
     out_.reset();
     return SingleComponentEffect::terminate();
 }
@@ -2009,11 +2011,9 @@ void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
         // a soft knob turned on the Virus: it applies the change itself and reports only the knob's value (E152).
         // Like the original (0x180081980): the panel part's soft knob takes the value, i.e. its destination parameter
         // does - kept in the state and shown, nothing is sent back
-        static const std::string knob_value = "Global Soft Knob Configuration/Value Softknob";
-        if (c.path.size() == knob_value.size() + 1 && c.path.compare(0, knob_value.size(), knob_value) == 0 &&
-            c.path.back() >= '0' && c.path.back() <= '2') {
+        if (int knob = PanelFollow::softknob_report(c.path)) {
             const int part = ui_value("Multi Parameters/Panel Part", -1);
-            const std::string target = softknob_target("Softknobs/Softknob " + std::string(1, c.path.back() + 1), part);
+            const std::string target = softknob_target("Softknobs/Softknob " + std::to_string(knob), part);
             if (!target.empty() && part >= 0 && part < 16)
                 c = {target, part, c.value};
             else
@@ -2024,12 +2024,8 @@ void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
         // a preset selected on the Virus: it reports the part's Bank / Patch and then waits for the host to send the
         // patch into the edit buffer (E033, E152; else the part keeps its old sound). Only after the start-up check
         // and only for a real change, so a project's own patch is never replaced while it loads.
-        if (ready_ && c.part >= 0 && (c.path == "Multi Part Parameter/Bank" || c.path == "Multi Part Parameter/Patch") &&
-            ui_value(c.path, c.part) != c.value) {
-            std::lock_guard<std::mutex> lk(preset_mu_);
-            preset_parts_ |= 1u << c.part;
-            preset_due_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(150);
-        }
+        if (ready_ && PanelFollow::is_preset_path(c.path) && ui_value(c.path, c.part) != c.value)
+            follow_.preset_report(c.path, c.part, PanelFollow::Clock::now());
         set_part_value(c.part, c.path, c.value);
         {
             std::lock_guard<std::recursive_mutex> mk(meta_mu_);
@@ -2044,26 +2040,64 @@ void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
 }
 
 // sender thread (idle hook): the presets the Virus reported (panel_message) once it has been quiet for 150 ms, like the
-// original (0x180081980 marks the part, its timer 0x18007ec30 calls 0x180083ae0). A patch not in the bank cache (sync
-// not done yet) is left alone: the original asks the Virus for that edit buffer then - not done here, logged instead.
+// original (0x180081980 marks the part, its timer 0x18007ec30 calls 0x180083ae0): the patch from the bank cache goes
+// into the part's edit buffer, then the part's known controller positions (mod wheel, ...) follow. A patch missing
+// from the cache is read from the Virus' edit buffer instead (fetch_edit_buffer), as the original does.
 void VirusPlugin::load_reported_presets()
 {
-    unsigned parts;
-    {
-        std::lock_guard<std::mutex> lk(preset_mu_);
-        if (!preset_parts_ || std::chrono::steady_clock::now() < preset_due_)
-            return;
-        parts = preset_parts_;
-        preset_parts_ = 0;
-    }
-    for (int part = 0; part < 16; part++)
+    const unsigned parts = follow_.presets_due(PanelFollow::Clock::now());
+    for (int part = 0; parts && part < 16; part++)
         if (parts & (1u << part)) {
             int bank = ui_value("Multi Part Parameter/Bank", part), patch = ui_value("Multi Part Parameter/Patch", part);
-            bool ok = load_patch(bank, patch, part);
+            // the controllers before the load: only positions the plug-in knows are sent again
+            std::vector<std::pair<std::string, int>> ctl;
+            {
+                std::lock_guard<std::mutex> lk(values_mu_);
+                auto pv = part_values_.find(part);
+                if (pv != part_values_.end())
+                    for (auto &p : PanelFollow::restored_controllers())
+                        if (auto v = pv->second.find(p); v != pv->second.end())
+                            ctl.push_back({p, v->second});
+            }
+            const bool ok = load_patch(bank, patch, part);
+            if (ok && out_)
+                for (auto &c : ctl)
+                    if (auto m = dev_.encode(c.first, c.second, part); !m.empty())
+                        out_->send(m);
             if (out_)
                 out_->log("Virus TI native: preset chosen on the Virus, part %d bank %d patch %d: %s\n", part + 1, bank,
-                          patch, ok ? "loaded from the bank cache" : "not in the bank cache");
+                          patch, ok ? "loaded from the bank cache" : "not in the bank cache, reading the edit buffer");
+            if (!ok)
+                fetch_edit_buffer(part);
         }
+}
+
+// The part's edit buffer from the Virus (30 00 <part>, read-only, like the readiness probe) into the state: the
+// Virus already plays that patch, so nothing is sent back. Skipped while the bank sync or another request runs.
+void VirusPlugin::fetch_edit_buffer(int part)
+{
+    if (!sync_ || syncing_ || stop_warm_ || edit_req_busy_.exchange(true))
+        return;
+    if (edit_req_.joinable())
+        edit_req_.join(); // the previous one has finished (busy was false)
+    edit_req_ = std::thread([this, part] {
+        Dump r = sync_->transact(PanelFollow::edit_buffer_request(part), PanelFollow::edit_buffer_reply(part), 3000, 1);
+        if (r.size() == 524 && is_part_dump(r, part)) {
+            {
+                std::lock_guard<std::mutex> lk(state_mu_);
+                if (state_.empty())
+                    state_ = default_;
+                for (auto &s : state_)
+                    if (is_part_dump(s, part))
+                        s = r;
+            }
+            apply_state_to_params();
+        }
+        if (out_)
+            out_->log("Virus TI native: edit buffer of part %d %s\n", part + 1,
+                      r.size() == 524 ? "read from the Virus" : "not read (no reply)");
+        edit_req_busy_ = false;
+    });
 }
 
 void VirusPlugin::apply_state_to_params()

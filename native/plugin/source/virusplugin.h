@@ -9,6 +9,7 @@
 #include "device/broker.h"
 #include "device/memsync.h"
 #include "device/resampler.h"
+#include "model/panelfollow.h"
 #include "model/remotedevice.h"
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
 #include "public.sdk/source/vst/vstsinglecomponenteffect.h"
@@ -366,10 +367,13 @@ private:
     void drain_param_updates();
     // a preset chosen on the Virus itself (it reports the part's Bank / Patch): like the original, 150 ms after the
     // last report the stored patch from the bank cache goes into that part's edit buffer (sender thread, idle hook)
-    std::mutex preset_mu_;
-    unsigned preset_parts_ = 0; // bit per part
-    std::chrono::steady_clock::time_point preset_due_;
+    vti::PanelFollow follow_;
     void load_reported_presets();
+    // a chosen patch missing from the bank cache: the part's edit buffer is read from the Virus instead (worker
+    // thread, one at a time, never during the bank sync - the Virus truncates overlapping replies)
+    std::thread edit_req_;
+    std::atomic<bool> edit_req_busy_{false};
+    void fetch_edit_buffer(int part);
     std::map<int, std::vector<std::vector<uint8_t>>> banks_; // RAM A..D (bank cache, see load_banks), ROM, libraries
     std::vector<std::string> lib_names_, lib_paths_;
     std::mutex banks_mu_;
