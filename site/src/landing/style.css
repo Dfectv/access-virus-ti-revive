@@ -41,7 +41,8 @@ code { font: 0.86em var(--mono); background: var(--raised); border: 1px solid va
 /* hero */
 .hero { padding: 5rem 0 4rem; }
 h1 { font-size: clamp(2.1rem, 4.6vw, 3.3rem); line-height: 1.12; font-weight: 600;
-  margin: 0 0 1.4rem; max-width: 14ch; }
+  margin: 0 0 0.5rem; }
+.tagline { font-size: clamp(1.3rem, 2.6vw, 1.75rem); font-style: italic; color: var(--text); margin: 0 0 1.6rem; }
 .lead { font-size: 1.12rem; color: var(--soft); max-width: 40rem; margin: 0 0 2rem; }
 .lead strong { color: var(--text); font-weight: 600; }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2rem; margin: 0; }
@@ -52,6 +53,11 @@ h1 { font-size: clamp(2.1rem, 4.6vw, 3.3rem); line-height: 1.12; font-weight: 60
 .quiet { color: var(--soft); text-decoration: none; }
 .quiet:hover { color: var(--text); }
 .facts-line { margin: 1.4rem 0 0; font-size: 0.88rem; color: var(--soft); }
+
+/* the README's coffee note, word for word */
+.thanks { margin: 1.6rem 0 0; max-width: 40rem; padding: 0.9rem 1.1rem; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--surface); font-size: 0.9rem; color: var(--soft); }
+.thanks strong { color: var(--text); }
 
 /* the plug-in: a real screenshot, 1280 px, shown at 640 px (sharp on high-resolution screens) */
 .shot { margin: 3.5rem 0 0; }
@@ -134,7 +140,7 @@ h2 { font-size: clamp(1.5rem, 2.8vw, 1.9rem); line-height: 1.2; font-weight: 600
 .paths { margin: 0.8rem 0 0; display: grid; grid-template-columns: 6rem 1fr; gap: 0.3rem 1rem; font-size: 0.88rem; }
 
 /* about */
-.about { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5rem; }
+.about { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2.5rem; max-width: 52rem; }
 .about h3 { margin: 0 0 0.5rem; font-size: 1rem; }
 .about p { margin: 0; color: var(--soft); font-size: 0.93rem; }
 

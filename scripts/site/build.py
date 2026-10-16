@@ -441,13 +441,17 @@ def page_landing(latest, releases, sums):
     return f"""
 <section class="hero">
   <div class="wrap">
-    <h1>Like meeting an old best friend again.</h1>
+    <h1>TI Revive</h1>
+    <p class="tagline">Like meeting an old best friend again.</p>
     <p class="lead"><strong>Total Integration for the Access Virus TI on Windows 11, macOS and Linux &mdash; without
     the old drivers.</strong> Its plug-in looks and works like the original Virus Control: every parameter, the preset
     browser, automation, and the synth's audio over the same USB cable.</p>
     <p class="actions"><a class="button" href="#download">Download {v}</a>
     <a class="quiet" href="#news">What's new &rarr;</a></p>
     <p class="facts-line">Free &middot; open source &middot; VST3 and Audio Unit &middot; released {when}</p>
+    <p class="thanks">&#9749; <strong>Free, and it will stay free.</strong> If TI Revive gives your Virus a second life
+    and you'd like to say thanks, you can <a href="https://buymeacoffee.com/callmederpsn">buy me a coffee</a> -
+    entirely optional, every feature works the same either way. A test report or a kind word helps just as much.</p>
     <figure class="shot">
       <img src="plugin-filter.png" width="1280" height="724"
       alt="TI Revive Virus Control, the plug-in's filter page, drawn from the user's own Access files">
@@ -572,9 +576,6 @@ def page_landing(latest, releases, sums):
       <div><h3>How it was built</h3><p>By working out the USB protocol and the original software's behaviour from
       logs, captures and analysis, and by testing on real hardware. Much of the work was done with an AI coding
       assistant; the tests on the synth are done by hand.</p></div>
-      <div><h3>Saying thanks</h3><p>Everything works the same whether you pay or not. If you want to, you can
-      <a href="https://buymeacoffee.com/callmederpsn">buy the developer a coffee</a> &mdash; a test report helps just
-      as much.</p></div>
     </div>
   </div>
 </section>
