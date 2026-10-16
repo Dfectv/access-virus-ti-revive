@@ -362,7 +362,17 @@ def page_landing(latest, releases, sums):
       In Ableton: an audio track with <em>Audio From</em> = the Virus track, <em>Out 3</em>, <em>Monitor In</em>.</p>
       </details>
       <details><summary>Process audio through the Virus (sidechain input)</summary>
-      <p>Like the original, the plug-in can send audio from your DAW into the Virus: set &ldquo;Input and Output Configuration&rdquo; to &ldquo;3 Outs / 1 Input&rdquo;, and on the FX 1 page set a part's Input Mode to Static (always on) or Dynamic (played with notes) and Select to L + R. Then send an audio track to the plug-in's sidechain input; the part's filters and effects process it. In REAPER, give the Virus track 4 channels and send the audio to channels 3/4 (check in the pin connector that they feed Sidechain 1/2). In Ableton Live, pick the audio track in the device's Sidechain section. In this mode the Virus does not work as a sound card for your computer. After reopening a project, set Input Mode once more (a known issue, fixed in the next version). Tested on Linux (REAPER) and macOS (Ableton Live 12); not yet on a real Windows PC.</p></details>
+      <p>Like the original, the plug-in can send audio from your DAW into the Virus: set &ldquo;Input and Output Configuration&rdquo; to &ldquo;3 Outs / 1 Input&rdquo;, and on the FX 1 page set a part's Input Mode to Static (always on) or Dynamic (played with notes) and Select to L + R. Then send an audio track to the plug-in's sidechain input; the part's filters and effects process it. In REAPER, give the Virus track 4 channels and send the audio to channels 3/4 (check in the pin connector that they feed Sidechain 1/2). In Ableton Live, pick the audio track in the device's Sidechain section. In this mode the Virus does not work as a sound card for your computer. Tested on Linux (REAPER), macOS (Ableton Live 12) and in a Windows 11 VM (Ableton Live 11); not yet on a real Windows PC.</p></details>
+      <details><summary>Projects bring back every patch setting</summary>
+      <p>Older versions saved the parts in a format the Virus converts itself, and it reset about 20 newer settings on
+      loading: Input Mode, unison, arpeggiator mode, chorus type, envelopes 3 and 4 and more. Projects now keep the
+      current format (0.8.18); older projects are converted when they open, and settings that never reached the Virus
+      open as the Virus played them. A new project's chorus shows &ldquo;Classic&rdquo;: that is what the Virus makes of
+      the original's Init patch.</p></details>
+      <details><summary>When the Virus is missing</summary>
+      <p>Switched off or unplugged, the editor shows the original's &ldquo;No Virus TI can be found&rdquo; page and the
+      page tabs are locked, as in the original. The page goes away by itself when the Virus is back. Do not follow its
+      advice to hold ARP EDIT while switching the Virus on; TI Revive does not need that.</p></details>
       <details><summary>The first notes after Play are late</summary>
       <p>The plug-in sends notes slightly ahead to make up for the USB round trip, so start playback a little before
       the first note. The original driver did the same.</p></details>
@@ -443,7 +453,8 @@ def features_section():
         <li>Presets and soft knobs chosen on the Virus itself are followed, as in the original.</li>
         <li>Three stereo outputs over USB, plus the analog outputs of the Virus.</li>
         <li>Audio from your DAW through the filters and effects of the Virus (sidechain input), as in the original.</li>
-        <li>A help mode: the ? button explains every control.</li>
+        <li>A help mode: the ? button explains every control, and why a greyed-out one is inactive.</li>
+        <li>Projects bring back every patch setting of all 16 parts.</li>
         <li>VST3 on Windows, macOS and Linux; Audio Unit for Logic and GarageBand. Native on Apple Silicon.</li>
         <li>Editor sizes from 100 to 200 %. On larger sizes and Retina screens each image is enlarged once with a
         sharp filter, in memory only.</li>
@@ -454,11 +465,17 @@ def features_section():
       <div><h3>Help mode</h3>
       <p>Click the ? at the bottom right of the editor: every control gets a short note on what it does. Point at a
       control to read it, click to keep the note on screen; clicks do not change values in this mode, and the page tabs
-      still work. Esc or ? ends it. The notes are written for TI Revive, not taken from the Access manual.</p></div>
+      still work. Esc or ? ends it. The notes are written for TI Revive, not taken from the Access manual. A greyed-out
+      control says why, for example &ldquo;Inactive now: Chorus Type is Off.&rdquo; or &ldquo;depends on Input Mode,
+      Input Atomizer.&rdquo;</p></div>
       <figure class="shot"><img src="plugin-help-mode.png" width="1360" height="769"
       alt="The plug-in's help mode: a note explains the sub oscillator knob">
       <figcaption>Help mode, drawn from your own Access installer. TI Revive is not affiliated with Access Music or
       Kemper.</figcaption></figure>
+      <figure class="shot"><img src="plugin-help-inactive.png" width="907" height="513"
+      alt="A help note on the greyed-out chorus delay knob: Inactive now, Chorus Type is Off">
+      <figcaption>Help note on a greyed-out control, drawn from your own Access installer. TI Revive is not affiliated
+      with Access Music or Kemper.</figcaption></figure>
     </div>
 
     <div class="feature">
@@ -518,8 +535,11 @@ def features_section():
         <li>The Virus drops the message right after a multi dump. The plug-in pauses after one, so new projects reset
         the synth reliably.</li>
         <li>Bank sync requests make the Virus play its notes late. The sync pauses while you play and continues in the gaps.</li>
-        <li>Switch the Virus off and on, or replug it, while the DAW runs: the plug-in waits until it is ready and plays
-        in time again. Two DAWs share it: one plays, the other waits and takes over.</li>
+        <li>Switch the Virus off and on, or replug it, while the DAW runs: the editor shows the original's &ldquo;No Virus
+        TI can be found&rdquo; page meanwhile, then the plug-in waits until the Virus is ready and plays in time again.
+        Two DAWs share it: one plays, the other waits and takes over. Linux: after a cable replug, or when the Virus is
+        switched on while no DAW runs, it can come back without sound; switch it off and on once while the DAW runs
+        (being worked on).</li>
       </ul>
     </div>
 
@@ -588,10 +608,10 @@ def page_changelog_landing(releases):
 
 
 # the README's screenshots that the site shows too (copied at build time)
-SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png"]
-TESTS = 119 # unit tests in native/tests (vtitests), as of 2026-10-16
+SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png", "plugin-help-inactive.png"]
+TESTS = 127 # unit tests in native/tests (vtitests), as of 2026-10-16
 # line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
-COVERAGE, COVERAGE_DATE = "94 %", "16 Oct 2026"
+COVERAGE, COVERAGE_DATE = "93 %", "16 Oct 2026"
 
 # the site: one page plus the changelog archive
 PAGES = [("index", "TI Revive", lambda latest, releases, sums: page_landing(latest, releases, sums)),

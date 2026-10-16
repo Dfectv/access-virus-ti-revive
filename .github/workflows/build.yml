@@ -218,15 +218,31 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
-          **New in 0.8.17: audio from your DAW through the Virus.** Set PATCH UTILITY > Preferences >
+          **New in 0.8.18: projects bring back every patch setting.** Projects saved the parts in an older format,
+          and the Virus reset about 20 newer settings when it loaded them: Input Mode, unison, arpeggiator mode,
+          chorus type, envelopes 3 and 4 and more. Projects now keep the current format, and older ones are converted
+          when they open. Settings that never reached the Virus in an older project open as the Virus played them.
+          A new project's chorus shows "Classic": that is what the Virus makes of the original's Init patch.
+
+          **New in 0.8.18: the "No Virus TI can be found" page.** Switch the Virus off or pull its cable while the
+          editor is open and it shows the original's page for a missing Virus; it goes away by itself when the Virus
+          is back. Known issue on Linux: after a cable replug, or when the Virus is switched on while no DAW runs, it
+          can come back without sound until it is switched off and on once (E175, next version).
+
+          **New in 0.8.18: help notes say why a control is greyed out**, for example "Inactive now: Chorus Type is
+          Off." or "depends on Input Mode, Input Atomizer."
+
+          ![A help note on a greyed-out control](https://raw.githubusercontent.com/derpsn/access-virus-ti-revive/main/docs/images/plugin-help-inactive.png)
+          *Help note on a greyed-out control, drawn from your own Access installer. TI Revive is not affiliated with Access Music or Kemper.*
+
+          **Since 0.8.17: audio from your DAW through the Virus.** Set PATCH UTILITY > Preferences >
           "Input and Output Configuration" to "3 Outs / 1 Input" and a part's Input Mode (FX 1 page) to Static or
           Dynamic: the plug-in's sidechain input then goes into the Virus and through that part's filters and effects,
           as in the original. REAPER: a 4-channel Virus track, the audio sent to channels 3/4. Ableton Live: pick the
           track in the device's Sidechain section. Tested on Linux (REAPER) and macOS (Ableton Live 12), not yet on a
-          real Windows PC. Known issue: after reopening a project set Input Mode once more. The Audio Unit was tested
-          in Logic Pro for the first time.
+          real Windows PC (it works in a Windows 11 VM with Ableton Live). The Audio Unit was tested in Logic Pro.
 
-          **New in 0.8.17: help mode.** Click the ? at the bottom right of the editor: every control gets a short note
+          **Since 0.8.17: help mode.** Click the ? at the bottom right of the editor: every control gets a short note
           on what it does. Point at a control to read it, click to keep the note on screen; clicks do not change values
           in this mode, and the page tabs still work. Esc or ? ends it. The notes are written for TI Revive, not taken
           from the Access manual.

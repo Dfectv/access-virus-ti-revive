@@ -152,6 +152,8 @@ msitools`) or Wine. Wine and yabridge are no longer needed for the plug-in.
 Any sample rate works; JACK through PipeWire (`pw-jack reaper`) works well, avoid PulseAudio as the DAW's audio
 system. While TI Revive uses the Virus, it is not available as a Linux sound card; it is handed back about 30 seconds
 after the plug-in is closed. Uninstall with `./uninstall.sh`. Details: `README-linux.txt` in the package.
+Known issue: after a USB cable replug, or when the Virus is switched on while no DAW runs, it can come back without
+sound; switch it off and on once while the DAW runs (being worked on).
 
 ## Good to know
 
@@ -178,17 +180,33 @@ Mode to Static (always on) or Dynamic (played with notes) and Select to L + R. T
 plug-in's sidechain input; the part's filters and effects process it. In REAPER, give the Virus track 4 channels and
 send the audio to channels 3/4 (check in the pin connector that they feed Sidechain 1/2). In Ableton Live, pick the
 audio track in the device's Sidechain section. In this mode the Virus does not work as a sound card for your computer.
-After reopening a project, set Input Mode once more (a known issue, fixed in the next version). Tested on Linux
-(REAPER) and macOS (Ableton Live 12); not yet on a real Windows PC.
+Tested on Linux (REAPER), macOS (Ableton Live 12) and in a Windows 11 VM (Ableton Live 11); not yet on a real Windows
+PC.
 
 **Help mode.** Click the ? at the bottom right of the editor: every control gets a short note on what it does. Point
 at a control to read it, click to keep the note on screen; clicks do not change values in this mode, and the page tabs
-still work. Esc or ? ends it. The notes are written for TI Revive, not taken from the Access manual.
+still work. Esc or ? ends it. The notes are written for TI Revive, not taken from the Access manual. A greyed-out
+control says why, for example "Inactive now: Chorus Type is Off." or "depends on Input Mode, Input Atomizer."
 
 <p align="center">
   <img src="docs/images/plugin-help-mode.png" alt="The plug-in's help mode: a note explains the sub oscillator knob" width="680"><br>
   <sub>Help mode, drawn from your own Access installer. TI Revive is not affiliated with Access Music or Kemper.</sub>
 </p>
+
+<p align="center">
+  <img src="docs/images/plugin-help-inactive.png" alt="A help note on the greyed-out chorus delay knob: Inactive now, Chorus Type is Off" width="680"><br>
+  <sub>Help note on a greyed-out control, drawn from your own Access installer. TI Revive is not affiliated with Access Music or Kemper.</sub>
+</p>
+
+**Projects bring back every patch setting** (0.8.18). Older versions saved the parts in a format the Virus converts
+itself, and it reset about 20 newer settings on loading: Input Mode, unison, arpeggiator mode, chorus type, envelopes
+3 and 4 and more. Projects now keep the current format; older projects are converted when they open, and settings
+that never reached the Virus open as the Virus played them. A new project's chorus shows "Classic": that is what the
+Virus makes of the original's Init patch.
+
+**When the Virus is missing**, switched off or unplugged, the editor shows the original's "No Virus TI can be found"
+page and the page tabs are locked, as in the original. The page goes away by itself when the Virus is back. Do not
+follow its advice to hold ARP EDIT while switching the Virus on; TI Revive does not need that.
 
 **Start playback slightly before the first note.** The plug-in sends notes to the Virus ahead of time to make up
 for the USB round trip; right at Play, notes in the first quarter second can come late or be skipped. This was the
@@ -306,7 +324,7 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 - **Automation rate limit** (250 messages/s, coalesced per parameter): unthrottled parameter floods hung the Virus'
   audio until a power cycle within 4 minutes; with the limit a 4-minute full-load test (16 channels of notes + 32
   automation lanes) passes.
-- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 119 unit
+- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 127 unit
   tests run with every release build on Windows and Linux.
 
 **Editor**
