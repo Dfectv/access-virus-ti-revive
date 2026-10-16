@@ -84,6 +84,9 @@ static const char *LAYOUT = R"(<?xml version="1.0"?>
    <Knob Parameter="Softknobs/Softknob 1" NormalBack="knob.png"><Size left="50" top="20" width="10" height="10"/></Knob>
    <RadioButton Parameter="Osc/Mode" OnValue="1" NormalBack="radio.png"><Size left="65" top="20" width="8" height="8"/></RadioButton>
    <Button Parameter="Osc/Mode" NormalBack="radio.png" Enabled="false"><Size left="80" top="20" width="8" height="8"/></Button>
+   <Container Condition="VirusControl/Display/Chorus/Type Is Off"><Size left="640" top="15" width="40" height="20"/>
+    <Knob Parameter="Chorus/Delay" NormalBack="knob.png" Enabled="false"><Size left="10" top="5" width="10" height="10"/></Knob>
+   </Container>
    <VUSlider Parameter="Part/Volume" Part="2" NormalBack="vu.png" NormalHandle="handle.png"><Size left="5" top="35" width="50" height="6"/></VUSlider>
    <Menu Parameter="Osc/Mode" NormalBack="tile.png" ControlFont="font.png" Align="Middle Left"><Size left="60" top="35" width="30" height="11"/></Menu>
    <TextSlider Parameter="Osc/Shape" ControlFont="font.png"><Size left="95" top="35" width="40" height="10"/></TextSlider>
@@ -456,6 +459,19 @@ TEST(editor_visible_controls)
     CHECK(shape);
     for (auto &h : all) // the disabled button at 80,20 is not listed
         CHECK(!(h.x == 80 && h.y == 20));
+}
+
+TEST(editor_hit_disabled_for_help)
+{
+    // the help mode also explains disabled controls (the chorus knobs while Chorus Type is Off): the hit test can
+    // include them and names the condition of the container that shows them
+    Rig g;
+    CHECK(!g.r->hit_test(652, 22).element); // a normal click ignores the disabled knob
+    Hit h = g.r->hit_test(652, 22, true);
+    CHECK(h.element && h.disabled && h.element->get("Parameter") == "Chorus/Delay");
+    CHECK(h.why == "VirusControl/Display/Chorus/Type Is Off");
+    Hit n = g.r->hit_test(7, 22, true);
+    CHECK(n.element && !n.disabled && n.why.empty());
 }
 
 TEST(editor_value_texts)
