@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.8 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E156), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E157), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-16, after the 0.8.8 release)
@@ -18,7 +18,7 @@ than 1.
 **Replies on #4 (2026-10-16):** 6208931585 (nasguile, 0.8.7), 6208931949 (Manu, 0.8.7, logs asked), 6210139464
 (both: correction - use 0.8.8, soft knobs on the Virus now change the sound). Waiting for their test results/logs.
 
-**This PC:** ~/.vst3 holds the preset-followups build (= 0.8.8 code); the user's old 0.8.3 copy is in the session
+**This PC:** ~/.vst3 holds a main build (0.8.8 code + the E157 clean-up); the user's old 0.8.3 copy is in the session
 scratchpad (vst3-backup) - the 0.8.8 Linux package can be installed over it. Coverage measurement: a scratch build
 `cmake -S native -B <scratch>/cov -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="--coverage -O0"` (NOT with
 FETCHCONTENT_BASE_DIR=build-native/_deps - that broke build-native's pugixml build), run vtitests with HOME = an empty
@@ -26,11 +26,9 @@ folder and XDG_CONFIG_HOME/WINEPREFIX/VTI_ACCESS_DIR unset, gcov over CMakeFiles
 
 **Open, in order of value:**
 1. DONE 2026-10-16: Windows check of 0.8.8 (E155).
-2. E154 (3) open: on a cache miss the read-back of the edit buffer is built but switched off
-   (`READ_EDIT_BUFFER_ON_MISS`), the Virus ignored the dump written back - compare the raw bytes of a read-back dump
-   with a cache dump (the original rewrites bytes 10..12 = Flags / Original Bank / Original Patch, E156). Next:
-   repeat the forced miss (VTI_ACCESS_DIR = folder with only a link to Virus Control.dll, ROM bank chosen on the
-   Virus) and record the raw reply + the written dump. Not tested: parts other than 1, Snow, macOS.
+2. DONE 2026-10-16: E154 (3) explained (E157) - in plug-in mode the Virus changes only name + origin of the edit
+   buffer when a program is chosen on the panel, so a read-back cannot supply a patch missing from the cache; the
+   read-back code is removed (branch `readback-experiment`, merged). ROM banks need firmware.bin (normal install).
 3. #4 ManuAnilkumar23: RAM banks "Init" on the Snow. The Snow description = TI description (E151). Possibly
    related to E152 (if he switches presets on the Snow, the plug-in stayed on "-INIT-") - ask him after 0.8.7;
    else his diag.log ("RAM A sync" lines) and broker log.

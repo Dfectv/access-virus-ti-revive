@@ -197,6 +197,7 @@ void TrafficDecoder::feed(const uint8_t *p, size_t len, const std::function<void
                 continue;
             TrafficLine l = base;
             l.text = "c" + std::to_string(cable) + " " + describe(sx, l.kind);
+            l.bytes = std::move(sx);
             out(std::move(l));
             sx.clear();
             continue;
@@ -204,6 +205,7 @@ void TrafficDecoder::feed(const uint8_t *p, size_t len, const std::function<void
         std::vector<uint8_t> msg(d + i + 1, d + i + 1 + bytes);
         TrafficLine l = base;
         l.text = "c" + std::to_string(cable) + " " + describe(msg, l.kind);
+        l.bytes = std::move(msg);
         out(std::move(l));
     }
 }

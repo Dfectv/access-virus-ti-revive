@@ -28,12 +28,6 @@ unsigned PanelFollow::presets_due(Clock::time_point now)
     return p;
 }
 
-bool PanelFollow::pending(int part)
-{
-    std::lock_guard<std::mutex> lk(mu_);
-    return part >= 0 && part < 16 && (parts_ & (1u << part));
-}
-
 int PanelFollow::softknob_report(const std::string &path)
 {
     static const std::string prefix = "Global Soft Knob Configuration/Value Softknob";
@@ -62,12 +56,5 @@ const std::vector<std::string> &PanelFollow::restored_controllers()
     };
     return c;
 }
-
-std::vector<uint8_t> PanelFollow::edit_buffer_request(int part)
-{
-    return {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x30, 0x00, (uint8_t)(part & 0x0F), 0xF7};
-}
-
-std::vector<uint8_t> PanelFollow::edit_buffer_reply(int part) { return {0x10, 0x00, (uint8_t)(part & 0x0F)}; }
 
 } // namespace vti

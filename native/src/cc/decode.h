@@ -19,6 +19,7 @@ struct TrafficLine {
     int dir = 0;        // 0 to the Virus, 1 from the Virus, 2 USB control request
     std::string kind;   // "note", "cc", "sysex", "param", "dump", "clock", "control", "other"
     std::string text;
+    std::vector<uint8_t> bytes; // the complete MIDI message (empty for control requests)
 };
 
 class TrafficDecoder {

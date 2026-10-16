@@ -33,9 +33,13 @@ TEST(decode_sysex_and_notes)
     auto a = run(d, payload(1, {0x34, 0xF0, 0x00, 0x20, 0x34, 0x33, 0x01, 0x10}));
     auto b = run(d, payload(1, {0x37, 0x39, 0x01, 0xF7}));
     CHECK(a.empty() && b.size() == 1 && b[0].text == "c3 Bank info request RAM A");
+    // the complete message comes along (virusmon --hex)
+    CHECK(l.size() == 1 && l[0].bytes == (std::vector<uint8_t>{0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x30, 0x02, 0x0C, 0xF7}));
+    CHECK(b.size() == 1 && b[0].bytes.size() == 9 && b[0].bytes.back() == 0xF7); // F0 00 20 33 01 10 39 01 F7
     // note on C4 velocity 100 on channel 1, cable 2; Active Sensing (CIN F)
     auto n = run(d, payload(0, {0x29, 0x90, 60, 100, 0x2F, 0xFE, 0, 0}));
     CHECK(n.size() == 2 && n[0].text == "c2 Note on  ch1 C4 vel 100" && n[1].text == "c2 Active Sensing");
+    CHECK(n.size() == 2 && n[0].bytes == (std::vector<uint8_t>{0x90, 60, 100}) && n[1].bytes.size() == 1);
     // parameter page without a model: numbers
     std::string kind;
     CHECK(d.describe({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x72, 0x00, 0x21, 0x05, 0xF7}, kind) ==
