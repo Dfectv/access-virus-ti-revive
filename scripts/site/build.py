@@ -267,6 +267,8 @@ def page_landing(latest, releases, sums):
   <div class="wrap">
     <h2>Version {v}, released {when}</h2>
     <p class="intro">You also need your own Access &ldquo;Virus TI Software Suite&rdquo; installer (e.g. 5.1.7).
+    Access offers it on its <a href="https://www.virus.info/downloads">download page</a>; you need an account there to
+    download it.
     TI Revive unpacks only what the plug-in reads from it: the skin, the parameter descriptions, the ROM banks.
     Older versions are on <a href="{GH}/releases">GitHub</a>.</p>
     <div class="oses">{win}{mac}{lin}

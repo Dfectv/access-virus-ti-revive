@@ -79,7 +79,8 @@ contains no Access material. No kernel code of its own is installed.
 > TI Revive is an independent project. It is **not affiliated with Access Music Electronics GmbH or
 > Kemper GmbH**. "Access", "Virus" and "Virus TI" are trademarks of their owners and are used only to
 > describe compatibility. TI Revive contains no Access software; you need your own copy of the Access
-> "Virus TI Software Suite" installer.
+> "Virus TI Software Suite" installer. Access offers it on its [download page](https://www.virus.info/downloads);
+> you need an account there to download it.
 
 ---
 
