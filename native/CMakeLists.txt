@@ -25,7 +25,7 @@ FetchContent_Declare(pugixml GIT_REPOSITORY https://github.com/zeux/pugixml.git 
 FetchContent_MakeAvailable(pugixml)
 
 # core library: Access files + device model (no Access material in this repo; loaded at runtime)
-add_library(vticore STATIC src/access/accessfiles.cpp src/model/remotedevice.cpp src/model/state.cpp src/device/broker.cpp src/device/memsync.cpp src/device/audioin.cpp src/editor/editormodel.cpp src/editor/editorrender.cpp src/access/firmware.cpp src/access/library.cpp src/cc/controlcenter.cpp src/cc/diag.cpp src/cc/decode.cpp src/cc/ccskin.cpp src/model/panelfollow.cpp src/editor/upscale.cpp)
+add_library(vticore STATIC src/access/accessfiles.cpp src/model/remotedevice.cpp src/model/state.cpp src/device/broker.cpp src/device/memsync.cpp src/device/audioin.cpp src/editor/editormodel.cpp src/editor/editorrender.cpp src/access/firmware.cpp src/access/library.cpp src/cc/controlcenter.cpp src/cc/diag.cpp src/cc/decode.cpp src/cc/ccskin.cpp src/model/panelfollow.cpp src/editor/upscale.cpp src/editor/helptext.cpp)
 # TI Revive's broker headers (vtiproto.h, vtiaudioshm.h) from the repository's src/broker
 target_include_directories(vticore PUBLIC src ${CMAKE_CURRENT_SOURCE_DIR}/../src/broker)
 find_package(Threads REQUIRED)
@@ -122,7 +122,7 @@ endif()
 # unit tests (no Virus needed; tests on the Access files skip without them): ctest --test-dir build
 enable_testing()
 add_executable(vtitests tests/main.cpp tests/test_usbmidi.cpp tests/test_state.cpp tests/test_model.cpp
-               tests/test_access.cpp tests/test_automation.cpp tests/test_upgrade.cpp tests/test_resampler.cpp
+               tests/test_access.cpp tests/test_automation.cpp tests/test_upgrade.cpp tests/test_resampler.cpp tests/test_helptext.cpp
                tests/test_library.cpp tests/test_decode.cpp tests/test_ccskin.cpp tests/test_memsync.cpp
                tests/test_cc.cpp tests/test_broker.cpp tests/test_audioin.cpp tests/test_panelfollow.cpp tests/test_editor.cpp
                tests/test_accessfiles.cpp tests/test_firmware.cpp tests/test_diag.cpp

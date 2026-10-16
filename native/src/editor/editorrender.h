@@ -80,6 +80,8 @@ public:
     // repaint area: elements outside it are skipped (with their children); default = everything
     int clip_x0 = -100000, clip_y0 = -100000, clip_x1 = 100000, clip_y1 = 100000;
     Hit hit_test(int x, int y) const;
+    // every visible control with a parameter (absolute position, effective part), in drawing order (help mode)
+    std::vector<Hit> visible_controls() const;
     // false for inactive controls (the parameter's own condition is false; soft knobs without destination): they are
     // drawn translucent and ignore the mouse
     bool param_active(const std::string &param, int part) const;
