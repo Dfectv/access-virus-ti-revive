@@ -17,7 +17,12 @@ the Mac). The Virus is on the Mac.
 
 **After the release (main, not in a release yet):** help mode framed an empty box next to the ? - the display-only
 "Global Section Lock Indicator" got a frame since 0.8.18 includes disabled controls; its note removed (commit 0b12af5),
-website screenshot corrected. Ships with the next version.
+website screenshot corrected. Ships with the next version. Coverage pass (2026-10-16, commit 37011e9): test_decode got
+decode_describe_with_model (hand-written model: Nerd mode's parameter names, global/part/action pages, CC) and the
+truncated-message fallbacks; decode.cpp 90.2 -> 99.4 %, CI-like vticore 93.5 -> 94.1 % of 2696 lines (97.0 % with
+header lines merged over the test objects); no file under 90 %. README/site: 128 tests, 94 % (site not rebuilt). Left
+uncovered on purpose: controlcenter "did not answer"/"incomplete" (would wait out 3 x 3 s MemorySync retries) and
+diag.cpp filesystem/platform branches.
 
 **Next round:** (1) E175 on Linux: capture the IN stream in the stuck state (E112 pattern?), compare the broker's
 open/stream timing with macOS and the VM (the VM got the Virus late and recovered), REA: the original's start-up;
