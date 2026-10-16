@@ -238,16 +238,17 @@ def page_landing(latest, releases, sums):
 
 <section class="block" id="original">
   <div class="wrap">
-    <h2>Problems in the original</h2>
-    <p class="intro">Did Access' Virus Control have problems for you? TI Revive rebuilds it, and we want to fix those
-    problems instead of copying them.</p>
+    <h2>Problems in the original Access plug-in</h2>
+    <p class="intro">Did the original Access plug-in, <strong>Virus Control</strong>, the one that came with the Virus
+    TI, have problems for you? TI Revive rebuilds that plug-in, and we want to fix its problems instead of copying
+    them.</p>
     <div class="original">
       <div>
         <h3>Already fixed</h3>
         <ul>
-          <li>In our timing test the original played the first note late and dropped the second. TI Revive puts all 256
+          <li>In our timing test the original plug-in played the first note late and dropped the second. TI Revive puts all 256
           notes on the grid.</li>
-          <li>While it starts up or syncs banks, the original drops the notes you play and sends &ldquo;All Notes
+          <li>While it starts up or syncs banks, the original plug-in drops the notes you play and sends &ldquo;All Notes
           Off&rdquo;. TI Revive holds the notes back at start-up and pauses its bank sync while you play.</li>
         </ul>
       </div>
@@ -256,7 +257,7 @@ def page_landing(latest, releases, sums):
         <p>Hanging notes, sync errors, crashes, projects that did not open, the preset browser, automation, timing.
         If you only remember it roughly, say so.</p>
         <p class="actions"><a class="button" href="{GH}/issues/new?template=original_problem.yml">Report a problem in
-        the original</a> <a class="second" href="{GH}/issues?q=label%3Aoriginal">Reports so far</a></p>
+        the original plug-in</a> <a class="second" href="{GH}/issues?q=label%3Aoriginal">Reports so far</a></p>
       </div>
     </div>
   </div>

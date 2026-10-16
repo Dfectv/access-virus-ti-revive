@@ -1,12 +1,13 @@
 name: Problem in the original Virus Control
-description: Something Access' original plug-in did wrong or badly (hanging notes, sync errors, crashes, timing, ...) - so TI Revive can do better
+description: Something the original Access plug-in (Virus Control) did wrong or badly (hanging notes, sync errors, crashes, timing, ...) - so TI Revive can do better
 labels: [original]
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for sharing what you know from years with the Virus. TI Revive rebuilds Access' Virus Control; where
-        the original had problems, we would like to fix them instead of copying them. Old memories are welcome too:
+        This form is about the original Access plug-in, Virus Control, the one that came with the Virus TI (for a
+        problem in TI Revive, use the bug report). TI Revive rebuilds that plug-in; where it had problems, we would
+        like to fix them instead of copying them. Old memories are welcome too:
         write what you remember and say how sure you are.
   - type: textarea
     id: what
