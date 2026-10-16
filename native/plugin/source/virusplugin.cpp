@@ -581,6 +581,8 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
             for (int ch = 0; ch < 16; ch++)
                 default_.push_back({(uint8_t)(0xB0 | ch), cc[0], cc[1]});
     }
+    // the part dumps in the current format (E174: the Virus would convert old ones and reset the newer fields)
+    upgrade_state_dumps(default_);
     for (auto &e : autom) {
         char title[128], units[16];
         snprintf(title, sizeof title, "[%d] %s", e.part, automation_title(dev_, e).c_str());
@@ -2430,6 +2432,10 @@ tresult PLUGIN_API VirusPlugin::setState(IBStream *state)
                   part1_name(recs).c_str());
     if (recs.empty())
         return kResultFalse;
+    // part dumps of an older format: upgraded as the Virus does on receipt, so the editor shows what it plays and
+    // later edits of the newer fields (Input Mode, unison, envelopes 3/4 ...) reach it (E174)
+    if (int up = upgrade_state_dumps(recs); up && out_)
+        out_->log("Virus TI native: %d part dump(s) of the project upgraded to the current format\n", up);
     {
         std::lock_guard<std::mutex> lk(state_mu_);
         state_ = std::move(recs);

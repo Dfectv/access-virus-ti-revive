@@ -41,6 +41,16 @@ std::vector<uint8_t> build_container(const std::vector<std::vector<uint8_t>> &re
     return d;
 }
 
+int upgrade_state_dumps(std::vector<std::vector<uint8_t>> &recs)
+{
+    int n = 0;
+    for (auto &r : recs)
+        if (r.size() == 524 && r[0] == 0xF0 && r[6] == 0x10 && r[7] == 0x00 && (int8_t)r[9] < 12 &&
+            RemoteDevice::upgrade_single(r))
+            n++;
+    return n;
+}
+
 bool is_part_dump(const std::vector<uint8_t> &m, int part)
 {
     return m.size() == 524 && m[0] == 0xF0 && m[6] == 0x10 && m[7] == 0x00 && m[8] == part;
