@@ -543,3 +543,28 @@ TEST(editor_conditions)
     CHECK(g.cond->default_value("Osc/Shape") == 64 && g.cond->default_value("VirusControl/Page") == 0);
     CHECK(g.cond->default_value("Nope") == 0 && !g.cond->find("Nope"));
 }
+
+// the classic oscillator display like the original (E180): 64 samples, Shape 0..127 crossfades the selected wave
+// (WaveSelect row of the 64-wave table) into a saw (first half) and the saw into a pulse (second half); the pulse
+// switches at (pulse width + 1) / 2 of the period; results clamp to +-1. Without the table the wave is a sine.
+TEST(editor_osc_classic_value)
+{
+    std::vector<float> t(64 * 64, 0.0f);
+    for (int i = 0; i < 64; i++) {
+        t[i] = (float)std::sin(2 * 3.14159265358979 * i / 64); // row 0: sine
+        t[64 * 3 + i] = i < 32 ? 0.5f : -0.5f;                  // row 3: a test wave
+    }
+    auto v = [&](int shape, int pw, int wave, int i, const std::vector<float> &tab) {
+        return EditorRenderer::osc_classic_value(shape, pw, wave, tab, i);
+    };
+    CHECK(std::fabs(v(0, 0, 0, 16, t) - 1.0) < 1e-6);   // shape 0 = the wave itself
+    CHECK(std::fabs(v(0, 0, 3, 40, t) + 0.5) < 1e-6);   // WaveSelect picks the row
+    CHECK(std::fabs(v(0, 0, 3, 40, {}) - std::sin(2 * 3.14159265358979 * 40 / 64)) < 1e-6); // no table: sine
+    double s = 64 / 127.0; // shape 64 is just past the middle: mostly saw, a little pulse
+    CHECK(std::fabs(v(64, 0, 0, 0, t) - ((2 - 2 * s) * 1.0 + (2 * s - 1))) < 1e-6);
+    CHECK(std::fabs(v(127, 0, 0, 10, t) - 1.0) < 1e-6);  // pulse: high before the switch ...
+    CHECK(std::fabs(v(127, 0, 0, 40, t) + 1.0) < 1e-6);  // ... low after it (pw 0: switch at 32)
+    CHECK(std::fabs(v(127, 127, 0, 40, t) - 1.0) < 1e-6); // pw 127: switch at 64 - high all along
+    CHECK(v(100, 0, 0, 1, t) <= 1.0 && v(100, 0, 0, 1, t) >= -1.0); // clamped
+    CHECK(std::fabs(v(0, 0, 70, 16, t) - v(0, 0, 63, 16, t)) < 1e-9); // WaveSelect beyond 63: the last row
+}
