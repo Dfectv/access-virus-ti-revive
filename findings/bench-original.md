@@ -22,6 +22,22 @@ setup where neither side has an advantage the other does not have.
 | Bare-metal Windows 10 22H2 on a real PC | yes (last Windows the Access driver supports properly) | everything (stage B) | - |
 | Bare-metal Windows 11 (TI Revive) vs Windows 10 (original), same PC | partly | the user's question "is the switch worth it" | a like-for-like result (the OS differs too); optional extra, never instead of stage B |
 
+## Parked (user decision 2026-10-16)
+
+Optional, out of curiosity: nobody asks for it and it is **not** part of "complete". The plan stays here for the day a
+suitable machine turns up. Machine options discussed on 2026-10-16:
+
+- **Windows 10 22H2 on a spare SSD/partition of the Linux PC** (preferred): same CPU and USB controller (xHCI) as the
+  Windows 11 tests; two Windows 10 installations (or one + a disk image restored between the phases); OpenSSH server
+  with key login so Claude can run the scripted parts.
+- **MacBook 2009 with Windows 10 via Boot Camp** (fallback, extra data point only): x64 Core 2 Duo (our builds need
+  no CPU flags beyond the x64 default), but Windows 10 is not supported by Apple's Boot Camp drivers for that model
+  (legacy BIOS install, driver guesswork), and its USB 2.0 controller is EHCI - our WinUSB isochronous stream has never
+  run on EHCI, so results would mix controller and design effects and not generalise.
+- For both: REAPER on both sides (command-line render, started through a scheduled task in the logged-in session, since
+  SSH sessions have no desktop/audio); Virus directly on the port, no hub; the Access software version must match the
+  Virus OS (a mismatch may offer an OS update - never confirm it); the user is needed for power cycles and listening.
+
 ## Stage A - behaviour in the win10 VM (possible, not scheduled)
 
 - VM `win10`: snapshot `pre-winusb` (Access driver, Ableton 11) against a snapshot with the current TI Revive release.
