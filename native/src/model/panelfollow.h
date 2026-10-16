@@ -23,8 +23,6 @@ public:
     bool preset_report(const std::string &path, int part, Clock::time_point now);
     // the parts (bit per part) whose report is PRESET_QUIET old, and forgets them; 0 if none is due
     unsigned presets_due(Clock::time_point now);
-    // a newer report of `part` waits (marked, not yet handed out): a reply read for an older choice is stale
-    bool pending(int part);
 
     // "Global Soft Knob Configuration/Value Softknob0..2" -> soft knob 1..3, else 0
     static int softknob_report(const std::string &path);
@@ -32,11 +30,6 @@ public:
     // the controllers the original sends again after a patch went into a part's edit buffer (0x180083ae0), so the
     // new patch starts with the current mod wheel, breath, ... positions
     static const std::vector<std::string> &restored_controllers();
-
-    // the request for a part's edit buffer (30 00 <part>, read-only) and the bytes 6..8 of its reply (10 00 <part>):
-    // the original asks for it when the chosen patch is not in its library
-    static std::vector<uint8_t> edit_buffer_request(int part);
-    static std::vector<uint8_t> edit_buffer_reply(int part);
 
 private:
     std::mutex mu_;

@@ -1,5 +1,5 @@
 // PanelFollow: what the plug-in does with changes made on the Virus' own panel (E152) - the 150 ms preset debounce
-// per part, the soft knob value reports, the controllers restored after a patch load, the edit-buffer request
+// per part, the soft knob value reports, the controllers restored after a patch load
 #include "check.h"
 #include "access/accessfiles.h"
 #include "model/panelfollow.h"
@@ -59,9 +59,7 @@ TEST(panel_preset_several_parts)
     f.preset_report("Multi Part Parameter/Patch", 0, t);
     f.preset_report("Multi Part Parameter/Patch", 3, t + milliseconds(10));
     f.preset_report("Multi Part Parameter/Bank", 15, t + milliseconds(20));
-    CHECK(f.pending(3) && !f.pending(4) && !f.pending(-1) && !f.pending(16));
     CHECK(f.presets_due(t + milliseconds(200)) == ((1u << 0) | (1u << 3) | (1u << 15)));
-    CHECK(!f.pending(3)); // handed out
 }
 
 TEST(panel_softknob_reports)
@@ -74,15 +72,6 @@ TEST(panel_softknob_reports)
     CHECK(PanelFollow::softknob_report("Global Soft Knob Configuration/Value Softknob10") == 0);
     CHECK(PanelFollow::softknob_report("Global Soft Knob Configuration/Destination 1") == 0);
     CHECK(PanelFollow::softknob_report("Softknobs/Softknob 1") == 0);
-}
-
-TEST(panel_edit_buffer_request)
-{
-    const std::vector<uint8_t> r = PanelFollow::edit_buffer_request(5);
-    const std::vector<uint8_t> want = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x30, 0x00, 0x05, 0xF7};
-    CHECK(r == want);
-    CHECK(PanelFollow::edit_buffer_reply(5) == (std::vector<uint8_t>{0x10, 0x00, 0x05}));
-    CHECK(PanelFollow::edit_buffer_request(0)[8] == 0);
 }
 
 TEST(panel_restored_controllers_in_model)

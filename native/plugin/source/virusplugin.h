@@ -369,11 +369,6 @@ private:
     // last report the stored patch from the bank cache goes into that part's edit buffer (sender thread, idle hook)
     vti::PanelFollow follow_;
     void load_reported_presets();
-    // a chosen patch missing from the bank cache: the part's edit buffer is read from the Virus instead (worker
-    // thread, one at a time, never during the bank sync - the Virus truncates overlapping replies)
-    std::thread edit_req_;
-    std::atomic<bool> edit_req_busy_{false};
-    int fetch_edit_buffer(int part); // 1 started, 0 busy (retry), -1 not now
     std::map<int, std::vector<std::vector<uint8_t>>> banks_; // RAM A..D (bank cache, see load_banks), ROM, libraries
     std::vector<std::string> lib_names_, lib_paths_;
     std::mutex banks_mu_;

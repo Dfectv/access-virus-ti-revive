@@ -581,8 +581,6 @@ tresult PLUGIN_API VirusPlugin::terminate()
     stop_warm_ = true;
     if (sync_thread_.joinable())
         sync_thread_.join(); // stop_warm_ also cancels the bank sync between two requests (<= ~1 s)
-    if (edit_req_.joinable())
-        edit_req_.join(); // an edit-buffer request: at most its 3 s timeout
     out_.reset();
     return SingleComponentEffect::terminate();
 }
@@ -2048,7 +2046,7 @@ void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
 // sender thread (idle hook): the presets the Virus reported (panel_message) once it has been quiet for 150 ms, like the
 // original (0x180081980 marks the part, its timer 0x18007ec30 calls 0x180083ae0): the patch from the bank cache goes
 // into the part's edit buffer, then the part's known controller positions (mod wheel, ...) follow. A patch missing
-// from the cache is read from the Virus' edit buffer instead (fetch_edit_buffer), as the original does.
+// from the cache is left alone: the Virus does not load it itself in plug-in mode (E157).
 void VirusPlugin::load_reported_presets()
 {
     const unsigned parts = follow_.presets_due(PanelFollow::Clock::now());
@@ -2076,63 +2074,14 @@ void VirusPlugin::load_reported_presets()
                               "bank cache\n", part + 1, bank, patch);
                 continue;
             }
-            // Not in the cache (no firmware.bin for the ROM banks, RAM not synced yet): the original reads the edit
-            // buffer then. Switched off: on our TI2 the patch read back and sent into the edit buffer again was
-            // ignored by the Virus (name right, sound unchanged; E154, open) - the part is left alone instead.
-            static constexpr bool READ_EDIT_BUFFER_ON_MISS = false;
-            if (!READ_EDIT_BUFFER_ON_MISS) {
-                if (out_)
-                    out_->log("Virus TI native: preset chosen on the Virus, part %d bank %d patch %d: not in the bank "
-                              "cache, left alone\n", part + 1, bank, patch);
-                continue;
-            }
-            // the Virus answers one request at a time (~1 s): while one is open, try again later instead of dropping
-            // it - turning through the ROM banks would otherwise leave the plug-in on an earlier patch (user test)
-            const int r = fetch_edit_buffer(part);
-            if (r == 0)
-                follow_.preset_report("Multi Part Parameter/Patch", part, PanelFollow::Clock::now());
-            else if (out_)
-                out_->log("Virus TI native: preset chosen on the Virus, part %d bank %d patch %d: not in the bank cache, "
-                          "%s\n", part + 1, bank, patch, r > 0 ? "reading the edit buffer" : "left alone (bank sync runs)");
+            // Not in the cache (no firmware.bin for the ROM banks, RAM not synced yet): left alone. Reading the edit
+            // buffer back does not help - in plug-in mode the Virus changes only the name and origin there, not the
+            // sound (E157: read-back = the old sound data with the new name)
+            if (out_)
+                out_->log("Virus TI native: preset chosen on the Virus, part %d bank %d patch %d: not in the bank cache "
+                          "(%s), left alone\n", part + 1, bank, patch,
+                          bank >= 4 ? "ROM banks come from firmware.bin next to Virus Control" : "RAM bank not synced yet");
         }
-}
-
-// The part's edit buffer from the Virus (30 00 <part>, read-only, like the readiness probe), then sent back into it
-// like a patch from the cache (load_dump: state, editor, Virus). 1 = started, 0 = another request is open (try
-// later), -1 = not now (bank sync running, shutting down).
-int VirusPlugin::fetch_edit_buffer(int part)
-{
-    if (!sync_ || syncing_ || stop_warm_)
-        return -1;
-    if (edit_req_busy_.exchange(true))
-        return 0;
-    if (edit_req_.joinable())
-        edit_req_.join(); // the previous one has finished (busy was false)
-    const int bank = ui_value("Multi Part Parameter/Bank", part), patch = ui_value("Multi Part Parameter/Patch", part);
-    edit_req_ = std::thread([this, part, bank, patch] {
-        Dump r = sync_->transact(PanelFollow::edit_buffer_request(part), PanelFollow::edit_buffer_reply(part), 3000, 1);
-        // the reply holds the chosen patch, but in plug-in mode the Virus plays it only once the host sends it
-        // (user test, ROM bank without firmware.bin: name right, sound still the old one): back into the edit buffer.
-        // Not when the choice went on meanwhile: the Virus holds its panel reports back while it answers and sends
-        // them right after the reply, so wait for them; writing an older patch back would overwrite the edit buffer
-        // the Virus has already filled with the newer choice (user test: "jumping back to an old one")
-        bool fresh = false;
-        if (r.size() == 524 && is_part_dump(r, part)) {
-            for (int i = 0; i < 30 && !stop_warm_; i++) // 300 ms
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            fresh = !stop_warm_ && !follow_.pending(part) && ui_value("Multi Part Parameter/Bank", part) == bank &&
-                    ui_value("Multi Part Parameter/Patch", part) == patch;
-            if (fresh)
-                load_dump(r, part);
-        }
-        if (out_)
-            out_->log("Virus TI native: edit buffer of part %d %s\n", part + 1,
-                      r.size() != 524 ? "not read (no reply)"
-                      : fresh         ? "read from the Virus and loaded"
-                                      : "read, but the choice went on meanwhile: dropped");
-        edit_req_busy_ = false;
-    });
-    return 1;
 }
 
 void VirusPlugin::apply_state_to_params()
