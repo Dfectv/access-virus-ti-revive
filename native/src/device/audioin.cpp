@@ -8,6 +8,9 @@ extern "C" {
 #include <cstdlib>
 #include <cstring>
 #ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX // windows.h's min/max macros break std::min / std::max
+#endif
 #include <windows.h>
 #endif
 #ifdef _MSC_VER
