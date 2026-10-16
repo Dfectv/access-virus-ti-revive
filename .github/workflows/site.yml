@@ -1,0 +1,46 @@
+# The website (GitHub Pages, https://derpsn.github.io/access-virus-ti-revive/): scripts/site/build.py turns the
+# GitHub releases and site/src into static pages and this workflow publishes them. Runs when a release is published
+# (new version, changelog, checksums), when the site's sources change on main, and by hand.
+name: site
+
+on:
+  release:
+    types: [published]
+  push:
+    branches: [main]
+    paths: ['site/**', 'scripts/site/**', 'docs/images/**', '.github/workflows/site.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency: # one deploy at a time; a newer run replaces a waiting one
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build # the releases come from the API; --checksums downloads the newest release's files once
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/releases?per_page=100" > releases.json
+          python3 scripts/site/build.py --releases releases.json --checksums --cache "$RUNNER_TEMP/site-cache"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

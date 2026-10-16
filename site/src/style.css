@@ -1,0 +1,211 @@
+/* landing - one page, dark and quiet; the one visual is a real screenshot of the plug-in at 200 % */
+:root {
+  --bg: #0d0e10;
+  --surface: #15171a;
+  --raised: #1b1d21;
+  --line: #25282d;
+  --text: #ebe8e1;
+  --soft: #8e8b84;
+  --accent: #e5402e;
+  --accent-text: #fff;
+  --lcd-bg: #0a0f07;
+  --lcd: #a9da6b;
+  --ok: #8fcf5c;
+  --rep: #e3a548;
+  --sans: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "DejaVu Sans Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg: #f3f2ee; --surface: #ffffff; --raised: #faf9f6; --line: #dfddd6; --text: #17181b; --soft: #66645e;
+    --accent: #c9311e; --ok: #4f9a24; --rep: #b9740f; }
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); color: var(--text); scroll-behavior: smooth; scroll-padding-top: 4.5rem; }
+body { margin: 0; font: 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+/* text links: bold and in the accent colour, underlined only on hover */
+a { color: var(--accent); font-weight: 600; text-decoration: none; text-underline-offset: 0.2em; }
+a:hover { text-decoration: underline; }
+code { font: 0.86em var(--mono); background: var(--raised); border: 1px solid var(--line); border-radius: 4px;
+  padding: 0.05em 0.35em; }
+.wrap { max-width: 80rem; margin: 0 auto; padding: 0 clamp(1rem, 3vw, 2.5rem); }
+
+/* top bar */
+.bar { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); }
+.bar .wrap { display: flex; align-items: center; height: 3.6rem; gap: 1.5rem; }
+.bar nav { margin-left: auto; display: flex; align-items: center; gap: 1.4rem; font-size: 0.92rem; }
+.gh svg { display: block; }
+.bar nav a { color: var(--soft); font-weight: 400; }
+.bar nav a:hover { color: var(--text); text-decoration: none; }
+
+/* hero */
+.hero { padding: clamp(2.5rem, 7vw, 6rem) 0 clamp(2.5rem, 6vw, 5rem); }
+/* wide screens: text and plug-in side by side, both growing with the window */
+@media (min-width: 1100px) {
+  .hero .wrap { display: grid; grid-template-columns: minmax(22rem, 0.85fr) minmax(0, 1.15fr);
+    gap: clamp(2.5rem, 4vw, 5rem); align-items: center; }
+  .hero .shot { margin: 0; }
+}
+h1 { font-size: clamp(2.3rem, 4.2vw, 4rem); line-height: 1.12; font-weight: 600;
+  margin: 0 0 0.5rem; }
+.tagline { font-size: clamp(1.3rem, 2.6vw, 1.75rem); font-style: italic; color: var(--text); margin: 0 0 1.6rem; }
+.lead { font-size: clamp(1.05rem, 1.25vw, 1.2rem); color: var(--soft); max-width: 40rem; margin: 0 0 2rem; }
+.lead strong { color: var(--text); font-weight: 600; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2rem; margin: 0; }
+.button { display: inline-flex; align-items: baseline; gap: 0.6rem; background: var(--accent); color: var(--accent-text);
+  text-decoration: none; font-weight: 600; padding: 0.85rem 1.3rem; border-radius: 8px; }
+.button:hover { color: var(--accent-text); filter: brightness(1.08); text-decoration: none; }
+.button small { font-size: 0.82rem; font-weight: 400; opacity: 0.85; }
+.second { display: inline-flex; padding: 0.8rem 1.2rem; border: 1px solid var(--line); border-radius: 8px;
+  color: var(--text); font-weight: 600; }
+.second:hover { border-color: var(--soft); text-decoration: none; }
+/* menu paths (PATCH UTILITY > Preferences): a light separator instead of arrows */
+.sep { color: var(--soft); font-weight: 400; padding: 0 0.1em; }
+.small { font-size: 0.85rem; color: var(--soft); }
+.facts-line { margin: 1.4rem 0 0; font-size: 0.88rem; color: var(--soft); }
+
+/* the README's coffee note, word for word */
+.thanks { margin: 1.6rem 0 0; max-width: 40rem; padding: 0.9rem 1.1rem; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--surface); font-size: 0.9rem; color: var(--soft); }
+.thanks strong { color: var(--text); }
+
+/* the plug-in: a real screenshot, 1280 px - as wide as its column allows, never wider than its pixels */
+.shot { margin: 3.5rem 0 0; }
+.shot img { display: block; width: 100%; max-width: 1280px; height: auto; border-radius: 10px;
+  border: 1px solid var(--line); }
+.shot figcaption { margin-top: 0.9rem; max-width: 46rem; font-size: 0.8rem; color: var(--soft); }
+
+/* sections */
+section.block { padding: 4.5rem 0; border-top: 1px solid var(--line); }
+h2 { font-size: clamp(1.5rem, 2.8vw, 1.9rem); line-height: 1.2; font-weight: 600;
+  margin: 0 0 0.8rem; }
+.intro { color: var(--soft); max-width: 40rem; margin: 0 0 2.4rem; }
+
+/* download */
+.oses { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.os { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 1.4rem;
+  display: flex; flex-direction: column; }
+.os h3 { margin: 0; font-size: 1.15rem; }
+.os .req { margin: 0.2rem 0 1.2rem; color: var(--soft); font-size: 0.88rem; min-height: 3.2em; } /* two lines: the buttons stay in line */
+.os .button { justify-content: space-between; margin-bottom: 0.4rem; }
+.os .alt { font-size: 0.85rem; color: var(--soft); margin: 0.3rem 0 0; }
+.os details { margin-top: auto; padding-top: 1.1rem; }
+.os summary { cursor: pointer; font-size: 0.9rem; color: var(--soft); }
+.os summary:hover { color: var(--text); }
+.os ol { padding-left: 1.2rem; margin: 0.8rem 0 0; font-size: 0.9rem; }
+.os li + li { margin-top: 0.5rem; }
+.sum { display: block; margin-top: 0.8rem; font: 0.66rem/1.4 var(--mono); color: var(--soft); word-break: break-all; }
+.needs { margin-top: 2.4rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem 2.5rem; }
+.needs div { display: grid; grid-template-columns: 7.5rem 1fr; gap: 1rem; padding: 0.9rem 0;
+  border-top: 1px solid var(--line); font-size: 0.92rem; }
+.needs b { font-weight: 600; color: var(--soft); }
+
+/* how it works */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5rem; counter-reset: step; }
+.steps div { counter-increment: step; }
+.steps div::before { content: counter(step); display: block; font-weight: 600; color: var(--accent);
+  margin-bottom: 0.8rem; padding-bottom: 0.8rem; border-bottom: 1px solid var(--line); }
+.steps h3 { margin: 0 0 0.4rem; font-size: 1.05rem; }
+.steps p { margin: 0; color: var(--soft); font-size: 0.93rem; }
+
+/* status */
+.matrix { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.matrix th, .matrix td { text-align: left; padding: 0.85rem 1rem 0.85rem 0; border-top: 1px solid var(--line); }
+.matrix thead th { border-top: 0; font-weight: 600; color: var(--soft); }
+.matrix tbody th { font-weight: 600; }
+.st::before { content: ""; display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 50%;
+  margin-right: 0.5rem; border: 1px solid var(--soft); vertical-align: 0.05em; }
+.st.ok::before { background: var(--ok); border-color: var(--ok); }
+.st.rep::before { background: var(--rep); border-color: var(--rep); }
+.st.no { color: var(--soft); }
+.legend { margin-top: 1.2rem; font-size: 0.85rem; color: var(--soft); }
+.limits { margin-top: 2.4rem; padding-left: 1.2rem; color: var(--soft); font-size: 0.92rem; }
+.limits li + li { margin-top: 0.4rem; }
+
+.testing { margin-top: 3rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5rem; }
+.testing h3 { margin: 0 0 0.4rem; font-size: 1.02rem; }
+.testing p { margin: 0; color: var(--soft); font-size: 0.93rem; }
+
+/* what's new */
+.news { display: grid; gap: 0; }
+.rel { display: grid; grid-template-columns: 9rem 1fr; gap: 1.5rem; padding: 1.5rem 0; border-top: 1px solid var(--line); }
+.rel .v { font: 600 1.25rem/1.2 var(--mono); }
+.rel .v a { color: var(--text); }
+.rel time { display: block; margin-top: 0.3rem; font: 0.78rem var(--mono); color: var(--soft); }
+.rel h3 { margin: 0 0 0.4rem; font-size: 1.02rem; }
+.rel ul { margin: 0; padding-left: 1.1rem; color: var(--soft); font-size: 0.92rem; }
+.rel li + li { margin-top: 0.3rem; }
+.more { margin-top: 1.4rem; display: flex; flex-wrap: wrap; gap: 1.6rem; font-size: 0.92rem; }
+
+/* help */
+.faq { max-width: 46rem; }
+.faq details { border-top: 1px solid var(--line); padding: 1rem 0; }
+.faq details:last-child { border-bottom: 1px solid var(--line); }
+.faq summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between;
+  gap: 1rem; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; font-size: 1.15rem; line-height: 1; color: var(--soft); }
+.faq details[open] summary::after { content: "\2212"; }
+.faq details > *:not(summary) { color: var(--soft); font-size: 0.94rem; }
+.faq details p { margin: 0.8rem 0 0; }
+.paths { margin: 0.8rem 0 0; display: grid; grid-template-columns: 6rem 1fr; gap: 0.3rem 1rem; font-size: 0.88rem; }
+
+/* about */
+.about { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2.5rem; max-width: 52rem; }
+.about h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+.about p { margin: 0; color: var(--soft); font-size: 0.93rem; }
+
+/* support */
+.support { max-width: 46rem; margin-top: 3rem; padding: 1.6rem 1.8rem; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; }
+.support h3 { margin: 0 0 0.5rem; font-size: 1.15rem; }
+.support > p { color: var(--soft); font-size: 0.94rem; margin: 0 0 1rem; }
+.support ol { padding-left: 1.2rem; margin: 0 0 1rem; font-size: 0.94rem; }
+.support li + li { margin-top: 0.8rem; }
+.support .small { margin: 0; }
+
+/* features: per row the text left, its table / list / screenshot right */
+.feature { display: grid; grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.2fr); gap: clamp(1.5rem, 4vw, 4rem);
+  padding: 2.6rem 0; border-top: 1px solid var(--line); align-items: start; }
+.feature h3 { font-size: 1.2rem; margin: 0 0 0.6rem; }
+.feature > div > p { margin: 0; color: var(--soft); font-size: 0.95rem; }
+.feature ul { margin: 0; padding-left: 1.1rem; }
+.feature li + li { margin-top: 0.55rem; }
+.feature .shot { margin: 0; }
+.feature .shot img { max-width: 860px; }
+.data { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.data th, .data td { text-align: left; padding: 0.65rem 1rem 0.65rem 0; border-top: 1px solid var(--line);
+  vertical-align: top; }
+.data thead th { border-top: 0; color: var(--soft); font-weight: 600; }
+.data tbody th { font-weight: 600; }
+.data td { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.data .old th, .data .old td { color: var(--soft); font-weight: 400; white-space: normal; }
+.feature .small { margin: 0.8rem 0 0; }
+
+/* changelog page */
+.log { padding: 4rem 0; }
+.log .rel { grid-template-columns: 9rem 1fr; }
+.log .body { color: var(--soft); font-size: 0.94rem; }
+.log .body p { margin: 0 0 0.7rem; }
+.log .body ul { padding-left: 1.1rem; margin: 0 0 0.7rem; }
+.pre { font: 0.7rem var(--mono); color: var(--rep); margin-left: 0.4rem; }
+
+footer { border-top: 1px solid var(--line); padding: 2.4rem 0 3.5rem; color: var(--soft); font-size: 0.84rem; }
+footer p { margin: 0 0 0.6rem; max-width: 48rem; }
+
+@media (max-width: 900px) {
+  .os .req { min-height: 0; }
+  .hero { padding: 3rem 0 3rem; }
+  .shot { margin-top: 2.5rem; }
+  .oses, .steps, .about, .feature, .testing { grid-template-columns: 1fr; }
+  .needs { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .bar nav { gap: 0.9rem; font-size: 0.85rem; }
+  .needs div { grid-template-columns: 1fr; gap: 0.2rem; }
+  .rel, .log .rel { grid-template-columns: 1fr; gap: 0.6rem; }
+  .matrix, .data { font-size: 0.82rem; }
+  .data td { white-space: normal; }
+  .support { padding: 1.2rem; }
+  .matrix th, .matrix td { padding-right: 0.5rem; }
+  section.block { padding: 3.2rem 0; }
+}
