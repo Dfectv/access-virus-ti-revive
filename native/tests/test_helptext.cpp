@@ -34,6 +34,15 @@ TEST(help_none_for_internal_fields)
     CHECK(help_count() > 250);
 }
 
+TEST(help_none_for_display_only_indicator)
+{
+    // the global lock indicator is always Enabled="false" and empty while nothing is locked; since the help mode
+    // also frames disabled controls (0.8.18) a note made it an empty framed box next to the ? button (user report)
+    HelpText t;
+    CHECK(!help_for("VirusControl/Global Section Lock Indicator", t));
+    CHECK(help_for("VirusControl/Display Parameter", t)); // display-only too, but it shows something
+}
+
 TEST(help_inactive_reason)
 {
     // a condition name of the layout as a reason a reader understands
