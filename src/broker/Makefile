@@ -11,7 +11,7 @@ $(OUT)/linux/vtiprobe: vtiprobe.c vticore.c $(SRC_MIDI) vticore.h
 		$(shell pkg-config --libs libusb-1.0) -lpthread
 
 # Broker for macOS / Linux on libusb (vtibroker_posix.c); on macOS: make -C src/broker mac (needs libusb from Homebrew)
-$(OUT)/linux/vtibroker: vtibroker_posix.c vticore.c vtiusbaudio_libusb.c $(SRC_MIDI) vticore.h vtiproto.h ctrlguard.h \
+$(OUT)/linux/vtibroker: vtibroker_posix.c vticore.c vtiusbaudio_libusb.c $(SRC_MIDI) vticore.h vtiproto.h ctrlguard.h pktstat.h \
 		vtiaudioshm.h vtiusbaudio_libusb.h
 	mkdir -p $(OUT)/linux
 	$(CC) $(CFLAGS) $(shell pkg-config --cflags libusb-1.0) -o $@ vtibroker_posix.c vticore.c vtiusbaudio_libusb.c \
@@ -35,7 +35,7 @@ $(OUT)/vtiflash.exe: vtiflash.c vticore_winusb.c $(SRC_MIDI) vticore.h
 	x86_64-w64-mingw32-gcc $(CFLAGS) -o $@ vtiflash.c vticore_winusb.c $(SRC_MIDI) -lwinusb -lsetupapi -static -lpthread
 
 # Broker (owns WinUSB) and a probe that goes through the broker instead of WinUSB
-$(OUT)/vtibroker.exe: vtibroker.c vticore_winusb.c $(SRC_MIDI) vticore.h vtiproto.h ctrlguard.h vtiaudioshm.h ../wrapper/vtiusbaudio.c ../wrapper/vtiusbaudio.h
+$(OUT)/vtibroker.exe: vtibroker.c vticore_winusb.c $(SRC_MIDI) vticore.h vtiproto.h ctrlguard.h pktstat.h vtiaudioshm.h ../wrapper/vtiusbaudio.c ../wrapper/vtiusbaudio.h
 	mkdir -p $(OUT)
 	x86_64-w64-mingw32-gcc $(CFLAGS) -o $@ vtibroker.c vticore_winusb.c $(SRC_MIDI) ../wrapper/vtiusbaudio.c -lwinusb -lsetupapi -static -lpthread
 

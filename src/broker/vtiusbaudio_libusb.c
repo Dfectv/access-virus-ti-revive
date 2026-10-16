@@ -8,6 +8,7 @@
 // libusb has no frame-number scheduling (Linux usbfs uses ISO_ASAP): NR transfers stay queued, and a stall longer
 // than that is detected by time and filled with silence of the nominal length, so the counter never slips (E078).
 #include "vtiusbaudio_libusb.h"
+#include "pktstat.h"
 #include <libusb.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -41,7 +42,8 @@ static struct {
     unsigned pattern;      // nominal 44/45 pattern position
     double t0_ms;          // monotonic time of the first IN completion
     uint64_t delivered_ms; // USB frames (ms) delivered so far (packets + filled gaps)
-    uint64_t frames, errs, gaps, hist[3], next_log;
+    uint64_t frames, errs, gaps, next_log;
+    vti_pktstat ps; // packet sizes as sent, before the repair (E175)
     int16_t pcm[(NP + 5000) * 45 * IN_CH]; // one transfer, or a filled gap of up to 5 s
 } S;
 
@@ -147,6 +149,13 @@ static void in_cb(struct libusb_transfer *t)
         struct libusb_iso_packet_descriptor *p = &t->iso_packet_desc[k];
         uint32_t f = p->status == LIBUSB_TRANSFER_COMPLETED ? p->actual_length / (IN_CH * 2) : 0;
         unsigned nominal = S.pattern++ % 10 ? 44 : 45;
+        int ev = vti_pktstat_add(&S.ps, f);
+        if (ev > 0)
+            vti_log("usbaudio: packets out of the 44.1 kHz range since %llu ms after the start (last: %u frames, "
+                    "%u bytes, status %d) - replaced with silence", (unsigned long long)S.ps.bad_since, f,
+                    p->actual_length, (int)p->status);
+        else if (ev < 0)
+            vti_log("usbaudio: packets back in range at %llu ms after the start", (unsigned long long)S.ps.packets);
         if (f < 43 || f > 46) { // lost packet, or still 48 kHz right after SET_CUR: nominal silence ("repair")
             if (p->status != LIBUSB_TRANSFER_COMPLETED)
                 S.errs++;
@@ -154,8 +163,6 @@ static void in_cb(struct libusb_transfer *t)
             memset(S.pcm + frames * IN_CH, 0, f * IN_CH * 2);
         } else {
             memcpy(S.pcm + frames * IN_CH, libusb_get_iso_packet_buffer_simple(t, (unsigned)k), f * IN_CH * 2);
-            if (f <= 45)
-                S.hist[f - 43]++;
         }
         counts[k] = f;
         frames += f;
@@ -165,9 +172,13 @@ static void in_cb(struct libusb_transfer *t)
     S.frames += frames;
     S.delivered_ms += (uint64_t)t->num_iso_packets;
     if (S.frames >= S.next_log) {
-        vti_log("usbaudio: %llu frames, packets 43/44/45: %llu/%llu/%llu, errors %llu, stalled %llu ms",
-                (unsigned long long)S.frames, (unsigned long long)S.hist[0], (unsigned long long)S.hist[1],
-                (unsigned long long)S.hist[2], (unsigned long long)S.errs, (unsigned long long)S.gaps);
+        const uint64_t *z = S.ps.size;
+        vti_log("usbaudio: %llu frames, packets 43/44/45: %llu/%llu/%llu, errors %llu, stalled %llu ms; out of range "
+                "(silence): empty %llu, 1-42 %llu, 46 %llu, 47-49 %llu, more %llu",
+                (unsigned long long)S.frames, (unsigned long long)z[VTI_PKT_43], (unsigned long long)z[VTI_PKT_44],
+                (unsigned long long)z[VTI_PKT_45], (unsigned long long)S.errs, (unsigned long long)S.gaps,
+                (unsigned long long)z[VTI_PKT_EMPTY], (unsigned long long)z[VTI_PKT_SHORT],
+                (unsigned long long)z[VTI_PKT_46], (unsigned long long)z[VTI_PKT_48K], (unsigned long long)z[VTI_PKT_LONG]);
         S.next_log += 44100ull * 60;
     }
     if (libusb_submit_transfer(t)) {

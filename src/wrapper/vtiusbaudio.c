@@ -12,6 +12,7 @@
 // rejects the plugin's timestamps ("Sync Information Event", global 0x54).
 // Sample rate: SET_CUR SAMPLING_FREQ (class request to the endpoint) 44100 on both endpoints, as the driver does.
 #include "vtiusbaudio.h"
+#include "../broker/pktstat.h"
 #include <setupapi.h>
 #include <winusb.h>
 #include <stdio.h>
@@ -258,7 +259,8 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
     LOG("usbaudio: streaming 44.1 kHz on WinUSB (IN EP 0x82 %d ch, OUT EP 0x01 %d ch, frame pattern mirrored)",
         IN_CH, OUT_CH);
     static int16_t pcm[NP * (IN_PKT / 2)];
-    uint64_t total = 0, errs = 0, gaps = 0, hist[3] = {0}, next_log = VUA_RATE * 60;
+    uint64_t total = 0, errs = 0, gaps = 0, next_log = VUA_RATE * 60;
+    vti_pktstat ps = {0}; // packet sizes as sent, before the repair (E175)
     int cur = 0;
     rc = 0;
     while (*running) {
@@ -287,6 +289,13 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
                 USBD_ISO_PACKET_DESCRIPTOR *p = &d.desc[cur][k];
                 uint32_t f = p->Status == 0 ? p->Length / (IN_CH * 2) : 0;
                 unsigned nominal = d.pattern++ % 10 ? 44 : 45;
+                int ev = vti_pktstat_add(&ps, f);
+                if (ev > 0)
+                    LOG("usbaudio: packets out of the 44.1 kHz range since %llu ms after the start (last: %u frames, "
+                        "%lu bytes, status 0x%lx) - replaced with silence", (unsigned long long)ps.bad_since, f,
+                        p->Length, (unsigned long)p->Status);
+                else if (ev < 0)
+                    LOG("usbaudio: packets back in range at %llu ms after the start", (unsigned long long)ps.packets);
                 if (f < 43 || f > 46) {
                     // Lost packet, or still 48 kHz right after SET_CUR (~0.3 s of 48/49-frame packets): substitute
                     // the nominal pattern value with silence, like the driver's PGFramePatternObserver "repair".
@@ -296,8 +305,6 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
                     memset(pcm + frames * IN_CH, 0, f * IN_CH * 2);
                 } else {
                     memcpy(pcm + frames * IN_CH, base + p->Offset, f * IN_CH * 2);
-                    if (f <= 45)
-                        hist[f - 43]++;
                 }
                 frames += f;
                 send_out(&d, f); // mirror the synth's frame count towards it
@@ -319,9 +326,13 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
         }
         cur = (cur + 1) % NR;
         if (total >= next_log) {
-            LOG("usbaudio: %llu frames, packets 43/44/45: %llu/%llu/%llu, errors %llu, stalled %llu ms",
-                (unsigned long long)total, (unsigned long long)hist[0], (unsigned long long)hist[1],
-                (unsigned long long)hist[2], (unsigned long long)errs, (unsigned long long)gaps);
+            const uint64_t *z = ps.size;
+            LOG("usbaudio: %llu frames, packets 43/44/45: %llu/%llu/%llu, errors %llu, stalled %llu ms; out of range "
+                "(silence): empty %llu, 1-42 %llu, 46 %llu, 47-49 %llu, more %llu",
+                (unsigned long long)total, (unsigned long long)z[VTI_PKT_43], (unsigned long long)z[VTI_PKT_44],
+                (unsigned long long)z[VTI_PKT_45], (unsigned long long)errs, (unsigned long long)gaps,
+                (unsigned long long)z[VTI_PKT_EMPTY], (unsigned long long)z[VTI_PKT_SHORT],
+                (unsigned long long)z[VTI_PKT_46], (unsigned long long)z[VTI_PKT_48K], (unsigned long long)z[VTI_PKT_LONG]);
             next_log += VUA_RATE * 60;
         }
     }
