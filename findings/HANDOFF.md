@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.8 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E155), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E156), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-16, after the 0.8.8 release)
@@ -28,7 +28,9 @@ folder and XDG_CONFIG_HOME/WINEPREFIX/VTI_ACCESS_DIR unset, gcov over CMakeFiles
 1. DONE 2026-10-16: Windows check of 0.8.8 (E155).
 2. E154 (3) open: on a cache miss the read-back of the edit buffer is built but switched off
    (`READ_EDIT_BUFFER_ON_MISS`), the Virus ignored the dump written back - compare the raw bytes of a read-back dump
-   with a cache dump (the original rewrites bytes 10..12). Not tested: parts other than 1, Snow, macOS/Windows.
+   with a cache dump (the original rewrites bytes 10..12 = Flags / Original Bank / Original Patch, E156). Next:
+   repeat the forced miss (VTI_ACCESS_DIR = folder with only a link to Virus Control.dll, ROM bank chosen on the
+   Virus) and record the raw reply + the written dump. Not tested: parts other than 1, Snow, macOS.
 3. #4 ManuAnilkumar23: RAM banks "Init" on the Snow. The Snow description = TI description (E151). Possibly
    related to E152 (if he switches presets on the Snow, the plug-in stayed on "-INIT-") - ask him after 0.8.7;
    else his diag.log ("RAM A sync" lines) and broker log.
