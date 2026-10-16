@@ -211,7 +211,12 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
-          **New in 0.8.10: steadier connection.** Switch the Virus off and on (or replug it) while your DAW runs:
+          **New in 0.8.12: sharper editor on large screens.** At 150 or 200 % (right-click the editor, or your
+          display scaling) the plug-in's images are now computed sharper from your own Access files instead of
+          being stretched. Linux: reopening the editor no longer crashes the DAW (since 0.8.0), and the menus open
+          where you click at 150 and 200 %.
+
+          **Since 0.8.10: steadier connection.** Switch the Virus off and on (or replug it) while your DAW runs:
           the plug-in now waits until it is ready and plays in time again. Start your DAW before the Virus is on: the
           plug-in sends its start-up and your project's sounds as soon as the Virus is there (before they were lost).
           Windows: two DAWs no longer use the Virus at the same time - the second one shows "Virus unavailable" and
