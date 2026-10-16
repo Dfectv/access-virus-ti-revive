@@ -28,8 +28,8 @@ pass. Open question: param-inactive controls stay clickable in our editor (origi
 Windows results (win11 VM, Ableton 11, user 2026-10-16): all pass, incl. USB cable replug (the VM gets the Virus only
 on Claude's re-attach, seconds after it booted - supports the E175 hypothesis "stream starts while the Virus boots"),
 recall (ARP Up, Unison 8 heard after power cycle), help notes, and the sidechain in Ableton (VM; real PC still not
-available). Note: Chorus Type changed while a key is held applies from the next note - likely the Virus' own behaviour,
-to check on the hardware panel. Handover Linux -> VM: the Virus answered every WinUSB transfer with error 31 until a
+available). Note: Chorus Type changed while a key is held applies from the next note - the Virus' own behaviour (user:
+the hardware panel does the same), not a bug. Handover Linux -> VM: the Virus answered every WinUSB transfer with error 31 until a
 power cycle (+ re-attach, the VM keeps the old USB address) - possibly the Linux give-back reset or E175. Note for the user: the original's
 diagnostics page advises holding ARP EDIT while powering on - effect unknown (rule 2: we do not advise it).
 
