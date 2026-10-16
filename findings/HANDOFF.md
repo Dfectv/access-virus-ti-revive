@@ -29,6 +29,15 @@ next connection reuses the address, our static `ref` surface outlived its connec
 (nativehost --reopen: 3 of 6 runs crashed, after the fix 48 reopens without one). (2) Linux menus at 150/200 % opened
 at zoom x the click position (VSTGUI's generic menu adds the zoom twice) - menu_at() divides it out. User test in REAPER on Linux (2026-10-16): sharper images, reopening and the menus at 150/200 % work ("works"). Option C (recreated artwork): dropped by the user 2026-10-16 (rule 1). Website LIVE since 2026-10-16: https://derpsn.github.io/access-virus-ti-revive/ (one page + changelog, generator scripts/site/build.py, deploy .github/workflows/site.yml on each published release / site change on main / by hand; Pages source = GitHub Actions). Update TESTS/COVERAGE constants in build.py when they change. Since 2026-10-16 also: section + issue form "Problem in the original Access plug-in (Virus Control)" (label `original`) for problems of the original that we could fix, a Contributing section (AGENTS.md, skills), the virus.info download link (account needed) also in the README.
 
+**Branch `help-mode` (local, 2026-10-16):** the "?" button (the original's Help Menu, which listed manuals; ours showed
+numbers 0-127) toggles a help mode: frames around every explained control, a note for the control under the mouse
+(click pins it, clicks change nothing; page tabs, part strip and envelope select still work), Esc or "?" leaves.
+Texts: native/src/editor/helptext.cpp, our own words written from the user's Virus TI Reference PDF (read locally,
+not in the repo - rule 1) and the editor model; 501 of the 520 control paths covered (the rest: welcome page, progress
+bars). Hover needs a frame mouse observer (VSTGUI passes moves to views only while a button is down). Tested: unit
+tests (help texts, visible_controls), Xvfb screenshots at 100 % and 150 % with the TI2 connected. Not tested: Esc,
+Windows, macOS, a DAW.
+
 **Test builds:** always a NEW version number (a forced reinstall of the same version removed the WinUSB driver in the VM, E166).
 
 **Replies on #4 (2026-10-16):** 6208931585 (nasguile, 0.8.7), 6208931949 (Manu, 0.8.7, logs asked), 6210139464
