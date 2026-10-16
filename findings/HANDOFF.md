@@ -1,36 +1,25 @@
 # HANDOFF
 
-_Last updated: 2026-10-16 morning (CONTINUE HERE below; branches softknobs + tests-coverage local). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.7 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E152), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE (state 2026-10-16 morning)
+## CONTINUE HERE (state 2026-10-16, after the 0.8.7 release)
 
-**Released:** v0.8.6 (Latest, CI run 38800047856, all 7 jobs green): start-up waits for the Virus (readiness probe),
-first ping answered after a takeover, one state upload per waiting instance (E149).
+**Released:** v0.8.7 (Latest, CI run 38856677383, all 7 jobs green, 2026-10-16): presets chosen on the Virus itself
+are loaded (were ignored since 0.8.0), soft knobs work in both directions (editor -> destination parameter, E150;
+knob on the Virus -> plug-in follows, E152). Branches `softknobs` and `tests-coverage` merged into main (62 unit
+tests, ctest green on Linux). Tested on the TI2 under Linux only (nativehost + editor on the desktop; REAPER showed
+the bug with 0.8.6). Not tested: Windows, macOS, a DAW with 0.8.7, the Snow, parts other than 1.
 
-**Two local branches, NOT pushed, NOT merged** (the user decides; both build, ctest green on Linux):
-- `softknobs` (this file's branch, from main after 0.8.6):
-  - soft knobs in the editor control the parameter their destination selects, like the original (E150);
-  - NEW 2026-10-16: a preset chosen on the Virus itself is loaded into the part's edit buffer 150 ms after the
-    Virus reports it (bank cache, like the original) - before, the plug-in ignored it and the part kept its old
-    sound ("-INIT-", no soft-knob destinations) (E152 (1));
-  - NEW 2026-10-16: a soft knob turned on the Virus (it reports `Value Softknob0..2`) sets the destination
-    parameter of the panel part in the plug-in (state, editor, host), nothing sent back (E152 (2));
-  - AGENTS.md step 4 (REA when unsure); E150-E152; this handoff.
-  - Tested 2026-10-16 with the user on the TI2 (Linux, nativehost with the editor on the desktop): presets switched
-    on the TI2 load (display shows the destinations again), soft knobs 1-3 move knob + target in the editor.
-- `tests-coverage` (from main after 0.8.6): 30 new unit tests (31 -> 61) (vticore line coverage 51.2 % -> 81.8 % with the
-  Access files on this PC, 54.1 % without them = what CI sees; 7 tests skip there). Production code touched: only
-  test hooks `Broker::set_endpoint(path)` and `AudioIn::open(name)` (code-only, default unchanged; Windows connect got
-  the extra parameter but was not compiled). New files: tests/test_memsync, test_cc, test_broker, test_audioin;
-  more in test_decode, test_access (every editor page, ROM banks), test_model (soft knob targets is on `softknobs`).
-- Merge order suggestion: `softknobs` then `tests-coverage` (HANDOFF/evidence only on `softknobs`; CMakeLists test
-  list only on `tests-coverage`) -> release 0.8.7 (soft knobs both directions + presets chosen on the Virus) ->
-  tell #4 (promised: "next release"). The hardware preset bug affects every user since 0.8.0: worth the release.
+**Replies posted 2026-10-16 on #4:** nasguile (comment 6208931585: soft knobs fixed, the hardware preset bug, FX 1
+question still open) and ManuAnilkumar23 (6208931949: 0.8.7 may relate to his "Init"; caveat that a wrong bank copy
+also breaks presets chosen on the Snow; asked for diag.log with "RAM A sync" + "preset chosen on the Virus" lines
+and the broker log).
 
 **Open, in order of value:**
-1. Release 0.8.7 (see above), then a Windows check of the hardware preset switch + soft knobs (VM, Ableton).
+1. Windows check of 0.8.7 (VM, Ableton): preset switched on the Virus, soft knobs both directions; the user's
+   installed REAPER plug-in on this PC is still 0.8.6 (update it with the 0.8.7 package).
 2. E152 leftovers: (a) patch not in the bank cache (sync not done, cache miss): the original requests the part's
    edit buffer from the Virus (`30 00 <part>`) and takes the reply - ours only logs "not in the bank cache";
    (b) the original re-sends the part's controllers 1..16 after loading (mod wheel, breath, ... - value source in
@@ -191,7 +180,7 @@ installed plug-in is still 0.8.6 (REAPER test showed the bug). The "Environments
 | macOS 14.4+ | native plug-in (VST3 + AUv2, universal, no Rosetta since 0.8.1), broker, Control Center app | `-mac.zip` (pkg + setup scripts) | native/docs/architecture.md, design-macos*.md |
 | Linux | native plug-in (VST3), native broker owns the whole Virus (MIDI + iso audio), Control Center app | `-linux.tar.gz` (install.sh) | native/docs/architecture.md, design-linux.md |
 
-Latest release: **v0.8.6** (2026-10-15, start-up waits for the Virus, E149; 0.8.5: one plug-in instance per process, issue #6). The 0.8.x
+Latest release: **v0.8.7** (2026-10-16, presets chosen on the Virus + soft knobs, E150/E152; 0.8.6: start-up waits for the Virus, E149; 0.8.5: one plug-in instance per process, issue #6). The 0.8.x
 releases are summarised in the sections above; 0.7.x and older in [HANDOFF-history.md](HANDOFF-history.md).
 Virus TI Snow owners stay on **v0.7.4** (classic plug-in) until the native plug-in supports the Snow.
 
