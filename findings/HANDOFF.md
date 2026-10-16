@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.9 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E160), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E161), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-16, after the 0.8.9 release)
@@ -34,10 +34,10 @@ folder and XDG_CONFIG_HOME/WINEPREFIX/VTI_ACCESS_DIR unset, gcov over CMakeFiles
 4. #4 nasguile: FX 1 changes only after re-triggering - NOT reproduced on the TI2 (E160: CC, pp and SysEx Bank C
    FX parameters all reach a held note at once). Needs his answer: which knobs, Snow/macOS/Ableton, same on the Snow
    itself? The editor path (Chorus/Distortion with types, user test in REAPER) works live too.
-5. CI coverage: 81.8 % on `preset-followups` (was 53.5 %). Lowest now: firmware.cpp 26 %, diag.cpp 40 %,
-   remotedevice.cpp 66 % (synthetic tests for SysEx encode/decode, upgrade_single, automation maps would help).
-6. Readiness probe (E149) vs the original: partly checked (E153) - the original's timer only shows progress; its
-   audio/MIDI path from the host is not examined.
+5. DONE 2026-10-16: CI-like coverage 92.3 % (test_firmware, test_diag, test_protocol). Lowest now: library.cpp 85 %,
+   remotedevice.cpp 90 %.
+6. DONE 2026-10-16 (E161): the original drops host notes + clock while busy (start-up queue, bank sync, requests)
+   and sends All Notes Off when it becomes busy; ours holds notes until ready and pauses the sync - kept.
 7. Older items unchanged: (USB 3: released in 0.8.9, E159; mode 2 "3 Outs / 1 Input" not measured), reconnect path without note hold, macOS duplicate-track check, two DAWs
    sharing the Virus on Windows, Snow "officially" (record a test report).
 
