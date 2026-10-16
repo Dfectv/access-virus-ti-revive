@@ -1,51 +1,33 @@
 # HANDOFF
 
-_Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.7 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.8 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E154), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE (state 2026-10-16, after the 0.8.7 release)
+## CONTINUE HERE (state 2026-10-16, after the 0.8.8 release)
 
-**Released:** v0.8.7 (Latest, CI run 38856677383, all 7 jobs green, 2026-10-16): presets chosen on the Virus itself
-are loaded (were ignored since 0.8.0), soft knobs work in both directions (editor -> destination parameter, E150;
-knob on the Virus -> plug-in follows, E152). Branches `softknobs` and `tests-coverage` merged into main (62 unit
-tests, ctest green on Linux). Tested on the TI2 under Linux only (nativehost + editor on the desktop; REAPER showed
-the bug with the plug-in installed in ~/.vst3, moduleinfo 0.8.3). Not tested: Windows, macOS, a DAW with 0.8.7, the
-Snow, parts other than 1.
+**Released:** v0.8.8 (Latest, CI run 38864936021, all 7 jobs green, 2026-10-16): soft knobs turned on the Virus
+change the sound (0.8.7 only moved them in the editor, E154), controllers restored after a preset chosen on the
+Virus. v0.8.7 (CI run 38856677383, same day): presets chosen on the Virus are loaded (ignored since 0.8.0, E152),
+soft knobs in the editor control their destination (E150). Branches `softknobs`, `tests-coverage` and
+`preset-followups` are merged into main (88 unit tests; CI-like vticore line coverage 81.8 %, E-free: measured
+with gcov, see below). Tested on the TI2 under Linux only (REAPER with the branch build in ~/.vst3; nativehost).
+Not tested: Windows, macOS, the Snow, parts other than 1.
 
-**Replies posted 2026-10-16 on #4:** nasguile (comment 6208931585: soft knobs fixed, the hardware preset bug, FX 1
-question still open) and ManuAnilkumar23 (6208931949: 0.8.7 may relate to his "Init"; caveat that a wrong bank copy
-also breaks presets chosen on the Snow; asked for diag.log with "RAM A sync" + "preset chosen on the Virus" lines
-and the broker log).
+**Replies on #4 (2026-10-16):** 6208931585 (nasguile, 0.8.7), 6208931949 (Manu, 0.8.7, logs asked), 6210139464
+(both: correction - use 0.8.8, soft knobs on the Virus now change the sound). Waiting for their test results/logs.
 
-**Local branch `preset-followups` (from main after 0.8.7, NOT pushed/merged; ctest green on Linux, 88 tests):**
-- FIX, tested in REAPER on the TI2 (E154): soft knobs turned on the Virus now change the SOUND - in plug-in mode the
-  Virus only reports `Value SoftknobN`; the plug-in sends the destination parameter (clamped), like the original.
-  0.8.7 moves the knob in the editor but the sound stays: worth a 0.8.8.
-- after a preset chosen on the Virus is loaded, the 13 controllers of the original follow (tested: sent within 30 ms).
-- cache miss (patch not in the bank cache): the edit-buffer read-back is built (worker thread, retry while busy,
-  stale-reply check) but SWITCHED OFF (`READ_EDIT_BUFFER_ON_MISS` in load_reported_presets): the Virus ignored the
-  dump written back (E154 (3), open). Normal installations have ROM banks from firmware.bin: tested fast.
-- the decisions live in `vti::PanelFollow` (native/src/model/panelfollow.*) with 7 unit tests.
-- This PC: ~/.vst3 holds the branch build now (REAPER tests); the user's old 0.8.3 copy is in the session scratchpad
-  (vst3-backup) - install the next release package over it.
-- `native/tools/virusmon.cpp`: the read-only traffic monitor, now a CMake target.
-- tests: the editor renderer on a hand-written layout (test_editor, 12 tests) and AccessFiles on fake installations
-  incl. a PE image built in the test (test_accessfiles, 7 tests, POSIX). CI-like vticore line coverage (no Access
-  files, measured with gcov in a scratch --coverage build, HOME pointed to an empty folder): 53.5 -> 81.8 %.
-- E153: the original's start-up timer only drives a progress display; no note hold found there (bounded search).
-- Prepared, NOT applied (README is user-facing, needs the maintainer's OK): the Snow lines in README.md ("not
-  supported by 0.8.0 yet ... stay with 0.7.4") are outdated - nasguile runs a Snow with 0.8.3 on macOS (#4), Manu's
-  Snow is recognised (RAM banks "Init" open). Proposed: "**Virus TI Snow:** works with the native plug-in according
-  to first user reports (macOS, 0.8.3+); not tested by us (we have no Snow). Please report what works and what not
-  in a GitHub issue; 0.7.4 stays available for its classic plug-in." and in the testers box "(first reports: it
-  works - your test results help us make it official)".
+**This PC:** ~/.vst3 holds the preset-followups build (= 0.8.8 code); the user's old 0.8.3 copy is in the session
+scratchpad (vst3-backup) - the 0.8.8 Linux package can be installed over it. Coverage measurement: a scratch build
+`cmake -S native -B <scratch>/cov -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="--coverage -O0"` (NOT with
+FETCHCONTENT_BASE_DIR=build-native/_deps - that broke build-native's pugixml build), run vtitests with HOME = an empty
+folder and XDG_CONFIG_HOME/WINEPREFIX/VTI_ACCESS_DIR unset, gcov over CMakeFiles/vticore.dir, LC_ALL=C.
 
 **Open, in order of value:**
-1. Windows check of 0.8.7 (VM, Ableton): preset switched on the Virus, soft knobs both directions; the plug-in in
-   ~/.vst3 on this PC (REAPER) is 0.8.3 - update it with the 0.8.7 Linux package.
-2. E152/E154: merge `preset-followups` + release 0.8.8 (soft knobs change the sound). Open: the cache-miss
-   read-back (E154 (3)); not tested: parts other than 1, Snow, macOS/Windows.
+1. Windows check of 0.8.8 (VM, Ableton): preset switched on the Virus, soft knobs both directions (sound!).
+2. E154 (3) open: on a cache miss the read-back of the edit buffer is built but switched off
+   (`READ_EDIT_BUFFER_ON_MISS`), the Virus ignored the dump written back - compare the raw bytes of a read-back dump
+   with a cache dump (the original rewrites bytes 10..12). Not tested: parts other than 1, Snow, macOS/Windows.
 3. #4 ManuAnilkumar23: RAM banks "Init" on the Snow. The Snow description = TI description (E151). Possibly
    related to E152 (if he switches presets on the Snow, the plug-in stayed on "-INIT-") - ask him after 0.8.7;
    else his diag.log ("RAM A sync" lines) and broker log.
@@ -202,7 +184,7 @@ plug-in in ~/.vst3 is 0.8.3 (moduleinfo).
 | macOS 14.4+ | native plug-in (VST3 + AUv2, universal, no Rosetta since 0.8.1), broker, Control Center app | `-mac.zip` (pkg + setup scripts) | native/docs/architecture.md, design-macos*.md |
 | Linux | native plug-in (VST3), native broker owns the whole Virus (MIDI + iso audio), Control Center app | `-linux.tar.gz` (install.sh) | native/docs/architecture.md, design-linux.md |
 
-Latest release: **v0.8.7** (2026-10-16, presets chosen on the Virus + soft knobs, E150/E152; 0.8.6: start-up waits for the Virus, E149; 0.8.5: one plug-in instance per process, issue #6). The 0.8.x
+Latest release: **v0.8.8** (2026-10-16, soft knobs on the Virus change the sound, E154; 0.8.7: presets chosen on the Virus + soft knobs, E150/E152; 0.8.6: start-up waits for the Virus, E149; 0.8.5: one plug-in instance per process, issue #6). The 0.8.x
 releases are summarised in the sections above; 0.7.x and older in [HANDOFF-history.md](HANDOFF-history.md).
 Virus TI Snow owners stay on **v0.7.4** (classic plug-in) until the native plug-in supports the Snow.
 
