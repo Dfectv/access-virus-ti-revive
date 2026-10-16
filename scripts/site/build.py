@@ -202,7 +202,7 @@ def page_landing(latest, releases, sums):
                    "<em>Open</em>).",
                    "Put your Access <code>.pkg</code> next to <code>Set up Access Virus TI files.command</code> and "
                    "run it. It also parks old drivers that would block the Virus.",
-                   "Start your DAW and allow microphone access when asked: macOS hands the Virus' audio only "
+                   "Start your DAW and allow microphone access when asked: macOS gives the audio of the Virus only "
                    "to apps with it. VST3 and Audio Unit."])
     lin = os_card("Linux", "x86_64 with systemd, Ubuntu 22.04 / Debian 12 or newer", asset(latest, "-linux.tar.gz"),
                   None, sums,
@@ -236,10 +236,39 @@ def page_landing(latest, releases, sums):
   </div>
 </section>
 
+<section class="block" id="original">
+  <div class="wrap">
+    <h2>Problems in the original Access plug-in</h2>
+    <p class="intro">Did the original Access plug-in, <strong>Virus Control</strong>, the one that came with the Virus
+    TI, have problems for you? TI Revive rebuilds that plug-in, and we want to fix its problems instead of copying
+    them.</p>
+    <div class="original">
+      <div>
+        <h3>Already fixed</h3>
+        <ul>
+          <li>In our timing test the original plug-in played the first note late and dropped the second. TI Revive puts all 256
+          notes on the grid.</li>
+          <li>While it starts up or syncs banks, the original plug-in drops the notes you play and sends &ldquo;All Notes
+          Off&rdquo;. TI Revive holds the notes back at start-up and pauses its bank sync while you play.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>What to report</h3>
+        <p>Hanging notes, sync errors, crashes, projects that did not open, the preset browser, automation, timing.
+        If you only remember it roughly, say so.</p>
+        <p class="actions"><a class="button" href="{GH}/issues/new?template=original_problem.yml">Report a problem in
+        the original plug-in</a> <a class="second" href="{GH}/issues?q=label%3Aoriginal">Reports so far</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="block" id="download">
   <div class="wrap">
     <h2>Version {v}, released {when}</h2>
     <p class="intro">You also need your own Access &ldquo;Virus TI Software Suite&rdquo; installer (e.g. 5.1.7).
+    Access offers it on its <a href="https://www.virus.info/downloads">download page</a>; you need an account there to
+    download it.
     TI Revive unpacks only what the plug-in reads from it: the skin, the parameter descriptions, the ROM banks.
     Older versions are on <a href="{GH}/releases">GitHub</a>.</p>
     <div class="oses">{win}{mac}{lin}
@@ -256,14 +285,13 @@ def page_landing(latest, releases, sums):
 
 <section class="block" id="how">
   <div class="wrap">
-    <h2>Three steps, then it stays out of the way</h2>
-    <p class="intro">The plug-in talks to the Virus directly over USB, so there is no MIDI port to set up and no
-    driver of Access' left on your system.</p>
+    <h2>How it works</h2>
+    <p class="intro">The plug-in talks to the Virus directly over USB, so there is no MIDI port to set up and no Access driver left on your system.</p>
     <div class="steps">
       <div><h3>Install TI Revive</h3><p>One installer per system. It sets up the USB access and puts the plug-in where
       your DAW looks for it.</p></div>
       <div><h3>Point it at your Access installer</h3><p>The setup unpacks the skin, the parameter descriptions and the
-      ROM banks from the installer you own. Nothing of Access' comes with TI Revive.</p></div>
+      ROM banks from the installer you own. No Access files come with TI Revive.</p></div>
       <div><h3>Load the plug-in</h3><p><strong>TI Revive Virus Control</strong> on a MIDI track. Projects made with the
       original plug-in open with it. The first start reads RAM A&ndash;D from the Virus once, which takes a few
       minutes; you can play meanwhile.</p></div>
@@ -276,8 +304,8 @@ def page_landing(latest, releases, sums):
 <section class="block" id="status">
   <div class="wrap">
     <h2>What is tested where</h2>
-    <p class="intro">We test on a Virus TI2 Desktop. Everything else depends on reports from people who own one.
-    A <a href="{GH}/issues/new?template=test_report.yml">test report</a> helps more than anything.</p>
+    <p class="intro">We test on a Virus TI2 Desktop. For other models, systems and DAWs we depend on
+    <a href="{GH}/issues/new?template=test_report.yml">test reports</a> from their owners.</p>
     <table class="matrix">
       <thead><tr><th>Model</th><th>Windows</th><th>macOS</th><th>Linux</th></tr></thead>
       <tbody>
@@ -289,7 +317,7 @@ def page_landing(latest, releases, sums):
       </tbody>
     </table>
     <ul class="limits">
-      <li>The Virus' USB audio <em>input</em> (&ldquo;3 Outs / 1 Input&rdquo;) is not fed by the plug-in yet.</li>
+      <li>The USB audio <em>input</em> of the Virus (&ldquo;3 Outs / 1 Input&rdquo;) is not fed by the plug-in yet.</li>
       <li>The installers are not signed, so Windows and macOS ask once before they run them.</li>
     </ul>
     <div class="testing">
@@ -298,9 +326,9 @@ def page_landing(latest, releases, sums):
       for the Access files (measured {COVERAGE_DATE}).</p></div>
       <div><h3>On the synth</h3><p>Changes that touch the Virus are tried on our TI2 Desktop before a release; the
       release notes say on which systems and in which DAWs.</p></div>
-      <div><h3>Your reports</h3><p>They make TI Revive better with every version: the soft knobs (0.8.7, 0.8.8) and
-      the third USB output (0.8.9) came straight from a user's report. A <a href="#support">bug report</a> or a
-      <a href="{GH}/issues/new?template=test_report.yml">test report</a> from your setup helps the next release.</p></div>
+      <div><h3>Your reports</h3><p>The soft knobs (0.8.7, 0.8.8) and the third USB output (0.8.9) were fixed after a
+      user's report. <a href="#support">Bug reports</a> and <a href="{GH}/issues/new?template=test_report.yml">test
+      reports</a> from other setups show us what to fix next.</p></div>
     </div>
   </div>
 </section>
@@ -321,7 +349,7 @@ def page_landing(latest, releases, sums):
     <h2>Help and support</h2>
     <div class="faq">
       <details><summary>&ldquo;Virus TI not connected&rdquo;</summary>
-      <p>Only one driver can use the Virus' USB interfaces. Old Access drivers, or third-party ones like the driver of
+      <p>Only one driver can use the USB interfaces of the Virus. Old Access drivers, or third-party ones like the driver of
       another Virus editor, take them first. Disable the other driver and restart; on macOS the setup script offers to
       park the known ones.</p></details>
       <details><summary>Connected, but no sound</summary>
@@ -340,11 +368,10 @@ def page_landing(latest, releases, sums):
     <div class="support" id="support">
       <h3>Report a problem</h3>
       <p>If your question is not answered above, open a report on GitHub. Reports are read by the developer, and the
-      answer comes in the same thread; it is a hobby project, so it can take a day or two. Every report helps: most of
-      what changed in the recent versions started with one.</p>
+      answer comes in the same thread; it is a hobby project, so it can take a day or two.</p>
       <ol>
         <li><strong>Collect the logs.</strong> Easiest: open the <strong>TI Revive Control Center</strong>, switch on
-        <em>Nerd mode</em> and press <em>Save logs...</em>. You get the plug-in and broker logs in one file,
+        <em>Nerd mode</em> and press the <em>Save logs...</em> button. You get the plug-in and broker logs in one file,
         without your home folder or user name. Or by hand: create an empty file <code>diag.on</code> in the plug-in's folder,
         reproduce the problem, and take <code>diag.log</code> from the same folder:
         <div class="paths"><b>Windows</b><code>%LOCALAPPDATA%\\virus-ti-native</code>
@@ -363,11 +390,30 @@ def page_landing(latest, releases, sums):
   </div>
 </section>
 
+<section class="block" id="contribute">
+  <div class="wrap">
+    <h2>Contributing</h2>
+    <p class="intro">The repository is prepared for working on it with an AI coding assistant.</p>
+    <div class="testing">
+      <div><h3>For AI assistants</h3><p><a href="{GH}/blob/main/AGENTS.md">AGENTS.md</a> gives any assistant the
+      rules and a map of the repository: no Access material in the code, never risk the synth, evidence before claims,
+      and say exactly what was tested.</p></div>
+      <div><h3>Skills</h3><p>Step-by-step guides in <a href="{GH}/tree/main/.claude/skills">.claude/skills</a>:
+      test your setup safely and write a report, find the cause of a problem in the logs, and prepare a pull request
+      the way we review it. They are plain text, so they work without an assistant too.</p></div>
+      <div><h3>Without code</h3><p>Test reports, reports about problems in the original, and help with reading
+      someone's logs are as useful as pull requests.</p></div>
+    </div>
+    <p class="actions contribute-actions"><a class="button" href="{GH}/blob/main/CONTRIBUTING.md">How to
+    contribute</a> <a class="second" href="{GH}">Open the repository</a></p>
+  </div>
+</section>
+
 <section class="block" id="about">
   <div class="wrap">
     <div class="about">
-      <div><h3>Why</h3><p>A Virus TI deserves to keep working on the computers people use today. TI Revive is free and
-      open source, and it stays that way.</p></div>
+      <div><h3>Why</h3><p>The Access drivers stopped working on current systems. TI Revive is free and open
+      source.</p></div>
       <div><h3>How it was built</h3><p>By working out the USB protocol and the original software's behaviour from
       logs, captures and analysis, and by testing on real hardware. Much of the work was done with an AI coding
       assistant; the tests on the synth are done by hand.</p></div>
@@ -388,8 +434,7 @@ def features_section():
 
     <div class="feature">
       <div><h3>The plug-in</h3>
-      <p><strong>TI Revive Virus Control</strong> is written from scratch and looks and works like Access' Virus
-      Control. It draws its look from your own Access installer at runtime.</p></div>
+      <p><strong>TI Revive Virus Control</strong> is written from scratch and looks and works like the original Access plug-in, Virus Control. It draws its look from your own Access installer at runtime.</p></div>
       <ul>
         <li>All 16 parts, every parameter, the preset browser, RAM and ROM banks, patch libraries.</li>
         <li>Projects made with the original plug-in open with it; the saved state is byte for byte the same.</li>
@@ -403,8 +448,8 @@ def features_section():
 
     <div class="feature">
       <div><h3>Timing</h3>
-      <p>The plug-in finds the Virus' own clock on USB, stamps every note against it and reports its latency, so the
-      DAW lines recordings up with the grid. Any host sample rate works: a resampler converts to the Virus' 44.1 kHz
+      <p>The plug-in finds the clock of the Virus on USB, stamps every note against it and reports its latency, so the
+      DAW lines recordings up with the grid. Any host sample rate works: a resampler converts to the 44.1 kHz of the Virus
       with -90 dB error.</p></div>
       <div><table class="data">
         <thead><tr><th>16th notes at 120 BPM</th><th>On the grid</th><th>Jitter</th><th>Drift</th></tr></thead>
@@ -415,12 +460,12 @@ def features_section():
           <tr class="old"><th>Classic plug-in 0.7.x</th><td>first late, second missing</td><td>0.06 ms</td><td>n/a</td></tr>
         </tbody>
       </table>
-      <p class="small">Recorded from the Virus' USB audio and measured by onset analysis. *The upper bound of the
+      <p class="small">Recorded from the USB audio of the Virus and measured by onset analysis. *The upper bound of the
       method on that machine.</p></div>
     </div>
 
     <div class="feature">
-      <div><h3>Light on the CPU, safe on the audio thread</h3>
+      <div><h3>CPU and audio thread</h3>
       <p>The audio thread never allocates memory or waits for a lock; note-offs always get a slot, so no note
       hangs.</p></div>
       <div><table class="data">
@@ -436,7 +481,7 @@ def features_section():
     </div>
 
     <div class="feature">
-      <div><h3>A fast editor</h3>
+      <div><h3>Editor speed</h3>
       <p>Only the controls that change are redrawn, the backgrounds of recent pages are cached, and on Linux the
       images live on the X server.</p></div>
       <table class="data">
@@ -450,14 +495,14 @@ def features_section():
     </div>
 
     <div class="feature">
-      <div><h3>Found with the Virus, fixed</h3>
-      <p>Things the synth does that no documentation mentions, found by testing on the hardware.</p></div>
+      <div><h3>Problems found on the hardware</h3>
+      <p>Behaviour of the Virus that is not documented anywhere, found by testing.</p></div>
       <ul>
-        <li>A flood of parameter changes can hang the Virus' audio until it is switched off. Automation is limited to
+        <li>A flood of parameter changes can hang the audio of the Virus until it is switched off. Automation is limited to
         250 messages per second and merged per parameter; a 4-minute full-load test passes.</li>
         <li>The Virus drops the message right after a multi dump. The plug-in pauses after one, so new projects reset
         the synth reliably.</li>
-        <li>Bank sync requests delay the Virus' notes. The sync pauses while you play and continues in the gaps.</li>
+        <li>Bank sync requests make the Virus play its notes late. The sync pauses while you play and continues in the gaps.</li>
         <li>Switch the Virus off and on, or replug it, while the DAW runs: the plug-in waits until it is ready and plays
         in time again. Two DAWs share it: one plays, the other waits and takes over.</li>
       </ul>
@@ -465,7 +510,7 @@ def features_section():
 
     <div class="feature cc">
       <div><h3>TI Revive Control Center</h3>
-      <p>A separate app in the look of Access' Virus Control Center, when that is in your Access installer. It
+      <p>A separate app in the look of the Access Virus Control Center, when that is in your Access installer. It
       shows the connected Virus and its RAM banks, backs them up as patch libraries and converts libraries between
       <code>.mid</code> and <code>.syx</code>. It only reads from the Virus.</p></div>
       <figure class="shot"><img src="control-center.png" width="687" height="463"
@@ -487,10 +532,9 @@ def features_section():
 
     <div class="feature">
       <div><h3>What TI Revive will not do</h3>
-      <p>On purpose, to keep your synth and your data safe.</p></div>
+      <p>On purpose.</p></div>
       <ul>
-        <li>No firmware or OS updates for the Virus, no &ldquo;Burn To Flash&rdquo;, no factory reset. Anything
-        that writes the Virus' flash can brick it.</li>
+        <li>No firmware or OS updates for the Virus, no &ldquo;Burn To Flash&rdquo;, no factory reset. Anything that writes to the flash memory of the Virus can brick it.</li>
         <li>No Access files in TI Revive: the skin, the parameter descriptions and the ROM banks come from the installer
         you own.</li>
         <li>No telemetry: TI Revive never connects to the internet. Its parts talk to each other on your computer only,
