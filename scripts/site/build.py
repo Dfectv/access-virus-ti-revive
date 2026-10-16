@@ -371,8 +371,287 @@ def page_about():
 """
 
 
+# ------------------------------------------------------------------------------------- the one-page design
+def knob(value, label):
+    """a knob drawn like the panel's: a 270 degree track, the value arc and a pointer; value 0..1"""
+    import math
+    cx = cy = 30
+    r = 24
+
+    def pt(a, rr):
+        rad = math.radians(a - 90)
+        return cx + rr * math.cos(rad), cy + rr * math.sin(rad)
+
+    a0, a1 = -135, -135 + 270 * value
+    x0, y0 = pt(a0, r)
+    xe, ye = pt(135, r)
+    x1, y1 = pt(a1, r)
+    big_track, big_val = 1, 1 if a1 - a0 > 180 else 0
+    px, py = pt(a1, 11)
+    return (f'<div class="knob"><svg viewBox="0 0 60 60" aria-hidden="true">'
+            f'<path class="track" d="M{x0:.1f} {y0:.1f}A{r} {r} 0 {big_track} 1 {xe:.1f} {ye:.1f}" fill="none" '
+            f'stroke-width="3" stroke-linecap="round"/>'
+            f'<path class="value" d="M{x0:.1f} {y0:.1f}A{r} {r} 0 {big_val} 1 {x1:.1f} {y1:.1f}" fill="none" '
+            f'stroke-width="3" stroke-linecap="round"/>'
+            f'<circle class="cap" cx="{cx}" cy="{cy}" r="16" stroke-width="1"/>'
+            f'<line class="mark" x1="{cx}" y1="{cy}" x2="{px:.1f}" y2="{py:.1f}" stroke-width="2" '
+            f'stroke-linecap="round"/></svg><span>{label}</span></div>')
+
+
+def highlights(rel, n=3):
+    """the first points of a version's summary (its list items, else its first sentences)"""
+    text = summary(rel).replace("\r", "")
+    items = [l.strip()[2:] for l in text.split("\n") if l.strip().startswith("- ")]
+    if not items:
+        first = re.split(r"(?<=[.!?])\s+", " ".join(text.split()))
+        items = [" ".join(first[:2])] if first and first[0] else []
+    out = []
+    for i in items[:n]:
+        i = re.sub(r"\s*\(E\d+[^)]*\)", "", i) # evidence numbers mean nothing to a visitor
+        out.append(i if len(i) <= 220 else i[:217].rsplit(" ", 1)[0] + " ...")
+    return out
+
+
+def os_card(name, req, a, alt, sums, steps):
+    if not a:
+        return ""
+    s = sums.get(a["name"])
+    alt_html = (f'<p class="alt">or <a href="{alt["browser_download_url"]}">{alt["name"]}</a> '
+                f'({size(alt["size"])})</p>') if alt else ""
+    return f"""
+    <div class="os">
+      <h3>{name}</h3>
+      <p class="req">{req}</p>
+      <a class="button" href="{a["browser_download_url"]}">Download <small>{size(a["size"])}</small></a>
+      <p class="alt"><code>{a["name"]}</code></p>{alt_html}
+      <details><summary>How to install</summary><ol>{"".join("<li>" + x + "</li>" for x in steps)}</ol>
+      {f'<code class="sum" title="SHA-256">SHA-256 {s}</code>' if s else ""}</details>
+    </div>"""
+
+
+def page_landing(latest, releases, sums):
+    v = latest["tag_name"][1:]
+    when = date(latest["published_at"])
+    news = []
+    for r in [r for r in releases if not r.get("prerelease") and not r.get("draft")][:3]:
+        t = title_of(r) or "Release " + r["tag_name"][1:]
+        pts = "".join("<li>" + inline(i) + "</li>" for i in highlights(r))
+        news.append(f"""
+    <article class="rel">
+      <div><div class="v"><a href="changelog.html#{html.escape(r["tag_name"])}">{html.escape(r["tag_name"][1:])}</a></div>
+      <time datetime="{r["published_at"][:10]}">{date(r["published_at"])}</time></div>
+      <div><h3>{html.escape(t[:1].upper() + t[1:])}</h3><ul>{pts}</ul></div>
+    </article>""")
+    win = os_card("Windows", "Windows 11 x64, also Windows 10", asset(latest, "-setup.exe"), asset(latest, ".msi"),
+                  sums, ["Put the setup file next to your Access &ldquo;Virus TI Software Suite&rdquo; 64-bit "
+                         "<code>.msi</code>.",
+                         "Run it. It is not code-signed: <em>More info &rarr; Run anyway</em>. Your Access installer "
+                         "is only unpacked, not installed.",
+                         "Connect the Virus, rescan plug-ins in your DAW and load <strong>TI Revive Virus "
+                         "Control</strong>. The ASIO device <strong>TI Revive Virus Audio</strong> makes the Virus a "
+                         "sound card."])
+    mac = os_card("macOS", "macOS 14.4 or newer, Apple Silicon and Intel", asset(latest, "-mac.zip"), None, sums,
+                  ["Unpack the zip and open <code>TI Revive.pkg</code> (not signed: right-click &rarr; "
+                   "<em>Open</em>).",
+                   "Put your Access <code>.pkg</code> next to <code>Set up Access Virus TI files.command</code> and "
+                   "run it. It also parks old drivers that would block the Virus.",
+                   "Start your DAW and allow microphone access when asked &mdash; macOS hands the Virus' audio only "
+                   "to apps with it. VST3 and Audio Unit."])
+    lin = os_card("Linux", "x86_64 with systemd, Ubuntu 22.04 / Debian 12 or newer", asset(latest, "-linux.tar.gz"),
+                  None, sums,
+                  ["<code>sudo apt install msitools</code> to unpack the Access installer.",
+                   "Unpack and run <code>./install.sh \"/path/to/Virus TI Software Suite 64-bit.msi\"</code>; it "
+                   "asks for your password once (udev rule).",
+                   "For steady audio join the real-time group (<code>sudo usermod -aG pipewire $USER</code>, log "
+                   "out and in), then rescan plug-ins."])
+    knobs = "".join(knob(x, l) for x, l in ((0.72, "CUTOFF"), (0.35, "RESO"), (0.55, "ENV"), (0.18, "FX"),
+                                            (0.85, "VOL")))
+    return f"""
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow">For the Access Virus TI &middot; Windows &middot; macOS &middot; Linux</p>
+      <h1>Your Virus TI, back inside the DAW.</h1>
+      <p class="lead">The drivers that tied the Virus TI to your DAW stopped working on current systems.
+      <strong>TI Revive</strong> replaces them, and its plug-in looks and works like the original Virus Control:
+      every parameter, the preset browser, automation, and the synth's audio over the same USB cable.</p>
+      <p class="actions"><a class="button" href="#download">Download {v}</a>
+      <a class="quiet" href="#news">What's new &rarr;</a></p>
+      <p class="facts-line">Free &middot; open source &middot; VST3 and Audio Unit &middot; no Access files inside</p>
+    </div>
+    <div class="unit">
+      <div class="lcd" aria-label="Current version {v}, released {when}">
+        <span>TI REVIVE  {v}</span><span class="dim">RELEASED {when.upper()}</span></div>
+      <div class="knobs">{knobs}</div>
+      <div class="leds" aria-hidden="true"><span class="on">USB</span><span class="on">MIDI</span>
+      <span class="on">SYNC</span><span>OS UPDATE</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="download">
+  <div class="wrap">
+    <p class="kicker">Download</p>
+    <h2>Version {v}, released {when}</h2>
+    <p class="intro">You also need your own Access &ldquo;Virus TI Software Suite&rdquo; installer (e.g. 5.1.7).
+    TI Revive unpacks only what the plug-in reads from it &mdash; the skin, the parameter descriptions, the ROM banks.
+    Older versions are on <a href="{GH}/releases">GitHub</a>.</p>
+    <div class="oses">{win}{mac}{lin}
+    </div>
+    <div class="needs">
+      <div><b>Synth</b><span>Virus TI and TI2: Desktop, Polar, Keyboard, and the TI Snow</span></div>
+      <div><b>DAW</b><span>Any VST3 host; Audio Unit for Logic and GarageBand</span></div>
+      <div><b>Outputs</b><span>USB 1 and 2, USB 3 if you switch it on in PATCH UTILITY &rarr; Preferences</span></div>
+      <div><b>Not included</b><span>Firmware or OS updates for the Virus, or anything else that writes its flash.
+      On purpose.</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="how">
+  <div class="wrap">
+    <p class="kicker">How it works</p>
+    <h2>Three steps, then it stays out of the way</h2>
+    <p class="intro">The plug-in talks to the Virus directly over USB, so there is no MIDI port to set up and no
+    driver of Access' left on your system.</p>
+    <div class="steps">
+      <div><h3>Install TI Revive</h3><p>One installer per system. It sets up the USB access and puts the plug-in where
+      your DAW looks for it.</p></div>
+      <div><h3>Point it at your Access installer</h3><p>The setup unpacks the skin, the parameter descriptions and the
+      ROM banks from the installer you own. Nothing of Access' comes with TI Revive.</p></div>
+      <div><h3>Load the plug-in</h3><p><strong>TI Revive Virus Control</strong> on a MIDI track. Projects made with the
+      original plug-in open with it.</p></div>
+    </div>
+    <div class="notes">
+      <div><h3>Timing</h3><p>Notes land on the grid within a tenth of a millisecond, and the plug-in reports its latency
+      so the DAW compensates it. Any host sample rate works.</p></div>
+      <div><h3>First start</h3><p>The plug-in reads RAM A&ndash;D from the Virus once, which takes a few minutes; you can
+      play while it runs. After that it takes seconds.</p></div>
+      <div><h3>Two programs</h3><p>One plug-in uses the Virus at a time; another DAW shows &ldquo;Virus
+      unavailable&rdquo; and takes over when the first one closes.</p></div>
+      <div><h3>Sharp on large screens</h3><p>At larger editor sizes and on Retina screens the original images are
+      enlarged once with a sharp filter, in memory only.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="status">
+  <div class="wrap">
+    <p class="kicker">Status</p>
+    <h2>What is tested where</h2>
+    <p class="intro">We test on a Virus TI2 Desktop. Everything else depends on reports from people who own one
+    &mdash; a <a href="{GH}/issues/new?template=test_report.yml">test report</a> helps more than anything.</p>
+    <table class="matrix">
+      <thead><tr><th>Model</th><th>Windows</th><th>macOS</th><th>Linux</th></tr></thead>
+      <tbody>
+        <tr><th>TI2 Desktop</th><td class="st ok">tested</td><td class="st ok">tested</td><td class="st ok">tested</td></tr>
+        <tr><th>TI Snow</th><td class="st no">no report yet</td><td class="st rep">works for users</td>
+          <td class="st no">no report yet</td></tr>
+        <tr><th>Desktop (TI1), Polar, Keyboard</th><td class="st no">no report yet</td><td class="st no">no report yet</td>
+          <td class="st no">no report yet</td></tr>
+      </tbody>
+    </table>
+    <ul class="limits">
+      <li>The Virus' USB audio <em>input</em> (&ldquo;3 Outs / 1 Input&rdquo;) is not fed by the plug-in yet.</li>
+      <li>The installers are not signed, so Windows and macOS ask once before they run them.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" id="news">
+  <div class="wrap">
+    <p class="kicker">What's new</p>
+    <h2>Recent releases</h2>
+    <div class="news">{"".join(news)}
+    </div>
+    <p class="more"><a href="changelog.html">Every version &rarr;</a>
+    <a href="{GH}/releases.atom">Release feed (Atom)</a>
+    <a href="{GH}">On GitHub: <em>Watch &rarr; Custom &rarr; Releases</em></a></p>
+  </div>
+</section>
+
+<section class="block" id="help">
+  <div class="wrap">
+    <p class="kicker">Help</p>
+    <h2>Common questions</h2>
+    <div class="faq">
+      <details><summary>&ldquo;Virus TI not connected&rdquo;</summary>
+      <p>Only one driver can use the Virus' USB interfaces. Old Access drivers, or third-party ones like the driver of
+      another Virus editor, take them first. Disable the other driver and restart; on macOS the setup script offers to
+      park the known ones.</p></details>
+      <details><summary>Connected, but no sound</summary>
+      <p>The Virus decides per part where its sound goes. Switch the part's output to &ldquo;Out 1&rdquo; and back to
+      &ldquo;USB 1&rdquo; in the plug-in to send the setting again. On macOS also check that your DAW may use the
+      microphone.</p></details>
+      <details><summary>Three separate outputs (USB 3)</summary>
+      <p>PATCH UTILITY &rarr; Preferences &rarr; &ldquo;Input and Output Configuration&rdquo; = &ldquo;3 Outs / No
+      Input&rdquo;. Then a part's output can be &ldquo;USB3 L+R&rdquo; and its sound comes out of the plug-in's Out 3.
+      In Ableton: an audio track with <em>Audio From</em> = the Virus track, <em>Out 3</em>, <em>Monitor In</em>.</p>
+      </details>
+      <details><summary>The first notes after Play are late</summary>
+      <p>The plug-in sends notes slightly ahead to make up for the USB round trip, so start playback a little before
+      the first note. The original driver did the same.</p></details>
+      <details><summary>Logs for a bug report</summary>
+      <p>Create an empty file <code>diag.on</code> in the plug-in's folder, reproduce the problem and attach
+      <code>diag.log</code> from the same folder to an <a href="{GH}/issues">issue</a>:</p>
+      <div class="paths"><b>Windows</b><code>%LOCALAPPDATA%\\virus-ti-native</code>
+      <b>macOS</b><code>~/Library/Application Support/virus-ti-native</code>
+      <b>Linux</b><code>~/.local/share/virus-ti-native</code></div></details>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="about">
+  <div class="wrap">
+    <div class="about">
+      <div><h3>Why</h3><p>A Virus TI deserves to keep working on the computers people use today. TI Revive is free and
+      open source, and it stays that way.</p></div>
+      <div><h3>How it was built</h3><p>By working out the USB protocol and the original software's behaviour from
+      logs, captures and analysis, and by testing on real hardware. Much of the work was done with an AI coding
+      assistant; the tests on the synth are done by hand.</p></div>
+      <div><h3>Saying thanks</h3><p>Everything works the same whether you pay or not. If you want to, you can
+      <a href="https://buymeacoffee.com/callmederpsn">buy the developer a coffee</a> &mdash; a test report helps just
+      as much.</p></div>
+    </div>
+  </div>
+</section>
+"""
+
+
+def page_changelog_landing(releases):
+    rows = []
+    for r in releases:
+        v = r["tag_name"]
+        t = title_of(r)
+        tag = '<span class="pre">pre-release</span>' if r.get("prerelease") else ""
+        rows.append(f"""
+    <article class="rel" id="{html.escape(v)}">
+      <div><div class="v"><a href="#{html.escape(v)}">{html.escape(v[1:])}</a></div>
+      <time datetime="{r["published_at"][:10]}">{date(r["published_at"])}</time>{tag}</div>
+      <div>{f"<h3>{html.escape(t[:1].upper() + t[1:])}</h3>" if t else ""}<div class="body">{md(summary(r))}</div>
+      <p class="more"><a href="{r["html_url"]}">Files and full notes</a></p></div>
+    </article>""")
+    return f"""
+<section class="log">
+  <div class="wrap">
+    <p class="kicker">Changelog</p>
+    <h2>Every version</h2>
+    <p class="intro">Newest first. Versions before 0.8.0 ran Access' original plug-in through an emulated driver;
+    0.8.0 replaced it with TI Revive's own plug-in.</p>
+    <div class="news">{"".join(rows)}
+    </div>
+  </div>
+</section>
+"""
+
+
 PAGES = [("index", "Home", page_home), ("download", "Download", page_download), ("changelog", "Changelog",
          page_changelog), ("help", "Help", page_help), ("about", "About", page_about)]
+
+
+# designs with their own set of pages (the others use PAGES)
+LAYOUTS = {"landing": [("index", "Home", lambda latest, releases, sums: page_landing(latest, releases, sums)),
+                       ("changelog", "Changelog", lambda latest, releases, sums: page_changelog_landing(releases))]}
 
 
 def render(design, out, releases, sums):
@@ -384,11 +663,15 @@ def render(design, out, releases, sums):
         if name != "base.html":
             shutil.copy(os.path.join(src, name), os.path.join(out, name))
     latest = next(r for r in releases if not r.get("prerelease") and not r.get("draft"))
-    for slug, label, fn in PAGES:
-        body = {"index": lambda: fn(latest), "download": lambda: fn(latest, sums),
-                "changelog": lambda: fn(releases)}.get(slug, fn)()
+    pages = LAYOUTS.get(design, PAGES)
+    for slug, label, fn in pages:
+        if design in LAYOUTS:
+            body = fn(latest, releases, sums)
+        else:
+            body = {"index": lambda: fn(latest), "download": lambda: fn(latest, sums),
+                    "changelog": lambda: fn(releases)}.get(slug, fn)()
         nav = "\n".join(f'<a href="{s}.html"{" aria-current=\"page\"" if s == slug else ""}>{lab}</a>'
-                        for s, lab, _ in PAGES)
+                        for s, lab, _ in pages)
         page = (base.replace("{{title}}", "TI Revive" if slug == "index" else label + " - TI Revive")
                 .replace("{{nav}}", nav).replace("{{body}}", body).replace("{{version}}", latest["tag_name"][1:])
                 .replace("{{date}}", date(latest["published_at"])).replace("{{repo}}", GH))
