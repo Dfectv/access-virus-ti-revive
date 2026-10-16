@@ -43,4 +43,13 @@ private:
     std::vector<float> tmp_[2]; // converter output before int16
 };
 
+// Which of the input buses a host passed to process() is the sidechain. declared = the plug-in's input buses,
+// active[i] = their activation by the host (activateBus), passed = ProcessData::numInputs, aux = the sidechain's
+// declared index. A host that passes all declared buses has it at its declared place; a host that passes only the
+// active ones (some instrument hosts) has it after the active buses declared before it. -1: not passed.
+int sidechain_bus_index(int declared, const bool *active, int passed, int aux);
+
+// the highest absolute sample of l and r (either may be null) over n frames: the log's sidechain input level
+float sidechain_peak(const float *l, const float *r, int n);
+
 } // namespace vti

@@ -98,4 +98,27 @@ int SidechainSender::process(const float *l, const float *r, int n, int64_t queu
     return w + k;
 }
 
+int sidechain_bus_index(int declared, const bool *active, int passed, int aux)
+{
+    if (passed <= 0 || aux < 0 || aux >= declared)
+        return -1;
+    if (passed >= declared)
+        return aux;
+    if (!active[aux])
+        return -1;
+    int idx = 0;
+    for (int i = 0; i < aux; i++)
+        idx += active[i] ? 1 : 0;
+    return idx < passed ? idx : -1;
+}
+
+float sidechain_peak(const float *l, const float *r, int n)
+{
+    float p = 0;
+    for (const float *s : {l, r})
+        for (int i = 0; s && i < n; i++)
+            p = std::max(p, std::fabs(s[i]));
+    return p;
+}
+
 } // namespace vti
