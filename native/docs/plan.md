@@ -59,7 +59,7 @@ tests in the VM / on the MacBook at the phase ends.
 | R4 | Editor | VSTGUI front-end built from editor.xml + PNGs: containers/pages, knobs (filmstrips), buttons, menus, displays, conditions, value text; patch browser, Patch Utility, part selection | Xvfb screenshots of every page pixel-compared with the original; all controls change the Virus | a look/feel check |
 | R5 | Completeness | multi mode, arpeggiator editor, MIDI learn/mapping, preferences, sync diagnostics, model variants (Desktop/Polar/Keyboard/Snow, "PR" family), error/info pages | feature checklist from editor.xml + manual complete | - |
 | R6 | Windows + macOS | Windows: broker pipe backend; macOS: native arm64 + x86_64, broker for MIDI, Core Audio for audio (as libVirusUSB does today) or the broker, AU wrapper; CI release artifacts | same tests pass on all three | Mac/Windows tests |
-| R7 | Validation + beta | A/B against the original (timing like E078/E125, audio, projects, long sessions), beta through GitHub releases | testers confirm | release decision |
+| R7 | Validation + beta | A/B against the original (timing like E078/E125, audio, projects, long sessions) - plan: [findings/bench-original.md](../../findings/bench-original.md), needs a real Windows PC, beta through GitHub releases | testers confirm | release decision |
 | R8 | UI/legal review | decide what of the Access look stays runtime-loaded vs. own artwork, names/trademarks | user decision | yes |
 
 ## Risks
