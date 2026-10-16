@@ -582,6 +582,27 @@ std::vector<std::array<int, 4>> EditorRenderer::param_rects(const std::string &p
     return out;
 }
 
+std::vector<Hit> EditorRenderer::visible_controls() const
+{
+    std::vector<Hit> out;
+    std::function<void(const Element &, int, int, int)> walk = [&](const Element &e, int ox, int oy, int inherited) {
+        int pt = own_part(e) >= 0 ? own_part(e) : inherited >= 0 ? inherited : part;
+        if (!cond_.eval(e.get("Condition"), values, pt))
+            return;
+        int x = ox + e.x, y = oy + e.y;
+        if (!e.get("Parameter").empty() && e.get("Enabled") != "false" && e.w > 0 && e.h > 0) {
+            Hit h;
+            h.element = &e, h.x = x, h.y = y, h.part = pt;
+            out.push_back(h);
+        }
+        for (auto &c : e.children)
+            walk(c, x, y, own_part(e) >= 0 ? own_part(e) : inherited);
+    };
+    for (auto &e : layout_.elements)
+        walk(e, 0, 0, -1);
+    return out;
+}
+
 Hit EditorRenderer::hit_test(int px, int py) const
 {
     Hit h;

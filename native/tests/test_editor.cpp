@@ -439,6 +439,25 @@ TEST(editor_hit_and_rects)
     CHECK(g.r->param_rects("Nope").empty());
 }
 
+TEST(editor_visible_controls)
+{
+    // help mode: every visible control with a parameter, at the same place and part as the hit test finds it
+    Rig g;
+    auto all = g.r->visible_controls();
+    CHECK(!all.empty());
+    bool shape = false;
+    for (auto &h : all) {
+        CHECK(h.element && !h.element->get("Parameter").empty() && h.element->get("Enabled") != "false");
+        Hit t = g.r->hit_test(h.x + 1, h.y + 1);
+        if (t.element == h.element)
+            CHECK(t.x == h.x && t.y == h.y && t.part == h.part);
+        shape = shape || (h.element->get("Parameter") == "Osc/Shape" && h.x == 5 && h.y == 20);
+    }
+    CHECK(shape);
+    for (auto &h : all) // the disabled button at 80,20 is not listed
+        CHECK(!(h.x == 80 && h.y == 20));
+}
+
 TEST(editor_value_texts)
 {
     Rig g;

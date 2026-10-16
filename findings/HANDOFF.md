@@ -38,6 +38,18 @@ nativehost (first version, E168), unit tests (109). Next: one test session per O
 
 **Restore a backup (asked 2026-10-16):** the original Control Center restores by erasing and writing flash banks (E169) - not allowed (rule 2). User decision 2026-10-16: postponed (backups stay read-only; the single-dump alternative would need a one-slot hardware check first).
 
+**Test round 0.8.14 (branch `round-0.8.14` = sidechain + help-mode, 2026-10-16):** one CI test build, one checklist
+per OS (smoke test, sidechain in a DAW, 48 kHz, Linux reset guard, help mode). Release after it passed.
+
+**Branch `help-mode` (2026-10-16):** the "?" button (the original's Help Menu, which listed manuals; ours showed
+numbers 0-127) toggles a help mode: frames around every explained control, a note for the control under the mouse
+(click pins it, clicks change nothing; page tabs, part strip and envelope select still work), Esc or "?" leaves.
+Texts: native/src/editor/helptext.cpp, our own words written from the user's Virus TI Reference PDF (read locally,
+not in the repo - rule 1) and the editor model; 501 of the 520 control paths covered (the rest: welcome page, progress
+bars). Hover needs a frame mouse observer (VSTGUI passes moves to views only while a button is down). Tested: unit
+tests (help texts, visible_controls), Xvfb screenshots at 100 % and 150 % with the TI2 connected. Not tested: Esc,
+Windows, macOS, a DAW.
+
 **Test builds:** always a NEW version number (a forced reinstall of the same version removed the WinUSB driver in the VM, E166).
 
 **Replies on #4 (2026-10-16):** 6208931585 (nasguile, 0.8.7), 6208931949 (Manu, 0.8.7, logs asked), 6210139464
