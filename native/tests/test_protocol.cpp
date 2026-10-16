@@ -89,6 +89,26 @@ TEST(protocol_encode_three_transports)
     CHECK(d.encode_into("Global/Mode", 1, 0, buf, sizeof buf) == 0); // too small a buffer
 }
 
+TEST(protocol_encode_into_matches_encode)
+{
+    // encode_into is the automation path (no allocation): it must give the same bytes as encode
+    RemoteDevice &d = dev();
+    uint8_t buf[16];
+    struct Case {
+        const char *path;
+        int value, part, device_id;
+    } cases[] = {{"Osc/Shape", 100, 2, 0x10}, {"Osc/Wave", 200, 15, 0x10}, {"Fx/Mix", 127, 15, 0x10},
+                 {"Global/Mode", 1, 0, 0x10}, {"Global/Channel", 1, 0, 0x7F}};
+    for (auto &c : cases) {
+        Bytes want = d.encode(c.path, c.value, c.part, c.device_id);
+        size_t n = d.encode_into(c.path, c.value, c.part, buf, sizeof buf, c.device_id);
+        CHECK(!want.empty() && Bytes(buf, buf + n) == want);
+    }
+    CHECK(d.encode_into("Fx/Mix Alias", 5, 0, buf, sizeof buf) == 0); // not mapped in its message
+    CHECK(d.encode_into("Global/Unsent", 1, 0, buf, sizeof buf) == 0); // no message
+    CHECK(d.encode_into("No/Such", 1, 0, buf, sizeof buf) == 0);
+}
+
 TEST(protocol_decode_back)
 {
     RemoteDevice &d = dev();

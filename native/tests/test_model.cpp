@@ -140,6 +140,50 @@ TEST(dump_fields_and_checksum)
     msg[5] ^= 1;
     CHECK(!d.decode_dump(m, msg, back, err)); // checksum
     CHECK(!d.decode_dump(m, Bytes(6, 0), back, err)); // length
+    msg[5] ^= 1;
+    msg[0] = 0xF1; // outside the checksum range: only the header check sees it
+    CHECK(!d.decode_dump(m, msg, back, err) && err.find("header byte 0") != std::string::npos);
+}
+
+TEST(model_load_errors)
+{
+    RemoteDevice d;
+    std::string err;
+    const char *broken = "<Remotedevice><ParameterSets>";
+    CHECK(!d.load(Bytes(broken, broken + strlen(broken)), err) && !err.empty());
+    const char *other = "<?xml version=\"1.0\"?><Something/>";
+    CHECK(!d.load(Bytes(other, other + strlen(other)), err) && err.find("no <Remotedevice>") != std::string::npos);
+}
+
+TEST(model_meta_clients_and_valuelist_text)
+{
+    static const char *xml = R"(<?xml version="1.0"?>
+<Remotedevice device="Meta" version="1">
+ <ParameterSets>
+  <ParameterSet name="Macro">
+   <Parameter name="Knob" minValue="0" maxValue="127" defaultValue="0" part="all" meta="true">
+    <Client name="Osc/Shape" a="0.5" b="10" notrigger="true"/>
+    <Client name="Osc/Mode" nosource="true"><Map clientval="1" metaval="0"/><Map clientval="3" metaval="127"/></Client>
+   </Parameter>
+  </ParameterSet>
+ </ParameterSets>
+ <Valuelists>
+  <Valuelist name="Modes" type="plain"><Entry index="0">Off</Entry><Entry index="1">Saw</Entry></Valuelist>
+ </Valuelists>
+</Remotedevice>)";
+    RemoteDevice d;
+    std::string err;
+    CHECK(d.load(Bytes(xml, xml + strlen(xml)), err));
+    const Parameter *p = d.find("Macro/Knob");
+    CHECK(p && p->meta && p->clients.size() == 2);
+    if (p && p->clients.size() == 2) {
+        const MetaClient &a = p->clients[0], &b = p->clients[1];
+        CHECK(a.path == "Osc/Shape" && a.a == 0.5 && a.b == 10 && a.notrigger && !a.nosource && a.maps.empty());
+        CHECK(b.path == "Osc/Mode" && b.a == 1 && b.b == 0 && !b.notrigger && b.nosource);
+        CHECK(b.maps == (std::vector<std::pair<int, int>>{{1, 0}, {3, 127}}));
+    }
+    const Valuelist &l = d.valuelists["Modes"];
+    CHECK(l.text(1) == "Saw" && l.text(7) == "7"); // an unknown value shows as its number
 }
 
 TEST(dump_fast_path_equals_full_path)

@@ -5,6 +5,7 @@
 #include "check.h"
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 
 using namespace vti;
 namespace fs = std::filesystem;
@@ -60,5 +61,52 @@ TEST(library_round_trip)
     }
     CHECK(cc::patch_name(mid.dumps[3]) == "Test 3");
     CHECK(load_libraries(dir.string()).size() == 2);
+    fs::remove_all(dir);
+}
+
+TEST(library_edge_cases)
+{
+    fs::path dir = fs::temp_directory_path() / "vtitests-library-edge";
+    fs::remove_all(dir);
+    fs::create_directories(dir / "sub");
+    auto write = [](const fs::path &p, const Dump &d) {
+        std::ofstream o(p, std::ios::binary);
+        o.write((const char *)d.data(), (std::streamsize)d.size());
+    };
+    // a Virus C dump (page A only, 267 bytes, version 0) between a good one and a cut-off one
+    Dump c(267, 0);
+    const uint8_t head[] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x10, 0x01, 0x05};
+    memcpy(c.data(), head, sizeof head);
+    c[266] = 0xF7;
+    Dump file = single(1);
+    file.insert(file.end(), c.begin(), c.end());
+    Dump cut = single(2);
+    cut.pop_back(); // no F7: the scan ends here
+    file.insert(file.end(), cut.begin(), cut.end());
+    write(dir / "sub" / "Mixed.SYX", file);
+    write(dir / "notes.txt", single(3));
+
+    PatchLibrary plain, upgraded;
+    CHECK(load_library_file((dir / "sub" / "Mixed.SYX").string(), plain));
+    CHECK(plain.dumps.size() == 1); // without page B a Virus C dump cannot be upgraded
+    CHECK(load_library_file((dir / "sub" / "Mixed.SYX").string(), upgraded, std::vector<uint8_t>(256, 0)));
+    CHECK(upgraded.dumps.size() == 2);
+    if (upgraded.dumps.size() == 2)
+        CHECK(upgraded.dumps[1].size() == 524 && upgraded.dumps[1][9] != 0 && upgraded.dumps[1][523] == 0xF7);
+    PatchLibrary none;
+    CHECK(!load_library_file((dir / "missing.mid").string(), none));
+
+    auto libs = load_libraries(dir.string()); // subfolders, any case of the extension, other files skipped
+    CHECK(libs.size() == 1 && libs[0].name == "sub/Mixed");
+
+    PatchLibrary out;
+    out.dumps.push_back(single(4));
+    out.dumps.push_back(Dump(10, 0)); // not a single dump: left out
+    out.path = (dir / "no-such-folder" / "x.mid").string();
+    std::string err;
+    CHECK(!save_library(out, err) && !err.empty());
+    out.path = (dir / "x.mid").string();
+    PatchLibrary back;
+    CHECK(save_library(out, err) && load_library_file(out.path, back) && back.dumps.size() == 1);
     fs::remove_all(dir);
 }

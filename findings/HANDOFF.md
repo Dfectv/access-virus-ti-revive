@@ -13,7 +13,7 @@ finds a new marker (E163); the queue waits for a Virus that is not there yet (DA
 plug-in owner across programs, the second DAW shows "Virus unavailable" and takes over (E166); Out 3 in "3 Outs /
 1 Input" (E164). Tested: Linux (TI2: reconnect, absent start), Windows VM (Ableton + REAPER). v0.8.9: the third USB
 output (E159, Linux/Windows/macOS). v0.8.8: soft knobs on the Virus change the sound. v0.8.7: presets chosen on the
-Virus. All work branches merged into main (102 unit tests; CI-like vticore coverage 92.4 % of 2507 lines, measured 2026-10-16 after the upscaler, 94 run / 8 need Access files; CI runs them on Windows and Linux only - README still says all three).
+Virus. All work branches merged into main (106 unit tests; CI-like vticore coverage 94.9 % of 2507 lines, measured 2026-10-16 after the encode_into/library/load-error tests, 98 run / 8 need Access files; CI runs them on Windows and Linux, README and site say so).
 Two programs on macOS: tested 2026-10-16 (Ableton 12 + Cubase 15, E166). Open: the Virus' USB input in mode 2
 (the plug-in sends no audio; the original's Sidechain bus not examined), the Snow reports on #4.
 
@@ -27,8 +27,7 @@ the user's OK). Found while testing in REAPER on Linux, fixed on the branch: (1)
 host (cairo-xcb-screen.c _get_screen_index assertion) - VSTGUI disconnects X without cairo_device_finish and the
 next connection reuses the address, our static `ref` surface outlived its connection too; since 0.8.0, also in 0.8.10
 (nativehost --reopen: 3 of 6 runs crashed, after the fix 48 reopens without one). (2) Linux menus at 150/200 % opened
-at zoom x the click position (VSTGUI's generic menu adds the zoom twice) - menu_at() divides it out. User test in REAPER on Linux (2026-10-16): sharper images, reopening and the menus at 150/200 % work ("works"). Option C (recreated artwork) is a rule-1 problem - advised against,
-awaiting the user. Website LIVE since 2026-10-16: https://derpsn.github.io/access-virus-ti-revive/ (one page + changelog, generator scripts/site/build.py, deploy .github/workflows/site.yml on each published release / site change on main / by hand; Pages source = GitHub Actions). Update TESTS/COVERAGE constants in build.py when they change. Since 2026-10-16 also: section + issue form "Problem in the original Access plug-in (Virus Control)" (label `original`) for problems of the original that we could fix, a Contributing section (AGENTS.md, skills), the virus.info download link (account needed) also in the README.
+at zoom x the click position (VSTGUI's generic menu adds the zoom twice) - menu_at() divides it out. User test in REAPER on Linux (2026-10-16): sharper images, reopening and the menus at 150/200 % work ("works"). Option C (recreated artwork): dropped by the user 2026-10-16 (rule 1). Website LIVE since 2026-10-16: https://derpsn.github.io/access-virus-ti-revive/ (one page + changelog, generator scripts/site/build.py, deploy .github/workflows/site.yml on each published release / site change on main / by hand; Pages source = GitHub Actions). Update TESTS/COVERAGE constants in build.py when they change. Since 2026-10-16 also: section + issue form "Problem in the original Access plug-in (Virus Control)" (label `original`) for problems of the original that we could fix, a Contributing section (AGENTS.md, skills), the virus.info download link (account needed) also in the README.
 
 **Test builds:** always a NEW version number (a forced reinstall of the same version removed the WinUSB driver in the VM, E166).
 
@@ -59,10 +58,8 @@ folder and XDG_CONFIG_HOME/WINEPREFIX/VTI_ACCESS_DIR unset, gcov over CMakeFiles
    and sends All Notes Off when it becomes busy; ours holds notes until ready and pauses the sync - kept.
 7. Older items unchanged: (USB 3: released in 0.8.9, E159; mode 2 measured E164, Out 3 on main, not released; the plug-in sends no audio to the Virus input - the original's Sidechain bus may, not examined), (reconnect path: fixed on main, E163, not released), (macOS duplicate track: works, E165), (two DAWs on Windows: fixed on branch offline-queue, E166), Snow "officially" (record a test report).
 
-**Tools this session (scratchpad only, recreate if needed):** `virusmon` - a read-only broker observer (protocol 4,
-`Broker::observe` + `cc::TrafficDecoder`, prints one decoded line per message; built against build-native's
-libvticore.a + libpugixml.a with -DNDEBUG; rebuild vticore on the current branch first, a library from another branch
-crashed it - Broker layout differs on tests-coverage). Worth adding as `native/tools/virusmon.cpp` later.
+**Tools:** `virusmon` (read-only broker observer, decoded traffic) is in the repo: native/tools/virusmon.cpp,
+target `virusmon` (build-native/bin/Release/virusmon, `--hex` for SysEx bytes).
 
 **Environment:** the Virus is on the Linux PC; win11 VM off. REA analysis of Virus Control.dll:
 work/rea/virus-control-5.1.7-x64.ghidra-snapshot (git-ignored; open the copy in

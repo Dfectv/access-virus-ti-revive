@@ -288,8 +288,8 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 - **Automation rate limit** (250 messages/s, coalesced per parameter): unthrottled parameter floods hung the Virus'
   audio until a power cycle within 4 minutes; with the limit a 4-minute full-load test (16 channels of notes + 32
   automation lanes) passes.
-- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 28 unit
-  tests run in CI on all three platforms.
+- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 106 unit
+  tests run with every release build on Windows and Linux.
 
 **Editor**
 
