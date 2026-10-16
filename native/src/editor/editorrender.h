@@ -37,6 +37,8 @@ struct Hit {
     int x = 0, y = 0, part = 0;        // its absolute position and effective part
     bool disabled = false;             // Enabled="false" (only with include_disabled: the help mode)
     std::string why;                   // disabled: the closest condition that shows it (e.g. ".../Type Is Off")
+    bool inactive = false;             // greyed: disabled, or its parameter's own condition is false
+    std::vector<std::string> depends;  // greyed by its parameter's condition: the parameters that condition tests
 };
 
 class EditorRenderer {
@@ -109,6 +111,7 @@ private:
     void image(Canvas &c, const std::string &name, void *img, int sy, int fh, int x, int y, int w, int h, double alpha);
     void text(Canvas &c, const std::string &font, const std::string &str, int x, int y, int w, int h,
               const std::string &align, double alpha = 1.0);
+    std::vector<std::string> inactive_inputs(const std::string &param, int part) const;
     bool hit(const Element &e, int ox, int oy, int inherited, int px, int py, Hit &out, bool include_disabled = false,
              const std::string &cond = std::string()) const;
     void patch_browser(Canvas &c, const Element &e, int x, int y, int bank);

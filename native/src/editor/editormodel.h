@@ -53,6 +53,7 @@ public:
     bool eval(const std::string &name, const ValueFn &values, int part) const;
     int default_value(const std::string &path) const; // parameter default from either description (0 if unknown)
     const Parameter *find(const std::string &path) const;
+    std::vector<std::string> inputs(const std::string &name) const; // the parameters a condition tests (once each)
 
 private:
     const RemoteDevice &dev_, &ed_;

@@ -1024,8 +1024,9 @@ private:
         const double w = 260, pad = 8, lh = 14;
         ctx->setFont(font);
         auto lines = wrap(ctx, t.text, w - 2 * pad);
-        if (help_hit_.disabled) { // why it is greyed out now (the condition of the page that shows it)
-            std::string why = inactive_reason(help_hit_.why);
+        if (help_hit_.inactive) { // why it is greyed out now: the condition of the page that shows it, or the
+                                  // parameters its own condition tests
+            std::string why = help_hit_.disabled ? inactive_reason(help_hit_.why) : depends_reason(help_hit_.depends);
             for (auto &l : wrap(ctx, why.empty() ? "Inactive with the current settings." : "Inactive now: " + why + ".",
                                 w - 2 * pad))
                 lines.push_back(l);

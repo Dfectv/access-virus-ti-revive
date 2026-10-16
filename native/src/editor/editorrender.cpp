@@ -372,6 +372,17 @@ bool EditorRenderer::param_active(const std::string &param, int part) const
     return true;
 }
 
+// what keeps a parameter inactive: the parameters its condition tests (empty while it is active)
+std::vector<std::string> EditorRenderer::inactive_inputs(const std::string &param, int part) const
+{
+    if (param_active(param, part))
+        return {};
+    if (param.rfind("Softknobs/Softknob ", 0) == 0)
+        return {"Soft Knobs/Destination " + param.substr(19)};
+    const Parameter *p = cond_.find(param);
+    return p ? cond_.inputs(p->condition) : std::vector<std::string>();
+}
+
 // an element's own part: controls with Part >= 0 are bound to that part (the part strips: Part 0..15); containers'
 // Part is not passed on - the original's page and frame containers carry Part="0" while their controls follow the
 // selected part (user report: OSC sync of part 1 shown for part 2)
@@ -557,6 +568,8 @@ bool EditorRenderer::hit(const Element &e, int ox, int oy, int inherited, int px
         out.x = x, out.y = y, out.part = pt;
         out.disabled = disabled;
         out.why = disabled ? c : std::string();
+        out.depends = disabled ? std::vector<std::string>() : inactive_inputs(e.get("Parameter"), pt);
+        out.inactive = disabled || !param_active(e.get("Parameter"), pt);
     }
     for (auto &ch : e.children)
         hit(ch, x, y, own_part(e) >= 0 ? own_part(e) : inherited, px, py, out, include_disabled, c);

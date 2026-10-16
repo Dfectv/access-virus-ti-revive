@@ -2,6 +2,7 @@
 // numbered copies ("Assign Slot 3/Amount 2") unless a key of its own exists. Written for TI Revive from the documented
 // behaviour of the Virus TI (community notes, may simplify); keep it short and practical.
 #include "editor/helptext.h"
+#include <algorithm>
 #include <cctype>
 #include <cstring>
 #include <unordered_map>
@@ -535,6 +536,17 @@ std::string inactive_reason(const std::string &condition)
     };
     lower(" Is NOT ", " is not ");
     lower(" Is ", " is ");
+    return r;
+}
+
+std::string depends_reason(const std::vector<std::string> &params)
+{
+    std::string r;
+    for (auto &p : params) {
+        std::string n = p;
+        std::replace(n.begin(), n.end(), '/', ' ');
+        r += (r.empty() ? "depends on " : ", ") + n;
+    }
     return r;
 }
 
