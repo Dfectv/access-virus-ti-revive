@@ -609,9 +609,9 @@ def page_changelog_landing(releases):
 
 # the README's screenshots that the site shows too (copied at build time)
 SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png", "plugin-help-inactive.png"]
-TESTS = 127 # unit tests in native/tests (vtitests), as of 2026-10-16
+TESTS = 128 # unit tests in native/tests (vtitests), as of 2026-10-16
 # line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
-COVERAGE, COVERAGE_DATE = "93 %", "16 Oct 2026"
+COVERAGE, COVERAGE_DATE = "94 %", "16 Oct 2026"
 
 # the site: one page plus the changelog archive
 PAGES = [("index", "TI Revive", lambda latest, releases, sums: page_landing(latest, releases, sums)),

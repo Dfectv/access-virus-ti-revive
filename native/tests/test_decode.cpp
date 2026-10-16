@@ -1,6 +1,7 @@
 // Nerd mode's traffic decoder (src/cc/decode) on hand-made USB-MIDI packets: SysEx put back together across packets,
-// documented Access commands named, channel messages; without the device model (CI has no Access files).
+// documented Access commands named, channel messages; without and with a hand-written device model (CI has no Access files).
 #include "cc/decode.h"
+#include "model/remotedevice.h"
 #include "check.h"
 #include <cstring>
 
@@ -98,6 +99,82 @@ TEST(decode_describe_channel_and_system)
     CHECK(say({0xF6}) == "F6" && kind == "other");      // tune request: shown as hex
     CHECK(say({0xB0, 7}) == "B0 07" && kind == "other"); // truncated CC
     CHECK(say({0xD0, 0x40}) == "D0 40");                 // channel pressure: not named
+    CHECK(say({0x90, 60}) == "90 3C" && kind == "other"); // truncated note, program change, pitch bend
+    CHECK(say({0xC0}) == "C0" && kind == "other");
+    CHECK(say({0xE0, 0x00}) == "E0 00" && kind == "other");
+}
+
+// a small hand-written device description (the remotedevice.xml format, invented content - no Access data): a CC
+// parameter, a part page, the global page and an action page
+static const char *XML = R"(<?xml version="1.0"?>
+<Remotedevice device="Decode" version="1">
+ <ParameterSets>
+  <ParameterSet name="Osc">
+   <Parameter name="Shape" minValue="0" maxValue="127" defaultValue="0" part="all" defaultmessage="cc" controllerindex="17"/>
+  </ParameterSet>
+  <ParameterSet name="Fx">
+   <Parameter name="Mix" minValue="0" maxValue="127" defaultValue="0" part="all" defaultmessage="Page A" controllerindex="5"/>
+  </ParameterSet>
+  <ParameterSet name="Global">
+   <Parameter name="Mode" minValue="0" maxValue="2" defaultValue="0" part="none" defaultmessage="Page G" controllerindex="10"/>
+  </ParameterSet>
+  <ParameterSet name="Clock">
+   <Parameter name="Tempo" minValue="0" maxValue="127" defaultValue="0" part="none" defaultmessage="Page G" controllerindex="11"/>
+  </ParameterSet>
+  <ParameterSet name="Actions">
+   <Parameter name="Show" minValue="0" maxValue="1" defaultValue="0" part="none" defaultmessage="Page X" controllerindex="1"/>
+  </ParameterSet>
+ </ParameterSets>
+ <MIDIMessages>
+  <MIDIMessage id="cc" name="cc">
+   <byte index="0" content="controller"/>
+   <byte index="1" content="controllerid"><parameter mapindex="17" content="Osc/Shape"/></byte>
+   <byte index="2" content="value"/>
+  </MIDIMessage>
+  <MIDIMessage id="Page A" name="Page A">
+   <byte index="0" content="sysexstart"/><byte index="1" content="byte" tag="0"/><byte index="2" content="byte" tag="32"/>
+   <byte index="3" content="byte" tag="51"/><byte index="4" content="byte" tag="1"/><byte index="5" content="deviceid"/>
+   <byte index="6" content="byte" tag="112"/><byte index="7" content="part"/>
+   <byte index="8" content="controllerid"><parameter mapindex="5" content="Fx/Mix"/></byte>
+   <byte index="9" content="value"/><byte index="10" content="sysexend"/>
+  </MIDIMessage>
+  <MIDIMessage id="Page G" name="Page G">
+   <byte index="0" content="sysexstart"/><byte index="1" content="byte" tag="0"/><byte index="2" content="byte" tag="32"/>
+   <byte index="3" content="byte" tag="51"/><byte index="4" content="byte" tag="1"/><byte index="5" content="deviceid"/>
+   <byte index="6" content="byte" tag="115"/><byte index="7" content="part"/>
+   <byte index="8" content="controllerid"><parameter mapindex="10" content="Global/Mode"/><parameter mapindex="11" content="Clock/Tempo"/></byte>
+   <byte index="9" content="value"/><byte index="10" content="sysexend"/>
+  </MIDIMessage>
+  <MIDIMessage id="Page X" name="Page X">
+   <byte index="0" content="sysexstart"/><byte index="1" content="byte" tag="0"/><byte index="2" content="byte" tag="32"/>
+   <byte index="3" content="byte" tag="51"/><byte index="4" content="byte" tag="1"/><byte index="5" content="deviceid"/>
+   <byte index="6" content="byte" tag="116"/><byte index="7" content="part"/>
+   <byte index="8" content="controllerid"><parameter mapindex="1" content="Actions/Show"/></byte>
+   <byte index="9" content="value"/><byte index="10" content="sysexend"/>
+  </MIDIMessage>
+ </MIDIMessages>
+</Remotedevice>)";
+
+TEST(decode_describe_with_model)
+{
+    // with the device model loaded (Nerd mode next to the user's Access files) parameters are named
+    vti::RemoteDevice dev;
+    std::string err;
+    CHECK(dev.load(std::vector<uint8_t>(XML, XML + strlen(XML)), err));
+    TrafficDecoder d(&dev);
+    std::string kind;
+    auto say = [&](const std::vector<uint8_t> &m) { return d.describe(m, kind); };
+    auto page = [](uint8_t cmd, uint8_t part, uint8_t id, uint8_t value) {
+        return std::vector<uint8_t>{0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, cmd, part, id, value, 0xF7};
+    };
+    CHECK(say(page(0x70, 2, 5, 9)) == "part 3 Fx/Mix = 9" && kind == "param");
+    CHECK(say(page(0x70, 16, 5, 3)) == "global Fx/Mix = 3");      // part 16 = the global part
+    CHECK(say(page(0x73, 0, 10, 2)) == "Global/Mode = 2");        // the path says "global" already
+    CHECK(say(page(0x73, 0, 11, 120)) == "global Clock/Tempo = 120");
+    CHECK(say(page(0x74, 0, 1, 1)) == "Actions/Show = 1");        // display messages: no part
+    CHECK(say(page(0x72, 0, 33, 5)) == "Parameter page 72 part 00 id 21 = 5"); // not in the model: numbers
+    CHECK(say({0xB2, 17, 100}) == "ch3 Osc/Shape = 100" && kind == "cc");
+    CHECK(say({0xB0, 99, 1}) == "CC ch1 #99 = 1");                // an unknown controller
 }
 
 TEST(decode_packet_kinds)
