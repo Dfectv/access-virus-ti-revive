@@ -27,7 +27,8 @@ reads the skin, the parameter descriptions and the ROM banks from your own Acces
 contains no Access material. No kernel code of its own is installed.
 
 > **Testers wanted.** TI Revive is tested on a TI2 Desktop with Ableton Live, REAPER and GarageBand. Help us
-> cover more: **Virus TI Snow** (not supported by 0.8.0 yet - your test results are what makes it possible),
+> cover more: **Virus TI Snow** (first reports: it works with the plug-in - your test results help us make it
+> official),
 > **Polar and Keyboard** models, other DAWs (**Logic Pro**, Cubase, Bitwig, FL Studio, Studio One), **Intel Macs**,
 > other **Linux** distributions and **Windows 10**. No coding needed: follow the
 > [testing guide](.claude/skills/tirevive-test/SKILL.md) and post a
@@ -61,9 +62,11 @@ contains no Access material. No kernel code of its own is installed.
 - **Coming from 0.7.x:** the classic plug-in "Virus TI (TI Revive)" (the original Access plug-in in a wrapper) is
   replaced. Projects saved with it open with "TI Revive Virus Control" (same plug-in ID). The Access software that
   earlier versions installed is offered for removal; the files the plug-in needs stay.
-- **Virus TI Snow:** not supported by 0.8.0 yet. **Snow owners please stay with
-  [TI Revive 0.7.4](https://github.com/derpsn/access-virus-ti-revive/releases/tag/v0.7.4)** for now (its classic
-  plug-in "Virus TI Snow (TI Revive)" works on Windows). If TI Revive does not find your Snow, run
+- **Virus TI Snow:** works with the native plug-in according to the first user reports (macOS, 0.8.3 and later:
+  sound, both USB outputs, parameters); not tested by us - we have no Snow. Please tell us in a
+  [GitHub issue](https://github.com/derpsn/access-virus-ti-revive/issues) what works and what not.
+  [TI Revive 0.7.4](https://github.com/derpsn/access-virus-ti-revive/releases/tag/v0.7.4) with its classic plug-in
+  "Virus TI Snow (TI Revive)" stays available for Windows. If TI Revive does not find your Snow, run
   [`tirevive-usbinfo.ps1`](scripts/tirevive-usbinfo.ps1) with the Snow connected and attach the
   `TI-Revive-usbinfo.txt` it saves on your Desktop to a [GitHub issue](https://github.com/derpsn/access-virus-ti-revive/issues).
 - **Virus Control Center**: Access' app does not work without its old driver. TI Revive brings its own, step by
