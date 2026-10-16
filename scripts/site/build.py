@@ -361,6 +361,14 @@ def page_landing(latest, releases, sums):
       Input&rdquo;. Then a part's output can be &ldquo;USB3 L+R&rdquo; and its sound comes out of the plug-in's Out 3.
       In Ableton: an audio track with <em>Audio From</em> = the Virus track, <em>Out 3</em>, <em>Monitor In</em>.</p>
       </details>
+      <details><summary>Process audio through the Virus (sidechain input)</summary>
+      <p>Like the original, the plug-in can send audio from your DAW into the Virus: set &ldquo;Input and Output Configuration&rdquo; to &ldquo;3 Outs / 1 Input&rdquo;, and on the FX 1 page set a part's Input Mode to Static (always on) or Dynamic (played with notes) and Select to L + R. Then send an audio track to the plug-in's sidechain input; the part's filters and effects process it. In REAPER, give the Virus track 4 channels and send the audio to channels 3/4 (check in the pin connector that they feed Sidechain 1/2). In Ableton Live, pick the audio track in the device's Sidechain section. In this mode the Virus does not work as a sound card for your computer. After reopening a project, set Input Mode once more (a known issue, fixed in the next version). Tested on Linux (REAPER) and macOS (Ableton Live 12); not yet on a real Windows PC.</p></details>
+      <details><summary>Help mode</summary>
+      <p>Click the ? at the bottom right of the editor: every control gets a short note on what it does. Point at a control to read it, click to keep the note on screen; clicks do not change values in this mode, and the page tabs still work. Esc or ? ends it. The notes are written for TI Revive, not taken from the Access manual.</p>
+      <figure class="shot"><img src="plugin-help-mode.png" width="1360" height="769"
+      alt="The plug-in's help mode: a note explains the sub oscillator knob">
+      <figcaption>Help mode, drawn from your own Access installer. TI Revive is not affiliated with Access Music or
+      Kemper.</figcaption></figure></details>
       <details><summary>The first notes after Play are late</summary>
       <p>The plug-in sends notes slightly ahead to make up for the USB round trip, so start playback a little before
       the first note. The original driver did the same.</p></details>
@@ -440,6 +448,8 @@ def features_section():
         <li>Projects made with the original plug-in open with it; the saved state is byte for byte the same.</li>
         <li>Presets and soft knobs chosen on the Virus itself are followed, as in the original.</li>
         <li>Three stereo outputs over USB, plus the analog outputs of the Virus.</li>
+        <li>Audio from your DAW through the filters and effects of the Virus (sidechain input), as in the original.</li>
+        <li>A help mode: the ? button explains every control.</li>
         <li>VST3 on Windows, macOS and Linux; Audio Unit for Logic and GarageBand. Native on Apple Silicon.</li>
         <li>Editor sizes from 100 to 200 %. On larger sizes and Retina screens each image is enlarged once with a
         sharp filter, in memory only.</li>
@@ -573,10 +583,10 @@ def page_changelog_landing(releases):
 
 
 # the README's screenshots that the site shows too (copied at build time)
-SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png"]
-TESTS = 106 # unit tests in native/tests (vtitests), as of 2026-10-16
+SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png"]
+TESTS = 119 # unit tests in native/tests (vtitests), as of 2026-10-16
 # line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
-COVERAGE, COVERAGE_DATE = "95 %", "16 Oct 2026"
+COVERAGE, COVERAGE_DATE = "94 %", "16 Oct 2026"
 
 # the site: one page plus the changelog archive
 PAGES = [("index", "TI Revive", lambda latest, releases, sums: page_landing(latest, releases, sums)),

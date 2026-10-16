@@ -218,7 +218,16 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
-          **New in 0.8.12: sharper editor on large screens.** At 150 or 200 % (right-click the editor, or your
+          **New in 0.8.17: audio from your DAW through the Virus, and a help mode.** Set PATCH UTILITY > Preferences >
+          "Input and Output Configuration" to "3 Outs / 1 Input" and a part's Input Mode (FX 1 page) to Static or
+          Dynamic: the plug-in's sidechain input then goes into the Virus and through that part's filters and effects,
+          as in the original. REAPER: a 4-channel Virus track, the audio sent to channels 3/4. Ableton Live: pick the
+          track in the device's Sidechain section. Tested on Linux (REAPER) and macOS (Ableton Live 12), not yet on a
+          real Windows PC. Known issue: after reopening a project set Input Mode once more. And the ? button at the
+          bottom right now explains every control: point at a control to read its note, Esc to leave. The Audio Unit
+          was tested in Logic Pro for the first time.
+
+          **Since 0.8.12: sharper editor on large screens.** At 150 or 200 % (right-click the editor, or your
           display scaling) the plug-in's images are now computed sharper from your own Access files instead of
           being stretched. Linux: reopening the editor no longer crashes the DAW (since 0.8.0), and the menus open
           where you click at 150 and 200 %.

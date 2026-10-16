@@ -170,7 +170,25 @@ On macOS also check that your DAW may use the microphone (System Settings → Pr
 it: in the plug-in, open PATCH UTILITY → Preferences and set "Input and Output Configuration" to "3 Outs / No Input".
 Then a part's output can be "USB3 L+R" (greyed out before), and its sound comes out of the plug-in's **Out 3**. The
 setting is kept for this computer and sent to the Virus at every start; "2 Outs / No Input" switches it back.
-"3 Outs / 1 Input" gives USB 3 as well; the plug-in does not send audio to the Virus' USB input (yet).
+"3 Outs / 1 Input" gives USB 3 as well and sends the plug-in's sidechain input into the Virus (below).
+
+**Process audio through the Virus (sidechain input).** Like the original, the plug-in can send audio from your DAW
+into the Virus: set "Input and Output Configuration" to "3 Outs / 1 Input", and on the FX 1 page set a part's Input
+Mode to Static (always on) or Dynamic (played with notes) and Select to L + R. Then send an audio track to the
+plug-in's sidechain input; the part's filters and effects process it. In REAPER, give the Virus track 4 channels and
+send the audio to channels 3/4 (check in the pin connector that they feed Sidechain 1/2). In Ableton Live, pick the
+audio track in the device's Sidechain section. In this mode the Virus does not work as a sound card for your computer.
+After reopening a project, set Input Mode once more (a known issue, fixed in the next version). Tested on Linux
+(REAPER) and macOS (Ableton Live 12); not yet on a real Windows PC.
+
+**Help mode.** Click the ? at the bottom right of the editor: every control gets a short note on what it does. Point
+at a control to read it, click to keep the note on screen; clicks do not change values in this mode, and the page tabs
+still work. Esc or ? ends it. The notes are written for TI Revive, not taken from the Access manual.
+
+<p align="center">
+  <img src="docs/images/plugin-help-mode.png" alt="The plug-in's help mode: a note explains the sub oscillator knob" width="680"><br>
+  <sub>Help mode, drawn from your own Access installer. TI Revive is not affiliated with Access Music or Kemper.</sub>
+</p>
 
 **Start playback slightly before the first note.** The plug-in sends notes to the Virus ahead of time to make up
 for the USB round trip; right at Play, notes in the first quarter second can come late or be skipped. This was the
@@ -288,7 +306,7 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 - **Automation rate limit** (250 messages/s, coalesced per parameter): unthrottled parameter floods hung the Virus'
   audio until a power cycle within 4 minutes; with the limit a 4-minute full-load test (16 channels of notes + 32
   automation lanes) passes.
-- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 106 unit
+- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 119 unit
   tests run with every release build on Windows and Linux.
 
 **Editor**
