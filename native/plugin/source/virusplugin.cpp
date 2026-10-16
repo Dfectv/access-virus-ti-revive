@@ -1,5 +1,6 @@
 // virusplugin.cpp - see virusplugin.h.
 #include "virusplugin.h"
+#include "model/devicestatus.h"
 #include <cstdarg>
 #include <ctime>
 #include <set>
@@ -279,6 +280,11 @@ void DeviceOut::check_presence()
         }
         if (device_ && (was || present))
             device_(present != 0);
+    }
+    if (int st = present_seen_ * 2 + (elsewhere_seen_ ? 1 : 0); st != status_seen_ && present_seen_ >= 0) {
+        status_seen_ = st;
+        if (status_)
+            status_(present_seen_ == 1, elsewhere_seen_);
     }
 }
 
@@ -606,12 +612,20 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
     out_->on_waiting([this](bool waiting) { // worker thread
         // the original's page for a Virus that another program holds (SystemStatus/Error 2 = "VDM not Master":
         // "Virus unavailable"), plus the LCD
-        if (ui_state_set("SystemStatus/Error", waiting ? 2 : 0))
-            ui_dirty_ = true;
         if (waiting)
             set_lcd("Virus in use", "by another plug-in", std::string(), std::string());
         else
             set_lcd("Virus connected", std::string(), std::string(), std::string());
+    });
+    out_->on_status([this](bool present, bool elsewhere) { // worker thread
+        // the original's status pages: "No Virus TI can be found" (3), "Virus unavailable" (2), none (0)
+        const DeviceStatus st = device_status(present, elsewhere);
+        bool changed = false;
+        for (const char *p : {"SystemStatus/Error", "Internal System Info/USB Communication",
+                              "Internal System Info/MIDI Communication", "Internal System Info/Audio Communication"})
+            changed = ui_state_set(p, device_status_value(st, p)) || changed;
+        if (changed)
+            ui_dirty_ = true;
     });
     out_->on_device([this](bool present) { // worker thread
         out_->log("Virus TI native: device %s\n", present ? (device_seen_ ? "reconnected" : "connected") : "disconnected");
