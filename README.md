@@ -344,7 +344,8 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
   ~130 ms) and continues in the gaps; notes are only held back for the first ~4 s, when the Virus would play them
   up to 1.6 s late (E144).
 - Big knobs on Windows (images over Direct2D's 16384-pixel limit are drawn in tiles), unplug/replug recovery,
-  project state byte-identical to the original's.
+  projects use the original's state format: a state saved by the original loads (older part dumps are upgraded to
+  the current format, E174).
 
 ## Why
 
