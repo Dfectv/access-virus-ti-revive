@@ -422,11 +422,11 @@ void DeviceOut::run()
                 log("stats: raw peaks %d %d | %d %d | %d %d\n", pk[0], pk[1], pk[2], pk[3], pk[4], pk[5]);
             int64_t sc_f = sc_frames.exchange(0), sc_y = sc_yields.exchange(0);
             if (sc_f || sc_y)
-                log("stats: sidechain to the Virus %lld frames, refills %lld, rate %+lld ppm, queued %lld..%lld, "
-                    "paused for another writer %lld\n",
-                    (long long)sc_f, (long long)sc_refills.exchange(0), (long long)sc_corr_ppm.load(),
-                    (long long)sc_queued_min.exchange(INT64_MAX), (long long)sc_queued_max.exchange(INT64_MIN),
-                    (long long)sc_y);
+                log("stats: sidechain to the Virus %lld frames, input peak %d, refills %lld, rate %+lld ppm, queued "
+                    "%lld..%lld, paused for another writer %lld\n",
+                    (long long)sc_f, sc_in_peak.exchange(0), (long long)sc_refills.exchange(0),
+                    (long long)sc_corr_ppm.load(), (long long)sc_queued_min.exchange(INT64_MAX),
+                    (long long)sc_queued_max.exchange(INT64_MIN), (long long)sc_y);
         }
         // the broker may refuse the audio start right after another session ended (stress test: every second
         // quick re-open had no sound): retry every 500 ms while connected without audio
@@ -715,6 +715,29 @@ tresult PLUGIN_API VirusPlugin::setActive(TBool state)
         send_state();
     }
     return SingleComponentEffect::setActive(state);
+}
+
+tresult PLUGIN_API VirusPlugin::activateBus(MediaType type, BusDirection dir, int32 index, TBool state)
+{
+    if (type == kAudio && dir == kInput && index >= 0 && index < 2) {
+        in_active_[index] = state != 0;
+        if (out_)
+            out_->log("Virus TI native: input bus %d (%s) %s\n", (int)index, index ? "Sidechain" : "Dummy In",
+                      state ? "activated" : "deactivated");
+    }
+    return SingleComponentEffect::activateBus(type, dir, index, state);
+}
+
+tresult PLUGIN_API VirusPlugin::setBusArrangements(SpeakerArrangement *inputs, int32 numIns, SpeakerArrangement *outputs,
+                                                   int32 numOuts)
+{
+    for (int32 i = 0; i < numIns; i++)
+        if (inputs[i] != SpeakerArr::kStereo)
+            return kResultFalse; // the host keeps our stereo buses (getBusArrangement)
+    for (int32 i = 0; i < numOuts; i++)
+        if (outputs[i] != SpeakerArr::kStereo)
+            return kResultFalse;
+    return SingleComponentEffect::setBusArrangements(inputs, numIns, outputs, numOuts);
 }
 
 tresult PLUGIN_API VirusPlugin::setupProcessing(ProcessSetup &setup)
@@ -1141,11 +1164,21 @@ void VirusPlugin::send_sidechain(ProcessData &data)
         sc_expect_ = -1;
         return;
     }
+    // the Sidechain bus: at its declared place, or among the active buses only (hosts that pass only those)
     const float *l = nullptr, *r = nullptr;
-    if (data.numInputs >= 2 && data.inputs[1].numChannels >= 2 && data.inputs[1].channelBuffers32) {
-        l = data.inputs[1].channelBuffers32[0];
-        r = data.inputs[1].channelBuffers32[1];
+    const int bus = sidechain_bus_index(2, in_active_, data.numInputs, 1);
+    const int ch = bus >= 0 && data.inputs[bus].channelBuffers32 ? data.inputs[bus].numChannels : 0;
+    if (ch >= 1) {
+        l = data.inputs[bus].channelBuffers32[0];
+        r = ch >= 2 ? data.inputs[bus].channelBuffers32[1] : l; // mono: both sides
     }
+    if (int layout = data.numInputs * 10000 + (bus + 1) * 100 + ch; layout != sc_layout_seen_) {
+        sc_layout_seen_ = layout; // a change of the host's bus layout, logged once (not per block)
+        out_->log("Virus TI native: sidechain from input bus %d of %d passed, %d channel(s) (active: %d %d)\n", bus,
+                  (int)data.numInputs, ch, (int)in_active_[0], (int)in_active_[1]);
+    }
+    if (int pk = (int)(sidechain_peak(l, r, n) * 32767.0f); pk > out_->sc_in_peak.load(std::memory_order_relaxed))
+        out_->sc_in_peak.store(pk, std::memory_order_relaxed);
     const int64_t q = audio.out_queued();
     if (q < out_->sc_queued_min.load(std::memory_order_relaxed))
         out_->sc_queued_min.store(q, std::memory_order_relaxed);
