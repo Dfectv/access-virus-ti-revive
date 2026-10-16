@@ -28,7 +28,7 @@ plug-in, CC app, tools, tests and the ASIO/AU sources). The native build itself 
 
 **Next round:** (1) E175 on Linux: capture the IN stream in the stuck state (E112 pattern?), compare the broker's
 open/stream timing with macOS and the VM (the VM got the Virus late and recovered), REA: the original's start-up;
-(2) should param-inactive controls block clicks like Enabled="false" ones (REA); (3) Linux -> VM handover left the
+(2) DONE: greyed controls already block clicks (see round 0.8.18 notes); (3) Linux -> VM handover left the
 Virus answering error 31 until a power cycle (give-back reset?); (4) bare-metal Windows: the real PC is THIS PC
 booted into Windows (user, 2026-10-16) - test everything possible in the win11 VM first, then one self-contained
 bare-metal session (no Claude during it): sidechain, timing render (E141 gap pattern), reconnect without libvirt
@@ -57,7 +57,7 @@ buttons exist twice, Enabled="false" under "Any Communication Error"; checklist 
 (c) Chorus Type "Classic" in a new project = the Virus' conversion of the original's v9 Init patch (0.8.17 showed
 "Off" from the wrong positions), (d) the user had pointed at the ENV FOLLOWER's Input menu (two menus labelled INPUT, checklist wording
 fixed); on the INPUT box's Input select the "Inactive now: depends on Input Mode, Input Atomizer." note appears -
-pass. Open question: param-inactive controls stay clickable in our editor (original: unknown, check with REA). REAPER pins 3/4 -> Sidechain by default: pass (E171 closed).
+pass. Checked 2026-10-16 (code): greyed controls, menus included, already ignore clicks since 8e7077c (viruseditor.cpp, the param_active check runs before the menu branch), like the original under Wine (native/docs/status.md 2026-10-13); the "clickable" note came from the ENV FOLLOWER menu, which is not greyed. Hardware check in round 0.8.19. REAPER pins 3/4 -> Sidechain by default: pass (E171 closed).
 Windows results (win11 VM, Ableton 11, user 2026-10-16): all pass, incl. USB cable replug (the VM gets the Virus only
 on Claude's re-attach, seconds after it booted - supports the E175 hypothesis "stream starts while the Virus boots"),
 recall (ARP Up, Unison 8 heard after power cycle), help notes, and the sidechain in Ableton (VM; real PC still not
