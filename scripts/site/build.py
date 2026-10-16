@@ -441,7 +441,6 @@ def page_landing(latest, releases, sums):
     return f"""
 <section class="hero">
   <div class="wrap">
-    <p class="eyebrow">TI Revive {v} &middot; for the Access Virus TI &middot; Windows &middot; macOS &middot; Linux</p>
     <h1>Like meeting an old best friend again.</h1>
     <p class="lead"><strong>Total Integration for the Access Virus TI on Windows 11, macOS and Linux &mdash; without
     the old drivers.</strong> Its plug-in looks and works like the original Virus Control: every parameter, the preset
@@ -450,7 +449,7 @@ def page_landing(latest, releases, sums):
     <a class="quiet" href="#news">What's new &rarr;</a></p>
     <p class="facts-line">Free &middot; open source &middot; VST3 and Audio Unit &middot; released {when}</p>
     <figure class="shot">
-      <img src="plugin-filter.png" width="1814" height="1026"
+      <img src="plugin-filter.png" width="1280" height="724"
       alt="TI Revive Virus Control, the plug-in's filter page, drawn from the user's own Access files">
       <figcaption>TI Revive Virus Control at 200 %. The look comes from your own Access installer at runtime; TI
       Revive is not affiliated with Access Music or Kemper and contains no Access files.</figcaption>
@@ -460,7 +459,6 @@ def page_landing(latest, releases, sums):
 
 <section class="block" id="download">
   <div class="wrap">
-    <p class="kicker">Download</p>
     <h2>Version {v}, released {when}</h2>
     <p class="intro">You also need your own Access &ldquo;Virus TI Software Suite&rdquo; installer (e.g. 5.1.7).
     TI Revive unpacks only what the plug-in reads from it &mdash; the skin, the parameter descriptions, the ROM banks.
@@ -479,7 +477,6 @@ def page_landing(latest, releases, sums):
 
 <section class="block" id="how">
   <div class="wrap">
-    <p class="kicker">How it works</p>
     <h2>Three steps, then it stays out of the way</h2>
     <p class="intro">The plug-in talks to the Virus directly over USB, so there is no MIDI port to set up and no
     driver of Access' left on your system.</p>
@@ -506,7 +503,6 @@ def page_landing(latest, releases, sums):
 
 <section class="block" id="status">
   <div class="wrap">
-    <p class="kicker">Status</p>
     <h2>What is tested where</h2>
     <p class="intro">We test on a Virus TI2 Desktop. Everything else depends on reports from people who own one
     &mdash; a <a href="{GH}/issues/new?template=test_report.yml">test report</a> helps more than anything.</p>
@@ -529,7 +525,6 @@ def page_landing(latest, releases, sums):
 
 <section class="block" id="news">
   <div class="wrap">
-    <p class="kicker">What's new</p>
     <h2>Recent releases</h2>
     <div class="news">{"".join(news)}
     </div>
@@ -541,7 +536,6 @@ def page_landing(latest, releases, sums):
 
 <section class="block" id="help">
   <div class="wrap">
-    <p class="kicker">Help</p>
     <h2>Common questions</h2>
     <div class="faq">
       <details><summary>&ldquo;Virus TI not connected&rdquo;</summary>
@@ -603,7 +597,6 @@ def page_changelog_landing(releases):
     return f"""
 <section class="log">
   <div class="wrap">
-    <p class="kicker">Changelog</p>
     <h2>Every version</h2>
     <p class="intro">Newest first. Versions before 0.8.0 ran Access' original plug-in through an emulated driver;
     0.8.0 replaced it with TI Revive's own plug-in.</p>

@@ -29,22 +29,18 @@ code { font: 0.86em var(--mono); background: var(--raised); border: 1px solid va
 .wrap { max-width: 68rem; margin: 0 auto; padding: 0 1.5rem; }
 
 /* top bar */
-.bar { position: sticky; top: 0; z-index: 2; background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.bar { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); }
 .bar .wrap { display: flex; align-items: center; height: 3.6rem; gap: 1.5rem; }
-.name { font-weight: 650; letter-spacing: 0.01em; text-decoration: none; display: flex; align-items: center;
+.name { font-weight: 600; text-decoration: none; display: flex; align-items: center;
   gap: 0.55rem; }
-.dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--accent);
-  box-shadow: 0 0 0.6rem var(--accent); }
+.dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--accent); }
 .bar nav { margin-left: auto; display: flex; gap: 1.4rem; font-size: 0.92rem; }
 .bar nav a { text-decoration: none; color: var(--soft); }
 .bar nav a:hover { color: var(--text); }
 
 /* hero */
 .hero { padding: 5rem 0 4rem; }
-.eyebrow { font: 0.75rem/1.4 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--soft);
-  margin: 0 0 1.4rem; }
-h1 { font-size: clamp(2.3rem, 5.6vw, 4.2rem); line-height: 1.04; letter-spacing: -0.03em; font-weight: 680;
+h1 { font-size: clamp(2.1rem, 4.6vw, 3.3rem); line-height: 1.12; font-weight: 600;
   margin: 0 0 1.4rem; max-width: 14ch; }
 .lead { font-size: 1.12rem; color: var(--soft); max-width: 40rem; margin: 0 0 2rem; }
 .lead strong { color: var(--text); font-weight: 600; }
@@ -52,22 +48,20 @@ h1 { font-size: clamp(2.3rem, 5.6vw, 4.2rem); line-height: 1.04; letter-spacing:
 .button { display: inline-flex; align-items: baseline; gap: 0.6rem; background: var(--accent); color: var(--accent-text);
   text-decoration: none; font-weight: 600; padding: 0.85rem 1.3rem; border-radius: 8px; }
 .button:hover { color: var(--accent-text); filter: brightness(1.08); }
-.button small { font: 0.78rem var(--mono); opacity: 0.8; }
+.button small { font-size: 0.82rem; font-weight: 400; opacity: 0.85; }
 .quiet { color: var(--soft); text-decoration: none; }
 .quiet:hover { color: var(--text); }
-.facts-line { margin: 1.4rem 0 0; font: 0.78rem var(--mono); color: var(--soft); }
+.facts-line { margin: 1.4rem 0 0; font-size: 0.88rem; color: var(--soft); }
 
-/* the plug-in: a real screenshot at 200 %, 1814 px wide, so still sharp at the full page width on high-resolution screens */
+/* the plug-in: a real screenshot, 1280 px, shown at 640 px (sharp on high-resolution screens) */
 .shot { margin: 3.5rem 0 0; }
-.shot img { display: block; width: 100%; height: auto; border-radius: 10px;
-  border: 1px solid var(--line); box-shadow: 0 40px 80px -40px rgba(0,0,0,0.65); }
-.shot figcaption { margin-top: 0.9rem; max-width: 48rem; font-size: 0.8rem; color: var(--soft); }
+.shot img { display: block; width: 100%; max-width: 640px; height: auto; border-radius: 10px;
+  border: 1px solid var(--line); }
+.shot figcaption { margin-top: 0.9rem; max-width: 640px; font-size: 0.8rem; color: var(--soft); }
 
 /* sections */
 section.block { padding: 4.5rem 0; border-top: 1px solid var(--line); }
-.kicker { font: 0.75rem/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent);
-  margin: 0 0 0.9rem; }
-h2 { font-size: clamp(1.6rem, 3vw, 2.1rem); line-height: 1.15; letter-spacing: -0.015em; font-weight: 650;
+h2 { font-size: clamp(1.5rem, 2.8vw, 1.9rem); line-height: 1.2; font-weight: 600;
   margin: 0 0 0.8rem; }
 .intro { color: var(--soft); max-width: 40rem; margin: 0 0 2.4rem; }
 
@@ -88,12 +82,12 @@ h2 { font-size: clamp(1.6rem, 3vw, 2.1rem); line-height: 1.15; letter-spacing: -
 .needs { margin-top: 2.4rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem 2.5rem; }
 .needs div { display: grid; grid-template-columns: 7.5rem 1fr; gap: 1rem; padding: 0.9rem 0;
   border-top: 1px solid var(--line); font-size: 0.92rem; }
-.needs b { font: 600 0.7rem/1.9 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--soft); }
+.needs b { font-weight: 600; color: var(--soft); }
 
 /* how it works */
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5rem; counter-reset: step; }
 .steps div { counter-increment: step; }
-.steps div::before { content: "0" counter(step); display: block; font: 0.8rem var(--mono); color: var(--accent);
+.steps div::before { content: counter(step); display: block; font-weight: 600; color: var(--accent);
   margin-bottom: 0.8rem; padding-bottom: 0.8rem; border-bottom: 1px solid var(--line); }
 .steps h3 { margin: 0 0 0.4rem; font-size: 1.05rem; }
 .steps p { margin: 0; color: var(--soft); font-size: 0.93rem; }
@@ -104,8 +98,7 @@ h2 { font-size: clamp(1.6rem, 3vw, 2.1rem); line-height: 1.15; letter-spacing: -
 /* status */
 .matrix { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
 .matrix th, .matrix td { text-align: left; padding: 0.85rem 1rem 0.85rem 0; border-top: 1px solid var(--line); }
-.matrix thead th { border-top: 0; font: 600 0.7rem/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--soft); }
+.matrix thead th { border-top: 0; font-weight: 600; color: var(--soft); }
 .matrix tbody th { font-weight: 600; }
 .st::before { content: ""; display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 50%;
   margin-right: 0.5rem; border: 1px solid var(--soft); vertical-align: 0.05em; }
@@ -134,7 +127,7 @@ h2 { font-size: clamp(1.6rem, 3vw, 2.1rem); line-height: 1.15; letter-spacing: -
 .faq summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between;
   gap: 1rem; }
 .faq summary::-webkit-details-marker { display: none; }
-.faq summary::after { content: "+"; font: 1.1rem/1 var(--mono); color: var(--soft); }
+.faq summary::after { content: "+"; font-size: 1.15rem; line-height: 1; color: var(--soft); }
 .faq details[open] summary::after { content: "\2212"; }
 .faq details > *:not(summary) { color: var(--soft); font-size: 0.94rem; }
 .faq details p { margin: 0.8rem 0 0; }
