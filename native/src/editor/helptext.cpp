@@ -67,8 +67,6 @@ const Entry ENTRIES[] = {
      "Links the vocoder's carrier and modulator spread and Q, so one knob moves both."},
     {"Locks/*", "Section lock", "A section lock of the original Virus Control. Not supported by TI Revive yet."},
     {"LockView/Part Lock Indicator", "Lock indicator", "Shows section locks. Not supported by TI Revive yet."},
-    {"VirusControl/Global Section Lock Indicator", "Lock indicator",
-     "Shows section locks. Not supported by TI Revive yet."},
     {"VirusControl/Live Mode", nullptr, "A switch of the original Virus Control. Not used by TI Revive yet."},
     {"VirusControl/Direct Monitoring", nullptr, "A switch of the original Virus Control. Not used by TI Revive yet."},
     {"VirusControl/Access Website", nullptr, "A link to the manufacturer's website (not used by TI Revive)."},
