@@ -211,7 +211,13 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
-          **New in 0.8.9: the third USB output.** Like the original Virus Control, you can now use USB 3: in the
+          **New in 0.8.10: steadier connection.** Switch the Virus off and on (or replug it) while your DAW runs:
+          the plug-in now waits until it is ready and plays in time again. Start your DAW before the Virus is on: the
+          plug-in sends its start-up and your project's sounds as soon as the Virus is there (before they were lost).
+          Windows: two DAWs no longer use the Virus at the same time - the second one shows "Virus unavailable" and
+          takes over when the first one closes. USB 3 now also works in "3 Outs / 1 Input".
+
+          **Since 0.8.9: the third USB output.** Like the original Virus Control, you can now use USB 3: in the
           plug-in open PATCH UTILITY > Preferences and set "Input and Output Configuration" to "3 Outs / No Input".
           Then a part's output can be "USB3 L+R" and its sound comes out of the plug-in's Out 3 - for example for
           bass, lead and pad on three separate mixer channels in your DAW. The setting is kept for this computer.
