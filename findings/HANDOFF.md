@@ -12,7 +12,7 @@ plug-in owner across programs, the second DAW shows "Virus unavailable" and take
 1 Input" (E164). Tested: Linux (TI2: reconnect, absent start), Windows VM (Ableton + REAPER). v0.8.9: the third USB
 output (E159, Linux/Windows/macOS). v0.8.8: soft knobs on the Virus change the sound. v0.8.7: presets chosen on the
 Virus. All work branches merged into main (99 unit tests, CI-like vticore coverage 92.3 %).
-Open: state 2 on Linux/macOS (POSIX broker change built, not installed/tested there), the Virus' USB input in mode 2
+Open: state 2 on macOS (tested on Linux with two programs, E166), the Virus' USB input in mode 2
 (the plug-in sends no audio; the original's Sidechain bus not examined), the Snow reports on #4.
 
 **Test builds:** always a NEW version number (a forced reinstall of the same version removed the WinUSB driver in the VM, E166).
