@@ -10,29 +10,46 @@ Evidence: [evidence.md](evidence.md) (E001-E152), protocol: [spec.md](spec.md); 
 are loaded (were ignored since 0.8.0), soft knobs work in both directions (editor -> destination parameter, E150;
 knob on the Virus -> plug-in follows, E152). Branches `softknobs` and `tests-coverage` merged into main (62 unit
 tests, ctest green on Linux). Tested on the TI2 under Linux only (nativehost + editor on the desktop; REAPER showed
-the bug with 0.8.6). Not tested: Windows, macOS, a DAW with 0.8.7, the Snow, parts other than 1.
+the bug with the plug-in installed in ~/.vst3, moduleinfo 0.8.3). Not tested: Windows, macOS, a DAW with 0.8.7, the
+Snow, parts other than 1.
 
 **Replies posted 2026-10-16 on #4:** nasguile (comment 6208931585: soft knobs fixed, the hardware preset bug, FX 1
 question still open) and ManuAnilkumar23 (6208931949: 0.8.7 may relate to his "Init"; caveat that a wrong bank copy
 also breaks presets chosen on the Snow; asked for diag.log with "RAM A sync" + "preset chosen on the Virus" lines
 and the broker log).
 
+**Local branch `preset-followups` (from main after 0.8.7, NOT pushed/merged; ctest green on Linux, 88 tests):**
+- the E152 leftovers built: a patch missing from the bank cache is read from the Virus' edit buffer (`30 00 <part>`,
+  worker thread, never during the bank sync), the part's known controllers 1..16 are sent again after a load (the
+  original's 13); the decisions moved into `vti::PanelFollow` (native/src/model/panelfollow.*) with 7 unit tests.
+  NOT tested on hardware yet (needs the user switching presets on the Virus; a cache miss can be forced with an
+  empty bank cache, e.g. a RAM bank before the first sync).
+- `native/tools/virusmon.cpp`: the read-only traffic monitor, now a CMake target.
+- tests: the editor renderer on a hand-written layout (test_editor, 12 tests) and AccessFiles on fake installations
+  incl. a PE image built in the test (test_accessfiles, 7 tests, POSIX). CI-like vticore line coverage (no Access
+  files, measured with gcov in a scratch --coverage build, HOME pointed to an empty folder): 53.5 -> 81.8 %.
+- E153: the original's start-up timer only drives a progress display; no note hold found there (bounded search).
+- Prepared, NOT applied (README is user-facing, needs the maintainer's OK): the Snow lines in README.md ("not
+  supported by 0.8.0 yet ... stay with 0.7.4") are outdated - nasguile runs a Snow with 0.8.3 on macOS (#4), Manu's
+  Snow is recognised (RAM banks "Init" open). Proposed: "**Virus TI Snow:** works with the native plug-in according
+  to first user reports (macOS, 0.8.3+); not tested by us (we have no Snow). Please report what works and what not
+  in a GitHub issue; 0.7.4 stays available for its classic plug-in." and in the testers box "(first reports: it
+  works - your test results help us make it official)".
+
 **Open, in order of value:**
-1. Windows check of 0.8.7 (VM, Ableton): preset switched on the Virus, soft knobs both directions; the user's
-   installed REAPER plug-in on this PC is still 0.8.6 (update it with the 0.8.7 package).
-2. E152 leftovers: (a) patch not in the bank cache (sync not done, cache miss): the original requests the part's
-   edit buffer from the Virus (`30 00 <part>`) and takes the reply - ours only logs "not in the bank cache";
-   (b) the original re-sends the part's controllers 1..16 after loading (mod wheel, breath, ... - value source in
-   ours unclear, not done); (c) not tested: parts other than 1, Snow, macOS/Windows, a DAW.
+1. Windows check of 0.8.7 (VM, Ableton): preset switched on the Virus, soft knobs both directions; the plug-in in
+   ~/.vst3 on this PC (REAPER) is 0.8.3 - update it with the 0.8.7 Linux package.
+2. E152 leftovers: (a)+(b) built on `preset-followups` (above), hardware test with the user pending;
+   (c) not tested: parts other than 1, Snow, macOS/Windows, a DAW.
 3. #4 ManuAnilkumar23: RAM banks "Init" on the Snow. The Snow description = TI description (E151). Possibly
    related to E152 (if he switches presets on the Snow, the plug-in stayed on "-INIT-") - ask him after 0.8.7;
    else his diag.log ("RAM A sync" lines) and broker log.
 4. #4 nasguile: FX 1 changes only after re-triggering. Asked which knobs. Then: REA, how the original sends those
    parameters, compared with ours (vtimodel encode <path>).
-5. CI coverage to 80 % (now 54 %): a small hand-written editor layout (editor.xml format, no Access content) for the
-   renderer (0 % in CI), more synthetic model/condition tests; accessfiles needs fake installation folders. A unit
-   test for the E152 paths needs a fake DeviceOut (panel_message -> load_reported_presets).
-6. Readiness probe (E149) vs the original: not checked how the original itself waits after its start-up messages.
+5. CI coverage: 81.8 % on `preset-followups` (was 53.5 %). Lowest now: firmware.cpp 26 %, diag.cpp 40 %,
+   remotedevice.cpp 66 % (synthetic tests for SysEx encode/decode, upgrade_single, automation maps would help).
+6. Readiness probe (E149) vs the original: partly checked (E153) - the original's timer only shows progress; its
+   audio/MIDI path from the host is not examined.
 7. Older items unchanged: USB 3 output (C10), reconnect path without note hold, macOS duplicate-track check, two DAWs
    sharing the Virus on Windows, Snow "officially" (record a test report).
 
@@ -44,7 +61,7 @@ crashed it - Broker layout differs on tests-coverage). Worth adding as `native/t
 **Environment:** the Virus is on the Linux PC; win11 VM off. REA analysis of Virus Control.dll:
 work/rea/virus-control-5.1.7-x64.ghidra-snapshot (git-ignored; open the copy in
 ~/.local/share/tirevive/access/... (sha256 a622f9a2...) with provider_id "ghidra" + snapshot_path). The user's
-installed plug-in is still 0.8.6 (REAPER test showed the bug). The "Environments" section below is partly outdated.
+plug-in in ~/.vst3 is 0.8.3 (moduleinfo).
 
 **Replies posted:** #4 on 2026-10-15 (fixes in the next release, logs asked). Memory: always REA for RE.
 
@@ -247,20 +264,23 @@ measurements.
 
 ## Environments
 
-**This Linux PC** (Ubuntu 26.04, kernel 7.0, PipeWire; Virus on USB 1-9; udev rule 99-virus-ti.rules = plugdev):
-- TI Revive installed like a user (0.7.0-test package + newer broker copied to ~/.local/lib/tirevive/vtibroker):
-  systemd user socket `tirevive-broker.socket` (unix + 127.0.0.1:47615, token ~/.config/tirevive/broker.token),
-  Wine prefix ~/.wine with Access software, yabridge MASTER build (5.1.1-57-gb580a9f7) in ~/.local/share/yabridge
-  (official 5.1.1 backup: ~/.local/opt/dl/yabridge/share-5.1.1-backup). Broker log: `journalctl --user -u tirevive-broker`;
-  verbose for a session: drop-in `ExecStart=%h/.local/lib/tirevive/vtibroker -v` (remove afterwards).
+**This Linux PC** (Ubuntu 26.04, kernel 7.0, PipeWire; Virus TI Desktop (TI2) on USB; udev rule 99-virus-ti.rules = plugdev):
+- TI Revive installed like a user: broker ~/.local/lib/tirevive/vtibroker (copied 2026-10-15 13:44) started on demand
+  by the systemd user socket `tirevive-broker.socket` (Unix socket /tmp/vtibroker-<uid>.sock only, no TCP since 0.8.x);
+  the native plug-in in ~/.vst3 ("TI Revive Virus Control.vst3", moduleinfo 0.8.3 - older than the release);
+  Control Center ~/.local/bin/tirevive-control-center, CLI tirevive-cc. Broker log: `journalctl --user -u
+  tirevive-broker`. Access files (the user's): ~/.local/share/tirevive/access/... (Virus Control.dll 5.1.7, sha256
+  a622f9a2..., also used by REA); the classic Wine prefix ~/.wine + yabridge are only for the 0.7.x path.
+- Development tests without a DAW: `build-native/bin/Release/nativehost "<plugin.vst3>" [--editor] [--seconds N]`
+  (DISPLAY=:0 shows the editor on the user's desktop; Xvfb for headless shots), `VTI_NATIVE_DEBUG=1` for the log;
+  `build-native/bin/Release/virusmon [s]` shows the traffic read-only next to it.
 - REAPER 7.82 portable: ~/.local/opt/dl/reaper/reaper_linux_x86_64/REAPER/reaper; start `pw-jack .../reaper`
   after `pw-metadata -n settings 0 clock.force-rate 44100` + `clock.force-quantum 512` (PulseAudio backend = messy, E122/E123).
-- User is in group pipewire (rtprio 95, memlock 4 GB). Ask the user to close REAPER before tests that need the Virus.
-- Lab Wine without root: ~/.local/opt/wine-lab/bin/wine (bwrap overlays of the Ubuntu wine debs), prefix
-  ~/.local/opt/wine-lab/prefix; test host `wine 'C:\vtihost.exe' '<plugin.vst3>' <s> 'C:\out.wav'` (VTI_BLOCK,
-  VTI_EDITOR=C:\shot.bmp; Xvfb :77 + PIL ImageGrab for screenshots). Broker diagnostics: `-v` (notes, RX rates),
-  `-vv` (RX dump), VTI_RECORD=<raw> (USB 1 audio).
+- User is in group pipewire (rtprio 95, memlock 4 GB). Ask the user to close REAPER before tests that need the Virus
+  (one owner at a time; a second plug-in instance waits).
 - Gotcha: never `pkill -f <pattern>` in a tool call whose own command line contains the pattern (kills the shell).
+- Gotcha: tools built against build-native/lib must use the headers of the same branch (Broker's layout differs
+  between branches -> crash in the reader thread); rebuild vticore after switching branches.
 
 **Windows VM** `win11` (libvirt, `VM=win11 scripts/vm.sh ps|push|pull`, user in ~/.config/tirevive/vm.env): the
 current disk is build machine AND test machine (WiX 5.0.2 + .NET in C:\build, extensions UI/Util/
