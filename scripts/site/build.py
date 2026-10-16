@@ -441,6 +441,7 @@ def page_landing(latest, releases, sums):
     return f"""
 <section class="hero">
   <div class="wrap">
+    <div class="hero-text">
     <h1>TI Revive</h1>
     <p class="tagline">Like meeting an old best friend again.</p>
     <p class="lead"><strong>Total Integration for the Access Virus TI on Windows 11, macOS and Linux &mdash; without
@@ -452,6 +453,7 @@ def page_landing(latest, releases, sums):
     <p class="thanks">&#9749; <strong>Free, and it will stay free.</strong> If TI Revive gives your Virus a second life
     and you'd like to say thanks, you can <a href="https://buymeacoffee.com/callmederpsn">buy me a coffee</a> -
     entirely optional, every feature works the same either way. A test report or a kind word helps just as much.</p>
+    </div>
     <figure class="shot">
       <img src="plugin-filter.png" width="1280" height="724"
       alt="TI Revive Virus Control, the plug-in's filter page, drawn from the user's own Access files">

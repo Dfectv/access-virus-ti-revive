@@ -26,24 +26,28 @@ a { color: inherit; text-decoration-color: var(--accent); text-underline-offset:
 a:hover { color: var(--accent); }
 code { font: 0.86em var(--mono); background: var(--raised); border: 1px solid var(--line); border-radius: 4px;
   padding: 0.05em 0.35em; }
-.wrap { max-width: 68rem; margin: 0 auto; padding: 0 1.5rem; }
+.wrap { max-width: 80rem; margin: 0 auto; padding: 0 clamp(1rem, 3vw, 2.5rem); }
 
 /* top bar */
 .bar { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); }
 .bar .wrap { display: flex; align-items: center; height: 3.6rem; gap: 1.5rem; }
-.name { font-weight: 600; text-decoration: none; display: flex; align-items: center;
-  gap: 0.55rem; }
-.dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--accent); }
-.bar nav { margin-left: auto; display: flex; gap: 1.4rem; font-size: 0.92rem; }
+.bar nav { margin-left: auto; display: flex; align-items: center; gap: 1.4rem; font-size: 0.92rem; }
+.gh svg { display: block; }
 .bar nav a { text-decoration: none; color: var(--soft); }
 .bar nav a:hover { color: var(--text); }
 
 /* hero */
-.hero { padding: 5rem 0 4rem; }
-h1 { font-size: clamp(2.1rem, 4.6vw, 3.3rem); line-height: 1.12; font-weight: 600;
+.hero { padding: clamp(2.5rem, 7vw, 6rem) 0 clamp(2.5rem, 6vw, 5rem); }
+/* wide screens: text and plug-in side by side, both growing with the window */
+@media (min-width: 1100px) {
+  .hero .wrap { display: grid; grid-template-columns: minmax(22rem, 0.85fr) minmax(0, 1.15fr);
+    gap: clamp(2.5rem, 4vw, 5rem); align-items: center; }
+  .hero .shot { margin: 0; }
+}
+h1 { font-size: clamp(2.3rem, 4.2vw, 4rem); line-height: 1.12; font-weight: 600;
   margin: 0 0 0.5rem; }
 .tagline { font-size: clamp(1.3rem, 2.6vw, 1.75rem); font-style: italic; color: var(--text); margin: 0 0 1.6rem; }
-.lead { font-size: 1.12rem; color: var(--soft); max-width: 40rem; margin: 0 0 2rem; }
+.lead { font-size: clamp(1.05rem, 1.25vw, 1.2rem); color: var(--soft); max-width: 40rem; margin: 0 0 2rem; }
 .lead strong { color: var(--text); font-weight: 600; }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2rem; margin: 0; }
 .button { display: inline-flex; align-items: baseline; gap: 0.6rem; background: var(--accent); color: var(--accent-text);
@@ -59,11 +63,11 @@ h1 { font-size: clamp(2.1rem, 4.6vw, 3.3rem); line-height: 1.12; font-weight: 60
   border-radius: 8px; background: var(--surface); font-size: 0.9rem; color: var(--soft); }
 .thanks strong { color: var(--text); }
 
-/* the plug-in: a real screenshot, 1280 px, shown at 640 px (sharp on high-resolution screens) */
+/* the plug-in: a real screenshot, 1280 px - as wide as its column allows, never wider than its pixels */
 .shot { margin: 3.5rem 0 0; }
-.shot img { display: block; width: 100%; max-width: 640px; height: auto; border-radius: 10px;
+.shot img { display: block; width: 100%; max-width: 1280px; height: auto; border-radius: 10px;
   border: 1px solid var(--line); }
-.shot figcaption { margin-top: 0.9rem; max-width: 640px; font-size: 0.8rem; color: var(--soft); }
+.shot figcaption { margin-top: 0.9rem; max-width: 46rem; font-size: 0.8rem; color: var(--soft); }
 
 /* sections */
 section.block { padding: 4.5rem 0; border-top: 1px solid var(--line); }
@@ -164,7 +168,6 @@ footer p { margin: 0 0 0.6rem; max-width: 48rem; }
 }
 @media (max-width: 600px) {
   .bar nav { gap: 0.9rem; font-size: 0.85rem; }
-  .bar nav a:last-child { display: none; }
   .needs div { grid-template-columns: 1fr; gap: 0.2rem; }
   .rel, .log .rel { grid-template-columns: 1fr; gap: 0.6rem; }
   .matrix { font-size: 0.82rem; }
