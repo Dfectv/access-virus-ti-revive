@@ -24,7 +24,13 @@ buttons exist twice, Enabled="false" under "Any Communication Error"; checklist 
 (c) Chorus Type "Classic" in a new project = the Virus' conversion of the original's v9 Init patch (0.8.17 showed
 "Off" from the wrong positions), (d) the user had pointed at the ENV FOLLOWER's Input menu (two menus labelled INPUT, checklist wording
 fixed); on the INPUT box's Input select the "Inactive now: depends on Input Mode, Input Atomizer." note appears -
-pass. Open question: param-inactive controls stay clickable in our editor (original: unknown, check with REA). REAPER pins 3/4 -> Sidechain by default: pass (E171 closed). Note for the user: the original's
+pass. Open question: param-inactive controls stay clickable in our editor (original: unknown, check with REA). REAPER pins 3/4 -> Sidechain by default: pass (E171 closed).
+Windows results (win11 VM, Ableton 11, user 2026-10-16): all pass, incl. USB cable replug (the VM gets the Virus only
+on Claude's re-attach, seconds after it booted - supports the E175 hypothesis "stream starts while the Virus boots"),
+recall (ARP Up, Unison 8 heard after power cycle), help notes, and the sidechain in Ableton (VM; real PC still not
+available). Note: Chorus Type changed while a key is held applies from the next note - likely the Virus' own behaviour,
+to check on the hardware panel. Handover Linux -> VM: the Virus answered every WinUSB transfer with error 31 until a
+power cycle (+ re-attach, the VM keeps the old USB address) - possibly the Linux give-back reset or E175. Note for the user: the original's
 diagnostics page advises holding ARP EDIT while powering on - effect unknown (rule 2: we do not advise it).
 
 ## Previous state (2026-10-16 evening, after the 0.8.17 release)
