@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.12 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E174), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E175), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-16 night, round 0.8.18 on branch round-0.8.18)
@@ -16,7 +16,9 @@ controls: Enabled="false" ("Inactive now: Chorus Type is Off.") and greyed by th
 on Input Mode, Input Atomizer."), Xvfb screenshots with the TI2. 127 unit tests, vticore coverage 93.2 % of 2768 lines
 (changed files 94-98 %). Open for the user's test round: all three on Linux/macOS/win11, REAPER default pins 3/4 ->
 Sidechain (E171), Windows sidechain on a real PC (no answer yet whether one exists). Test build 0.8.18 (CI run 38945354060, all green): installed on Linux and win11
-(setup.exe on the Desktop), Mac unpacked in ~/Downloads (user runs sudo installer). Checklist: https://claude.ai/artifact/41uVXA5BRHVExjWpex23Ee. Note for the user: the original's
+(setup.exe on the Desktop), Mac unpacked in ~/Downloads (user runs sudo installer). Checklist: https://claude.ai/artifact/41uVXA5BRHVExjWpex23Ee. User test (Linux, in progress): disconnect page ok with power, but after a USB cable replug and after a
+power-on with REAPER closed the Virus stayed silent on USB (MIDI fine) until a power cycle - E175, cause open, next round.
+Recall confirmed: after that power cycle the reopened project played ARP Up. Note for the user: the original's
 diagnostics page advises holding ARP EDIT while powering on - effect unknown (rule 2: we do not advise it).
 
 ## Previous state (2026-10-16 evening, after the 0.8.17 release)
