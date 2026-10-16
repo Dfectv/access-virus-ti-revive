@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.9 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E162), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E163), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-16, after the 0.8.9 release)
@@ -39,7 +39,7 @@ folder and XDG_CONFIG_HOME/WINEPREFIX/VTI_ACCESS_DIR unset, gcov over CMakeFiles
    remotedevice.cpp 90 %.
 6. DONE 2026-10-16 (E161): the original drops host notes + clock while busy (start-up queue, bank sync, requests)
    and sends All Notes Off when it becomes busy; ours holds notes until ready and pauses the sync - kept.
-7. Older items unchanged: (USB 3: released in 0.8.9, E159; mode 2 "3 Outs / 1 Input" not measured), reconnect path without note hold, macOS duplicate-track check, two DAWs
+7. Older items unchanged: (USB 3: released in 0.8.9, E159; mode 2 "3 Outs / 1 Input" not measured), (reconnect path: fixed on main, E163, not released), macOS duplicate-track check, two DAWs
    sharing the Virus on Windows, Snow "officially" (record a test report).
 
 **Tools this session (scratchpad only, recreate if needed):** `virusmon` - a read-only broker observer (protocol 4,
