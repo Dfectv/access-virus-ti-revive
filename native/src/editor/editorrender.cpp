@@ -541,19 +541,25 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
         draw(c, ch, x, y, own_part(e) >= 0 ? own_part(e) : inherited);
 }
 
-bool EditorRenderer::hit(const Element &e, int ox, int oy, int inherited, int px, int py, Hit &out) const
+bool EditorRenderer::hit(const Element &e, int ox, int oy, int inherited, int px, int py, Hit &out,
+                         bool include_disabled, const std::string &cond) const
 {
     int pt = own_part(e) >= 0 ? own_part(e) : inherited >= 0 ? inherited : part;
     if (!cond_.eval(e.get("Condition"), values, pt))
         return false;
+    const std::string &own = e.get("Condition");
+    const std::string &c = own.empty() ? cond : own; // the closest condition that shows this element
     int x = ox + e.x, y = oy + e.y;
     bool inside = px >= x && px < x + e.w && py >= y && py < y + e.h;
-    if (inside && !e.get("Parameter").empty() && e.get("Enabled") != "false") {
+    bool disabled = e.get("Enabled") == "false";
+    if (inside && !e.get("Parameter").empty() && (!disabled || include_disabled)) {
         out.element = &e; // later (= drawn on top) elements override
         out.x = x, out.y = y, out.part = pt;
+        out.disabled = disabled;
+        out.why = disabled ? c : std::string();
     }
     for (auto &ch : e.children)
-        hit(ch, x, y, own_part(e) >= 0 ? own_part(e) : inherited, px, py, out);
+        hit(ch, x, y, own_part(e) >= 0 ? own_part(e) : inherited, px, py, out, include_disabled, c);
     return out.element != nullptr;
 }
 
@@ -582,7 +588,7 @@ std::vector<std::array<int, 4>> EditorRenderer::param_rects(const std::string &p
     return out;
 }
 
-std::vector<Hit> EditorRenderer::visible_controls() const
+std::vector<Hit> EditorRenderer::visible_controls(bool include_disabled) const
 {
     std::vector<Hit> out;
     std::function<void(const Element &, int, int, int)> walk = [&](const Element &e, int ox, int oy, int inherited) {
@@ -590,9 +596,10 @@ std::vector<Hit> EditorRenderer::visible_controls() const
         if (!cond_.eval(e.get("Condition"), values, pt))
             return;
         int x = ox + e.x, y = oy + e.y;
-        if (!e.get("Parameter").empty() && e.get("Enabled") != "false" && e.w > 0 && e.h > 0) {
+        bool disabled = e.get("Enabled") == "false";
+        if (!e.get("Parameter").empty() && (!disabled || include_disabled) && e.w > 0 && e.h > 0) {
             Hit h;
-            h.element = &e, h.x = x, h.y = y, h.part = pt;
+            h.element = &e, h.x = x, h.y = y, h.part = pt, h.disabled = disabled;
             out.push_back(h);
         }
         for (auto &c : e.children)
@@ -603,11 +610,11 @@ std::vector<Hit> EditorRenderer::visible_controls() const
     return out;
 }
 
-Hit EditorRenderer::hit_test(int px, int py) const
+Hit EditorRenderer::hit_test(int px, int py, bool include_disabled) const
 {
     Hit h;
     for (auto &e : layout_.elements)
-        hit(e, 0, 0, -1, px, py, h);
+        hit(e, 0, 0, -1, px, py, h, include_disabled);
     return h;
 }
 

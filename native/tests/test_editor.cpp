@@ -84,9 +84,6 @@ static const char *LAYOUT = R"(<?xml version="1.0"?>
    <Knob Parameter="Softknobs/Softknob 1" NormalBack="knob.png"><Size left="50" top="20" width="10" height="10"/></Knob>
    <RadioButton Parameter="Osc/Mode" OnValue="1" NormalBack="radio.png"><Size left="65" top="20" width="8" height="8"/></RadioButton>
    <Button Parameter="Osc/Mode" NormalBack="radio.png" Enabled="false"><Size left="80" top="20" width="8" height="8"/></Button>
-   <Container Condition="VirusControl/Display/Chorus/Type Is Off"><Size left="640" top="15" width="40" height="20"/>
-    <Knob Parameter="Chorus/Delay" NormalBack="knob.png" Enabled="false"><Size left="10" top="5" width="10" height="10"/></Knob>
-   </Container>
    <VUSlider Parameter="Part/Volume" Part="2" NormalBack="vu.png" NormalHandle="handle.png"><Size left="5" top="35" width="50" height="6"/></VUSlider>
    <Menu Parameter="Osc/Mode" NormalBack="tile.png" ControlFont="font.png" Align="Middle Left"><Size left="60" top="35" width="30" height="11"/></Menu>
    <TextSlider Parameter="Osc/Shape" ControlFont="font.png"><Size left="95" top="35" width="40" height="10"/></TextSlider>
@@ -102,6 +99,7 @@ static const char *LAYOUT = R"(<?xml version="1.0"?>
    <ADSTREnvelope Parameter="Env/Attack" NormalHandle="handle.png"><ForeColor red="200" green="0" blue="0"/><Size left="95" top="85" width="200" height="40"/></ADSTREnvelope>
    <ArpEdit Parameter="Arpeggiator User Pattern/Step 1 Bitfield"><ForeColor red="0" green="0" blue="200"/><Size left="5" top="130" width="640" height="130"/></ArpEdit>
    <PatchBrowser Parameter="Browser 1/Selected Bank" ControlFont="font.png"><Size left="0" top="265" width="680" height="180"/></PatchBrowser>
+   <Knob Parameter="Chorus/Delay" NormalBack="knob.png" Enabled="false" Condition="VirusControl/Display/Chorus/Type Is Off"><Size left="650" top="20" width="10" height="10"/></Knob>
   </Container>
   <Container><Size left="650" top="0" width="50" height="50"/>
    <Knob Parameter="Osc/Shape" NormalBack="knob.png"><Size left="0" top="0" width="10" height="10"/></Knob>

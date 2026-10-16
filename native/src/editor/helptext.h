@@ -14,6 +14,10 @@ struct HelpText {
 // LFO 1..3, arpeggiator steps ...). False if there is none (internal displays, debug fields).
 bool help_for(const std::string &param, HelpText &out);
 
+// a layout condition name as a reason a reader understands: "VirusControl/Display/Chorus/Type Is Off" ->
+// "Chorus Type is Off" (the help note of a disabled control says why); "" for none
+std::string inactive_reason(const std::string &condition);
+
 // how many parameter keys have a text (tests)
 int help_count();
 
