@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.7 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E152), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E154), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-16, after the 0.8.7 release)
@@ -19,11 +19,16 @@ also breaks presets chosen on the Snow; asked for diag.log with "RAM A sync" + "
 and the broker log).
 
 **Local branch `preset-followups` (from main after 0.8.7, NOT pushed/merged; ctest green on Linux, 88 tests):**
-- the E152 leftovers built: a patch missing from the bank cache is read from the Virus' edit buffer (`30 00 <part>`,
-  worker thread, never during the bank sync), the part's known controllers 1..16 are sent again after a load (the
-  original's 13); the decisions moved into `vti::PanelFollow` (native/src/model/panelfollow.*) with 7 unit tests.
-  NOT tested on hardware yet (needs the user switching presets on the Virus; a cache miss can be forced with an
-  empty bank cache, e.g. a RAM bank before the first sync).
+- FIX, tested in REAPER on the TI2 (E154): soft knobs turned on the Virus now change the SOUND - in plug-in mode the
+  Virus only reports `Value SoftknobN`; the plug-in sends the destination parameter (clamped), like the original.
+  0.8.7 moves the knob in the editor but the sound stays: worth a 0.8.8.
+- after a preset chosen on the Virus is loaded, the 13 controllers of the original follow (tested: sent within 30 ms).
+- cache miss (patch not in the bank cache): the edit-buffer read-back is built (worker thread, retry while busy,
+  stale-reply check) but SWITCHED OFF (`READ_EDIT_BUFFER_ON_MISS` in load_reported_presets): the Virus ignored the
+  dump written back (E154 (3), open). Normal installations have ROM banks from firmware.bin: tested fast.
+- the decisions live in `vti::PanelFollow` (native/src/model/panelfollow.*) with 7 unit tests.
+- This PC: ~/.vst3 holds the branch build now (REAPER tests); the user's old 0.8.3 copy is in the session scratchpad
+  (vst3-backup) - install the next release package over it.
 - `native/tools/virusmon.cpp`: the read-only traffic monitor, now a CMake target.
 - tests: the editor renderer on a hand-written layout (test_editor, 12 tests) and AccessFiles on fake installations
   incl. a PE image built in the test (test_accessfiles, 7 tests, POSIX). CI-like vticore line coverage (no Access
@@ -39,8 +44,8 @@ and the broker log).
 **Open, in order of value:**
 1. Windows check of 0.8.7 (VM, Ableton): preset switched on the Virus, soft knobs both directions; the plug-in in
    ~/.vst3 on this PC (REAPER) is 0.8.3 - update it with the 0.8.7 Linux package.
-2. E152 leftovers: (a)+(b) built on `preset-followups` (above), hardware test with the user pending;
-   (c) not tested: parts other than 1, Snow, macOS/Windows, a DAW.
+2. E152/E154: merge `preset-followups` + release 0.8.8 (soft knobs change the sound). Open: the cache-miss
+   read-back (E154 (3)); not tested: parts other than 1, Snow, macOS/Windows.
 3. #4 ManuAnilkumar23: RAM banks "Init" on the Snow. The Snow description = TI description (E151). Possibly
    related to E152 (if he switches presets on the Snow, the plug-in stayed on "-INIT-") - ask him after 0.8.7;
    else his diag.log ("RAM A sync" lines) and broker log.

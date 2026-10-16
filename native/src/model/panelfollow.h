@@ -23,6 +23,8 @@ public:
     bool preset_report(const std::string &path, int part, Clock::time_point now);
     // the parts (bit per part) whose report is PRESET_QUIET old, and forgets them; 0 if none is due
     unsigned presets_due(Clock::time_point now);
+    // a newer report of `part` waits (marked, not yet handed out): a reply read for an older choice is stale
+    bool pending(int part);
 
     // "Global Soft Knob Configuration/Value Softknob0..2" -> soft knob 1..3, else 0
     static int softknob_report(const std::string &path);

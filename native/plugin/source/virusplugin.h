@@ -373,7 +373,7 @@ private:
     // thread, one at a time, never during the bank sync - the Virus truncates overlapping replies)
     std::thread edit_req_;
     std::atomic<bool> edit_req_busy_{false};
-    void fetch_edit_buffer(int part);
+    int fetch_edit_buffer(int part); // 1 started, 0 busy (retry), -1 not now
     std::map<int, std::vector<std::vector<uint8_t>>> banks_; // RAM A..D (bank cache, see load_banks), ROM, libraries
     std::vector<std::string> lib_names_, lib_paths_;
     std::mutex banks_mu_;

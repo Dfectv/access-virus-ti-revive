@@ -28,6 +28,12 @@ unsigned PanelFollow::presets_due(Clock::time_point now)
     return p;
 }
 
+bool PanelFollow::pending(int part)
+{
+    std::lock_guard<std::mutex> lk(mu_);
+    return part >= 0 && part < 16 && (parts_ & (1u << part));
+}
+
 int PanelFollow::softknob_report(const std::string &path)
 {
     static const std::string prefix = "Global Soft Knob Configuration/Value Softknob";

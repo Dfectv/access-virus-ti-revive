@@ -59,7 +59,9 @@ TEST(panel_preset_several_parts)
     f.preset_report("Multi Part Parameter/Patch", 0, t);
     f.preset_report("Multi Part Parameter/Patch", 3, t + milliseconds(10));
     f.preset_report("Multi Part Parameter/Bank", 15, t + milliseconds(20));
+    CHECK(f.pending(3) && !f.pending(4) && !f.pending(-1) && !f.pending(16));
     CHECK(f.presets_due(t + milliseconds(200)) == ((1u << 0) | (1u << 3) | (1u << 15)));
+    CHECK(!f.pending(3)); // handed out
 }
 
 TEST(panel_softknob_reports)
