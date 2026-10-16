@@ -1,12 +1,12 @@
 # HANDOFF
 
-_Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.12 tagged). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.12 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E166), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-16, after the 0.8.12 release)
 
-**0.8.12 tagged 2026-10-16** (CI run 38910873523): the sharper editor images + Linux reopen crash and zoomed menus fix (skins branch). Built + tests on Linux before tagging. 0.8.11 was only a CI test build (no tag).
+**0.8.12 RELEASED 2026-10-16** (Latest, CI run 38910873523, all 7 jobs green; setup.exe in Downloads on win11 + win10; Mac was unreachable - push the mac zip later): the sharper editor images + Linux reopen crash and zoomed menus fix (skins branch). Built + tests on Linux before tagging. 0.8.11 was only a CI test build (no tag).
 
 **Released:** v0.8.10 (Latest, CI run 38890324901, all 7 jobs green, 2026-10-16): reconnect waits for the Virus and
 finds a new marker (E163); the queue waits for a Virus that is not there yet (DAW started first, E166); Windows: one
@@ -209,28 +209,33 @@ Virus TI Snow owners stay on **v0.7.4** (classic plug-in) until the native plug-
 1. ~~Mark a release as Latest~~ - done (0.7.1).
 2. ~~Tidy up HANDOFF~~ - done (this file).
 3. ~~Windows setup.exe interactive dialogs~~ - done (E126).
-4. BACKLOG - first notes at transport start (E127): same on Windows; the user remembers the same with the original
+4. CLOSED for the native plug-in (checked 2026-10-16): E127 was measured on the classic 0.7.x path; the native plug-in
+   starts exactly on Linux/REAPER and macOS/Ableton (first onset 2000.00 ms, E140/E141). Windows only measured in the VM
+   (E141's open gap pattern) - recheck on a real PC. Old note: first notes at transport start (E127): same on Windows; the user remembers the same with the original
    Access driver (start playback slightly before the first note). Optional later: confirm with the win10 snapshot pre-winusb.
-5. Occasional sync reports on Linux (E128): cause = wineserver's registry save ~30 s after the plug-in process starts
+5. OBSOLETE since 0.8.0 (checked 2026-10-16): only the 0.7.x Wine path; the native plug-in on Linux runs without Wine.
+   Old note: occasional sync reports on Linux (E128): cause = wineserver's registry save ~30 s after the plug-in process starts
    (stalls the process ~25 ms -> plug-in re-anchors -> synth reports). Done: vtiaudio polls the ring under Wine (released
    in 0.7.2). Wine 11 tested (E131, paused by the user): WineHQ 11.0 stable / 11.19 devel (noble builds, unpacked in ~/.local/opt/wine11*, prefix copy ~/.local/opt/wine11/prefix) have NO ntsync support compiled in; same 30 s registry stall (61-64 ms). /dev/ntsync exists after `sudo modprobe ntsync` (until reboot). This PC is back to the plain 0.7.1 release (plug-in, broker, units).
-6. macOS: Logic Pro test (AU), needs the user at the Mac.
+6. STILL OPEN: macOS Logic Pro test of the native AU (0.8.1+; so far auval, autest and project takeover, E146),
+   needs the user at the Mac.
 6a. ~~macOS + Cubase blocklist~~ - resolved (E129): Cubase 15 loads TI Revive fine; the blocklisted plug-in is the
     original Intel "Virus TI.vst3". (a) DONE (released in 0.7.2): "Install Access Virus TI software.command" checks Rosetta and offers to install it,
     bridge log names a missing Rosetta (EBADARCH). (b) DONE (E130, released in 0.7.2): originals moved to /Library/Application Support/TI Revive/Access plug-ins;
     verified in Cubase 15 with a local 0.7.2 test package; uninstall moves them back (tested on the Mac).
 6b. macOS universal bridge (E132, RELEASED in v0.7.3, release package verified universal): DAWs under Rosetta can load TI Revive; tested with an x86_64 test
     host under Rosetta. Real test done (E133: Cubase 15 under Rosetta plays). Reddit Cubase 14 user: 'not connected' = LIBUSB_ERROR_ACCESS (E134): old Access drivers from a full install hold the Virus; told him to remove them + restart; install script now detects/disables them (not released). CONFIRMED: Aura Plugins' Virus Editor USB MIDI driver held the Virus; parked -> connected and syncing. Install script now also detects Aura's driver and offers to park it (default No). RELEASED in v0.7.4.
-6c. macOS CPU (Reddit user, Cubase 14 under Rosetta, M4 Max): Cubase's CPU meter jumps only while STOPPED, smooth during
+6c. OBSOLETE since 0.8.1 (checked 2026-10-16): the native AU/VST3 has no Rosetta helper round trip. Old note: macOS CPU (Reddit user, Cubase 14 under Rosetta, M4 Max): Cubase's CPU meter jumps only while STOPPED, smooth during
     playback -> ASIO-Guard real-time path for the selected/armed instrument track (per-block round trip to the helper,
     translated). Harmless unless dropouts; advice: buffer 512, deselect the track. Measured on our M3 (Cubase 15 under Rosetta,
     30 s play/stop/play): Cubase 23-28 %, vtihelper ~2.5 %, vtibroker ~4 % of one core, NO change between playing and
     stopped -> the ASIO-Guard jump at stop is Cubase moving the selected track to the real-time path, not extra work.
     Optional later: editor mirror copies only changed frames.
-7. macOS: Control Center replacement (Access app is 32-bit) - biggest item.
+7. DONE in 0.8.2: TI Revive Control Center (all platforms, also `tirevive-cc`).
 
-8. Linux: watch for E136 (Virus hung after rapid give-back resets during tests on 2026-10-13); if it repeats,
-   rate-limit the reset in vti_close.
+8. STILL WATCHING: E136 (Virus hung after rapid give-back resets during tests on 2026-10-13); if it repeats,
+   rate-limit the reset in vti_close (src/broker/vticore.c, unchanged). Kernel log of this PC checked 2026-10-16: no
+   'error -71' / 'not accepting address' since (the original event is not in the log either, so weak evidence).
 
 **Snow on Windows works** (issue #3, E138, 2026-10-14): after removing the old Access USB driver (oem8.inf) and
 0.7.4 the Snow plug-in works in Ableton 12.4.6 / Windows 11 25H2 (user confirmed, WinUSB on MI_00/03/04).
