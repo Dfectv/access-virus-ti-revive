@@ -6,8 +6,8 @@
 
 > ☕ **Free, and it will stay free.** Every change is tested on the real synth on Windows, macOS and Linux, often
 > back and forth between the three, and that takes a lot of evenings. If TI Revive gives your Virus a second life and
-> you'd like to say thanks, you can [buy me a coffee](https://buymeacoffee.com/callmederpsn) - entirely optional,
-> every feature works the same either way. A test report or a kind word helps just as much.
+> you'd like to say thanks, you can [buy me a coffee](https://buymeacoffee.com/callmederpsn). It is entirely
+> optional; every feature works the same either way. A test report or a kind word helps just as much.
 
 <p align="center">
   <img src="docs/images/plugin-filter-page.png" alt="TI Revive Virus Control, the filter page" width="680"><br>
