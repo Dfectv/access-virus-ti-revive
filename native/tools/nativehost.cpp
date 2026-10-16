@@ -530,7 +530,6 @@ int main(int argc, char **argv)
             int32 off;
             ParamValue v;
             if (q && q->getPoint(q->getPointCount() - 1, off, v) == kResultOk) {
-                String128 title{};
                 ParameterInfo pi{};
                 if (ctl)
                     for (int32 k = 0; k < ctl->getParameterCount(); k++)

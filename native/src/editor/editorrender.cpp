@@ -338,7 +338,6 @@ void EditorRenderer::osc_classic(Canvas &c, const Element &e, int x, int y, int 
         return (1 - b) * saw + b * (t < pw ? 1.0 : -1.0);
     };
     Rgba fillc{182, 200, 228, 255}, linec{91, 100, 114, 255};
-    double prev = 0;
     // one curve pixel per column at floor(y) (the original's 2:1 saw shows pixel pairs), fill between curve and centre
     int midrow = (int)std::lround(mid), r = midrow, prev_ry = midrow;
     for (int i = 0; i <= w; i++) { // the curve runs one column past the closing edge
