@@ -1,18 +1,19 @@
 # HANDOFF
 
-_Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.9 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.10 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E166), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE (state 2026-10-16, after the 0.8.9 release)
+## CONTINUE HERE (state 2026-10-16, after the 0.8.10 release)
 
-**Released:** v0.8.9 (Latest, CI run 38875830258, all 7 jobs green, 2026-10-16): the third USB output (PATCH
-UTILITY > Preferences > "3 Outs / No Input" -> Out 3 = USB 3, kept per computer; C10, E158, E159; tested on Linux
-(TI2) and Windows (VM, Ableton 11)). v0.8.8 (CI run 38864936021): soft knobs on the Virus change the sound (E154),
-controllers after a preset load; tested on Linux and Windows (E155). v0.8.7: presets chosen on the Virus (E152),
-soft knobs in the editor (E150). All work branches merged into main (88 unit tests, CI-like vticore line coverage
-81.8 %, measured with gcov, see below). macOS (M3, Ableton 12): 0.8.9 FX, automation and USB 3 fine (E162). Not tested:
-the Snow, parts other than 1.
+**Released:** v0.8.10 (Latest, CI run 38890324901, all 7 jobs green, 2026-10-16): reconnect waits for the Virus and
+finds a new marker (E163); the queue waits for a Virus that is not there yet (DAW started first, E166); Windows: one
+plug-in owner across programs, the second DAW shows "Virus unavailable" and takes over (E166); Out 3 in "3 Outs /
+1 Input" (E164). Tested: Linux (TI2: reconnect, absent start), Windows VM (Ableton + REAPER). v0.8.9: the third USB
+output (E159, Linux/Windows/macOS). v0.8.8: soft knobs on the Virus change the sound. v0.8.7: presets chosen on the
+Virus. All work branches merged into main (99 unit tests, CI-like vticore coverage 92.3 %).
+Open: state 2 on Linux/macOS (POSIX broker change built, not installed/tested there), the Virus' USB input in mode 2
+(the plug-in sends no audio; the original's Sidechain bus not examined), the Snow reports on #4.
 
 **Test builds:** always a NEW version number (a forced reinstall of the same version removed the WinUSB driver in the VM, E166).
 
@@ -187,7 +188,7 @@ plug-in in ~/.vst3 is 0.8.3 (moduleinfo).
 | macOS 14.4+ | native plug-in (VST3 + AUv2, universal, no Rosetta since 0.8.1), broker, Control Center app | `-mac.zip` (pkg + setup scripts) | native/docs/architecture.md, design-macos*.md |
 | Linux | native plug-in (VST3), native broker owns the whole Virus (MIDI + iso audio), Control Center app | `-linux.tar.gz` (install.sh) | native/docs/architecture.md, design-linux.md |
 
-Latest release: **v0.8.9** (2026-10-16, the third USB output, E159; 0.8.8: soft knobs on the Virus change the sound, E154; 0.8.7: presets chosen on the Virus + soft knobs, E150/E152; 0.8.6: start-up waits for the Virus, E149; 0.8.5: one plug-in instance per process, issue #6). The 0.8.x
+Latest release: **v0.8.10** (2026-10-16, reconnect + absent start + two DAWs on Windows, E163/E166; 0.8.9: the third USB output, E159; 0.8.8: soft knobs on the Virus change the sound, E154; 0.8.7: presets chosen on the Virus + soft knobs, E150/E152; 0.8.6: start-up waits for the Virus, E149; 0.8.5: one plug-in instance per process, issue #6). The 0.8.x
 releases are summarised in the sections above; 0.7.x and older in [HANDOFF-history.md](HANDOFF-history.md).
 Virus TI Snow owners stay on **v0.7.4** (classic plug-in) until the native plug-in supports the Snow.
 
