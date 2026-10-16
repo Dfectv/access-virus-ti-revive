@@ -32,7 +32,7 @@ folder and XDG_CONFIG_HOME/WINEPREFIX/VTI_ACCESS_DIR unset, gcov over CMakeFiles
    else his diag.log ("RAM A sync" lines) and broker log.
 4. #4 nasguile: FX 1 changes only after re-triggering - NOT reproduced on the TI2 (E160: CC, pp and SysEx Bank C
    FX parameters all reach a held note at once). Needs his answer: which knobs, Snow/macOS/Ableton, same on the Snow
-   itself? Untested here: Chorus/Distortion with their types on, the editor's FX switch metas.
+   itself? The editor path (Chorus/Distortion with types, user test in REAPER) works live too.
 5. CI coverage: 81.8 % on `preset-followups` (was 53.5 %). Lowest now: firmware.cpp 26 %, diag.cpp 40 %,
    remotedevice.cpp 66 % (synthetic tests for SysEx encode/decode, upgrade_single, automation maps would help).
 6. Readiness probe (E149) vs the original: partly checked (E153) - the original's timer only shows progress; its
