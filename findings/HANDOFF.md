@@ -25,7 +25,7 @@ the user's OK). Found while testing in REAPER on Linux, fixed on the branch: (1)
 host (cairo-xcb-screen.c _get_screen_index assertion) - VSTGUI disconnects X without cairo_device_finish and the
 next connection reuses the address, our static `ref` surface outlived its connection too; since 0.8.0, also in 0.8.10
 (nativehost --reopen: 3 of 6 runs crashed, after the fix 48 reopens without one). (2) Linux menus at 150/200 % opened
-at zoom x the click position (VSTGUI's generic menu adds the zoom twice) - menu_at() divides it out. Option C (recreated artwork) is a rule-1 problem - advised against,
+at zoom x the click position (VSTGUI's generic menu adds the zoom twice) - menu_at() divides it out. User test in REAPER on Linux (2026-10-16): sharper images, reopening and the menus at 150/200 % work ("works"). Option C (recreated artwork) is a rule-1 problem - advised against,
 awaiting the user. Branch `website` (local): site drafts, waiting for the user's design choice.
 
 **Test builds:** always a NEW version number (a forced reinstall of the same version removed the WinUSB driver in the VM, E166).
