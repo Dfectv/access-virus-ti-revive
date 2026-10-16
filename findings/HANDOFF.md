@@ -1,10 +1,12 @@
 # HANDOFF
 
-_Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.10 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.12 tagged). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E166), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE (state 2026-10-16, after the 0.8.10 release)
+## CONTINUE HERE (state 2026-10-16, after the 0.8.12 release)
+
+**0.8.12 tagged 2026-10-16** (CI run 38910873523): the sharper editor images + Linux reopen crash and zoomed menus fix (skins branch). Built + tests on Linux before tagging. 0.8.11 was only a CI test build (no tag).
 
 **Released:** v0.8.10 (Latest, CI run 38890324901, all 7 jobs green, 2026-10-16): reconnect waits for the Virus and
 finds a new marker (E163); the queue waits for a Virus that is not there yet (DAW started first, E166); Windows: one
