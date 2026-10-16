@@ -202,7 +202,7 @@ def page_landing(latest, releases, sums):
                    "<em>Open</em>).",
                    "Put your Access <code>.pkg</code> next to <code>Set up Access Virus TI files.command</code> and "
                    "run it. It also parks old drivers that would block the Virus.",
-                   "Start your DAW and allow microphone access when asked: macOS hands the Virus' audio only "
+                   "Start your DAW and allow microphone access when asked: macOS gives the audio of the Virus only "
                    "to apps with it. VST3 and Audio Unit."])
     lin = os_card("Linux", "x86_64 with systemd, Ubuntu 22.04 / Debian 12 or newer", asset(latest, "-linux.tar.gz"),
                   None, sums,
@@ -286,13 +286,12 @@ def page_landing(latest, releases, sums):
 <section class="block" id="how">
   <div class="wrap">
     <h2>How it works</h2>
-    <p class="intro">The plug-in talks to the Virus directly over USB, so there is no MIDI port to set up and no
-    driver of Access' left on your system.</p>
+    <p class="intro">The plug-in talks to the Virus directly over USB, so there is no MIDI port to set up and no Access driver left on your system.</p>
     <div class="steps">
       <div><h3>Install TI Revive</h3><p>One installer per system. It sets up the USB access and puts the plug-in where
       your DAW looks for it.</p></div>
       <div><h3>Point it at your Access installer</h3><p>The setup unpacks the skin, the parameter descriptions and the
-      ROM banks from the installer you own. Nothing of Access' comes with TI Revive.</p></div>
+      ROM banks from the installer you own. No Access files come with TI Revive.</p></div>
       <div><h3>Load the plug-in</h3><p><strong>TI Revive Virus Control</strong> on a MIDI track. Projects made with the
       original plug-in open with it. The first start reads RAM A&ndash;D from the Virus once, which takes a few
       minutes; you can play meanwhile.</p></div>
@@ -318,7 +317,7 @@ def page_landing(latest, releases, sums):
       </tbody>
     </table>
     <ul class="limits">
-      <li>The Virus' USB audio <em>input</em> (&ldquo;3 Outs / 1 Input&rdquo;) is not fed by the plug-in yet.</li>
+      <li>The USB audio <em>input</em> of the Virus (&ldquo;3 Outs / 1 Input&rdquo;) is not fed by the plug-in yet.</li>
       <li>The installers are not signed, so Windows and macOS ask once before they run them.</li>
     </ul>
     <div class="testing">
@@ -350,7 +349,7 @@ def page_landing(latest, releases, sums):
     <h2>Help and support</h2>
     <div class="faq">
       <details><summary>&ldquo;Virus TI not connected&rdquo;</summary>
-      <p>Only one driver can use the Virus' USB interfaces. Old Access drivers, or third-party ones like the driver of
+      <p>Only one driver can use the USB interfaces of the Virus. Old Access drivers, or third-party ones like the driver of
       another Virus editor, take them first. Disable the other driver and restart; on macOS the setup script offers to
       park the known ones.</p></details>
       <details><summary>Connected, but no sound</summary>
@@ -435,8 +434,7 @@ def features_section():
 
     <div class="feature">
       <div><h3>The plug-in</h3>
-      <p><strong>TI Revive Virus Control</strong> is written from scratch and looks and works like Access' Virus
-      Control. It draws its look from your own Access installer at runtime.</p></div>
+      <p><strong>TI Revive Virus Control</strong> is written from scratch and looks and works like the original Access plug-in, Virus Control. It draws its look from your own Access installer at runtime.</p></div>
       <ul>
         <li>All 16 parts, every parameter, the preset browser, RAM and ROM banks, patch libraries.</li>
         <li>Projects made with the original plug-in open with it; the saved state is byte for byte the same.</li>
@@ -450,8 +448,8 @@ def features_section():
 
     <div class="feature">
       <div><h3>Timing</h3>
-      <p>The plug-in finds the Virus' own clock on USB, stamps every note against it and reports its latency, so the
-      DAW lines recordings up with the grid. Any host sample rate works: a resampler converts to the Virus' 44.1 kHz
+      <p>The plug-in finds the clock of the Virus on USB, stamps every note against it and reports its latency, so the
+      DAW lines recordings up with the grid. Any host sample rate works: a resampler converts to the 44.1 kHz of the Virus
       with -90 dB error.</p></div>
       <div><table class="data">
         <thead><tr><th>16th notes at 120 BPM</th><th>On the grid</th><th>Jitter</th><th>Drift</th></tr></thead>
@@ -462,7 +460,7 @@ def features_section():
           <tr class="old"><th>Classic plug-in 0.7.x</th><td>first late, second missing</td><td>0.06 ms</td><td>n/a</td></tr>
         </tbody>
       </table>
-      <p class="small">Recorded from the Virus' USB audio and measured by onset analysis. *The upper bound of the
+      <p class="small">Recorded from the USB audio of the Virus and measured by onset analysis. *The upper bound of the
       method on that machine.</p></div>
     </div>
 
@@ -500,11 +498,11 @@ def features_section():
       <div><h3>Problems found on the hardware</h3>
       <p>Behaviour of the Virus that is not documented anywhere, found by testing.</p></div>
       <ul>
-        <li>A flood of parameter changes can hang the Virus' audio until it is switched off. Automation is limited to
+        <li>A flood of parameter changes can hang the audio of the Virus until it is switched off. Automation is limited to
         250 messages per second and merged per parameter; a 4-minute full-load test passes.</li>
         <li>The Virus drops the message right after a multi dump. The plug-in pauses after one, so new projects reset
         the synth reliably.</li>
-        <li>Bank sync requests delay the Virus' notes. The sync pauses while you play and continues in the gaps.</li>
+        <li>Bank sync requests make the Virus play its notes late. The sync pauses while you play and continues in the gaps.</li>
         <li>Switch the Virus off and on, or replug it, while the DAW runs: the plug-in waits until it is ready and plays
         in time again. Two DAWs share it: one plays, the other waits and takes over.</li>
       </ul>
@@ -512,7 +510,7 @@ def features_section():
 
     <div class="feature cc">
       <div><h3>TI Revive Control Center</h3>
-      <p>A separate app in the look of Access' Virus Control Center, when that is in your Access installer. It
+      <p>A separate app in the look of the Access Virus Control Center, when that is in your Access installer. It
       shows the connected Virus and its RAM banks, backs them up as patch libraries and converts libraries between
       <code>.mid</code> and <code>.syx</code>. It only reads from the Virus.</p></div>
       <figure class="shot"><img src="control-center.png" width="687" height="463"
@@ -536,8 +534,7 @@ def features_section():
       <div><h3>What TI Revive will not do</h3>
       <p>On purpose.</p></div>
       <ul>
-        <li>No firmware or OS updates for the Virus, no &ldquo;Burn To Flash&rdquo;, no factory reset. Anything
-        that writes the Virus' flash can brick it.</li>
+        <li>No firmware or OS updates for the Virus, no &ldquo;Burn To Flash&rdquo;, no factory reset. Anything that writes to the flash memory of the Virus can brick it.</li>
         <li>No Access files in TI Revive: the skin, the parameter descriptions and the ROM banks come from the installer
         you own.</li>
         <li>No telemetry: TI Revive never connects to the internet. Its parts talk to each other on your computer only,
