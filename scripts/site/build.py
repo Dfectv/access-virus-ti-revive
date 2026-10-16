@@ -457,8 +457,6 @@ def page_landing(latest, releases, sums):
     <figure class="shot">
       <img src="plugin-filter.png" width="1280" height="724"
       alt="TI Revive Virus Control, the plug-in's filter page, drawn from the user's own Access files">
-      <figcaption>TI Revive Virus Control at 200 %. The look comes from your own Access installer at runtime; TI
-      Revive is not affiliated with Access Music or Kemper and contains no Access files.</figcaption>
     </figure>
   </div>
 </section>
@@ -485,27 +483,20 @@ def page_landing(latest, releases, sums):
   <div class="wrap">
     <h2>Three steps, then it stays out of the way</h2>
     <p class="intro">The plug-in talks to the Virus directly over USB, so there is no MIDI port to set up and no
-    driver of Access' left on your system. <a href="features.html">All features and measurements</a></p>
+    driver of Access' left on your system.</p>
     <div class="steps">
       <div><h3>Install TI Revive</h3><p>One installer per system. It sets up the USB access and puts the plug-in where
       your DAW looks for it.</p></div>
       <div><h3>Point it at your Access installer</h3><p>The setup unpacks the skin, the parameter descriptions and the
       ROM banks from the installer you own. Nothing of Access' comes with TI Revive.</p></div>
       <div><h3>Load the plug-in</h3><p><strong>TI Revive Virus Control</strong> on a MIDI track. Projects made with the
-      original plug-in open with it.</p></div>
-    </div>
-    <div class="notes">
-      <div><h3>Timing</h3><p>Notes land on the grid within a tenth of a millisecond, and the plug-in reports its latency
-      so the DAW compensates it. Any host sample rate works.</p></div>
-      <div><h3>First start</h3><p>The plug-in reads RAM A&ndash;D from the Virus once, which takes a few minutes; you can
-      play while it runs. After that it takes seconds.</p></div>
-      <div><h3>Two programs</h3><p>One plug-in uses the Virus at a time; another DAW shows &ldquo;Virus
-      unavailable&rdquo; and takes over when the first one closes.</p></div>
-      <div><h3>Sharp on large screens</h3><p>At larger editor sizes and on Retina screens the original images are
-      enlarged once with a sharp filter, in memory only.</p></div>
+      original plug-in open with it. The first start reads RAM A&ndash;D from the Virus once, which takes a few
+      minutes; you can play meanwhile.</p></div>
     </div>
   </div>
 </section>
+
+{features_section()}
 
 <section class="block" id="status">
   <div class="wrap">
@@ -600,18 +591,17 @@ def page_landing(latest, releases, sums):
 """
 
 
-def page_features_landing(latest):
-    v = latest["tag_name"][1:]
+def features_section():
     return f"""
-<section class="log">
+<section class="block" id="features">
   <div class="wrap">
-    <h1 class="page">Features</h1>
+    <h2>Features</h2>
     <p class="intro">What TI Revive does, and what we measured on our own Virus TI2 Desktop. The raw numbers and how
     they were taken are in the repository (<a href="{GH}/blob/main/findings/evidence.md">evidence</a>,
-    <a href="{GH}/blob/main/native/docs/status.md">development log</a>). Current version: {v}.</p>
+    <a href="{GH}/blob/main/native/docs/status.md">development log</a>).</p>
 
     <div class="feature">
-      <div><h2>The plug-in</h2>
+      <div><h3>The plug-in</h3>
       <p><strong>TI Revive Virus Control</strong> is written from scratch and looks and works like Access' Virus
       Control. It draws its look from your own Access installer at runtime.</p></div>
       <ul>
@@ -626,7 +616,7 @@ def page_features_landing(latest):
     </div>
 
     <div class="feature">
-      <div><h2>Timing</h2>
+      <div><h3>Timing</h3>
       <p>The plug-in finds the Virus' own clock on USB, stamps every note against it and reports its latency, so the
       DAW lines recordings up with the grid. Any host sample rate works: a resampler converts to the Virus' 44.1 kHz
       with -90 dB error.</p></div>
@@ -644,7 +634,7 @@ def page_features_landing(latest):
     </div>
 
     <div class="feature">
-      <div><h2>Light on the CPU, safe on the audio thread</h2>
+      <div><h3>Light on the CPU, safe on the audio thread</h3>
       <p>The audio thread never allocates memory or waits for a lock; note-offs always get a slot, so no note
       hangs.</p></div>
       <div><table class="data">
@@ -659,7 +649,7 @@ def page_features_landing(latest):
     </div>
 
     <div class="feature">
-      <div><h2>A fast editor</h2>
+      <div><h3>A fast editor</h3>
       <p>Only the controls that change are redrawn, the backgrounds of recent pages are cached, and on Linux the
       images live on the X server.</p></div>
       <table class="data">
@@ -673,7 +663,7 @@ def page_features_landing(latest):
     </div>
 
     <div class="feature">
-      <div><h2>Found with the Virus, fixed</h2>
+      <div><h3>Found with the Virus, fixed</h3>
       <p>Things the synth does that no documentation mentions, found by testing on the hardware.</p></div>
       <ul>
         <li>A flood of parameter changes can hang the Virus' audio until it is switched off. Automation is limited to
@@ -687,7 +677,7 @@ def page_features_landing(latest):
     </div>
 
     <div class="feature cc">
-      <div><h2>TI Revive Control Center</h2>
+      <div><h3>TI Revive Control Center</h3>
       <p>A separate app in the look of Access' Virus Control Center, when that is in your Access installer. It
       shows the connected Virus and its RAM banks, backs them up as patch libraries and converts libraries between
       <code>.mid</code> and <code>.syx</code>. It only reads from the Virus.</p></div>
@@ -699,7 +689,7 @@ def page_features_landing(latest):
     </div>
 
     <div class="feature cc">
-      <div><h2>Nerd mode</h2>
+      <div><h3>Nerd mode</h3>
       <p>Shows live what goes between TI Revive and the Virus, decoded: notes, parameter changes by name, dumps, the
       bank sync. It lists which programs use the Virus, shows the plug-in's and the broker's logs, and saves them all
       for a bug report in one file. It only watches; it never sends anything to the Virus.</p></div>
@@ -709,7 +699,7 @@ def page_features_landing(latest):
     </div>
 
     <div class="feature">
-      <div><h2>What TI Revive will not do</h2>
+      <div><h3>What TI Revive will not do</h3>
       <p>On purpose, to keep your synth and your data safe.</p></div>
       <ul>
         <li>No firmware or OS updates for the Virus, no &ldquo;Burn To Flash&rdquo;, no factory reset &mdash;
@@ -761,7 +751,6 @@ TESTS = 102 # unit tests in native/tests (vtitests), as of 2026-10-16
 
 # designs with their own set of pages (the others use PAGES)
 LAYOUTS = {"landing": [("index", "Home", lambda latest, releases, sums: page_landing(latest, releases, sums)),
-                       ("features", "Features", lambda latest, releases, sums: page_features_landing(latest)),
                        ("changelog", "Changelog", lambda latest, releases, sums: page_changelog_landing(releases))]}
 
 

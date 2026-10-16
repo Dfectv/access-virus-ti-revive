@@ -106,9 +106,6 @@ h2 { font-size: clamp(1.5rem, 2.8vw, 1.9rem); line-height: 1.2; font-weight: 600
   margin-bottom: 0.8rem; padding-bottom: 0.8rem; border-bottom: 1px solid var(--line); }
 .steps h3 { margin: 0 0 0.4rem; font-size: 1.05rem; }
 .steps p { margin: 0; color: var(--soft); font-size: 0.93rem; }
-.notes { margin-top: 3rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.6rem 2.5rem; }
-.notes h3 { margin: 0 0 0.3rem; font-size: 0.95rem; }
-.notes p { margin: 0; color: var(--soft); font-size: 0.92rem; }
 
 /* status */
 .matrix { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
@@ -162,11 +159,10 @@ h2 { font-size: clamp(1.5rem, 2.8vw, 1.9rem); line-height: 1.2; font-weight: 600
 .support li + li { margin-top: 0.8rem; }
 .support .small { margin: 0; }
 
-/* features page: per row the text left, its table / list / screenshot right */
-h1.page { font-size: clamp(2rem, 3.6vw, 3rem); margin: 0 0 0.8rem; }
+/* features: per row the text left, its table / list / screenshot right */
 .feature { display: grid; grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.2fr); gap: clamp(1.5rem, 4vw, 4rem);
   padding: 2.6rem 0; border-top: 1px solid var(--line); align-items: start; }
-.feature h2 { font-size: 1.35rem; margin: 0 0 0.6rem; }
+.feature h3 { font-size: 1.2rem; margin: 0 0 0.6rem; }
 .feature > div > p { margin: 0; color: var(--soft); font-size: 0.95rem; }
 .feature ul { margin: 0; padding-left: 1.1rem; }
 .feature li + li { margin-top: 0.55rem; }
@@ -197,7 +193,7 @@ footer p { margin: 0 0 0.6rem; max-width: 48rem; }
   .hero { padding: 3rem 0 3rem; }
   .shot { margin-top: 2.5rem; }
   .oses, .steps, .about, .feature { grid-template-columns: 1fr; }
-  .needs, .notes { grid-template-columns: 1fr; }
+  .needs { grid-template-columns: 1fr; }
 }
 @media (max-width: 600px) {
   .bar nav { gap: 0.9rem; font-size: 0.85rem; }
