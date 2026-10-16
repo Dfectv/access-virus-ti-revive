@@ -142,8 +142,10 @@ msitools`) or Wine. Wine and yabridge are no longer needed for the plug-in.
 
 1. Unpack `TI-Revive-<version>-linux.tar.gz` and run `./install.sh "/path/to/Virus TI Software Suite 5.1.7.00 64-bit.msi"`.
    It allows your user to use the Virus over USB (udev rule, asks for your password once), installs the TI Revive
-   broker as a systemd user socket, unpacks the Access files the plug-in needs (nothing of Access is installed)
-   and copies **"TI Revive Virus Control"** to `~/.vst3`. The classic plug-in of 0.7 (Wine + yabridge) is removed;
+   broker as a systemd user socket, unpacks the Access files the plug-in needs (nothing of Access is installed),
+   copies the factory patch libraries to *Access Music/Virus TI/Patches* in your documents folder (also a localized
+   one such as `~/Dokumente`; an existing `~/Documents/Access Music` keeps being used) and copies
+   **"TI Revive Virus Control"** to `~/.vst3`. The classic plug-in of 0.7 (Wine + yabridge) is removed;
    its projects open with the new one.
 2. For stable real-time audio, let your user use real-time priority (Ubuntu: `sudo usermod -aG pipewire $USER`,
    then log out and in).
@@ -324,7 +326,7 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 - **Automation rate limit** (250 messages/s, coalesced per parameter): unthrottled parameter floods hung the Virus'
   audio until a power cycle within 4 minutes; with the limit a 4-minute full-load test (16 channels of notes + 32
   automation lanes) passes.
-- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 128 unit
+- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 134 unit
   tests run with every release build on Windows and Linux.
 
 **Editor**
