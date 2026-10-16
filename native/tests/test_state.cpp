@@ -1,6 +1,7 @@
 // project state container, editor-only records, meta parameter mapping
 #include "check.h"
 #include "model/state.h"
+#include <cstring>
 
 using namespace vti;
 using Bytes = std::vector<uint8_t>;
@@ -66,4 +67,25 @@ TEST(meta_mapping)
     MetaClient flat;
     flat.a = 0;
     CHECK(!client_to_meta(flat, 5, mv)); // not invertible
+}
+
+TEST(state_part_dumps_upgraded)
+{
+    // E174: the Virus converts a version-9 part dump itself and resets the newer fields (Input Mode, unison,
+    // envelopes 3/4 ...) - so the state keeps part dumps in the current format; the editor's values then reach it
+    std::vector<uint8_t> d(524, 0);
+    const uint8_t head[] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x10, 0x00, 0x03, 9};
+    memcpy(d.data(), head, sizeof head);
+    d[523] = 0xF7;
+    std::vector<uint8_t> stored = d;
+    stored[7] = 0x01; // a stored bank patch (not an edit buffer): the firmware converts those itself
+    std::vector<uint8_t> current = d;
+    current[9] = 12;
+    std::vector<std::vector<uint8_t>> recs = {d, stored, current, {0xB0, 7, 100}};
+    CHECK(upgrade_state_dumps(recs) == 1);
+    CHECK(recs[0][9] == 12);                       // the edit-buffer dump of part 4: upgraded
+    CHECK(recs[1] == stored);                       // stored patch untouched
+    CHECK(recs[2] == current);                      // already current
+    CHECK(recs[3] == (std::vector<uint8_t>{0xB0, 7, 100}));
+    CHECK(upgrade_state_dumps(recs) == 0);         // idempotent
 }
