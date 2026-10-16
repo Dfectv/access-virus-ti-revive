@@ -1,19 +1,17 @@
 # HANDOFF
 
-_Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.8 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.9 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E159), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE (state 2026-10-16, after the 0.8.8 release)
+## CONTINUE HERE (state 2026-10-16, after the 0.8.9 release)
 
-**Released:** v0.8.8 (Latest, CI run 38864936021, all 7 jobs green, 2026-10-16): soft knobs turned on the Virus
-change the sound (0.8.7 only moved them in the editor, E154), controllers restored after a preset chosen on the
-Virus. v0.8.7 (CI run 38856677383, same day): presets chosen on the Virus are loaded (ignored since 0.8.0, E152),
-soft knobs in the editor control their destination (E150). Branches `softknobs`, `tests-coverage` and
-`preset-followups` are merged into main (88 unit tests; CI-like vticore line coverage 81.8 %, measured
-with gcov, see below). Tested on the TI2 under Linux only (REAPER with the branch build in ~/.vst3; nativehost).
-Windows (VM, Ableton 11) tested with the 0.8.8 MSI and passed (E155). Not tested: macOS, the Snow, parts other
-than 1.
+**Released:** v0.8.9 (Latest, CI run 38875830258, all 7 jobs green, 2026-10-16): the third USB output (PATCH
+UTILITY > Preferences > "3 Outs / No Input" -> Out 3 = USB 3, kept per computer; C10, E158, E159; tested on Linux
+(TI2) and Windows (VM, Ableton 11)). v0.8.8 (CI run 38864936021): soft knobs on the Virus change the sound (E154),
+controllers after a preset load; tested on Linux and Windows (E155). v0.8.7: presets chosen on the Virus (E152),
+soft knobs in the editor (E150). All work branches merged into main (88 unit tests, CI-like vticore line coverage
+81.8 %, measured with gcov, see below). Not tested: macOS, the Snow, parts other than 1, USB IO mode 2.
 
 **Replies on #4 (2026-10-16):** 6208931585 (nasguile, 0.8.7), 6208931949 (Manu, 0.8.7, logs asked), 6210139464
 (both: correction - use 0.8.8, soft knobs on the Virus now change the sound). Waiting for their test results/logs.
@@ -23,13 +21,6 @@ scratchpad (vst3-backup) - the 0.8.8 Linux package can be installed over it. Cov
 `cmake -S native -B <scratch>/cov -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="--coverage -O0"` (NOT with
 FETCHCONTENT_BASE_DIR=build-native/_deps - that broke build-native's pugixml build), run vtitests with HOME = an empty
 folder and XDG_CONFIG_HOME/WINEPREFIX/VTI_ACCESS_DIR unset, gcov over CMakeFiles/vticore.dir, LC_ALL=C.
-
-**Local branch `usb3` (from main after E157, NOT merged/pushed; ctest green on Linux, 88 tests):** the third USB
-output as a feature (C10 confirmed E158, feature tested with the user E159): PATCH UTILITY -> Preferences ->
-"Input and Output Configuration" = "3 Outs / No Input" -> Out 3 = USB 3 (raw channels 0/1); kept per computer in
-<plug-in folder>/usb-io, sent at every start; "-G" (greyed) menu entries disabled; README paragraph; nativehost
---wav-bus, raw peaks in the stats log. Open: mode 2 ("3 Outs / 1 Input") not measured (Out 3 silent there),
-macOS/Windows/DAW not tested. Candidate for 0.8.9 after a Windows/Ableton check.
 
 **Open, in order of value:**
 1. DONE 2026-10-16: Windows check of 0.8.8 (E155).
@@ -45,7 +36,7 @@ macOS/Windows/DAW not tested. Candidate for 0.8.9 after a Windows/Ableton check.
    remotedevice.cpp 66 % (synthetic tests for SysEx encode/decode, upgrade_single, automation maps would help).
 6. Readiness probe (E149) vs the original: partly checked (E153) - the original's timer only shows progress; its
    audio/MIDI path from the host is not examined.
-7. Older items unchanged: (USB 3: done on branch `usb3`, E159), reconnect path without note hold, macOS duplicate-track check, two DAWs
+7. Older items unchanged: (USB 3: released in 0.8.9, E159; mode 2 "3 Outs / 1 Input" not measured), reconnect path without note hold, macOS duplicate-track check, two DAWs
    sharing the Virus on Windows, Snow "officially" (record a test report).
 
 **Tools this session (scratchpad only, recreate if needed):** `virusmon` - a read-only broker observer (protocol 4,
@@ -192,7 +183,7 @@ plug-in in ~/.vst3 is 0.8.3 (moduleinfo).
 | macOS 14.4+ | native plug-in (VST3 + AUv2, universal, no Rosetta since 0.8.1), broker, Control Center app | `-mac.zip` (pkg + setup scripts) | native/docs/architecture.md, design-macos*.md |
 | Linux | native plug-in (VST3), native broker owns the whole Virus (MIDI + iso audio), Control Center app | `-linux.tar.gz` (install.sh) | native/docs/architecture.md, design-linux.md |
 
-Latest release: **v0.8.8** (2026-10-16, soft knobs on the Virus change the sound, E154; 0.8.7: presets chosen on the Virus + soft knobs, E150/E152; 0.8.6: start-up waits for the Virus, E149; 0.8.5: one plug-in instance per process, issue #6). The 0.8.x
+Latest release: **v0.8.9** (2026-10-16, the third USB output, E159; 0.8.8: soft knobs on the Virus change the sound, E154; 0.8.7: presets chosen on the Virus + soft knobs, E150/E152; 0.8.6: start-up waits for the Virus, E149; 0.8.5: one plug-in instance per process, issue #6). The 0.8.x
 releases are summarised in the sections above; 0.7.x and older in [HANDOFF-history.md](HANDOFF-history.md).
 Virus TI Snow owners stay on **v0.7.4** (classic plug-in) until the native plug-in supports the Snow.
 
