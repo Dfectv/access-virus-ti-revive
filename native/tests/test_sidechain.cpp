@@ -131,3 +131,24 @@ TEST(sidechain_silence_and_restart)
     w = s.process(nullptr, nullptr, 99999, 600, out.data()); // an oversized block is cut to the announced size
     CHECK(w <= s.max_out());
 }
+
+TEST(sidechain_bus_lookup)
+{
+    // declared input buses: 0 = "Dummy In" (main), 1 = "Sidechain" (aux). Hosts pass either all declared buses or,
+    // like some instrument hosts, only the active ones - the sidechain has to be found in both cases
+    const bool both[2] = {true, true}, aux_only[2] = {false, true}, none[2] = {false, false};
+    CHECK(sidechain_bus_index(2, both, 2, 1) == 1);     // all buses passed
+    CHECK(sidechain_bus_index(2, aux_only, 2, 1) == 1); // all passed although the main bus is inactive
+    CHECK(sidechain_bus_index(2, aux_only, 1, 1) == 0); // only the active (sidechain) bus passed
+    CHECK(sidechain_bus_index(2, none, 2, 1) == 1);     // nothing activated: the declared place (silence if unused)
+    CHECK(sidechain_bus_index(2, none, 0, 1) == -1);    // no buses passed at all
+    CHECK(sidechain_bus_index(2, both, 1, 1) == -1);    // one bus passed while both are active: it is the main one
+}
+
+TEST(sidechain_input_peak)
+{
+    float a[4] = {0.1f, -0.7f, 0.3f, 0.0f}, b[4] = {0.2f, 0.25f, -0.9f, 0.0f};
+    CHECK(std::fabs(sidechain_peak(a, b, 4) - 0.9f) < 1e-6f);
+    CHECK(sidechain_peak(a, nullptr, 4) > 0.69f);
+    CHECK(sidechain_peak(nullptr, nullptr, 4) == 0.0f);
+}
