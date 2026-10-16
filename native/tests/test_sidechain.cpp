@@ -152,3 +152,17 @@ TEST(sidechain_input_peak)
     CHECK(sidechain_peak(a, nullptr, 4) > 0.69f);
     CHECK(sidechain_peak(nullptr, nullptr, 4) == 0.0f);
 }
+
+TEST(sidechain_source_bus_choice)
+{
+    // the declared Sidechain bus when the host activated it (REAPER); a host that activates only the main input of an
+    // instrument (Ableton Live: "active: 1 0" on macOS, E172) delivers its sidechain there - then the main input
+    const bool both[2] = {true, true}, main_only[2] = {true, false}, aux_only[2] = {false, true}, none[2] = {false, false};
+    CHECK(sidechain_source_bus(both, 2) == 1);
+    CHECK(sidechain_source_bus(aux_only, 2) == 1);
+    CHECK(sidechain_source_bus(aux_only, 1) == 0);  // only the active bus passed
+    CHECK(sidechain_source_bus(main_only, 2) == 0); // Ableton
+    CHECK(sidechain_source_bus(main_only, 1) == 0);
+    CHECK(sidechain_source_bus(none, 2) == 1);      // nothing activated: the declared place (silence if unused)
+    CHECK(sidechain_source_bus(none, 0) == -1);
+}
