@@ -69,6 +69,8 @@ public:
     void on_device(std::function<void(bool present)> h) { device_ = std::move(h); }
     // another instance in this process owns the Virus: this one waits (true), or takes over after the wait (false)
     void on_waiting(std::function<void(bool waiting)> h) { on_waiting_ = std::move(h); }
+    // every change of (present, another program has it), from the first check on (the editor's status pages)
+    void on_status(std::function<void(bool present, bool elsewhere)> h) { status_ = std::move(h); }
     // another instance has the Virus: in this process (claim_owner) or another program's plug-in (broker state 2)
     bool waiting() const { return wait_reported_.load() || broker_.in_use_elsewhere(); }
     std::atomic<int> generation{0}; // +1 on every return of the Virus (process() re-anchors its timeline)
@@ -121,6 +123,8 @@ public:
 private:
     std::function<void(bool)> device_;
     std::function<void(bool)> on_waiting_;
+    std::function<void(bool, bool)> status_;
+    int status_seen_ = -1; // worker: last reported present * 2 + elsewhere
     // One instance per process talks to the Virus (README "One plug-in instance per synth"; issue #6). The Virus has
     // one stamp clock and every sync ping resets it, so a second instance (Ableton: duplicated track) shifted the
     // first one's time stamps for good. The Windows broker shares the Virus between all clients (the ASIO driver

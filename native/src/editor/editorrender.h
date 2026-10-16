@@ -35,6 +35,10 @@ public:
 struct Hit {
     const Element *element = nullptr; // the topmost visible control with a parameter under the point
     int x = 0, y = 0, part = 0;        // its absolute position and effective part
+    bool disabled = false;             // Enabled="false" (only with include_disabled: the help mode)
+    std::string why;                   // disabled: the closest condition that shows it (e.g. ".../Type Is Off")
+    bool inactive = false;             // greyed: disabled, or its parameter's own condition is false
+    std::vector<std::string> depends;  // greyed by its parameter's condition: the parameters that condition tests
 };
 
 class EditorRenderer {
@@ -79,9 +83,10 @@ public:
     }
     // repaint area: elements outside it are skipped (with their children); default = everything
     int clip_x0 = -100000, clip_y0 = -100000, clip_x1 = 100000, clip_y1 = 100000;
-    Hit hit_test(int x, int y) const;
+    // include_disabled: also controls marked Enabled="false" (the help mode explains them, with the reason)
+    Hit hit_test(int x, int y, bool include_disabled = false) const;
     // every visible control with a parameter (absolute position, effective part), in drawing order (help mode)
-    std::vector<Hit> visible_controls() const;
+    std::vector<Hit> visible_controls(bool include_disabled = false) const;
     // false for inactive controls (the parameter's own condition is false; soft knobs without destination): they are
     // drawn translucent and ignore the mouse
     bool param_active(const std::string &param, int part) const;
@@ -106,7 +111,9 @@ private:
     void image(Canvas &c, const std::string &name, void *img, int sy, int fh, int x, int y, int w, int h, double alpha);
     void text(Canvas &c, const std::string &font, const std::string &str, int x, int y, int w, int h,
               const std::string &align, double alpha = 1.0);
-    bool hit(const Element &e, int ox, int oy, int inherited, int px, int py, Hit &out) const;
+    std::vector<std::string> inactive_inputs(const std::string &param, int part) const;
+    bool hit(const Element &e, int ox, int oy, int inherited, int px, int py, Hit &out, bool include_disabled = false,
+             const std::string &cond = std::string()) const;
     void patch_browser(Canvas &c, const Element &e, int x, int y, int bank);
     void envelope(Canvas &c, const Element &e, int x, int y, int part, double alpha);
     void filter_response(Canvas &c, const Element &e, int x, int y, int part);

@@ -99,6 +99,7 @@ static const char *LAYOUT = R"(<?xml version="1.0"?>
    <ADSTREnvelope Parameter="Env/Attack" NormalHandle="handle.png"><ForeColor red="200" green="0" blue="0"/><Size left="95" top="85" width="200" height="40"/></ADSTREnvelope>
    <ArpEdit Parameter="Arpeggiator User Pattern/Step 1 Bitfield"><ForeColor red="0" green="0" blue="200"/><Size left="5" top="130" width="640" height="130"/></ArpEdit>
    <PatchBrowser Parameter="Browser 1/Selected Bank" ControlFont="font.png"><Size left="0" top="265" width="680" height="180"/></PatchBrowser>
+   <Knob Parameter="Chorus/Delay" NormalBack="knob.png" Enabled="false" Condition="VirusControl/Display/Chorus/Type Is Off"><Size left="650" top="20" width="10" height="10"/></Knob>
   </Container>
   <Container><Size left="650" top="0" width="50" height="50"/>
    <Knob Parameter="Osc/Shape" NormalBack="knob.png"><Size left="0" top="0" width="10" height="10"/></Knob>
@@ -456,6 +457,34 @@ TEST(editor_visible_controls)
     CHECK(shape);
     for (auto &h : all) // the disabled button at 80,20 is not listed
         CHECK(!(h.x == 80 && h.y == 20));
+}
+
+TEST(editor_hit_disabled_for_help)
+{
+    // the help mode also explains disabled controls (the chorus knobs while Chorus Type is Off): the hit test can
+    // include them and names the condition of the container that shows them
+    Rig g;
+    CHECK(!g.r->hit_test(652, 22).element); // a normal click ignores the disabled knob
+    Hit h = g.r->hit_test(652, 22, true);
+    CHECK(h.element && h.disabled && h.element->get("Parameter") == "Chorus/Delay");
+    CHECK(h.why == "VirusControl/Display/Chorus/Type Is Off");
+    Hit n = g.r->hit_test(7, 22, true);
+    CHECK(n.element && !n.disabled && n.why.empty());
+}
+
+TEST(editor_hit_inactive_parameter_for_help)
+{
+    // a control greyed by its parameter's own condition (Osc/Gated needs Mode Is Two; the original's Input Select
+    // needs Input Mode on): the help names the parameters that condition tests
+    Rig g;
+    Hit h = g.r->hit_test(37, 22, true);
+    CHECK(h.element && h.element->get("Parameter") == "Osc/Gated" && !h.disabled && h.inactive);
+    CHECK(h.depends == std::vector<std::string>{"Osc/Mode"});
+    g.vals[{"Osc/Mode", 0}] = 2;
+    Hit a = g.r->hit_test(37, 22, true);
+    CHECK(a.element && !a.inactive && a.depends.empty());
+    Hit d = g.r->hit_test(652, 22, true); // Enabled="false" is inactive too
+    CHECK(d.inactive && d.disabled);
 }
 
 TEST(editor_value_texts)

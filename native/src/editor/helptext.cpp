@@ -2,7 +2,9 @@
 // numbered copies ("Assign Slot 3/Amount 2") unless a key of its own exists. Written for TI Revive from the documented
 // behaviour of the Virus TI (community notes, may simplify); keep it short and practical.
 #include "editor/helptext.h"
+#include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <unordered_map>
 
 namespace vti {
@@ -515,6 +517,37 @@ bool help_for(const std::string &param, HelpText &out)
                  st.find(ss) != std::string::npos || ss.find(st) != std::string::npos;
     out.title = plain ? name : name + " (" + section + ")";
     return true;
+}
+
+std::string inactive_reason(const std::string &condition)
+{
+    std::string r = condition;
+    for (const char *prefix : {"VirusControl/Display/", "Parameter Active Condition/", "VirusControl/"})
+        if (r.rfind(prefix, 0) == 0) {
+            r = r.substr(strlen(prefix));
+            break;
+        }
+    for (auto &ch : r)
+        if (ch == '/')
+            ch = ' ';
+    auto lower = [&](const std::string &from, const std::string &to) {
+        for (size_t p; (p = r.find(from)) != std::string::npos;)
+            r.replace(p, from.size(), to);
+    };
+    lower(" Is NOT ", " is not ");
+    lower(" Is ", " is ");
+    return r;
+}
+
+std::string depends_reason(const std::vector<std::string> &params)
+{
+    std::string r;
+    for (auto &p : params) {
+        std::string n = p;
+        std::replace(n.begin(), n.end(), '/', ' ');
+        r += (r.empty() ? "depends on " : ", ") + n;
+    }
+    return r;
 }
 
 int help_count() { return (int)index().size(); }

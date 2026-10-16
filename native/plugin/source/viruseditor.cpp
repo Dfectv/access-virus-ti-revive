@@ -692,6 +692,7 @@ public:
             return;
         }
         if (help_ && !(h.element && help_navigates(h.element->get("Parameter")))) {
+            h = renderer_.hit_test((int)event.mousePosition.x, (int)event.mousePosition.y, true); // disabled too
             HelpText t;
             help_pinned_ = h.element && help_for(h.element->get("Parameter"), t);
             help_hit_ = help_pinned_ ? h : Hit{};
@@ -936,7 +937,7 @@ private:
     // the note follows the mouse; a pinned (clicked) one stays while the mouse is over no explained control
     void help_hover(const CPoint &p)
     {
-        Hit h = renderer_.hit_test((int)p.x, (int)p.y);
+        Hit h = renderer_.hit_test((int)p.x, (int)p.y, true); // disabled controls too (with the reason)
         HelpText t;
         if (!(h.element && help_for(h.element->get("Parameter"), t)))
             h = help_pinned_ ? help_hit_ : Hit{};
@@ -985,7 +986,7 @@ private:
         ctx->setLineWidth(1);
         ctx->setDrawMode(kAntiAliasing);
         HelpText t;
-        for (auto &c : renderer_.visible_controls())
+        for (auto &c : renderer_.visible_controls(true))
             if (help_for(c.element->get("Parameter"), t)) {
                 ctx->setFrameColor(frame_col);
                 ctx->drawRect(CRect(c.x + 0.5, c.y + 0.5, c.x + c.element->w - 0.5, c.y + c.element->h - 0.5),
@@ -1023,6 +1024,13 @@ private:
         const double w = 260, pad = 8, lh = 14;
         ctx->setFont(font);
         auto lines = wrap(ctx, t.text, w - 2 * pad);
+        if (help_hit_.inactive) { // why it is greyed out now: the condition of the page that shows it, or the
+                                  // parameters its own condition tests
+            std::string why = help_hit_.disabled ? inactive_reason(help_hit_.why) : depends_reason(help_hit_.depends);
+            for (auto &l : wrap(ctx, why.empty() ? "Inactive with the current settings." : "Inactive now: " + why + ".",
+                                w - 2 * pad))
+                lines.push_back(l);
+        }
         double h = pad * 2 + lh * (1 + lines.size()) + 2;
         double x = std::max(4.0, std::min(view.right - w - 4, cr.left));
         double y = cr.bottom + 6 + h <= view.bottom - 4 ? cr.bottom + 6 : std::max(4.0, cr.top - 6 - h);

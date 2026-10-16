@@ -1,10 +1,42 @@
 # HANDOFF
 
 _Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.12 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E166), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E175), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE (state 2026-10-16 evening, after the 0.8.17 release)
+## CONTINUE HERE (state 2026-10-16 night, round 0.8.18 on branch round-0.8.18)
+
+**Round 0.8.18 (branch round-0.8.18, TDD, not merged):** (1) disconnect page: the plug-in now sets SystemStatus/Error
+and the three "Internal System Info/... Communication" values from the broker's presence (model/devicestatus.h, E173);
+Linux TI2: Virus attached to the VM -> "No Virus TI can be found" page, back -> "Virus reconnected", ready after 3.9 s.
+(2) recall bug found and fixed (E174): the state's part dumps were format 9, the Virus converts them and resets 20 newer
+fields (Input Mode, unison, env 3/4, arp mode, chorus type ...); now upgraded to 12 on load and in the default state;
+hardware per-field test all TAKEN. Projects saved before keep the Virus' converted values. (3) help notes for inactive
+controls: Enabled="false" ("Inactive now: Chorus Type is Off.") and greyed by the parameter's own condition ("depends
+on Input Mode, Input Atomizer."), Xvfb screenshots with the TI2. 127 unit tests, vticore coverage 93.2 % of 2768 lines
+(changed files 94-98 %). Open for the user's test round: all three on Linux/macOS/win11, REAPER default pins 3/4 ->
+Sidechain (E171), Windows sidechain on a real PC (no answer yet whether one exists). Test build 0.8.18 (CI run 38945354060, all green): installed on Linux and win11
+(setup.exe on the Desktop), Mac unpacked in ~/Downloads (user runs sudo installer). Checklist: https://claude.ai/artifact/41uVXA5BRHVExjWpex23Ee. User test (Linux, in progress): disconnect page ok with power, but after a USB cable replug and after a
+power-on with REAPER closed the Virus stayed silent on USB (MIDI fine) until a power cycle - E175, cause open, next round.
+Recall confirmed: after that power cycle the reopened project played ARP Up.
+Linux results (user, 2026-10-16): all pass except (a) tabs locked on the "No Virus" page = original behaviour (the tab
+buttons exist twice, Enabled="false" under "Any Communication Error"; checklist expectation was wrong), (b) E175 twice,
+(c) Chorus Type "Classic" in a new project = the Virus' conversion of the original's v9 Init patch (0.8.17 showed
+"Off" from the wrong positions), (d) the user had pointed at the ENV FOLLOWER's Input menu (two menus labelled INPUT, checklist wording
+fixed); on the INPUT box's Input select the "Inactive now: depends on Input Mode, Input Atomizer." note appears -
+pass. Open question: param-inactive controls stay clickable in our editor (original: unknown, check with REA). REAPER pins 3/4 -> Sidechain by default: pass (E171 closed).
+Windows results (win11 VM, Ableton 11, user 2026-10-16): all pass, incl. USB cable replug (the VM gets the Virus only
+on Claude's re-attach, seconds after it booted - supports the E175 hypothesis "stream starts while the Virus boots"),
+recall (ARP Up, Unison 8 heard after power cycle), help notes, and the sidechain in Ableton (VM; real PC still not
+available). Note: Chorus Type changed while a key is held applies from the next note - the Virus' own behaviour (user:
+the hardware panel does the same), not a bug.
+macOS results (Ableton Live 12, user 2026-10-16): all pass, incl. the USB cable replug and the power-on with the DAW
+closed - so E175 (silent after replug / power-on) shows only on Linux so far. Round 0.8.18 is through on all three
+OSes; open for release: README + site (disconnect page, full recall, help reasons; screenshot), then the release. Handover Linux -> VM: the Virus answered every WinUSB transfer with error 31 until a
+power cycle (+ re-attach, the VM keeps the old USB address) - possibly the Linux give-back reset or E175. Note for the user: the original's
+diagnostics page advises holding ARP EDIT while powering on - effect unknown (rule 2: we do not advise it).
+
+## Previous state (2026-10-16 evening, after the 0.8.17 release)
 
 **Released v0.8.17** (Latest, CI run 38939098874, all 7 jobs green; website rebuilt by hand, run 38940119942 - a CI-made
 release does not start site.yml): sidechain input to the Virus (3 Outs / 1 Input; REAPER: Sidechain bus, Ableton: main

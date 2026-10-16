@@ -1,5 +1,6 @@
 // editormodel.cpp - see editormodel.h.
 #include "editormodel.h"
+#include <algorithm>
 #include <pugixml.hpp>
 
 namespace vti {
@@ -107,6 +108,19 @@ bool Conditions::eval(const std::string &name, const ValueFn &values, int part) 
         }
     }
     return !known;
+}
+
+std::vector<std::string> Conditions::inputs(const std::string &name) const
+{
+    std::vector<std::string> out;
+    for (const RemoteDevice *d : {&ed_, &dev_}) {
+        auto range = d->conditions.equal_range(name);
+        for (auto it = range.first; it != range.second; ++it)
+            for (auto &t : it->second.tests)
+                if (std::find(out.begin(), out.end(), t.param) == out.end())
+                    out.push_back(t.param);
+    }
+    return out;
 }
 
 } // namespace vti
