@@ -12,6 +12,7 @@
 #include "vstgui/lib/events.h"
 #include "vstgui/lib/platform/platformfactory.h"
 #include "cc/diag.h"
+#include "editor/upscale.h"
 #include <algorithm>
 #include <chrono>
 #include <functional>
@@ -49,6 +50,13 @@ static bool env_debug()
 static bool env_no_partial() // fallback / test reference: value changes repaint everything (as before 2026-10-14)
 {
     static const bool on = getenv("VTI_NATIVE_NO_PARTIAL") != nullptr;
+    return on;
+}
+
+// the 1x images only, also on scaled displays (reference / fallback for the sharper copies, skin option A)
+static bool env_no_hidpi()
+{
+    static const bool on = getenv("VTI_NATIVE_NO_HIDPI") != nullptr;
     return on;
 }
 
@@ -140,6 +148,41 @@ static SharedPointer<CBitmap> crop_rows(CBitmap *bmp, int y0, int h)
     return makeOwned<CBitmap>(pb);
 }
 
+// the pixels of `pb` (premultiplied) in the platform's channel order `fmt`
+static vti::Image read_pixels(IPlatformBitmap *pb, IPlatformBitmapPixelAccess::PixelFormat &fmt)
+{
+    vti::Image im;
+    auto in = pb ? pb->lockPixels(true) : nullptr;
+    if (!in)
+        return im;
+    fmt = in->getPixelFormat();
+    im.w = (int)pb->getSize().x, im.h = (int)pb->getSize().y;
+    im.px.resize((size_t)im.w * im.h * 4);
+    for (int y = 0; y < im.h; y++)
+        memcpy(&im.px[(size_t)y * im.w * 4], in->getAddress() + (size_t)y * in->getBytesPerRow(), (size_t)im.w * 4);
+    return im;
+}
+
+// rows [y0, y1) of `im` as a platform bitmap drawn at `scale` (its logical size = pixels / scale); nullptr if the
+// platform stores another channel order than `fmt`
+static PlatformBitmapPtr make_bitmap(const vti::Image &im, int y0, int y1, double scale,
+                                     IPlatformBitmapPixelAccess::PixelFormat fmt)
+{
+    auto pb = getPlatformFactory().createBitmap(CPoint(im.w, y1 - y0));
+    if (!pb)
+        return nullptr;
+    {
+        auto out = pb->lockPixels(true);
+        if (!out || out->getPixelFormat() != fmt)
+            return nullptr;
+        for (int y = y0; y < y1; y++)
+            memcpy(out->getAddress() + (size_t)(y - y0) * out->getBytesPerRow(), &im.px[(size_t)y * im.w * 4],
+                   (size_t)im.w * 4);
+    } // unlocked: the pixels are written back (Direct2D)
+    pb->setScaleFactor(scale);
+    return pb;
+}
+
 class VstguiCanvas : public Canvas {
 public:
     VstguiCanvas(const AccessFiles &files, std::map<std::string, SharedPointer<CBitmap>> &cache)
@@ -173,15 +216,18 @@ public:
                     fprintf(stderr, "editor: %s %dx%d split into %zu tiles%s\n", name.c_str(), (int)bmp->getWidth(),
                             (int)bmp->getHeight(), t.size(), ok ? "" : " - FAILED, drawn whole");
                 if (ok)
-                    tiles_[bmp.get()] = std::move(t);
+                    tiles_[bmp.get()] = {lim, std::move(t)};
             }
             it = cache_.emplace(name, bmp).first;
         }
 #if SMTG_OS_LINUX
         if (frame && it->second && !tiles_.count(it->second.get())) {
             auto sv = server_.find(name);
-            if (sv == server_.end())
+            if (sv == server_.end()) {
                 sv = server_.emplace(name, server_bitmap(frame, it->second.get())).first;
+                if (sv->second)
+                    base_[sv->second.get()] = it->second.get();
+            }
             if (sv->second)
                 return sv->second.get();
         }
@@ -192,19 +238,37 @@ public:
     int image_height(void *i) override { return (int)((CBitmap *)i)->getHeight(); }
     void blit(void *img, int sx, int sy, int dx, int dy, int w, int h, double alpha) override
     {
+        if (scale > 1.01 && !sharp_.count((CBitmap *)img))
+            sharpen((CBitmap *)img);
         auto t = tiles_.find((CBitmap *)img);
         if (t == tiles_.end()) {
             ((CBitmap *)img)->draw(ctx, CRect(dx, dy, dx + w, dy + h), CPoint(sx, sy), (float)alpha);
             return;
         }
-        const int lim = tile_limit(); // a source rectangle can straddle two tiles
+        const int lim = t->second.h; // a source rectangle can straddle two tiles
         while (h > 0) {
             int i = sy / lim, off = sy - i * lim, n = std::min(h, lim - off);
-            if (i >= (int)t->second.size())
+            if (i >= (int)t->second.t.size())
                 break;
-            t->second[i]->draw(ctx, CRect(dx, dy, dx + w, dy + n), CPoint(sx, off), (float)alpha);
+            t->second.t[i]->draw(ctx, CRect(dx, dy, dx + w, dy + n), CPoint(sx, off), (float)alpha);
             sy += n, dy += n, h -= n;
         }
+    }
+    void frames(void *img, int frame_h) override
+    {
+        if (img && frame_h > 0)
+            frame_h_.emplace((CBitmap *)img, frame_h);
+    }
+
+    // device pixels per editor pixel (display scaling x editor size). Above 1 the images are drawn from copies
+    // enlarged to it (vti::upscale), made when first drawn; a new scale drops every bitmap made so far.
+    double scale = 1;
+    void set_scale(double s)
+    {
+        if (s == scale)
+            return;
+        scale = s;
+        cache_.clear(), tiles_.clear(), server_.clear(), base_.clear(), sharp_.clear(), frame_h_.clear();
     }
     void fill(int x, int y, int w, int h, Rgba c) override
     {
@@ -237,8 +301,77 @@ public:
 private:
     const AccessFiles &files_;
     std::map<std::string, SharedPointer<CBitmap>> &cache_;
-    std::map<CBitmap *, std::vector<SharedPointer<CBitmap>>> tiles_; // of the images in cache_ over tile_limit()
+    struct Tiles {
+        int h; // logical rows per tile
+        std::vector<SharedPointer<CBitmap>> t;
+    };
+    std::map<CBitmap *, Tiles> tiles_;     // of the images in cache_ over tile_limit()
+    std::map<CBitmap *, CBitmap *> base_;  // server copy -> the image in cache_ it was made from
+    std::set<CBitmap *> sharp_;            // drawn bitmaps that have their copy at `scale` (or cannot have one)
+    std::map<CBitmap *, int> frame_h_;     // frames() hints
     std::vector<CRect> clips_;
+
+    // adds the copy at `scale` to `drawn`: to the image itself (offscreen drawing), to its server copy (Linux
+    // window), or as new tiles (images over the Direct2D limit, which an enlarged copy exceeds even sooner)
+    void sharpen(CBitmap *drawn)
+    {
+        sharp_.insert(drawn);
+        if (env_no_hidpi())
+            return;
+        auto b = base_.find(drawn);
+        CBitmap *src = b != base_.end() ? b->second : drawn;
+        auto fh = frame_h_.find(drawn);
+        const int f = fh != frame_h_.end() ? fh->second : 0;
+        auto t0 = std::chrono::steady_clock::now();
+        auto t = tiles_.find(src);
+        PlatformBitmapPtr have = src->getBestPlatformBitmapForScaleFactor(scale);
+        if (!have || have->getScaleFactor() != scale)
+            have = nullptr; // the image's own copy, made when the offscreen drew it first
+        vti::Image im, hi;
+        auto fmt = IPlatformBitmapPixelAccess::kBGRA;
+        if (t != tiles_.end() || !have) {
+            im = read_pixels(src->getPlatformBitmap().get(), fmt);
+            if (im.w <= 0)
+                return;
+            const int alpha = fmt == IPlatformBitmapPixelAccess::kARGB || fmt == IPlatformBitmapPixelAccess::kABGR ? 0 : 3;
+            hi = vti::upscale(im, scale, f, alpha);
+        }
+        if (t != tiles_.end()) {
+            // tiles of at most tile_limit() device pixels, cut at frame boundaries where the frames allow it
+            int th = std::max(1, (int)(tile_limit() / scale));
+            if (f > 0 && th >= f)
+                th = th / f * f;
+            std::vector<SharedPointer<CBitmap>> nt;
+            for (int y = 0; y < im.h; y += th) {
+                const int n = std::min(th, im.h - y);
+                auto tile = crop_rows(src, y, n);
+                int y0 = std::min(hi.h, (int)std::lround(y * scale)), y1 = std::min(hi.h, (int)std::lround((y + n) * scale));
+                auto pb = y1 > y0 ? make_bitmap(hi, y0, y1, scale, fmt) : nullptr;
+                if (!tile || !pb)
+                    return; // keep the 1x tiles
+                tile->addBitmap(pb);
+                nt.push_back(tile);
+            }
+            t->second = {th, std::move(nt)};
+        } else {
+            if (!have) {
+                have = make_bitmap(hi, 0, hi.h, scale, fmt);
+                if (!have)
+                    return;
+                src->addBitmap(have);
+            }
+#if SMTG_OS_LINUX
+            if (drawn != src && frame) { // the server copy gets its own enlarged pixmap
+                auto tmp = makeOwned<CBitmap>(have);
+                if (auto sv = server_bitmap(frame, tmp))
+                    drawn->addBitmap(sv->getPlatformBitmap());
+            }
+#endif
+        }
+        if (env_drawtime() && im.w > 0)
+            fprintf(stderr, "editor: %dx%d image enlarged x%.2f in %.1f ms\n", im.w, im.h, scale,
+                    std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+    }
 };
 
 class EditorCanvasView : public CView, public IControlListener, public TextEditListenerAdapter {
@@ -360,6 +493,15 @@ public:
         renderer_.clip_x0 = (int)std::floor(r.left), renderer_.clip_y0 = (int)std::floor(r.top);
         renderer_.clip_x1 = (int)std::ceil(r.right), renderer_.clip_y1 = (int)std::ceil(r.bottom);
         auto t0 = std::chrono::steady_clock::now();
+        // device pixels per editor pixel: VSTGUI picks the bitmap copy for it (CDrawContext::drawBitmap)
+        const CGraphicsTransform &tm = ctx->getCurrentTransform();
+        double scale = ctx->getScaleFactor() * (tm.m11 == tm.m22 && tm.m12 == 0 && tm.m21 == 0 ? tm.m11 : 1.0);
+        if (env_no_hidpi() || scale < 1.01)
+            scale = 1;
+        if (scale != canvas_.scale) {
+            canvas_.set_scale(scale);
+            statics_.clear();
+        }
         // the static layer (backgrounds, panels, labels) lives in an offscreen bitmap, rebuilt only when the
         // visible structure changes (page, oscillator mode, ...); every repaint copies it and draws the controls
         // the structure can only change with full repaints (page switch, menus, state); partial ones (knob drags,
@@ -379,7 +521,10 @@ public:
         }
         if (rebuild) {
             CRect full = getViewSize();
-            if (auto off = COffscreenContext::create(CPoint(full.getWidth(), full.getHeight()))) {
+            // at device resolution: the offscreen has scale x the pixels and draws through a scale transform (the
+            // Cairo bitmap context ignores a bitmap's scale factor, Core Graphics applies it - so set it afterwards)
+            const CPoint px(std::ceil(full.getWidth() * scale), std::ceil(full.getHeight() * scale));
+            if (auto off = COffscreenContext::create(px)) {
                 off->beginDraw();
                 canvas_.ctx = off;
                 canvas_.frame = nullptr; // CPU images into the CPU offscreen
@@ -387,16 +532,21 @@ public:
                 renderer_.clip_x0 = renderer_.clip_y0 = -100000;
                 renderer_.clip_x1 = renderer_.clip_y1 = 100000;
                 renderer_.layer = 1;
-                renderer_.render(canvas_);
+                {
+                    CDrawContext::Transform tr(*off, CGraphicsTransform().scale(scale, scale));
+                    renderer_.render(canvas_);
+                }
                 renderer_.clip_x0 = c0, renderer_.clip_y0 = c1, renderer_.clip_x1 = c2, renderer_.clip_y1 = c3;
                 off->endDraw();
                 SharedPointer<CBitmap> bg = off->getBitmap();
+                if (scale != 1)
+                    bg->getPlatformBitmap()->setScaleFactor(scale);
 #if SMTG_OS_LINUX
                 if (auto sb = server_bitmap(getFrame(), bg))
                     bg = sb; // the cache as an X pixmap too
 #endif
                 statics_.push_front({sig, bg});
-                while (statics_.size() > 8) // ~1.9 MB each
+                while (statics_.size() > (scale > 1.5 ? 3u : 8u)) // ~1.9 MB each at 1x, scale^2 x that
                     statics_.pop_back();
                 canvas_.ctx = ctx;
                 if (env_drawtime())

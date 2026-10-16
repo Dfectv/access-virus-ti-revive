@@ -15,6 +15,14 @@ Virus. All work branches merged into main (99 unit tests, CI-like vticore covera
 Two programs on macOS: tested 2026-10-16 (Ableton 12 + Cubase 15, E166). Open: the Virus' USB input in mode 2
 (the plug-in sends no audio; the original's Sidechain bus not examined), the Snow reports on #4.
 
+**Branch `skins` (local, NOT merged - the user decides whether we support it):** option A of the skin question:
+sharper editor images on scaled displays, computed at runtime from the user's own Access bitmaps (Lanczos-3,
+`native/src/editor/upscale.*`, 3 tests; editor integration in viruseditor.cpp, see native/docs/architecture.md).
+Built + 102 tests on Linux; checked under Xvfb at VTI_NATIVE_ZOOM=2 and 1.5 (sync, Easy, Filter pages) and with
+forced tiles (VTI_NATIVE_TILE=1000: identical pixels). NOT built on Windows/macOS (D2D/CG paths untested), not
+tested in a DAW or on a real HiDPI screen. Option C (recreated artwork) is a rule-1 problem - advised against,
+awaiting the user. Branch `website` (local): site drafts, waiting for the user's design choice.
+
 **Test builds:** always a NEW version number (a forced reinstall of the same version removed the WinUSB driver in the VM, E166).
 
 **Replies on #4 (2026-10-16):** 6208931585 (nasguile, 0.8.7), 6208931949 (Manu, 0.8.7, logs asked), 6210139464
