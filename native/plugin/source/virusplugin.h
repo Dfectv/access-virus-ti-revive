@@ -9,6 +9,7 @@
 #include "device/broker.h"
 #include "device/memsync.h"
 #include "device/resampler.h"
+#include "device/sidechain.h"
 #include "model/panelfollow.h"
 #include "model/remotedevice.h"
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
@@ -97,6 +98,12 @@ public:
     std::atomic<int64_t> aligned_blocks{0}, read_margin_min{INT64_MAX}, tl_steps{0};
     // process() calls/samples and timeline events (anticipative hosts call in bursts ahead of real time)
     std::atomic<int64_t> host_frames{0}, anchors{0}, err_min{INT64_MAX}, err_max{INT64_MIN};
+    // the Sidechain bus towards the Virus' USB input ("3 Outs / 1 Input", E167): frames sent, refills (start, the
+    // broker ran dry), pauses for another writer of the ring (the ASIO driver), the converter's rate correction
+    // (ppm), the smallest/largest queue seen before a block
+    std::atomic<int64_t> sc_frames{0}, sc_refills{0}, sc_yields{0}, sc_corr_ppm{0}, sc_queued_min{INT64_MAX},
+        sc_queued_max{INT64_MIN};
+    std::atomic<int> sc_in_peak{0}; // the highest sidechain input sample (x 32767) since the last stats line
     // R5 lines also go to this file (diag.on, field tests); set once after construction, read by the worker
     void set_diag_path(const std::string &p)
     {
@@ -181,6 +188,13 @@ public:
     Steinberg::tresult PLUGIN_API terminate() override;
     Steinberg::tresult PLUGIN_API setActive(Steinberg::TBool state) override;
     Steinberg::tresult PLUGIN_API setupProcessing(Steinberg::Vst::ProcessSetup &setup) override;
+    // the Sidechain input: which buses the host activates (some hosts then pass only those), stereo only like the
+    // original's 2-channel input (a 4-pin offer made REAPER map the sidechain to unused pins, E171)
+    Steinberg::tresult PLUGIN_API activateBus(Steinberg::Vst::MediaType type, Steinberg::Vst::BusDirection dir,
+                                              Steinberg::int32 index, Steinberg::TBool state) override;
+    Steinberg::tresult PLUGIN_API setBusArrangements(Steinberg::Vst::SpeakerArrangement *inputs, Steinberg::int32 numIns,
+                                                     Steinberg::Vst::SpeakerArrangement *outputs,
+                                                     Steinberg::int32 numOuts) override;
     Steinberg::tresult PLUGIN_API canProcessSampleSize(Steinberg::int32 symbolicSampleSize) override;
     Steinberg::tresult PLUGIN_API process(Steinberg::Vst::ProcessData &data) override;
     Steinberg::tresult PLUGIN_API setState(Steinberg::IBStream *state) override;
@@ -451,6 +465,15 @@ private:
     // setting (0x18007ec30, E158), not per project; Out 3 carries USB 3 while it is 1 or 2 (E164)
     std::atomic<int> usb_io_{0};
     void set_usb_io(int value, bool save);
+    // "3 Outs / 1 Input": the Sidechain bus goes to the Virus' USB input, as in the original (E167)
+    SidechainSender sc_;          // rate-controlled converter towards the Virus' clock (audio thread)
+    std::vector<int16_t> sc_buf_; // its 16-bit stereo output for the ring, sized in setupProcessing
+    int64_t sc_expect_ = -1;      // the ring's write position after our last write (-1: we did not write)
+    int64_t sc_seen_ = -1;        // the write position at the last block (another writer moves it)
+    int64_t sc_hold_ = 0;         // host frames to stay out after another writer was seen
+    bool in_active_[2] = {false, false}; // input buses "Dummy In", "Sidechain" activated by the host
+    int sc_layout_seen_ = -1;      // the last logged (numInputs, bus, channels) - logged when it changes
+    void send_sidechain(Steinberg::Vst::ProcessData &data);
     double rs_pos_ = 0;
     bool rs_valid_ = false;
     int generation_seen_ = 0; // DeviceOut::generation handled by process()

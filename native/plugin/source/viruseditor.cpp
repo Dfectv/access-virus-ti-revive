@@ -12,7 +12,10 @@
 #include "vstgui/lib/events.h"
 #include "vstgui/lib/platform/platformfactory.h"
 #include "cc/diag.h"
+#include "editor/helptext.h"
 #include "editor/upscale.h"
+#include "vstgui/lib/cfont.h"
+#include "vstgui/lib/cgraphicspath.h"
 #include <algorithm>
 #include <chrono>
 #include <functional>
@@ -409,7 +412,8 @@ private:
     }
 };
 
-class EditorCanvasView : public CView, public IControlListener, public TextEditListenerAdapter {
+class EditorCanvasView : public CView, public IControlListener, public TextEditListenerAdapter, public IKeyboardHook,
+                        public IMouseObserver {
 public:
     EditorCanvasView(VirusPlugin *plugin, const CRect &r, VirusEditor *editor)
         : CView(r), plugin_(plugin), editor_(editor), renderer_(plugin->layout(), plugin->conditions(), plugin->device(), plugin->editor_device()),
@@ -519,6 +523,46 @@ public:
 
     void draw(CDrawContext *ctx) override { drawRect(ctx, getViewSize()); }
 
+    // Esc leaves the help mode (a frame hook: the view has no keyboard focus)
+    bool attached(CView *parent) override
+    {
+        bool ok = CView::attached(parent);
+        if (auto *f = getFrame()) {
+            f->registerKeyboardHook(this);
+            f->registerMouseObserver(this); // hover in help mode: views get moves only while a button is down
+        }
+        return ok;
+    }
+    bool removed(CView *parent) override
+    {
+        if (auto *f = getFrame()) {
+            f->unregisterKeyboardHook(this);
+            f->unregisterMouseObserver(this);
+        }
+        return CView::removed(parent);
+    }
+    // IMouseObserver: every mouse event of the frame (frame coordinates, before its zoom transform)
+    void onMouseEntered(CView *, CFrame *) override {}
+    void onMouseExited(CView *, CFrame *) override {}
+    void onMouseEvent(MouseEvent &event, CFrame *frame) override
+    {
+        if (!help_ || event.type != EventType::MouseMove || event.buttonState.isLeft())
+            return;
+        (void)frame;
+        CPoint p = static_cast<MousePositionEvent &>(event).mousePosition; // already through the frame's zoom
+        p.offset(-getViewSize().left, -getViewSize().top);
+        if (env_debug())
+            fprintf(stderr, "help hover %.0f,%.0f\n", p.x, p.y);
+        help_hover(p);
+    }
+    void onKeyboardEvent(KeyboardEvent &event, CFrame *) override
+    {
+        if (help_ && event.type == EventType::KeyDown && event.virt == VirtualKey::Escape) {
+            set_help(false);
+            event.consumed = true;
+        }
+    }
+
     void drawRect(CDrawContext *ctx, const CRect &update) override
     {
         renderer_.part = plugin_->ui_value(plugin_->layout().frame_parameter, -1);
@@ -609,6 +653,8 @@ public:
             snprintf(t, sizeof t, "READING THE VIRUS' BANKS: ABOUT %d MIN LEFT", (eta + 59) / 60);
             renderer_.status_text(canvas_, "FNT_LCD_5x7_Rot.png", t, 480, 290, 381, 12);
         }
+        if (help_)
+            draw_help(ctx);
         {
             long us = (long)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - t0).count();
             plugin_->diag.draw_us += us;
@@ -635,6 +681,21 @@ public:
         // right-click where there is no control: the editor's size (the original has no such setting)
         if (event.buttonState.isRight() && (!h.element || h.element->get("Parameter").empty())) {
             size_menu(event.mousePosition);
+            event.consumed = true;
+            return;
+        }
+        // "?" (the original's help menu of manuals): our help mode; in help mode a click pins a control's note and
+        // changes nothing - only the page/part/envelope selectors still work, so every page can be read
+        if (h.element && h.element->get("Parameter") == "VirusControl/Help Menu") {
+            set_help(!help_);
+            event.consumed = true;
+            return;
+        }
+        if (help_ && !(h.element && help_navigates(h.element->get("Parameter")))) {
+            HelpText t;
+            help_pinned_ = h.element && help_for(h.element->get("Parameter"), t);
+            help_hit_ = help_pinned_ ? h : Hit{};
+            invalid();
             event.consumed = true;
             return;
         }
@@ -743,6 +804,10 @@ public:
 
     void onMouseMoveEvent(MouseMoveEvent &event) override
     {
+        if (help_ && !event.buttonState.isLeft()) {
+            help_hover(event.mousePosition);
+            return;
+        }
         if (!drag_.element || !event.buttonState.isLeft())
             return;
         const Element &e = *drag_.element;
@@ -858,6 +923,127 @@ public:
     }
 
 private:
+    // help mode ("?"): frames around the explained controls, a note for the one under the mouse (or clicked)
+    bool help_ = false, help_pinned_ = false;
+    Hit help_hit_;
+    void set_help(bool on)
+    {
+        help_ = on;
+        help_pinned_ = false;
+        help_hit_ = {};
+        invalid();
+    }
+    // the note follows the mouse; a pinned (clicked) one stays while the mouse is over no explained control
+    void help_hover(const CPoint &p)
+    {
+        Hit h = renderer_.hit_test((int)p.x, (int)p.y);
+        HelpText t;
+        if (!(h.element && help_for(h.element->get("Parameter"), t)))
+            h = help_pinned_ ? help_hit_ : Hit{};
+        else
+            help_pinned_ = false;
+        if (h.element != help_hit_.element || h.part != help_hit_.part) {
+            help_hit_ = h;
+            invalid();
+        }
+    }
+    static bool help_navigates(const std::string &param)
+    {
+        return param == "VirusControl/SelectedPage" || param == "VirusControl/SelectedUtilityPage" ||
+               param == "VirusControl/Selected Section" || param == "Multi Parameters/Panel Part" ||
+               param == "Envelope/Select";
+    }
+    static std::vector<std::string> wrap(CDrawContext *ctx, const std::string &text, double width)
+    {
+        std::vector<std::string> lines;
+        std::string line, word;
+        auto flush_word = [&]() {
+            if (word.empty())
+                return;
+            std::string tryline = line.empty() ? word : line + " " + word;
+            if (!line.empty() && ctx->getStringWidth(tryline.c_str()) > width) {
+                lines.push_back(line);
+                line = word;
+            } else
+                line = tryline;
+            word.clear();
+        };
+        for (char ch : text) {
+            if (ch == ' ')
+                flush_word();
+            else
+                word += ch;
+        }
+        flush_word();
+        if (!line.empty())
+            lines.push_back(line);
+        return lines;
+    }
+    void draw_help(CDrawContext *ctx)
+    {
+        const CColor frame_col(120, 190, 255, 150), hot_col(120, 190, 255, 255);
+        ctx->setLineWidth(1);
+        ctx->setDrawMode(kAntiAliasing);
+        HelpText t;
+        for (auto &c : renderer_.visible_controls())
+            if (help_for(c.element->get("Parameter"), t)) {
+                ctx->setFrameColor(frame_col);
+                ctx->drawRect(CRect(c.x + 0.5, c.y + 0.5, c.x + c.element->w - 0.5, c.y + c.element->h - 0.5),
+                              kDrawStroked);
+            }
+        const CRect view(0, 0, getViewSize().getWidth(), getViewSize().getHeight());
+        // the hint, above the "?" button
+        auto q = renderer_.param_rects("VirusControl/Help Menu");
+        SharedPointer<CFontDesc> font = makeOwned<CFontDesc>(*kNormalFontSmall);
+        SharedPointer<CFontDesc> bold = makeOwned<CFontDesc>(*kNormalFontSmall);
+        bold->setStyle(kBoldFace);
+        ctx->setFont(font);
+        const char *hint = "Help: point at a control, click to keep the note. Esc or ? to leave.";
+        double hw = ctx->getStringWidth(hint) + 12;
+        double hx = q.empty() ? view.right - hw - 4 : std::min<double>(view.right - hw - 4, q[0][0] + q[0][2] - hw);
+        double hy = q.empty() ? view.bottom - 40 : q[0][1] - 20;
+        CRect hint_r(hx, hy, hx + hw, hy + 16);
+        ctx->setFillColor(CColor(20, 22, 28, 230));
+        ctx->drawRect(hint_r, kDrawFilled);
+        ctx->setFontColor(CColor(220, 230, 240, 255));
+        ctx->drawString(hint, hint_r, kCenterText);
+        if (!q.empty()) {
+            ctx->setFrameColor(hot_col);
+            ctx->setLineWidth(2);
+            ctx->drawRect(CRect(q[0][0], q[0][1], q[0][0] + q[0][2], q[0][1] + q[0][3]), kDrawStroked);
+        }
+        if (!help_hit_.element || !help_for(help_hit_.element->get("Parameter"), t))
+            return;
+        const Element &e = *help_hit_.element;
+        CRect cr(help_hit_.x, help_hit_.y, help_hit_.x + e.w, help_hit_.y + e.h);
+        ctx->setFrameColor(hot_col);
+        ctx->setLineWidth(2);
+        ctx->drawRect(cr, kDrawStroked);
+        // the note: title + wrapped text, below the control if it fits, else above; kept inside the editor
+        const double w = 260, pad = 8, lh = 14;
+        ctx->setFont(font);
+        auto lines = wrap(ctx, t.text, w - 2 * pad);
+        double h = pad * 2 + lh * (1 + lines.size()) + 2;
+        double x = std::max(4.0, std::min(view.right - w - 4, cr.left));
+        double y = cr.bottom + 6 + h <= view.bottom - 4 ? cr.bottom + 6 : std::max(4.0, cr.top - 6 - h);
+        CRect box(x, y, x + w, y + h);
+        if (auto path = owned(ctx->createRoundRectGraphicsPath(box, 6))) {
+            ctx->setFillColor(CColor(24, 26, 32, 240));
+            ctx->drawGraphicsPath(path, CDrawContext::kPathFilled);
+            ctx->setFrameColor(hot_col);
+            ctx->setLineWidth(1);
+            ctx->drawGraphicsPath(path, CDrawContext::kPathStroked);
+        }
+        ctx->setFont(bold);
+        ctx->setFontColor(CColor(255, 255, 255, 255));
+        ctx->drawString(t.title.c_str(), CRect(x + pad, y + pad, x + w - pad, y + pad + lh), kLeftText);
+        ctx->setFont(font);
+        ctx->setFontColor(CColor(215, 222, 232, 255));
+        for (size_t i = 0; i < lines.size(); i++) {
+            double ly = y + pad + lh * (i + 1) + 2;
+            ctx->drawString(lines[i].c_str(), CRect(x + pad, ly, x + w - pad, ly + lh), kLeftText);
+        }
+    }
     int arp_length_drag_ = -1; // ArpEdit: step whose length is dragged
     // ArpEdit: the step under the mouse gets the velocity of the mouse height (bars grow from the bottom row)
     void arp_set_velocity(const Hit &h, const CPoint &p)

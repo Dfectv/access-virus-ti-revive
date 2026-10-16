@@ -6,6 +6,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __linux__
+#include "resetguard.h"
+#include <stdio.h>
+#include <time.h>
+#define RESET_GAP_S 5 // E136, see resetguard.h
+static int reset_allowed(void)
+{
+    char path[64];
+    snprintf(path, sizeof path, "/tmp/tirevive-usbreset-%u", (unsigned)getuid());
+    return vti_reset_guard(path, time(NULL), RESET_GAP_S);
+}
+#endif
+
 static const uint8_t HANDSHAKE[4] = {0x4e, 0x73, 0x52, 0x01}; // spec §3, sent raw on EP 0x05
 
 struct vti {
@@ -112,7 +125,10 @@ void vti_close(vti *v)
         libusb_claim_interface(v->h, i);
     for (int i = 0; i <= 4; i++)
         libusb_release_interface(v->h, i);
-    libusb_reset_device(v->h);
+    if (reset_allowed())
+        libusb_reset_device(v->h);
+    else
+        vti_log("vti: give-back reset skipped (the last one was less than %d s ago, E136)\n", RESET_GAP_S);
 #else
     for (int i = 3; i <= 4; i++)
         libusb_release_interface(v->h, i);

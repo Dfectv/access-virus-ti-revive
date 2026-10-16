@@ -53,6 +53,7 @@ struct MacAudio {
     AudioObjectID dev = kAudioObjectUnknown;
     AudioDeviceIOProcID proc = nullptr;
     vti_audio_shm *ring = nullptr;
+    bool playing = false; // the output towards the Virus runs (IOProc thread)
 };
 
 static std::string cf_string(AudioObjectID id, AudioObjectPropertySelector sel)
@@ -103,11 +104,54 @@ static AudioObjectID find_virus()
     return kAudioObjectUnknown;
 }
 
+// the Virus' 2 output channels (its USB input in "3 Outs / 1 Input": the plug-in's Sidechain bus, E167) from the
+// ring's output part, by the broker's rules on Linux/Windows: start with 512 frames queued, at most 2048 ahead,
+// silence when it runs dry. Our IOProc's output is mixed by Core Audio with other programs' output to the Virus.
+static void play_out(MacAudio *m, AudioBufferList *out)
+{
+    if (!out || !out->mNumberBuffers || !out->mBuffers[0].mNumberChannels)
+        return;
+    vti_audio_shm *r = m->ring;
+    const UInt32 frames = out->mBuffers[0].mDataByteSize / (sizeof(float) * out->mBuffers[0].mNumberChannels);
+    int64_t w = __atomic_load_n(&r->out_write, __ATOMIC_ACQUIRE), rd = r->out_read, avail = w - rd;
+    if (avail < 0 || avail > VTI_AUDIO_RING) { // the writer restarted or is far ahead: resynchronise
+        rd = w;
+        avail = 0;
+        m->playing = false;
+    }
+    if (!m->playing && avail >= 512)
+        m->playing = true;
+    if (m->playing && avail > 2048) {
+        rd = w - 512;
+        avail = 512;
+    }
+    const int64_t n = m->playing ? std::min<int64_t>(avail, frames) : 0;
+    int ch = 0;
+    for (UInt32 b = 0; b < out->mNumberBuffers; b++) {
+        AudioBuffer &ab = out->mBuffers[b];
+        auto *dst = (float *)ab.mData;
+        for (UInt32 f = 0; f < frames && dst; f++)
+            for (UInt32 c = 0; c < ab.mNumberChannels; c++) {
+                const int k = ch + (int)c;
+                dst[f * ab.mNumberChannels + c] =
+                    f < n && k < VTI_AUDIO_OUT_CH
+                        ? r->out[((rd + f) & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_OUT_CH + k] / 32768.0f
+                        : 0.0f;
+            }
+        ch += (int)ab.mNumberChannels;
+    }
+    if (m->playing && n < frames)
+        m->playing = false; // ran dry: refill before playing again
+    __atomic_store_n(&r->out_read, rd + n, __ATOMIC_RELEASE);
+}
+
 // Core Audio delivers Float32 (interleaved or one buffer per stream); the ring holds int16 frames of 6 channels
 static OSStatus io_proc(AudioObjectID, const AudioTimeStamp *, const AudioBufferList *in, const AudioTimeStamp *,
-                        AudioBufferList *, const AudioTimeStamp *, void *user)
+                        AudioBufferList *outl, const AudioTimeStamp *, void *user)
 {
-    auto *r = (vti_audio_shm *)user;
+    auto *m = (MacAudio *)user;
+    auto *r = m->ring;
+    play_out(m, outl);
     if (!in || !in->mNumberBuffers)
         return noErr;
     UInt32 frames = in->mBuffers[0].mNumberChannels
@@ -181,7 +225,7 @@ bool AudioIn::open(const char *linux_name)
     m->ring = new vti_audio_shm();
     m->ring->magic = VTI_AUDIO_MAGIC, m->ring->version = VTI_AUDIO_VERSION, m->ring->rate = 44100;
     m->ring->in_ch = VTI_AUDIO_IN_CH, m->ring->out_ch = VTI_AUDIO_OUT_CH, m->ring->ring_frames = VTI_AUDIO_RING;
-    if (AudioDeviceCreateIOProcID(m->dev, io_proc, m->ring, &m->proc) || AudioDeviceStart(m->dev, m->proc)) {
+    if (AudioDeviceCreateIOProcID(m->dev, io_proc, m, &m->proc) || AudioDeviceStart(m->dev, m->proc)) {
         if (m->proc)
             AudioDeviceDestroyIOProcID(m->dev, m->proc);
         delete m->ring;
@@ -327,6 +371,8 @@ void AudioIn::write_out(const int16_t *stereo, int n)
     __atomic_store_n(&shm_->out_write, w + n, __ATOMIC_RELEASE);
 #endif
 }
+
+int64_t AudioIn::out_written() const { return map_ ? load_acquire(&shm_->out_write) : -1; }
 
 int64_t AudioIn::out_queued() const
 {
