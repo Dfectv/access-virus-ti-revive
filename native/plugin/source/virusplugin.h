@@ -364,6 +364,12 @@ private:
     ParamUpdate pu_[PU_SLOTS];
     std::atomic<size_t> pu_w_{0}, pu_r_{0};
     void drain_param_updates();
+    // a preset chosen on the Virus itself (it reports the part's Bank / Patch): like the original, 150 ms after the
+    // last report the stored patch from the bank cache goes into that part's edit buffer (sender thread, idle hook)
+    std::mutex preset_mu_;
+    unsigned preset_parts_ = 0; // bit per part
+    std::chrono::steady_clock::time_point preset_due_;
+    void load_reported_presets();
     std::map<int, std::vector<std::vector<uint8_t>>> banks_; // RAM A..D (bank cache, see load_banks), ROM, libraries
     std::vector<std::string> lib_names_, lib_paths_;
     std::mutex banks_mu_;

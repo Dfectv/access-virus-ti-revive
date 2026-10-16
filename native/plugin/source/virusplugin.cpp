@@ -536,7 +536,10 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
     if (diag_enabled())
         out_->set_diag_path(own_cache_dir() + "/../diag.log");
     out_->on_panel([this](const std::vector<uint8_t> &m) { panel_message(m); });
-    out_->on_idle([this] { drain_param_updates(); });
+    out_->on_idle([this] {
+        drain_param_updates();
+        load_reported_presets();
+    });
     sync_ = std::make_unique<MemorySync>([this](const std::vector<uint8_t> &m) {
         out_->send(m);
         return true;
@@ -2003,8 +2006,30 @@ void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
         }
     }
     for (auto &c : dev_.decode(msg)) {
+        // a soft knob turned on the Virus: it applies the change itself and reports only the knob's value (E152).
+        // Like the original (0x180081980): the panel part's soft knob takes the value, i.e. its destination parameter
+        // does - kept in the state and shown, nothing is sent back
+        static const std::string knob_value = "Global Soft Knob Configuration/Value Softknob";
+        if (c.path.size() == knob_value.size() + 1 && c.path.compare(0, knob_value.size(), knob_value) == 0 &&
+            c.path.back() >= '0' && c.path.back() <= '2') {
+            const int part = ui_value("Multi Parameters/Panel Part", -1);
+            const std::string target = softknob_target("Softknobs/Softknob " + std::string(1, c.path.back() + 1), part);
+            if (!target.empty() && part >= 0 && part < 16)
+                c = {target, part, c.value};
+            else
+                continue;
+        }
         if (c.part > 15)
             continue; // globals are not plug-in parameters
+        // a preset selected on the Virus: it reports the part's Bank / Patch and then waits for the host to send the
+        // patch into the edit buffer (E033, E152; else the part keeps its old sound). Only after the start-up check
+        // and only for a real change, so a project's own patch is never replaced while it loads.
+        if (ready_ && c.part >= 0 && (c.path == "Multi Part Parameter/Bank" || c.path == "Multi Part Parameter/Patch") &&
+            ui_value(c.path, c.part) != c.value) {
+            std::lock_guard<std::mutex> lk(preset_mu_);
+            preset_parts_ |= 1u << c.part;
+            preset_due_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(150);
+        }
         set_part_value(c.part, c.path, c.value);
         {
             std::lock_guard<std::recursive_mutex> mk(meta_mu_);
@@ -2016,6 +2041,29 @@ void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
             pending_.push_back({it->second, c.value / 127.0});
         }
     }
+}
+
+// sender thread (idle hook): the presets the Virus reported (panel_message) once it has been quiet for 150 ms, like the
+// original (0x180081980 marks the part, its timer 0x18007ec30 calls 0x180083ae0). A patch not in the bank cache (sync
+// not done yet) is left alone: the original asks the Virus for that edit buffer then - not done here, logged instead.
+void VirusPlugin::load_reported_presets()
+{
+    unsigned parts;
+    {
+        std::lock_guard<std::mutex> lk(preset_mu_);
+        if (!preset_parts_ || std::chrono::steady_clock::now() < preset_due_)
+            return;
+        parts = preset_parts_;
+        preset_parts_ = 0;
+    }
+    for (int part = 0; part < 16; part++)
+        if (parts & (1u << part)) {
+            int bank = ui_value("Multi Part Parameter/Bank", part), patch = ui_value("Multi Part Parameter/Patch", part);
+            bool ok = load_patch(bank, patch, part);
+            if (out_)
+                out_->log("Virus TI native: preset chosen on the Virus, part %d bank %d patch %d: %s\n", part + 1, bank,
+                          patch, ok ? "loaded from the bank cache" : "not in the bank cache");
+        }
 }
 
 void VirusPlugin::apply_state_to_params()
