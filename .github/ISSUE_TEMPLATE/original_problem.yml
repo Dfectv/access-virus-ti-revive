@@ -1,4 +1,4 @@
-name: Problem in the original Virus Control
+name: Problem in the original Access plug-in (Virus Control)
 description: Something the original Access plug-in (Virus Control) did wrong or badly (hanging notes, sync errors, crashes, timing, ...) - so TI Revive can do better
 labels: [original]
 body:
@@ -12,8 +12,8 @@ body:
   - type: textarea
     id: what
     attributes:
-      label: What went wrong in the original
-      description: What you did, what you expected, what the original did instead.
+      label: What went wrong in the original plug-in
+      description: What you did, what you expected, what the original plug-in did instead.
     validations:
       required: true
   - type: textarea
