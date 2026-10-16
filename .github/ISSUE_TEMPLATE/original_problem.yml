@@ -1,0 +1,39 @@
+name: Problem in the original Virus Control
+description: Something Access' original plug-in did wrong or badly (hanging notes, sync errors, crashes, timing, ...) - so TI Revive can do better
+labels: [original]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for sharing what you know from years with the Virus. TI Revive rebuilds Access' Virus Control; where
+        the original had problems, we would like to fix them instead of copying them. Old memories are welcome too:
+        write what you remember and say how sure you are.
+  - type: textarea
+    id: what
+    attributes:
+      label: What went wrong in the original
+      description: What you did, what you expected, what the original did instead.
+    validations:
+      required: true
+  - type: textarea
+    id: how
+    attributes:
+      label: How to make it happen, and how often
+      description: Steps if you know them; always, sometimes, once? Only in some projects, DAWs, or with some patches?
+  - type: input
+    id: setup
+    attributes:
+      label: Setup back then
+      description: Virus Control version (e.g. 5.1.7), Virus model and OS version, computer and OS, DAW and version, as far as you know
+  - type: dropdown
+    id: revive
+    attributes:
+      label: Does TI Revive do the same?
+      options: [Not tried yet, "Yes, the same problem", "No, TI Revive does it right", "Partly / differently"]
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+      description: What you did to get around it, if anything.

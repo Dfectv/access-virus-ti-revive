@@ -236,6 +236,33 @@ def page_landing(latest, releases, sums):
   </div>
 </section>
 
+<section class="block" id="original">
+  <div class="wrap">
+    <h2>Did the original ever let you down?</h2>
+    <p class="intro">You know the Virus from years of music, and you probably know where Access' Virus Control was
+    weak. Tell us. TI Revive rebuilds the original, and where it had problems we would rather fix them than copy
+    them.</p>
+    <div class="original">
+      <div>
+        <h3>Already done better</h3>
+        <ul>
+          <li>In our timing test the original played the first note late and dropped the second. TI Revive puts all 256
+          notes on the grid.</li>
+          <li>While it starts up or syncs banks, the original drops the notes you play and sends &ldquo;All Notes
+          Off&rdquo;. TI Revive holds the notes back at start-up and pauses its bank sync while you play.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>What we would like to hear</h3>
+        <p>Hanging notes, sync errors, crashes, projects that did not open, the preset browser, automation, timing,
+        anything that cost you time. Old memories count too: write what you remember and how sure you are.</p>
+        <p class="actions"><a class="button" href="{GH}/issues/new?template=original_problem.yml">Tell us what went
+        wrong</a> <a class="second" href="{GH}/issues?q=label%3Aoriginal">Reports so far</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="block" id="download">
   <div class="wrap">
     <h2>Version {v}, released {when}</h2>
