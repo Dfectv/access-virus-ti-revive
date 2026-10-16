@@ -40,6 +40,10 @@ nativehost (first version, E168), unit tests (109). Next: one test session per O
 
 **Test round 0.8.14 (branch `round-0.8.14` = sidechain + help-mode, 2026-10-16):** one CI test build, one checklist
 per OS (smoke test, sidechain in a DAW, 48 kHz, Linux reset guard, help mode). Release after it passed.
+CI run 38922591289 (re-run after a stuck apt mirror; CI now has job time limits). Installed: this Linux PC
+(install.sh), win11 VM (silent MSI + setup.exe, running), win10 VM (silent, off); Mac: unpacked in ~/Downloads, the user runs
+`sudo installer -pkg ...`. Checklist page (private artifact): https://claude.ai/artifact/8zqCEtreSPUbRGw86XQNc7.
+The Virus is on Linux; attach it to win11 (virsh attach-device win11 scripts/virus.xml) when the user starts the Windows part.
 
 **Branch `help-mode` (2026-10-16):** the "?" button (the original's Help Menu, which listed manuals; ours showed
 numbers 0-127) toggles a help mode: frames around every explained control, a note for the control under the mouse
