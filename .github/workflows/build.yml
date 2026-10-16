@@ -211,7 +211,13 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
-          **New in 0.8.8: soft knobs on the Virus change the sound.** Turning the three soft knobs on the Virus itself
+          **New in 0.8.9: the third USB output.** Like the original Virus Control, you can now use USB 3: in the
+          plug-in open PATCH UTILITY > Preferences and set "Input and Output Configuration" to "3 Outs / No Input".
+          Then a part's output can be "USB3 L+R" and its sound comes out of the plug-in's Out 3 - for example for
+          bass, lead and pad on three separate mixer channels in your DAW. The setting is kept for this computer.
+          Thanks for asking (issue #4)!
+
+          **Since 0.8.8: soft knobs on the Virus change the sound.** Turning the three soft knobs on the Virus itself
           now changes the sound (0.8.7 only moved them in the editor). After a preset chosen on the Virus is loaded,
           your current mod wheel, breath, expression and other controller positions are sent again, like the
           original Virus Control does.
