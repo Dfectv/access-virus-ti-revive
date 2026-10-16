@@ -18,8 +18,9 @@ soft knobs in the editor (E150). All work branches merged into main (88 unit tes
 
 **This PC:** ~/.vst3 holds a main build (0.8.8 code + the E157 clean-up); the user's old 0.8.3 copy is in the session
 scratchpad (vst3-backup) - the 0.8.8 Linux package can be installed over it. Coverage measurement: a scratch build
-`cmake -S native -B <scratch>/cov -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="--coverage -O0"` (NOT with
-FETCHCONTENT_BASE_DIR=build-native/_deps - that broke build-native's pugixml build), run vtitests with HOME = an empty
+`cmake -S native -B <scratch>/cov -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="--coverage -O0"` (NEVER with
+FETCHCONTENT_BASE_DIR=build-native/_deps - it stays in the cache and breaks build-native's pugixml build on every
+later coverage build; the session's cov2 has its own _deps), run vtitests with HOME = an empty
 folder and XDG_CONFIG_HOME/WINEPREFIX/VTI_ACCESS_DIR unset, gcov over CMakeFiles/vticore.dir, LC_ALL=C.
 
 **Open, in order of value:**
