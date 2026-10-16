@@ -48,6 +48,11 @@ Linux results (user, 2026-10-16): 22/22 pass. But the reset-guard steps could no
 up while REAPER restarts (it exits only after 30 s without clients, IDLE_EXIT_S), so no reset happened at all. The guard
 is now covered by a unit test instead (TDD: test_resetguard.cpp RED 08afb1f - header missing; GREEN - spacing, fail-open
 on a missing stamp or a clock that went back, no symlink following; vticore.c uses src/broker/resetguard.h).
+Windows (win11 VM): reconnect after power-cycling the Virus needed a re-attach (libvirt keeps the old USB address;
+VM limit, not a plug-in bug) - then it played again (pass). NEW FINDING (user, Linux and Windows): when the Virus is
+switched off the plug-in only writes "Virus disconnected" on the LCD; the layout's communication error page never
+shows, because the plug-in never sets "Internal System Info/USB Communication" (conditions "... USB Communication
+Error" / SystemStatus/Error). Next round, TDD: look up with REA when the original sets these, then implement.
 
 **Branch `help-mode` (2026-10-16):** the "?" button (the original's Help Menu, which listed manuals; ours showed
 numbers 0-127) toggles a help mode: frames around every explained control, a note for the control under the mouse
