@@ -124,7 +124,7 @@ per OS (smoke test, sidechain in a DAW, 48 kHz, Linux reset guard, help mode). R
 CI run 38922591289 (re-run after a stuck apt mirror; CI now has job time limits). Installed: this Linux PC
 (install.sh), win11 VM (silent MSI + setup.exe, running), win10 VM (silent, off); Mac: unpacked in ~/Downloads, the user runs
 `sudo installer -pkg ...`. Checklist page (private artifact): https://claude.ai/artifact/8zqCEtreSPUbRGw86XQNc7.
-The Virus is on Linux; attach it to win11 (virsh attach-device win11 scripts/virus.xml) when the user starts the Windows part.
+The Virus is on Linux; attach it to win11 with `VM=win11 scripts/vm.sh attach` (stops the Linux broker first, E179) when the user starts the Windows part.
 Linux results (user, 2026-10-16): 22/22 pass. But the reset-guard steps could not trigger the guard: the broker stays
 up while REAPER restarts (it exits only after 30 s without clients, IDLE_EXIT_S), so no reset happened at all. The guard
 is now covered by a unit test instead (TDD: test_resetguard.cpp RED 08afb1f - header missing; GREEN - spacing, fail-open
