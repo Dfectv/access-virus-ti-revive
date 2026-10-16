@@ -19,7 +19,7 @@ Install
 1. Unpack this folder and open a terminal in it.
 2. ./install.sh "/path/to/Virus TI Software Suite 5.1.7.00 64-bit.msi"
    (it asks for your password once to allow USB access to the Virus; the Access files go to
-   ~/.local/share/tirevive/access, the factory patch libraries to ~/Documents/Access Music/Virus TI/Patches)
+   ~/.local/share/tirevive/access, the factory patch libraries to ~/Documents/Access Music/Virus TI/Patches, or the localized documents folder, e.g. ~/Dokumente)
 3. In your DAW, rescan plug-ins and load the VST3 "TI Revive Virus Control" (vendor TI Revive).
    The first start reads the Virus' RAM banks, which takes a few minutes; you can play meanwhile (the sync pauses
    while notes arrive). Later starts use the cache and are ready after a few seconds.

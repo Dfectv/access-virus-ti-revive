@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 
 namespace vti {
 
@@ -116,17 +117,53 @@ bool save_library(const PatchLibrary &lib, std::string &error)
     return !ec;
 }
 
+std::string xdg_documents_dir(const std::string &home, const std::string &user_dirs)
+{
+    std::istringstream in(user_dirs);
+    std::string line;
+    while (std::getline(in, line)) {
+        size_t k = line.find_first_not_of(" \t");
+        if (k == std::string::npos || line.compare(k, 19, "XDG_DOCUMENTS_DIR=\"") != 0)
+            continue;
+        size_t b = k + 19, e = line.find('"', b);
+        if (e == std::string::npos)
+            return {};
+        std::string v = line.substr(b, e - b);
+        if (v.rfind("$HOME", 0) == 0)
+            v = home + v.substr(5);
+        while (v.size() > 1 && v.back() == '/')
+            v.pop_back();
+        if (v.empty() || v[0] != '/' || v == home)
+            return {}; // XDG: "$HOME/" means "no documents folder"
+        return v;
+    }
+    return {};
+}
+
 std::string library_dir()
 {
+    const std::string tail = "/Access Music/Virus TI/Patches";
     std::vector<std::string> c;
 #ifdef _WIN32
     if (const char *up = getenv("USERPROFILE"))
-        c.push_back(std::string(up) + "/Documents/Access Music/Virus TI/Patches");
+        c.push_back(std::string(up) + "/Documents" + tail);
 #else
     if (const char *home = getenv("HOME")) {
-        c.push_back(std::string(home) + "/Documents/Access Music/Virus TI/Patches");
+        std::string h = home, docs = h + "/Documents" + tail;
+        const char *cfg = getenv("XDG_CONFIG_HOME");
+        std::ifstream f((cfg && *cfg ? std::string(cfg) : h + "/.config") + "/user-dirs.dirs");
+        std::string xdg;
+        if (f) {
+            std::stringstream t;
+            t << f.rdbuf();
+            xdg = xdg_documents_dir(h, t.str());
+        }
+        std::error_code ec;
+        if (!fs::is_directory(docs, ec) && !xdg.empty())
+            c.push_back(xdg + tail);
+        c.push_back(docs);
         if (const char *user = getenv("USER")) // an existing Access installation under Wine (Linux)
-            c.push_back(std::string(home) + "/.wine/drive_c/users/" + user + "/Documents/Access Music/Virus TI/Patches");
+            c.push_back(h + "/.wine/drive_c/users/" + user + "/Documents" + tail);
     }
 #endif
     std::error_code ec;

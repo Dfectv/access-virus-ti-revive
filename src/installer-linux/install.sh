@@ -122,7 +122,13 @@ else
     [ -d "$SRC/Documentation" ] && cp -R "$SRC/Documentation" "$ACCESS/"
     LIB_SRC=$(find "$TMP" -type d -path '*Access Music/Virus TI/Patches' | grep -v '/Common/' | head -1)
     if [ -n "$LIB_SRC" ]; then # factory patch libraries; existing files (your own libraries) stay untouched
+        # the plug-in's rule (library_dir): an existing ~/Documents library folder, else the XDG documents folder
+        # (localized, e.g. ~/Dokumente), else ~/Documents
         DOCS="$HOME/Documents/Access Music/Virus TI/Patches"
+        XDG_DOCS=$(xdg-user-dir DOCUMENTS 2>/dev/null || true)
+        if [ ! -d "$DOCS" ] && [ -n "$XDG_DOCS" ] && [ "$XDG_DOCS" != "$HOME" ] && [ "${XDG_DOCS#/}" != "$XDG_DOCS" ]; then
+            DOCS="$XDG_DOCS/Access Music/Virus TI/Patches"
+        fi
         (cd "$LIB_SRC" && find . -type f) | while read -r f; do
             [ -e "$DOCS/$f" ] || { mkdir -p "$(dirname "$DOCS/$f")"; cp "$LIB_SRC/$f" "$DOCS/$f"; }
         done
