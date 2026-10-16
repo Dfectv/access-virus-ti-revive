@@ -369,7 +369,8 @@ void Broker::read_loop()
                 rx_(buf[0], buf.data() + 1, h.len - 1u);
             break;
         case VTIMSG_STATE:
-            present_ = h.len >= 4 && buf[0];
+            present_ = h.len >= 4 && buf[0] == 1;
+            elsewhere_ = h.len >= 4 && buf[0] == 2;
             if (state_)
                 state_(present_);
             break;
@@ -408,6 +409,7 @@ void Broker::read_loop()
         }
     }
     present_ = false;
+    elsewhere_ = false;
 }
 
 } // namespace vti

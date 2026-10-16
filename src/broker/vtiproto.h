@@ -30,7 +30,8 @@ enum {
     VTIMSG_OBSERVE = 6,       // client -> broker: become a read-only observer (protocol 4)
     VTIMSG_RX = 0x81,         // broker -> client: u8 ep, data...
     VTIMSG_CONTROL_REPLY = 0x83, // broker -> client: u32 seq, i32 result (bytes or -1), IN data...
-    VTIMSG_STATE = 0x84,      // broker -> client: u32 connected (1 = device open)
+    VTIMSG_STATE = 0x84,      // broker -> client: u32 connected (1 = device open; 2 = open, but another program's
+                              // plug-in has it - wait, E166; older clients read 2 as open)
     VTIMSG_AUDIO_REPLY = 0x85, // broker -> client: i32 result (1 = streaming into VTI_AUDIO_SHM_NAME, 0 = no WinUSB
                                // audio function, -1 = error)
     VTIMSG_AUDIO_TICK = 0x86, // broker -> audio client (Linux, no shared events across Wine): i64 in_frames

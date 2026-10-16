@@ -25,6 +25,8 @@ public:
     bool open(std::string &error);
     void close();
     bool device_present() const { return present_; }
+    // the Virus is there, but another program's plug-in has it (state 2): wait, like a second instance (E166)
+    bool in_use_elsewhere() const { return elsewhere_; }
     // shown in the broker's status for observers ("TI Revive Virus Control", "tirevive-cc", ...); before open()
     void set_name(const std::string &name) { name_ = name; }
     // POSIX: another socket path instead of /tmp/vtibroker-<uid>.sock (unit tests with a fake broker); "" = the
@@ -59,7 +61,7 @@ private:
     std::condition_variable ctl_cv_;
     std::map<uint32_t, std::vector<uint8_t>> replies_; // seq -> i32 result + data
     uint32_t seq_ = 0;
-    std::atomic<bool> present_{false}, stop_{false}, reader_done_{true};
+    std::atomic<bool> present_{false}, elsewhere_{false}, stop_{false}, reader_done_{true};
     RxHandler rx_;
     StateHandler state_;
     bool send(uint16_t type, const void *a, size_t alen, const void *b = nullptr, size_t blen = 0);
