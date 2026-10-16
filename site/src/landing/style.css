@@ -22,8 +22,9 @@
 * { box-sizing: border-box; }
 html { background: var(--bg); color: var(--text); scroll-behavior: smooth; scroll-padding-top: 4.5rem; }
 body { margin: 0; font: 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
-a { color: inherit; text-decoration-color: var(--accent); text-underline-offset: 0.2em; }
-a:hover { color: var(--accent); }
+/* text links: bold and in the accent colour, underlined only on hover */
+a { color: var(--accent); font-weight: 600; text-decoration: none; text-underline-offset: 0.2em; }
+a:hover { text-decoration: underline; }
 code { font: 0.86em var(--mono); background: var(--raised); border: 1px solid var(--line); border-radius: 4px;
   padding: 0.05em 0.35em; }
 .wrap { max-width: 80rem; margin: 0 auto; padding: 0 clamp(1rem, 3vw, 2.5rem); }
@@ -33,8 +34,8 @@ code { font: 0.86em var(--mono); background: var(--raised); border: 1px solid va
 .bar .wrap { display: flex; align-items: center; height: 3.6rem; gap: 1.5rem; }
 .bar nav { margin-left: auto; display: flex; align-items: center; gap: 1.4rem; font-size: 0.92rem; }
 .gh svg { display: block; }
-.bar nav a { text-decoration: none; color: var(--soft); }
-.bar nav a:hover { color: var(--text); }
+.bar nav a { color: var(--soft); font-weight: 400; }
+.bar nav a:hover { color: var(--text); text-decoration: none; }
 
 /* hero */
 .hero { padding: clamp(2.5rem, 7vw, 6rem) 0 clamp(2.5rem, 6vw, 5rem); }
@@ -52,10 +53,10 @@ h1 { font-size: clamp(2.3rem, 4.2vw, 4rem); line-height: 1.12; font-weight: 600;
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2rem; margin: 0; }
 .button { display: inline-flex; align-items: baseline; gap: 0.6rem; background: var(--accent); color: var(--accent-text);
   text-decoration: none; font-weight: 600; padding: 0.85rem 1.3rem; border-radius: 8px; }
-.button:hover { color: var(--accent-text); filter: brightness(1.08); }
+.button:hover { color: var(--accent-text); filter: brightness(1.08); text-decoration: none; }
 .button small { font-size: 0.82rem; font-weight: 400; opacity: 0.85; }
-.quiet { color: var(--soft); text-decoration: none; }
-.quiet:hover { color: var(--text); }
+.quiet { color: var(--soft); font-weight: 400; }
+.quiet:hover { color: var(--text); text-decoration: none; }
 .facts-line { margin: 1.4rem 0 0; font-size: 0.88rem; color: var(--soft); }
 
 /* the README's coffee note, word for word */
@@ -123,7 +124,7 @@ h2 { font-size: clamp(1.5rem, 2.8vw, 1.9rem); line-height: 1.2; font-weight: 600
 .news { display: grid; gap: 0; }
 .rel { display: grid; grid-template-columns: 9rem 1fr; gap: 1.5rem; padding: 1.5rem 0; border-top: 1px solid var(--line); }
 .rel .v { font: 600 1.25rem/1.2 var(--mono); }
-.rel .v a { text-decoration: none; }
+.rel .v a { color: var(--text); }
 .rel time { display: block; margin-top: 0.3rem; font: 0.78rem var(--mono); color: var(--soft); }
 .rel h3 { margin: 0 0 0.4rem; font-size: 1.02rem; }
 .rel ul { margin: 0; padding-left: 1.1rem; color: var(--soft); font-size: 0.92rem; }
