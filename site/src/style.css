@@ -87,6 +87,7 @@ h2 { font-size: clamp(1.5rem, 2.8vw, 1.9rem); line-height: 1.2; font-weight: 600
 .original li + li { margin-top: 0.6rem; }
 .original p { margin: 0 0 1.2rem; color: var(--soft); font-size: 0.94rem; }
 .original .actions { margin: 0; }
+.contribute-actions { margin-top: 2.4rem; }
 
 /* download */
 .oses { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }

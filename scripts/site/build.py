@@ -371,7 +371,7 @@ def page_landing(latest, releases, sums):
       what changed in the recent versions started with one.</p>
       <ol>
         <li><strong>Collect the logs.</strong> Easiest: open the <strong>TI Revive Control Center</strong>, switch on
-        <em>Nerd mode</em> and press <em>Save logs...</em>. You get the plug-in and broker logs in one file,
+        <em>Nerd mode</em> and press the <em>Save logs...</em> button. You get the plug-in and broker logs in one file,
         without your home folder or user name. Or by hand: create an empty file <code>diag.on</code> in the plug-in's folder,
         reproduce the problem, and take <code>diag.log</code> from the same folder:
         <div class="paths"><b>Windows</b><code>%LOCALAPPDATA%\\virus-ti-native</code>
@@ -387,6 +387,26 @@ def page_landing(latest, releases, sums):
       <p class="small">You need a free GitHub account to post. Look through the logs before you attach them and remove
       anything you consider private. Existing reports: <a href="{GH}/issues">all issues</a>.</p>
     </div>
+  </div>
+</section>
+
+<section class="block" id="contribute">
+  <div class="wrap">
+    <h2>Help move it forward</h2>
+    <p class="intro">TI Revive is built in the open, and the repository is set up so that you can work on it together
+    with an AI coding assistant. You do not need to know the code to start.</p>
+    <div class="testing">
+      <div><h3>Ready for coding agents</h3><p><a href="{GH}/blob/main/AGENTS.md">AGENTS.md</a> gives any assistant the
+      rules and a map of the repository: no Access material in the code, never risk the synth, evidence before claims,
+      and say exactly what was tested. Point your assistant at the repository and it knows how we work.</p></div>
+      <div><h3>Three skills</h3><p>Step-by-step guides in <a href="{GH}/tree/main/.claude/skills">.claude/skills</a>:
+      test your setup safely and write a report, find the cause of a problem in the logs, and prepare a pull request
+      the way we review it. They are plain text, so they work without an assistant too.</p></div>
+      <div><h3>No code needed</h3><p>A test report from your setup, what you know about the original, or a second look
+      at someone's logs moves TI Revive forward as much as a pull request.</p></div>
+    </div>
+    <p class="actions contribute-actions"><a class="button" href="{GH}/blob/main/CONTRIBUTING.md">How to
+    contribute</a> <a class="second" href="{GH}">Open the repository</a></p>
   </div>
 </section>
 
