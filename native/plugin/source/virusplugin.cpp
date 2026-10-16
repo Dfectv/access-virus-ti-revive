@@ -616,7 +616,9 @@ void VirusPlugin::set_usb_io(int value, bool save)
         }
     if (value != old && out_)
         out_->log("Virus TI native: USB IO configuration %d (%s)\n", value,
-                  value == 1 ? "3 Outs / No Input: Out 3 = USB 3" : value == 2 ? "3 Outs / 1 Input: Out 3 not measured yet, silent" : "2 Outs / No Input");
+                  value == 1   ? "3 Outs / No Input: Out 3 = USB 3"
+                  : value == 2 ? "3 Outs / 1 Input: Out 3 = USB 3 (the plug-in sends no audio to the input)"
+                               : "2 Outs / No Input");
     ui_dirty_ = true;
 }
 
@@ -1031,7 +1033,7 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         pending_mu_.unlock();
     }
     // audio: Out 1 = USB 1, Out 2 = USB 2 of the Virus (broker ring), Out 3 = USB 3 while the USB IO configuration
-    // is "3 Outs / No Input" (raw channels 0/1, E158), else silent
+    // has 3 outputs (raw channels 0/1 in both "3 Outs" modes, E158/E164), else silent
     for (int32 b = 0; b < data.numOutputs; b++)
         for (int32 c = 0; c < data.outputs[b].numChannels; c++)
             if (data.outputs[b].channelBuffers32 && data.outputs[b].channelBuffers32[c])
@@ -1039,7 +1041,7 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
     if (out_ && out_->audio_ready() && data.numOutputs >= 2 && data.outputs[0].numChannels >= 2 &&
         data.outputs[1].numChannels >= 2 && data.numSamples > 0) {
         float **o1 = data.outputs[0].channelBuffers32, **o2 = data.outputs[1].channelBuffers32;
-        float **o3 = usb_io_.load(std::memory_order_relaxed) == 1 && data.numOutputs >= 3 &&
+        float **o3 = usb_io_.load(std::memory_order_relaxed) >= 1 && data.numOutputs >= 3 &&
                              data.outputs[2].numChannels >= 2 && data.outputs[2].channelBuffers32 &&
                              data.outputs[2].channelBuffers32[0] && data.outputs[2].channelBuffers32[1]
                          ? data.outputs[2].channelBuffers32

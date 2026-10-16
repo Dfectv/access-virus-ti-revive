@@ -17,8 +17,8 @@ public:
     void close();
     bool streaming() const;
     // n frames into usb1 (L, R) and usb2 (L, R); missing data -> silence. `latency` = target distance in frames.
-    // usb3l/usb3r (optional): raw channels 0/1, the third USB output while the Virus' USB IO configuration is
-    // "3 Outs / No Input" (E158; otherwise its analog inputs)
+    // usb3l/usb3r (optional): raw channels 0/1, the third USB output while the Virus' USB IO configuration has 3
+    // outputs (E158, E164; otherwise its analog inputs)
     void read(float *usb1l, float *usb1r, float *usb2l, float *usb2r, int n, int latency, float *usb3l = nullptr,
               float *usb3r = nullptr);
     int64_t drops() const { return drops_; }

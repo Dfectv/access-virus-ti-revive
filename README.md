@@ -166,6 +166,7 @@ On macOS also check that your DAW may use the microphone (System Settings → Pr
 it: in the plug-in, open PATCH UTILITY → Preferences and set "Input and Output Configuration" to "3 Outs / No Input".
 Then a part's output can be "USB3 L+R" (greyed out before), and its sound comes out of the plug-in's **Out 3**. The
 setting is kept for this computer and sent to the Virus at every start; "2 Outs / No Input" switches it back.
+"3 Outs / 1 Input" gives USB 3 as well; the plug-in does not send audio to the Virus' USB input (yet).
 
 **Start playback slightly before the first note.** The plug-in sends notes to the Virus ahead of time to make up
 for the USB round trip; right at Play, notes in the first quarter second can come late or be skipped. This was the
