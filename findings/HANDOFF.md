@@ -22,9 +22,9 @@ Recall confirmed: after that power cycle the reopened project played ARP Up.
 Linux results (user, 2026-10-16): all pass except (a) tabs locked on the "No Virus" page = original behaviour (the tab
 buttons exist twice, Enabled="false" under "Any Communication Error"; checklist expectation was wrong), (b) E175 twice,
 (c) Chorus Type "Classic" in a new project = the Virus' conversion of the original's v9 Init patch (0.8.17 showed
-"Off" from the wrong positions), (d) Input Select "active and clickable" with Mode/Atomizer Off (saved project: both 0)
-- asked the user whether the "Inactive now" line appeared; param-inactive controls stay clickable in our editor
-(original: unknown, check with REA). REAPER pins 3/4 -> Sidechain by default: pass (E171 closed). Note for the user: the original's
+"Off" from the wrong positions), (d) the user had pointed at the ENV FOLLOWER's Input menu (two menus labelled INPUT, checklist wording
+fixed); on the INPUT box's Input select the "Inactive now: depends on Input Mode, Input Atomizer." note appears -
+pass. Open question: param-inactive controls stay clickable in our editor (original: unknown, check with REA). REAPER pins 3/4 -> Sidechain by default: pass (E171 closed). Note for the user: the original's
 diagnostics page advises holding ARP EDIT while powering on - effect unknown (rule 2: we do not advise it).
 
 ## Previous state (2026-10-16 evening, after the 0.8.17 release)
