@@ -518,6 +518,16 @@ def page_landing(latest, releases, sums):
       <li>The Virus' USB audio <em>input</em> (&ldquo;3 Outs / 1 Input&rdquo;) is not fed by the plug-in yet.</li>
       <li>The installers are not signed, so Windows and macOS ask once before they run them.</li>
     </ul>
+    <div class="testing">
+      <div><h3>Automated tests</h3><p>{TESTS} unit tests run with every release build on Windows and Linux. They
+      cover {COVERAGE} of the lines of the core library &mdash; the USB protocol, the device access, the editor and the
+      reader for the Access files (measured {COVERAGE_DATE}).</p></div>
+      <div><h3>On the synth</h3><p>Changes that touch the Virus are tried on our TI2 Desktop before a release; the
+      release notes say on which systems and in which DAWs.</p></div>
+      <div><h3>Your reports</h3><p>They make TI Revive better with every version: the soft knobs (0.8.7, 0.8.8) and
+      the third USB output (0.8.9) came straight from a user's report. A <a href="#support">bug report</a> or a
+      <a href="{GH}/issues/new?template=test_report.yml">test report</a> from your setup helps the next release.</p></div>
+    </div>
   </div>
 </section>
 
@@ -556,7 +566,8 @@ def page_landing(latest, releases, sums):
     <div class="support" id="support">
       <h3>Report a problem</h3>
       <p>If your question is not answered above, open a report on GitHub. Reports are read by the developer, and the
-      answer comes in the same thread; it is a hobby project, so it can take a day or two.</p>
+      answer comes in the same thread; it is a hobby project, so it can take a day or two. Every report helps: most of
+      what changed in the recent versions started with one.</p>
       <ol>
         <li><strong>Collect the logs.</strong> Easiest: open the <strong>TI Revive Control Center</strong>, switch on
         <em>Nerd mode</em> and press <em>Save logs...</em> &mdash; plug-in and broker logs in one file, without your
@@ -646,7 +657,8 @@ def features_section():
           <tr><th>One audio block, 3 LFOs automating the Virus for 40 min</th><td>&ndash;</td><td>max 122 &micro;s, 0 dropouts</td></tr>
         </tbody>
       </table>
-      <p class="small">Checked with ThreadSanitizer and AddressSanitizer; {TESTS} unit tests run on every build.</p></div>
+      <p class="small">Checked with ThreadSanitizer and AddressSanitizer; {TESTS} unit tests run with every release build on Windows and
+      Linux.</p></div>
     </div>
 
     <div class="feature">
@@ -749,6 +761,8 @@ PAGES = [("index", "Home", page_home), ("download", "Download", page_download), 
 # the README's screenshots that the site shows too (copied at build time)
 SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png"]
 TESTS = 102 # unit tests in native/tests (vtitests), as of 2026-10-16
+# line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
+COVERAGE, COVERAGE_DATE = "92 %", "16 Oct 2026"
 
 # designs with their own set of pages (the others use PAGES)
 LAYOUTS = {"landing": [("index", "Home", lambda latest, releases, sums: page_landing(latest, releases, sums)),
