@@ -1,4 +1,4 @@
-/* landing - one page, dark and quiet; the one visual is a strip of the synth's front panel (LCD, knobs, LED) */
+/* landing - one page, dark and quiet; the one visual is a real screenshot of the plug-in at 200 % */
 :root {
   --bg: #0d0e10;
   --surface: #15171a;
@@ -41,46 +41,27 @@ code { font: 0.86em var(--mono); background: var(--raised); border: 1px solid va
 .bar nav a:hover { color: var(--text); }
 
 /* hero */
-.hero { padding: 5.5rem 0 4.5rem; }
-.hero .wrap { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 4rem; align-items: center; }
+.hero { padding: 5rem 0 4rem; }
 .eyebrow { font: 0.75rem/1.4 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--soft);
   margin: 0 0 1.4rem; }
-h1 { font-size: clamp(2.3rem, 5vw, 3.7rem); line-height: 1.04; letter-spacing: -0.025em; font-weight: 680;
-  margin: 0 0 1.4rem; }
-.lead { font-size: 1.12rem; color: var(--soft); max-width: 34rem; margin: 0 0 2rem; }
+h1 { font-size: clamp(2.3rem, 5.6vw, 4.2rem); line-height: 1.04; letter-spacing: -0.03em; font-weight: 680;
+  margin: 0 0 1.4rem; max-width: 14ch; }
+.lead { font-size: 1.12rem; color: var(--soft); max-width: 40rem; margin: 0 0 2rem; }
 .lead strong { color: var(--text); font-weight: 600; }
-.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2rem; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2rem; margin: 0; }
 .button { display: inline-flex; align-items: baseline; gap: 0.6rem; background: var(--accent); color: var(--accent-text);
   text-decoration: none; font-weight: 600; padding: 0.85rem 1.3rem; border-radius: 8px; }
 .button:hover { color: var(--accent-text); filter: brightness(1.08); }
 .button small { font: 0.78rem var(--mono); opacity: 0.8; }
 .quiet { color: var(--soft); text-decoration: none; }
 .quiet:hover { color: var(--text); }
-.facts-line { margin: 1.6rem 0 0; font: 0.78rem var(--mono); color: var(--soft); }
+.facts-line { margin: 1.4rem 0 0; font: 0.78rem var(--mono); color: var(--soft); }
 
-/* the front panel strip */
-.unit { background: linear-gradient(180deg, var(--raised), var(--surface)); border: 1px solid var(--line);
-  border-radius: 16px; padding: 1.6rem 1.6rem 1.3rem;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 30px 60px -30px rgba(0,0,0,0.6); }
-.lcd { background: var(--lcd-bg); color: var(--lcd); font: 0.95rem/1.5 var(--mono); border-radius: 6px;
-  padding: 0.8rem 1rem; border: 1px solid #000; box-shadow: inset 0 0 14px rgba(0,0,0,0.9);
-  text-shadow: 0 0 6px color-mix(in srgb, var(--lcd) 50%, transparent); letter-spacing: 0.06em; }
-.lcd span { display: block; white-space: nowrap; overflow: hidden; }
-.lcd .dim { opacity: 0.55; }
-.knobs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.6rem; margin-top: 1.4rem; }
-.knob { text-align: center; }
-.knob svg { width: 100%; max-width: 4.2rem; height: auto; display: block; margin: 0 auto; }
-.knob .track { stroke: var(--line); }
-.knob .value { stroke: var(--accent); }
-.knob .cap { fill: var(--bg); stroke: var(--line); }
-.knob .mark { stroke: var(--text); }
-.knob span { display: block; margin-top: 0.35rem; font: 0.62rem/1 var(--mono); letter-spacing: 0.12em;
-  color: var(--soft); }
-.leds { display: flex; gap: 1.2rem; margin-top: 1.3rem; padding-top: 1rem; border-top: 1px solid var(--line);
-  font: 0.62rem/1 var(--mono); letter-spacing: 0.12em; color: var(--soft); }
-.leds span::before { content: ""; display: inline-block; width: 0.45rem; height: 0.45rem; border-radius: 50%;
-  margin-right: 0.45rem; background: var(--line); vertical-align: 0.05em; }
-.leds .on::before { background: var(--accent); box-shadow: 0 0 0.5rem var(--accent); }
+/* the plug-in: a real screenshot at 200 %, 1814 px wide, so still sharp at the full page width on high-resolution screens */
+.shot { margin: 3.5rem 0 0; }
+.shot img { display: block; width: 100%; height: auto; border-radius: 10px;
+  border: 1px solid var(--line); box-shadow: 0 40px 80px -40px rgba(0,0,0,0.65); }
+.shot figcaption { margin-top: 0.9rem; max-width: 48rem; font-size: 0.8rem; color: var(--soft); }
 
 /* sections */
 section.block { padding: 4.5rem 0; border-top: 1px solid var(--line); }
@@ -178,7 +159,7 @@ footer p { margin: 0 0 0.6rem; max-width: 48rem; }
 @media (max-width: 900px) {
   .os .req { min-height: 0; }
   .hero { padding: 3rem 0 3rem; }
-  .hero .wrap { grid-template-columns: 1fr; gap: 2.5rem; }
+  .shot { margin-top: 2.5rem; }
   .oses, .steps, .about { grid-template-columns: 1fr; }
   .needs, .notes { grid-template-columns: 1fr; }
 }

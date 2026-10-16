@@ -372,32 +372,6 @@ def page_about():
 
 
 # ------------------------------------------------------------------------------------- the one-page design
-def knob(value, label):
-    """a knob drawn like the panel's: a 270 degree track, the value arc and a pointer; value 0..1"""
-    import math
-    cx = cy = 30
-    r = 24
-
-    def pt(a, rr):
-        rad = math.radians(a - 90)
-        return cx + rr * math.cos(rad), cy + rr * math.sin(rad)
-
-    a0, a1 = -135, -135 + 270 * value
-    x0, y0 = pt(a0, r)
-    xe, ye = pt(135, r)
-    x1, y1 = pt(a1, r)
-    big_track, big_val = 1, 1 if a1 - a0 > 180 else 0
-    px, py = pt(a1, 11)
-    return (f'<div class="knob"><svg viewBox="0 0 60 60" aria-hidden="true">'
-            f'<path class="track" d="M{x0:.1f} {y0:.1f}A{r} {r} 0 {big_track} 1 {xe:.1f} {ye:.1f}" fill="none" '
-            f'stroke-width="3" stroke-linecap="round"/>'
-            f'<path class="value" d="M{x0:.1f} {y0:.1f}A{r} {r} 0 {big_val} 1 {x1:.1f} {y1:.1f}" fill="none" '
-            f'stroke-width="3" stroke-linecap="round"/>'
-            f'<circle class="cap" cx="{cx}" cy="{cy}" r="16" stroke-width="1"/>'
-            f'<line class="mark" x1="{cx}" y1="{cy}" x2="{px:.1f}" y2="{py:.1f}" stroke-width="2" '
-            f'stroke-linecap="round"/></svg><span>{label}</span></div>')
-
-
 def highlights(rel, n=3):
     """the first points of a version's summary (its list items, else its first sentences)"""
     text = summary(rel).replace("\r", "")
@@ -464,28 +438,23 @@ def page_landing(latest, releases, sums):
                    "asks for your password once (udev rule).",
                    "For steady audio join the real-time group (<code>sudo usermod -aG pipewire $USER</code>, log "
                    "out and in), then rescan plug-ins."])
-    knobs = "".join(knob(x, l) for x, l in ((0.72, "CUTOFF"), (0.35, "RESO"), (0.55, "ENV"), (0.18, "FX"),
-                                            (0.85, "VOL")))
     return f"""
 <section class="hero">
   <div class="wrap">
-    <div>
-      <p class="eyebrow">For the Access Virus TI &middot; Windows &middot; macOS &middot; Linux</p>
-      <h1>Your Virus TI, back inside the DAW.</h1>
-      <p class="lead">The drivers that tied the Virus TI to your DAW stopped working on current systems.
-      <strong>TI Revive</strong> replaces them, and its plug-in looks and works like the original Virus Control:
-      every parameter, the preset browser, automation, and the synth's audio over the same USB cable.</p>
-      <p class="actions"><a class="button" href="#download">Download {v}</a>
-      <a class="quiet" href="#news">What's new &rarr;</a></p>
-      <p class="facts-line">Free &middot; open source &middot; VST3 and Audio Unit &middot; no Access files inside</p>
-    </div>
-    <div class="unit">
-      <div class="lcd" aria-label="Current version {v}, released {when}">
-        <span>TI REVIVE  {v}</span><span class="dim">RELEASED {when.upper()}</span></div>
-      <div class="knobs">{knobs}</div>
-      <div class="leds" aria-hidden="true"><span class="on">USB</span><span class="on">MIDI</span>
-      <span class="on">SYNC</span><span>OS UPDATE</span></div>
-    </div>
+    <p class="eyebrow">TI Revive {v} &middot; for the Access Virus TI &middot; Windows &middot; macOS &middot; Linux</p>
+    <h1>Like meeting an old best friend again.</h1>
+    <p class="lead"><strong>Total Integration for the Access Virus TI on Windows 11, macOS and Linux &mdash; without
+    the old drivers.</strong> Its plug-in looks and works like the original Virus Control: every parameter, the preset
+    browser, automation, and the synth's audio over the same USB cable.</p>
+    <p class="actions"><a class="button" href="#download">Download {v}</a>
+    <a class="quiet" href="#news">What's new &rarr;</a></p>
+    <p class="facts-line">Free &middot; open source &middot; VST3 and Audio Unit &middot; released {when}</p>
+    <figure class="shot">
+      <img src="plugin-filter.png" width="1814" height="1026"
+      alt="TI Revive Virus Control, the plug-in's filter page, drawn from the user's own Access files">
+      <figcaption>TI Revive Virus Control at 200 %. The look comes from your own Access installer at runtime; TI
+      Revive is not affiliated with Access Music or Kemper and contains no Access files.</figcaption>
+    </figure>
   </div>
 </section>
 
