@@ -2,7 +2,8 @@
 // One decoded line per MIDI message: parameter names from the user's Access files (as in the Control Center's
 // Nerd mode), Access SysEx by name, the rest as hex. It never sends anything to the Virus - the broker refuses an
 // observer's writes - so it can run next to a DAW during a hardware test.
-//   virusmon [seconds] [--clock]      default 120 s; --clock also shows clock, Active Sensing and F5 lines
+//   virusmon [seconds] [--clock] [--hex]   default 120 s; --clock also shows clock, Active Sensing and F5 lines;
+//                                          --hex adds every SysEx (dumps too) as hex on the next line
 #include "access/accessfiles.h"
 #include "cc/decode.h"
 #include "device/broker.h"
@@ -17,14 +18,16 @@
 int main(int argc, char **argv)
 {
     int seconds = 120;
-    bool clock = false;
+    bool clock = false, hex = false;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--clock"))
             clock = true;
+        else if (!strcmp(argv[i], "--hex"))
+            hex = true;
         else if (atoi(argv[i]) > 0)
             seconds = atoi(argv[i]);
         else {
-            fprintf(stderr, "usage: virusmon [seconds] [--clock]\n");
+            fprintf(stderr, "usage: virusmon [seconds] [--clock] [--hex]\n");
             return 2;
         }
     }
@@ -39,11 +42,17 @@ int main(int argc, char **argv)
         if (type == VTIMSG_OBS_LOG)
             printf("broker %.*s\n", (int)n, (const char *)d);
         else if (type == VTIMSG_OBS_TRAFFIC)
-            dec.feed(d, n, [clock](vti::cc::TrafficLine &&t) {
+            dec.feed(d, n, [clock, hex](vti::cc::TrafficLine &&t) {
                 if (t.kind == "clock" && !clock)
                     return;
                 static const char *dir[] = {"->", "<-", "ctl"};
                 printf("%6u.%03u %s %-6s %s\n", t.ms / 1000, t.ms % 1000, dir[t.dir], t.kind.c_str(), t.text.c_str());
+                if (hex && !t.bytes.empty() && t.bytes[0] == 0xF0) {
+                    printf("       hex");
+                    for (auto b : t.bytes)
+                        printf(" %02x", b);
+                    printf("\n");
+                }
             });
         fflush(stdout);
     };
