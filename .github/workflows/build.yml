@@ -25,10 +25,11 @@ permissions:
 jobs:
   binaries:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10 # a hanging step (e.g. a stuck package mirror) fails fast instead of blocking
     steps:
       - uses: actions/checkout@v7
       - name: Install mingw-w64 and libusb (Linux probe)
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 libusb-1.0-0-dev pkg-config make
+        run: sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update && sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y --no-install-recommends gcc-mingw-w64-x86-64 libusb-1.0-0-dev pkg-config make
       - name: Build # the broker for the MSI (0.8: the classic wrapper and the research tools are not shipped)
         run: make -C src/broker
       - uses: actions/upload-artifact@v7
@@ -39,6 +40,7 @@ jobs:
 
   native-windows: # the native plug-in "TI Revive Virus Control" + ASIO driver "TI Revive Virus Audio" (native/, MSVC)
     runs-on: windows-2022
+    timeout-minutes: 25 # a hanging step (e.g. a stuck package mirror) fails fast instead of blocking
     steps:
       - uses: actions/checkout@v7
         with:
@@ -67,6 +69,7 @@ jobs:
   msi:
     needs: [binaries, native-windows]
     runs-on: windows-2022
+    timeout-minutes: 20 # a hanging step (e.g. a stuck package mirror) fails fast instead of blocking
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -114,6 +117,7 @@ jobs:
 
   mac:
     runs-on: macos-15
+    timeout-minutes: 25 # a hanging step (e.g. a stuck package mirror) fails fast instead of blocking
     steps:
       - uses: actions/checkout@v7
         with:
@@ -131,13 +135,14 @@ jobs:
 
   native-linux: # the native plug-in for Linux, on Ubuntu 22.04 (glibc 2.35: runs on Ubuntu 22.04 / Debian 12 and newer)
     runs-on: ubuntu-22.04
+    timeout-minutes: 25 # a hanging step (e.g. a stuck package mirror) fails fast instead of blocking
     steps:
       - uses: actions/checkout@v7
         with:
           submodules: recursive # native/external/vst3sdk
       - name: Build dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends g++ make ninja-build libx11-dev \
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update && sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y --no-install-recommends g++ make ninja-build libx11-dev \
             libxcb1-dev libxcb-util-dev libxcb-cursor-dev libxcb-xkb-dev libxcb-keysyms1-dev libxkbcommon-dev \
             libxkbcommon-x11-dev libfontconfig1-dev libcairo2-dev libgtkmm-3.0-dev libsqlite3-dev libpango1.0-dev
           pip3 install --user "cmake>=3.25" # Ubuntu 22.04 ships 3.22
@@ -161,6 +166,7 @@ jobs:
   linux:
     needs: native-linux
     runs-on: ubuntu-24.04
+    timeout-minutes: 10 # a hanging step (e.g. a stuck package mirror) fails fast instead of blocking
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -168,7 +174,7 @@ jobs:
           name: native-linux
           path: native-linux
       - name: Install build tools
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends make curl bzip2
+        run: sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update && sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y --no-install-recommends make curl bzip2
       - name: Build
         run: NATIVE_PREBUILT="$PWD/native-linux/TI Revive Virus Control.vst3" NATIVE_CC="$PWD/native-linux/tirevive-cc" NATIVE_CCAPP="$PWD/native-linux/TIReviveControlCenter" bash scripts/linux-build-release.sh "$PWD" "${VERSION:-${GITHUB_REF_NAME#v}}" "$PWD/out"
       - uses: actions/upload-artifact@v7
@@ -181,6 +187,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [msi, mac, linux]
     runs-on: ubuntu-24.04
+    timeout-minutes: 10 # a hanging step (e.g. a stuck package mirror) fails fast instead of blocking
     permissions:
       contents: write
     steps:
