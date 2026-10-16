@@ -4,7 +4,23 @@ _Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.12 released). Chronological 
 Evidence: [evidence.md](evidence.md) (E001-E175), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE (state 2026-10-16 night, round 0.8.18 on branch round-0.8.18)
+## CONTINUE HERE (state 2026-10-16 night, after the 0.8.18 release)
+
+**Released v0.8.18** (Latest, CI run 38953060428, all jobs green; website rebuilt by hand, run 38953633854, live with
+0.8.18 and the new screenshot docs/images/plugin-help-inactive.png): full project recall (E174), the "No Virus TI can
+be found" page (E173), help notes for greyed-out controls. Round 0.8.18 passed on Linux (REAPER), win11 VM (Ableton 11)
+and macOS (Ableton Live 12); known issue E175 (Linux only so far: silent after a cable replug / power-on with no DAW
+running, a power cycle with the DAW running fixes it) in the README, site and release notes. 127 unit tests, vticore
+coverage 93 %. Installed: win11 VM (release, /repair over the test build of the same version); Mac and Linux: release
+unpacked in ~/Downloads (test builds renamed *-testbuild), the user installs (Linux needs sudo while the Virus is on
+the Mac). The Virus is on the Mac.
+
+**Next round:** (1) E175 on Linux: capture the IN stream in the stuck state (E112 pattern?), compare the broker's
+open/stream timing with macOS and the VM (the VM got the Virus late and recovered), REA: the original's start-up;
+(2) should param-inactive controls block clicks like Enabled="false" ones (REA); (3) Linux -> VM handover left the
+Virus answering error 31 until a power cycle (give-back reset?); (4) sidechain on a real Windows PC when available.
+
+## Round 0.8.18 notes (branch round-0.8.18, merged)
 
 **Round 0.8.18 (branch round-0.8.18, TDD, not merged):** (1) disconnect page: the plug-in now sets SystemStatus/Error
 and the three "Internal System Info/... Communication" values from the broker's presence (model/devicestatus.h, E173);
