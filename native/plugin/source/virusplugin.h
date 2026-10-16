@@ -444,7 +444,7 @@ private:
     std::vector<float> rs_src_[6]; // USB 1 L/R, USB 2 L/R, USB 3 L/R
     // the Virus' USB IO configuration ("Global USB/Virus Control USB IO Configuration": 0 = 2 Outs / No Input,
     // 1 = 3 Outs / No Input, 2 = 3 Outs / 1 Input), kept per computer like the original's "IO Configuration"
-    // setting (0x18007ec30, E158), not per project; Out 3 carries USB 3 while it is 1
+    // setting (0x18007ec30, E158), not per project; Out 3 carries USB 3 while it is 1 or 2 (E164)
     std::atomic<int> usb_io_{0};
     void set_usb_io(int value, bool save);
     double rs_pos_ = 0;

@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.9 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E163), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E164), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-16, after the 0.8.9 release)
@@ -12,7 +12,7 @@ UTILITY > Preferences > "3 Outs / No Input" -> Out 3 = USB 3, kept per computer;
 controllers after a preset load; tested on Linux and Windows (E155). v0.8.7: presets chosen on the Virus (E152),
 soft knobs in the editor (E150). All work branches merged into main (88 unit tests, CI-like vticore line coverage
 81.8 %, measured with gcov, see below). macOS (M3, Ableton 12): 0.8.9 FX, automation and USB 3 fine (E162). Not tested:
-the Snow, parts other than 1, USB IO mode 2.
+the Snow, parts other than 1.
 
 **Replies on #4 (2026-10-16):** 6208931585 (nasguile, 0.8.7), 6208931949 (Manu, 0.8.7, logs asked), 6210139464
 (both: correction - use 0.8.8, soft knobs on the Virus now change the sound). Waiting for their test results/logs.
@@ -39,7 +39,7 @@ folder and XDG_CONFIG_HOME/WINEPREFIX/VTI_ACCESS_DIR unset, gcov over CMakeFiles
    remotedevice.cpp 90 %.
 6. DONE 2026-10-16 (E161): the original drops host notes + clock while busy (start-up queue, bank sync, requests)
    and sends All Notes Off when it becomes busy; ours holds notes until ready and pauses the sync - kept.
-7. Older items unchanged: (USB 3: released in 0.8.9, E159; mode 2 "3 Outs / 1 Input" not measured), (reconnect path: fixed on main, E163, not released), macOS duplicate-track check, two DAWs
+7. Older items unchanged: (USB 3: released in 0.8.9, E159; mode 2 measured E164, Out 3 on main, not released; the plug-in sends no audio to the Virus input - the original's Sidechain bus may, not examined), (reconnect path: fixed on main, E163, not released), macOS duplicate-track check, two DAWs
    sharing the Virus on Windows, Snow "officially" (record a test report).
 
 **Tools this session (scratchpad only, recreate if needed):** `virusmon` - a read-only broker observer (protocol 4,
