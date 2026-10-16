@@ -15,7 +15,7 @@ Virus. All work branches merged into main (99 unit tests, CI-like vticore covera
 Two programs on macOS: tested 2026-10-16 (Ableton 12 + Cubase 15, E166). Open: the Virus' USB input in mode 2
 (the plug-in sends no audio; the original's Sidechain bus not examined), the Snow reports on #4.
 
-**Branch `skins` (local, NOT merged - the user decides whether we support it):** option A of the skin question:
+**Sharper images (merged into main 2026-10-16, CI test build 0.8.11 = run 38901544137; user tests: Linux REAPER, macOS and Windows 11 "works!"; ships with 0.8.12):** option A of the skin question:
 sharper editor images on scaled displays, computed at runtime from the user's own Access bitmaps (Lanczos-3,
 `native/src/editor/upscale.*`, 3 tests; editor integration in viruseditor.cpp, see native/docs/architecture.md).
 Built + 102 tests on Linux; checked under Xvfb at VTI_NATIVE_ZOOM=2 and 1.5 (sync, Easy, Filter pages) and with
