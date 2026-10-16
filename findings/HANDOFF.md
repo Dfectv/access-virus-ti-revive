@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.8 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E157), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E159), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-16, after the 0.8.8 release)
@@ -24,6 +24,13 @@ scratchpad (vst3-backup) - the 0.8.8 Linux package can be installed over it. Cov
 FETCHCONTENT_BASE_DIR=build-native/_deps - that broke build-native's pugixml build), run vtitests with HOME = an empty
 folder and XDG_CONFIG_HOME/WINEPREFIX/VTI_ACCESS_DIR unset, gcov over CMakeFiles/vticore.dir, LC_ALL=C.
 
+**Local branch `usb3` (from main after E157, NOT merged/pushed; ctest green on Linux, 88 tests):** the third USB
+output as a feature (C10 confirmed E158, feature tested with the user E159): PATCH UTILITY -> Preferences ->
+"Input and Output Configuration" = "3 Outs / No Input" -> Out 3 = USB 3 (raw channels 0/1); kept per computer in
+<plug-in folder>/usb-io, sent at every start; "-G" (greyed) menu entries disabled; README paragraph; nativehost
+--wav-bus, raw peaks in the stats log. Open: mode 2 ("3 Outs / 1 Input") not measured (Out 3 silent there),
+macOS/Windows/DAW not tested. Candidate for 0.8.9 after a Windows/Ableton check.
+
 **Open, in order of value:**
 1. DONE 2026-10-16: Windows check of 0.8.8 (E155).
 2. DONE 2026-10-16: E154 (3) explained (E157) - in plug-in mode the Virus changes only name + origin of the edit
@@ -38,7 +45,7 @@ folder and XDG_CONFIG_HOME/WINEPREFIX/VTI_ACCESS_DIR unset, gcov over CMakeFiles
    remotedevice.cpp 66 % (synthetic tests for SysEx encode/decode, upgrade_single, automation maps would help).
 6. Readiness probe (E149) vs the original: partly checked (E153) - the original's timer only shows progress; its
    audio/MIDI path from the host is not examined.
-7. Older items unchanged: USB 3 output (C10), reconnect path without note hold, macOS duplicate-track check, two DAWs
+7. Older items unchanged: (USB 3: done on branch `usb3`, E159), reconnect path without note hold, macOS duplicate-track check, two DAWs
    sharing the Virus on Windows, Snow "officially" (record a test report).
 
 **Tools this session (scratchpad only, recreate if needed):** `virusmon` - a read-only broker observer (protocol 4,
