@@ -209,6 +209,16 @@ public:
     // editor support (viruseditor.cpp)
     const AccessFiles &files() const { return *files_; }
     const EditorLayout &layout() const { return layout_; }
+    // the classic oscillator display's waves (E180), read from the binary on the first editor open, not at
+    // initialize (plug-in scans stay fast); UI thread only
+    const std::vector<float> &osc_waves()
+    {
+        if (!osc_waves_read_ && files_) {
+            osc_waves_ = files_->osc_waves();
+            osc_waves_read_ = true;
+        }
+        return osc_waves_;
+    }
     const Conditions &conditions() const { return *cond_; }
     const RemoteDevice &device() const { return dev_; }
     const RemoteDevice &editor_device() const { return ed_; }
@@ -327,6 +337,8 @@ private:
     RemoteDevice dev_, ed_;
     std::unique_ptr<AccessFiles> files_;
     EditorLayout layout_;
+    std::vector<float> osc_waves_;
+    bool osc_waves_read_ = false;
     std::unique_ptr<Conditions> cond_;
     std::mutex values_mu_;
     std::map<int, std::map<std::string, int>> part_values_; // decoded part dumps + controllers, per part (-1 = global)

@@ -58,6 +58,11 @@ public:
     // control then shows the target's value, range and value list like the original (E150)
     std::function<std::string(const std::string &param, int part)> proxy_target;
     std::function<int(int channel)> meter;           // MIDI activity 0..127 per channel (part strip VU meters)
+    // the classic oscillator display's waves from the user's plug-in binary (AccessFiles::osc_waves); empty = sine
+    std::vector<float> osc_waves;
+    // sample i (0..63) of the classic oscillator display like the original (E180): Shape crossfades the WaveSelect
+    // wave into a saw (first half) and the saw into a pulse (second half), clamped to +-1
+    static double osc_classic_value(int shape, int pulsewidth, int wave, const std::vector<float> &waves, int i);
     int part = 0;                                    // the current (panel) part
     int layer = 0;                                   // 0 = everything, 1 = static only, 2 = controls only
     std::vector<const Element *> static_key;          // filled by a layer-1 render: visible conditional statics

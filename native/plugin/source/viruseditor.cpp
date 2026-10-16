@@ -425,6 +425,7 @@ public:
         renderer_.live_text = [this](const std::string &p) { return plugin_->live_text(p); };
         renderer_.proxy_target = [this](const std::string &p, int part) { return plugin_->softknob_target(p, part); };
         renderer_.meter = [this](int ch) { return plugin_->meter(ch); };
+        renderer_.osc_waves = plugin_->osc_waves();
         // device changes (knobs on the Virus, automation) repaint the view
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) {
             plugin_->diag_report();
