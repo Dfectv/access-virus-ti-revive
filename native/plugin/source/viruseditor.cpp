@@ -69,6 +69,42 @@ static bool env_drawtime()
 
 // Canvas on a VSTGUI draw context; bitmaps are created once from the user's PNGs.
 #if SMTG_OS_LINUX
+static cairo_surface_t *ref = nullptr; // a 1x1 surface on a frame's window: create_similar makes pixmaps
+static int open_frames = 0;            // editors with an X11 frame in this process
+
+// VSTGUI closes its X connection when the last frame goes (X11::RunLoop::exit) without cairo_device_finish: cairo
+// keeps that connection's data under its address, and the next editor's new connection often gets the same address
+// - an assertion in cairo-xcb-screen.c (_get_screen_index) aborted the host on reopening the editor (REAPER,
+// 2026-10-16; since 0.8.0). `ref` also belonged to the old connection. Called before the last frame is destroyed.
+static void x11_last_frame_closing()
+{
+    if (ref) {
+        cairo_surface_destroy(ref);
+        ref = nullptr;
+    }
+    auto *conn = X11::RunLoop::instance().getXcbConnection();
+    if (!conn)
+        return;
+    // the device belongs to the connection; a 1x1 surface on the root window gives it without a frame window
+    xcb_screen_t *sc = xcb_setup_roots_iterator(xcb_get_setup(conn)).data;
+    xcb_visualtype_t *vt = nullptr;
+    for (auto d = xcb_screen_allowed_depths_iterator(sc); d.rem && !vt; xcb_depth_next(&d))
+        for (auto v = xcb_depth_visuals_iterator(d.data); v.rem; xcb_visualtype_next(&v))
+            if (v.data->visual_id == sc->root_visual) {
+                vt = v.data;
+                break;
+            }
+    if (!vt)
+        return;
+    cairo_surface_t *s = cairo_xcb_surface_create(conn, sc->root, vt, 1, 1);
+    cairo_device_t *dev = cairo_device_reference(cairo_surface_get_device(s));
+    cairo_surface_destroy(s);
+    if (dev) {
+        cairo_device_finish(dev); // flushes and forgets the connection; its surfaces left over are freed later
+        cairo_device_destroy(dev);
+    }
+}
+
 // an X pixmap copy of `bmp` for drawing into the frame's window (server-side composite, GPU with glamor)
 static SharedPointer<CBitmap> server_bitmap(CFrame *frame, CBitmap *bmp)
 {
@@ -77,7 +113,6 @@ static SharedPointer<CBitmap> server_bitmap(CFrame *frame, CBitmap *bmp)
     auto *cb = dynamic_cast<Cairo::Bitmap *>(bmp->getPlatformBitmap().get());
     if (!cb || !cb->surface || cairo_surface_get_type(cb->surface) != CAIRO_SURFACE_TYPE_IMAGE)
         return nullptr;
-    static cairo_surface_t *ref = nullptr; // a 1x1 surface on the frame's window: create_similar makes pixmaps
     if (!ref) {
         auto *conn = X11::RunLoop::instance().getXcbConnection();
         auto win = (xcb_window_t)(uintptr_t)frame->getPlatformFrame()->getPlatformRepresentation();
@@ -915,7 +950,7 @@ private:
         menu->addEntry(lib, "Personal Libraries");
         lib->forget();
         int part = h.part;
-        menu->popup(getFrame(), where, [this, part, save, banks](COptionMenu *m) {
+        menu->popup(getFrame(), menu_at(where), [this, part, save, banks](COptionMenu *m) {
             int32_t idx = -1;
             COptionMenu *sub = m->getLastItemMenu(idx);
             auto it = banks->find(sub);
@@ -954,7 +989,7 @@ private:
         }
         menu->addEntry(lib, "Personal Libraries");
         std::string param = h.element->get("Parameter");
-        menu->popup(getFrame(), where, [this, param, dev, entries](COptionMenu *m) {
+        menu->popup(getFrame(), menu_at(where), [this, param, dev, entries](COptionMenu *m) {
             int32_t idx = -1;
             COptionMenu *sub = m->getLastItemMenu(idx);
             auto it = entries->find({sub, idx});
@@ -984,7 +1019,7 @@ private:
         menu->setMax((float)std::max(0, menu->getNbEntries() - 1));
         menu->setValue((float)cur);
         menu->checkEntryAlone(cur);
-        menu->popup(getFrame(), where, [this](COptionMenu *m) {
+        menu->popup(getFrame(), menu_at(where), [this](COptionMenu *m) {
             if (m->getLastResult() >= 0)
                 plugin_->ui_set("Repository Actions/Category Filter", -1, m->getLastResult());
             invalid();
@@ -1036,6 +1071,19 @@ private:
         te->takeFocus();
     }
 
+    // VSTGUI's generic menu (X11) converts the position with translateToGlobal, which includes the frame's zoom, and
+    // then places the menu among the frame's unzoomed views: at 200 % every menu opened at twice the click position.
+    // The native menus of Windows and macOS take the position as it is.
+    CPoint menu_at(const CPoint &where) const
+    {
+#if SMTG_OS_LINUX
+        if (auto *f = getFrame())
+            if (double z = f->getZoom(); z > 0 && z != 1)
+                return CPoint(where.x / z, where.y / z);
+#endif
+        return where;
+    }
+
     // a parameter's valuelist as a popup at the click position; the choice sets the parameter
     void popup_menu(const Hit &h, const CPoint &where)
     {
@@ -1059,7 +1107,7 @@ private:
             menu->setCurrent(index);
         int part = h.part;
         CPoint loc(where);
-        menu->popup(getFrame(), loc, [this, param, part, values](COptionMenu *m) {
+        menu->popup(getFrame(), menu_at(loc), [this, param, part, values](COptionMenu *m) {
             int r = m->getLastResult();
             if (r >= 0 && r < (int)values.size()) {
                 plugin_->ui_set(param, part, values[r]);
@@ -1083,7 +1131,7 @@ private:
             if (std::fabs(editor_->user_zoom() - z) < 0.01)
                 item->setChecked(true);
         }
-        menu->popup(getFrame(), where, [this](COptionMenu *m) {
+        menu->popup(getFrame(), menu_at(where), [this](COptionMenu *m) {
             int idx = m->getLastResult();
             if (idx >= 0 && idx < (int)(sizeof sizes / sizeof sizes[0]))
                 editor_->set_user_zoom(sizes[idx]);
@@ -1196,6 +1244,7 @@ bool PLUGIN_API VirusEditor::open(void *parent, const PlatformType &platformType
     if (auto lf = getPlatformFactory().asLinuxFactory())
         cfg.runLoop = lf->getRunLoop();
     frame->open(parent, platformType, cfg.runLoop ? &cfg : nullptr);
+    open_frames++;
     // X11 has no native menus: VSTGUI's generic menu fades in and uses a large dark theme. Like the original's
     // (Windows) menus: no animation, compact rows, light theme.
     if (auto *pf = frame->getPlatformFrame()) {
@@ -1226,6 +1275,10 @@ bool PLUGIN_API VirusEditor::open(void *parent, const PlatformType &platformType
 void PLUGIN_API VirusEditor::close()
 {
     if (frame) {
+#if SMTG_OS_LINUX
+        if (--open_frames == 0)
+            x11_last_frame_closing();
+#endif
         frame->forget();
         frame = nullptr;
     }
