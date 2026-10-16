@@ -1,6 +1,7 @@
 // nativehost - minimal VST3 test host for the native plug-in on Linux/macOS (R3 checks).
 //   nativehost <plugin.vst3> [--state FILE] [--param ID=NORM]... [--save FILE] [--seconds N] [--notes] [--wav FILE] [--scan]
-// --notes plays C4 (channel 1) for the first half of every second, --wav writes Out 1 (16-bit stereo 44.1 kHz).
+// --notes plays C4 (channel 1) for the first half of every second, --wav writes Out 1 (16-bit stereo 44.1 kHz),
+// --wav-bus N the output bus N instead (1..3, e.g. 3 = Out 3 = USB 3).
 // --duplicate T: a second instance runs next to the first from the start (a DAW's duplicated track, issue #6) with
 // the same notes; at T s the first is removed and the second takes over the Virus.
 // --state loads a state (a raw component state, or vtihost's VTISTATE file: the original's state), checks that
@@ -192,6 +193,7 @@ int main(int argc, char **argv)
         return 2;
     }
     const char *state = nullptr, *save = nullptr, *wav = nullptr;
+    int wav_bus = 0; // the output bus that is measured and written (0 = Out 1)
     bool notes = false, editor = false, stress = false, stress_notes = true, stress_params = true, scan = false;
     double stress_stop = 1e9;
     double duplicate = 0; // --duplicate T: remove the first of two instances after T s
@@ -215,6 +217,8 @@ int main(int argc, char **argv)
             save = argv[++i];
         else if (!strcmp(argv[i], "--wav") && i + 1 < argc)
             wav = argv[++i];
+        else if (!strcmp(argv[i], "--wav-bus") && i + 1 < argc)
+            wav_bus = std::max(0, atoi(argv[++i]) - 1);
         else if (!strcmp(argv[i], "--notes"))
             notes = true;
         else if (!strcmp(argv[i], "--stress")) // MIDI load: notes on 16 channels + 32 automated parameters per block
@@ -479,8 +483,8 @@ int main(int argc, char **argv)
                 printf("from the Virus: %u %s = %.3f\n", (unsigned)q->getParameterId(), t, v);
             }
         }
-        if (outd->numOutputs > 0 && outd->outputs[0].numChannels >= 2) {
-            float *l = outd->outputs[0].channelBuffers32[0], *r = outd->outputs[0].channelBuffers32[1];
+        if (outd->numOutputs > wav_bus && outd->outputs[wav_bus].numChannels >= 2) {
+            float *l = outd->outputs[wav_bus].channelBuffers32[0], *r = outd->outputs[wav_bus].channelBuffers32[1];
             for (int i = 0; i < block; i++) {
                 if (!std::isfinite(l[i]) || !std::isfinite(r[i])) {
                     static int bad;

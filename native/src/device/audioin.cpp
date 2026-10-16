@@ -3,9 +3,14 @@
 extern "C" {
 #include "vtiaudioshm.h"
 }
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX // windows.h's min/max macros break std::min / std::max
+#endif
 #include <windows.h>
 #endif
 #ifdef _MSC_VER
@@ -217,26 +222,51 @@ bool AudioIn::streaming() const { return shm_ && shm_->streaming; }
 
 int64_t AudioIn::newest_frame() const { return streaming() ? load_acquire(&shm_->in_frames) : -1; }
 
-void AudioIn::read_at(float *l1, float *r1, float *l2, float *r2, int n, int64_t pos)
+bool AudioIn::raw_peaks(int frames, int peak[6]) const
+{
+    for (int c = 0; c < 6; c++)
+        peak[c] = 0;
+    int64_t newest = newest_frame();
+    if (newest < 0)
+        return false;
+    frames = std::min<int64_t>(frames, std::min<int64_t>(newest, VTI_AUDIO_RING - 1024));
+    for (int64_t f = newest - frames; f < newest; f++) {
+        const int16_t *fr = shm_->in + (f & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_IN_CH;
+        for (int c = 0; c < 6 && c < VTI_AUDIO_IN_CH; c++)
+            peak[c] = std::max(peak[c], std::abs((int)fr[c]));
+    }
+    return true;
+}
+
+void AudioIn::read_at(float *l1, float *r1, float *l2, float *r2, int n, int64_t pos, float *l3, float *r3)
 {
     int64_t newest = streaming() ? load_acquire(&shm_->in_frames) : -1;
     const float k = 1.0f / 32768.0f;
+    const bool third = l3 && r3;
     for (int i = 0; i < n; i++) {
         int64_t f = pos + i;
         if (newest < 0 || f >= newest || f < newest - VTI_AUDIO_RING + 1024) {
             l1[i] = r1[i] = l2[i] = r2[i] = 0;
+            if (third)
+                l3[i] = r3[i] = 0;
             continue;
         }
         const int16_t *fr = shm_->in + (f & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_IN_CH;
         l1[i] = fr[2] * k, r1[i] = fr[3] * k, l2[i] = fr[4] * k, r2[i] = fr[5] * k;
+        if (third)
+            l3[i] = fr[0] * k, r3[i] = fr[1] * k;
     }
 }
 
-void AudioIn::read(float *l1, float *r1, float *l2, float *r2, int n, int latency)
+void AudioIn::read(float *l1, float *r1, float *l2, float *r2, int n, int latency, float *l3, float *r3)
 {
+    const bool third = l3 && r3;
     auto silence = [&](int from) {
-        for (int i = from; i < n; i++)
+        for (int i = from; i < n; i++) {
             l1[i] = r1[i] = l2[i] = r2[i] = 0;
+            if (third)
+                l3[i] = r3[i] = 0;
+        }
     };
     if (!streaming()) {
         silence(0);
@@ -263,6 +293,8 @@ void AudioIn::read(float *l1, float *r1, float *l2, float *r2, int n, int latenc
         int64_t f = pos_ + i - (step_back && i > 0 ? 1 : 0);
         const int16_t *fr = in + (f & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_IN_CH;
         l1[i] = fr[2] * k, r1[i] = fr[3] * k, l2[i] = fr[4] * k, r2[i] = fr[5] * k;
+        if (third)
+            l3[i] = fr[0] * k, r3[i] = fr[1] * k;
     }
     pos_ += n - step_back;
 }

@@ -49,7 +49,8 @@ std::string EditorRenderer::value_text(const std::string &param, int v) const
         auto vl = d->valuelists.find(p->valuelist);
         if (vl != d->valuelists.end()) // an existing entry wins, even with empty text (live displays stay blank)
             if (const Valuelist::Entry *en = vl->second.find(v))
-                return en->text;
+                // "-G" marks an entry the original shows greyed in its menus ("-GUSB3 L+R"): the text without it
+                return en->text.rfind("-G", 0) == 0 ? en->text.substr(2) : en->text;
     }
     return std::to_string(v);
 }

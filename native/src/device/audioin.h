@@ -17,12 +17,19 @@ public:
     void close();
     bool streaming() const;
     // n frames into usb1 (L, R) and usb2 (L, R); missing data -> silence. `latency` = target distance in frames.
-    void read(float *usb1l, float *usb1r, float *usb2l, float *usb2r, int n, int latency);
+    // usb3l/usb3r (optional): raw channels 0/1, the third USB output while the Virus' USB IO configuration is
+    // "3 Outs / No Input" (E158; otherwise its analog inputs)
+    void read(float *usb1l, float *usb1r, float *usb2l, float *usb2r, int n, int latency, float *usb3l = nullptr,
+              float *usb3r = nullptr);
     int64_t drops() const { return drops_; }
     int64_t position() const { return pos_; } // next frame read() delivers (-1 before the first read)
     // n frames from the absolute ring frame `pos` (silence where not available)
-    void read_at(float *usb1l, float *usb1r, float *usb2l, float *usb2r, int n, int64_t pos);
+    void read_at(float *usb1l, float *usb1r, float *usb2l, float *usb2r, int n, int64_t pos, float *usb3l = nullptr,
+                 float *usb3r = nullptr);
     int64_t newest_frame() const; // synth frames produced so far (-1 if not streaming)
+    // the highest absolute sample per raw channel (VTI_AUDIO_IN_CH, device order) over the newest `frames` frames:
+    // diagnostics (which channels carry sound, e.g. the third USB output); false if not streaming
+    bool raw_peaks(int frames, int peak[6]) const;
     // all 6 input channels (0/1 analog inputs, 2/3 USB 1, 4/5 USB 2) of n frames from ring frame `pos` as int16, frame
     // interleaved (6 per frame); frames not there (yet) are silence. For the ASIO driver.
     void read_raw_at(int16_t *dst, int n, int64_t pos) const;

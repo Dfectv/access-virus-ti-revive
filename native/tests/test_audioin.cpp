@@ -2,6 +2,7 @@
 // check, stamp-aligned reads, drift correction and re-anchoring, raw reads for the ASIO driver, the output ring.
 // Linux only (macOS reads Core Audio, Windows a named mapping).
 #include "check.h"
+#include <algorithm>
 #include "device/audioin.h"
 #ifdef __linux__
 #include "../../src/broker/vtiaudioshm.h"
@@ -90,6 +91,32 @@ TEST(audioin_read_at_maps_usb1_usb2)
     CHECK(raw[2 * VTI_AUDIO_IN_CH] == 0);
     a.read_raw_at(raw, 1, -5);
     CHECK(raw[0] == 0);
+}
+
+TEST(audioin_usb3_and_peaks)
+{
+    Ring r;
+    AudioIn a;
+    CHECK(r.shm && a.open(r.name.c_str()));
+    int pk[6];
+    CHECK(!a.raw_peaks(100, pk) && pk[0] == 0); // not streaming yet
+    r.produce(6000);
+    float l1[8], r1[8], l2[8], r2[8], l3[8], r3[8];
+    // USB 3 ("3 Outs / No Input", E158) = ring channels 0/1, only when asked for
+    a.read_at(l1, r1, l2, r2, 8, 5996, l3, r3);
+    CHECK(l3[0] == Ring::sample(5996, 0) * K && r3[3] == Ring::sample(5999, 1) * K);
+    CHECK(l3[4] == 0 && r3[7] == 0); // the future is silence on USB 3 too
+    CHECK(l1[0] == Ring::sample(5996, 2) * K);
+    a.read(l1, r1, l2, r2, 8, 1024, l3, r3);
+    CHECK(l3[0] == Ring::sample(6000 - 1024, 0) * K && r3[7] == Ring::sample(6000 - 1024 + 7, 1) * K);
+    a.read(l1, r1, l2, r2, 8, 1024); // without USB 3 as before
+    CHECK(l1[0] == Ring::sample(6000 - 1024 + 8, 2) * K);
+    // peaks per raw channel over the newest frames
+    CHECK(a.raw_peaks(10, pk));
+    int want = 0;
+    for (int64_t f = 5990; f < 6000; f++)
+        want = std::max(want, (int)Ring::sample(f, 5));
+    CHECK(pk[5] == want && pk[0] > 0);
 }
 
 TEST(audioin_read_follows_the_synth_clock)

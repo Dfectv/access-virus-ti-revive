@@ -899,7 +899,10 @@ private:
         for (auto &[v, t] : renderer_.menu_entries(param)) { // the list's order (mapped lists: index, not value)
             if (v == current)
                 index = (int)values.size();
-            menu->addEntry(t.c_str());
+            // "-G": the original's marker for an entry shown greyed (e.g. "-GUSB3 L+R" while the third USB output is
+            // off, E158) - disabled here, without the marker
+            const bool grey = t.rfind("-G", 0) == 0;
+            menu->addEntry(grey ? t.substr(2).c_str() : t.c_str(), -1, grey ? CMenuItem::kDisabled : CMenuItem::kNoFlags);
             values.push_back(v);
         }
         if (index >= 0)
