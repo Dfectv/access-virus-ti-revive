@@ -442,7 +442,7 @@ measurements: [`findings/design-linux.md`](findings/design-linux.md), evidence E
 | Timing: sample-accurate, latency reported to the DAW, any sample rate | done: 0.01-0.02 ms jitter, 0 ppm drift (E139-E143) |
 | ASIO sound card "TI Revive Virus Audio" (Windows, 6 in / 2 out, no Access driver) | done: clean on a real PC |
 | Installers: Access software only unpacked (Windows/Linux), clean-up of earlier versions | done |
-| Virus TI Snow | open (Snow owners: 0.7.4) |
+| Virus TI Snow | works per first user reports (macOS, 0.8.3+); not tested by us |
 | Audio Unit (AUv2) of the native plug-in, with the classic Audio Unit's codes (its Logic / GarageBand projects open) | done: passes `auval`, tested in GarageBand |
 | Control Center app + command line `tirevive-cc` (device info, backup, library export; read-only) | done: CLI tested on macOS (M3), app on Linux, both with a TI2 |
 | Control Center: restore into RAM | open (flash functions and OS update: never) |
