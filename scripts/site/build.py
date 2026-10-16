@@ -457,6 +457,7 @@ def page_landing(latest, releases, sums):
     <figure class="shot">
       <img src="plugin-filter.png" width="1280" height="724"
       alt="TI Revive Virus Control, the plug-in's filter page, drawn from the user's own Access files">
+      <figcaption>TI Revive is not affiliated with Access Music or Kemper and contains no Access files.</figcaption>
     </figure>
   </div>
 </section>
