@@ -255,6 +255,14 @@ void DeviceOut::scan_audio()
 // its return let the plug-in send the start-up messages and its state again; the audio start retries (worker thread)
 void DeviceOut::check_presence()
 {
+    // another program's plug-in has the Virus (broker state 2) / gave it up: the same page as a second instance
+    if (bool elsewhere = broker_.in_use_elsewhere(); elsewhere != elsewhere_seen_) {
+        elsewhere_seen_ = elsewhere;
+        log(elsewhere ? "Virus TI native: another program's plug-in uses the Virus - waiting\n"
+                      : "Virus TI native: the other program gave up the Virus\n");
+        if (on_waiting_ && !wait_reported_)
+            on_waiting_(elsewhere);
+    }
     if (int present = broker_.device_present() ? 1 : 0; present != present_seen_) {
         bool was = present_seen_ == 1;
         present_seen_ = present;
@@ -594,7 +602,7 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
         if (ui_state_set("SystemStatus/Error", waiting ? 2 : 0))
             ui_dirty_ = true;
         if (waiting)
-            set_lcd("Virus in use", "by another instance", std::string(), std::string());
+            set_lcd("Virus in use", "by another plug-in", std::string(), std::string());
         else
             set_lcd("Virus connected", std::string(), std::string(), std::string());
     });

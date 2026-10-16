@@ -150,7 +150,7 @@ static void send_states(int dev_open) // g_cs_clients held
 {
     for (int i = 0; i < MAX_CLIENTS; i++)
         if (g_clients[i] && !g_clients[i]->observer) {
-            uint32_t st = dev_open && g_clients[i] == g_owner;
+            uint32_t st = !dev_open ? 0 : g_clients[i] == g_owner ? 1 : 2; // 2: another program has it (wait)
             send_msg(g_clients[i], VTIMSG_STATE, &st, 4, NULL, 0);
         }
 }
@@ -863,7 +863,7 @@ static void *client_thread(void *arg)
     pthread_mutex_lock(&g_cs_clients);
     if (!g_owner)
         g_owner = c;
-    uint32_t st = g_dev != NULL && c == g_owner;
+    uint32_t st = g_dev == NULL ? 0 : c == g_owner ? 1 : 2;
     blog("client connected%s", c == g_owner ? " (owner)" : " (waiting: another program uses the Virus)");
     pthread_mutex_unlock(&g_cs_clients);
     pthread_mutex_unlock(&g_cs_dev);

@@ -68,7 +68,8 @@ public:
     void on_device(std::function<void(bool present)> h) { device_ = std::move(h); }
     // another instance in this process owns the Virus: this one waits (true), or takes over after the wait (false)
     void on_waiting(std::function<void(bool waiting)> h) { on_waiting_ = std::move(h); }
-    bool waiting() const { return wait_reported_.load(); }
+    // another instance has the Virus: in this process (claim_owner) or another program's plug-in (broker state 2)
+    bool waiting() const { return wait_reported_.load() || broker_.in_use_elsewhere(); }
     std::atomic<int> generation{0}; // +1 on every return of the Virus (process() re-anchors its timeline)
     bool connected() const { return broker_.device_present(); }
     AudioIn &audio() { return audio_; } // read from process(); valid once audio_ready()
@@ -141,6 +142,7 @@ private:
     std::atomic<int> pings_out_{0}; // pings sent whose marker has not been seen yet
     int64_t marker_skip_ = -1;      // worker: frames up to here belong to the last marker
     int64_t scanned_ = -1; // ring frames up to here were looked at
+    bool elsewhere_seen_ = false; // worker: broker state 2 seen (another program's plug-in has the Virus)
     struct Queued {
         std::vector<uint8_t> msg;
         bool state; // part of a state upload (send_state)

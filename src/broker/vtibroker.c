@@ -51,7 +51,7 @@ static client *g_clients[MAX_CLIENTS];
 
 // Plug-in instances of different programs (two DAWs) must not share the Virus: each sends its own sync ping and resets
 // the Virus' only stamp clock (E148). Like the POSIX broker, the first "TI Revive Virus Control" owns it, the others
-// are told "no Virus" (and get no RX) until it leaves. The ASIO driver and the Control Center share it as before.
+// are told "another program has it" (state 2, no RX, no writes) until it leaves. The ASIO driver and the Control Center share it as before.
 #define PLUGIN_NAME_TEXT "TI Revive Virus Control"
 static const char *const PLUGIN_NAME = PLUGIN_NAME_TEXT;
 static client *g_plugin_owner; // g_cs_clients
@@ -327,10 +327,10 @@ static void broadcast(uint16_t type, const void *a, int alen, const void *b, int
         client *c = g_clients[i];
         if (!c || c->observer)
             continue;
-        if (plugin_waits(c)) { // a waiting plug-in: "no Virus", no traffic
+        if (plugin_waits(c)) { // a waiting plug-in: "another program has it" (2) while the Virus is open, no traffic
             if (type == VTIMSG_STATE) {
-                uint32_t none = 0;
-                send_msg(c, type, &none, 4, NULL, 0);
+                uint32_t st = alen >= 4 && *(const uint32_t *)a ? 2 : 0;
+                send_msg(c, type, &st, 4, NULL, 0);
             }
             continue;
         }
@@ -495,15 +495,15 @@ static DWORD WINAPI device_thread(LPVOID unused)
     return 0;
 }
 
-// the device state for one client (0 for a waiting plug-in)
+// the device state for one client (2 for a waiting plug-in while the Virus is open)
 static void send_state(client *c)
 {
     EnterCriticalSection(&g_cs_dev);
     uint32_t st = g_dev != NULL;
     LeaveCriticalSection(&g_cs_dev);
     EnterCriticalSection(&g_cs_clients);
-    if (plugin_waits(c))
-        st = 0;
+    if (st && plugin_waits(c))
+        st = 2;
     LeaveCriticalSection(&g_cs_clients);
     send_msg(c, VTIMSG_STATE, &st, 4, NULL, 0);
 }
