@@ -1164,9 +1164,10 @@ void VirusPlugin::send_sidechain(ProcessData &data)
         sc_expect_ = -1;
         return;
     }
-    // the Sidechain bus: at its declared place, or among the active buses only (hosts that pass only those)
+    // the Sidechain bus: at its declared place, or among the active buses only (hosts that pass only those); a host
+    // that activates only the main input (Ableton) delivers the sidechain there
     const float *l = nullptr, *r = nullptr;
-    const int bus = sidechain_bus_index(2, in_active_, data.numInputs, 1);
+    const int bus = sidechain_source_bus(in_active_, data.numInputs); // Ableton: the main input (E172)
     const int ch = bus >= 0 && data.inputs[bus].channelBuffers32 ? data.inputs[bus].numChannels : 0;
     if (ch >= 1) {
         l = data.inputs[bus].channelBuffers32[0];

@@ -112,6 +112,13 @@ int sidechain_bus_index(int declared, const bool *active, int passed, int aux)
     return idx < passed ? idx : -1;
 }
 
+int sidechain_source_bus(const bool active[2], int passed)
+{
+    if (!active[1] && active[0])
+        return sidechain_bus_index(2, active, passed, 0);
+    return sidechain_bus_index(2, active, passed, 1);
+}
+
 float sidechain_peak(const float *l, const float *r, int n)
 {
     float p = 0;

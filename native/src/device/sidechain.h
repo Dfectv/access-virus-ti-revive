@@ -49,6 +49,11 @@ private:
 // active ones (some instrument hosts) has it after the active buses declared before it. -1: not passed.
 int sidechain_bus_index(int declared, const bool *active, int passed, int aux);
 
+// The bus the sidechain comes in on, for the plug-in's two input buses (0 = "Dummy In" main, 1 = "Sidechain" aux):
+// the Sidechain bus if the host activated it (REAPER); the main input if the host activated only that (Ableton Live
+// delivers an instrument's sidechain there, E172). Indices as passed to process() (see sidechain_bus_index).
+int sidechain_source_bus(const bool active[2], int passed);
+
 // the highest absolute sample of l and r (either may be null) over n frames: the log's sidechain input level
 float sidechain_peak(const float *l, const float *r, int n);
 
