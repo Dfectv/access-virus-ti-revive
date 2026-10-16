@@ -450,8 +450,9 @@ def page_landing(latest, releases, sums):
     <p class="actions"><a class="button" href="#download">Download {v}</a>
     <a class="second" href="#news">What's new</a></p>
     <p class="facts-line">Free &middot; open source &middot; VST3 and Audio Unit &middot; released {when}</p>
-    <p class="thanks">&#9749; <strong>Free, and it will stay free.</strong> If TI Revive gives your Virus a second life
-    and you'd like to say thanks, you can <a href="https://buymeacoffee.com/callmederpsn">buy me a coffee</a> -
+    <p class="thanks">&#9749; <strong>Free, and it will stay free.</strong> Every change is tested on the real synth
+    on Windows, macOS and Linux, often back and forth between the three, and that takes a lot of evenings. If TI Revive
+    gives your Virus a second life and you'd like to say thanks, you can <a href="https://buymeacoffee.com/callmederpsn">buy me a coffee</a> -
     entirely optional, every feature works the same either way. A test report or a kind word helps just as much.</p>
     </div>
     <figure class="shot">
