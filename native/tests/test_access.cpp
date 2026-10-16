@@ -1,6 +1,7 @@
 // tests on the user's own Access files (skipped without them, e.g. in CI): every parameter's MIDI encoding, the
 // dump fast path on the real single dump, init patch/upgrader, automation map, editor layout and renderer
 #include "access/accessfiles.h"
+#include "access/firmware.h"
 #include "access/library.h"
 #include "check.h"
 #include "editor/editorrender.h"
@@ -190,6 +191,131 @@ TEST(access_editor_render_deps_and_clip)
     for (auto &kv : deps.rects)
         for (auto &rc : kv.second)
             CHECK(rc[2] > 0 && rc[3] > 0);
+}
+
+// every page of the original's editor (pages, sections, part strips), with images of a fixed size so the drawing
+// code that depends on image sizes (knob frames, sliders, fonts) runs too; hit tests over the whole frame
+struct ImageCanvas : RecordCanvas {
+    int img = 0;
+    void *image(const std::string &) override { return &img; }
+    int image_width(void *) override { return 64; }
+    int image_height(void *) override { return 64 * 32; }
+};
+
+TEST(access_editor_render_every_page)
+{
+    AccessFiles *a = files();
+    static RemoteDevice ed;
+    std::string err;
+    CHECK(ed.load(a->get("editordevice.xml"), err));
+    EditorLayout layout;
+    CHECK(layout.load(a->get("editor.xml"), err));
+    Conditions cond(dev(), ed);
+    EditorRenderer r(layout, cond, dev(), ed);
+    int page = 0, section = 0;
+    r.values = [&](const std::string &p, int part) {
+        if (p == "VirusControl/SelectedPage")
+            return page;
+        if (p == "VirusControl/Selected Section")
+            return section;
+        if (p == "VirusControl/InitialSyncProgress")
+            return 127;
+        const Parameter *q = cond.find(p);
+        return q ? (part % 2 ? q->max : q->def) : 0; // odd parts at the maximum: other branches of the displays
+    };
+    r.patch_name = [](int part) { return "Part " + std::to_string(part + 1); };
+    r.bank_patch = [](int bank, int prog) { return "B" + std::to_string(bank) + " P" + std::to_string(prog); };
+    r.browser_match = [](int, int prog) { return prog % 3 != 0; };
+    r.live_text = [](const std::string &p) { return p.find("Display") != std::string::npos ? std::string("LCD") : std::string(); };
+    r.meter = [](int ch) { return ch * 8; };
+    r.selected[0] = 5;
+    const Parameter *pages = cond.find("VirusControl/SelectedPage");
+    const Parameter *sections = cond.find("VirusControl/Selected Section");
+    int last_page = pages ? pages->max : 10, last_section = sections ? sections->max : 0;
+    int hits = 0, renders = 0;
+    for (section = 0; section <= last_section; section++)
+        for (page = 0; page <= last_page; page++) {
+            EditorRenderer::Deps deps;
+            r.deps = &deps;
+            for (r.layer = 0; r.layer <= 2; r.layer++) {
+                ImageCanvas c;
+                r.render(c);
+                CHECK_EQ(c.depth, 0);
+                renders++;
+            }
+            r.layer = 0;
+            r.deps = nullptr;
+            CHECK(!deps.cond.empty());
+            for (int y = 0; y < layout.height; y += 9)
+                for (int x = 0; x < layout.width; x += 9) {
+                    Hit h = r.hit_test(x, y);
+                    if (!h.element)
+                        continue;
+                    hits++;
+                    const std::string &param = h.element->get("Parameter");
+                    r.param_active(param, h.part);
+                    CHECK(!r.param_rects(param).empty());
+                    r.menu_entries(param);
+                    r.value_text(param, 1);
+                    if (h.element->type == "PatchBrowser")
+                        EditorRenderer::browser_entry(h, x, y);
+                }
+        }
+    CHECK(renders > 10);
+    CHECK(hits > 100);
+    // a partial repaint (clip) and the bitmap font helper
+    r.clip_x0 = 100, r.clip_y0 = 100, r.clip_x1 = 300, r.clip_y1 = 300;
+    ImageCanvas c;
+    r.render(c);
+    r.status_text(c, "", "Synchronizing", 0, 0, 200, 20);
+    CHECK(r.static_signature().size() < 100000);
+}
+
+TEST(access_rom_banks_every_model)
+{
+    // read-only: firmware.bin of the user's installation is parsed, nothing goes to the Virus
+    AccessFiles *a = files();
+    const std::string fw = firmware_path(a->source());
+    std::string err;
+    for (VirusModel m : {VirusModel::TI, VirusModel::TI2, VirusModel::Snow}) {
+        auto banks = load_rom_banks(fw, m, err);
+        if (banks.empty())
+            SKIP("no firmware.bin next to Virus Control (" + err + ")");
+        bool ok = true, names = true;
+        for (size_t b = 0; b < banks.size(); b++)
+            for (auto &d : banks[b]) {
+                ok = ok && d.size() == 524 && d[0] == 0xF0 && d[6] == 0x10 && d[523] == 0xF7;
+                names = names && d.size() == 524 && d[249] >= 0x20; // a printable first character of the name
+            }
+        CHECK(banks.size() >= 2);
+        CHECK(banks[0].size() == 128);
+        CHECK(ok);
+        CHECK(names);
+    }
+}
+
+TEST(rom_banks_bad_files)
+{
+    // no Access files needed: a missing file and files that are no firmware package
+    namespace fs = std::filesystem;
+    std::string err;
+    CHECK(load_rom_banks("/nonexistent/firmware.bin", VirusModel::TI2, err).empty() && !err.empty());
+    fs::path dir = fs::temp_directory_path() / ("vtitests-fw-" + std::to_string(::time(nullptr)));
+    fs::create_directories(dir);
+    auto write = [&](const char *name, const Bytes &b) {
+        std::string path = (dir / name).string();
+        FILE *f = fopen(path.c_str(), "wb");
+        fwrite(b.data(), 1, b.size(), f);
+        fclose(f);
+        return path;
+    };
+    err.clear();
+    CHECK(load_rom_banks(write("junk.bin", Bytes(100, 0x55)), VirusModel::TI, err).empty() && !err.empty());
+    err.clear();
+    Bytes form = {'F', 'O', 'R', 'M', 0, 0, 0, 4, 'X', 'X', 'X', 'X'}; // a FORM without TABL
+    CHECK(load_rom_banks(write("form.bin", form), VirusModel::Snow, err).empty() && !err.empty());
+    CHECK(firmware_path("").size() < 4096);
+    fs::remove_all(dir);
 }
 
 TEST(library_save_load_round_trip)

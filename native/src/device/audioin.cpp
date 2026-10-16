@@ -126,12 +126,13 @@ static OSStatus io_proc(AudioObjectID, const AudioTimeStamp *, const AudioBuffer
 }
 #endif
 
-bool AudioIn::open()
+bool AudioIn::open(const char *linux_name)
 {
+    (void)linux_name; // Linux only
 #ifdef __linux__
     char name[64];
     snprintf(name, sizeof name, VTI_AUDIO_SHM_LINUX, (unsigned)getuid());
-    int fd = shm_open(name, O_RDWR, 0);
+    int fd = shm_open(linux_name ? linux_name : name, O_RDWR, 0);
     if (fd < 0)
         return false;
     void *p = mmap(nullptr, sizeof(vti_audio_shm), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
