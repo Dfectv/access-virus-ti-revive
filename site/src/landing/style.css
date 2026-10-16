@@ -55,8 +55,12 @@ h1 { font-size: clamp(2.3rem, 4.2vw, 4rem); line-height: 1.12; font-weight: 600;
   text-decoration: none; font-weight: 600; padding: 0.85rem 1.3rem; border-radius: 8px; }
 .button:hover { color: var(--accent-text); filter: brightness(1.08); text-decoration: none; }
 .button small { font-size: 0.82rem; font-weight: 400; opacity: 0.85; }
-.quiet { color: var(--soft); font-weight: 400; }
-.quiet:hover { color: var(--text); text-decoration: none; }
+.second { display: inline-flex; padding: 0.8rem 1.2rem; border: 1px solid var(--line); border-radius: 8px;
+  color: var(--text); font-weight: 600; }
+.second:hover { border-color: var(--soft); text-decoration: none; }
+/* menu paths (PATCH UTILITY > Preferences): a light separator instead of arrows */
+.sep { color: var(--soft); font-weight: 400; padding: 0 0.1em; }
+.small { font-size: 0.85rem; color: var(--soft); }
 .facts-line { margin: 1.4rem 0 0; font-size: 0.88rem; color: var(--soft); }
 
 /* the README's coffee note, word for word */
@@ -149,6 +153,34 @@ h2 { font-size: clamp(1.5rem, 2.8vw, 1.9rem); line-height: 1.2; font-weight: 600
 .about h3 { margin: 0 0 0.5rem; font-size: 1rem; }
 .about p { margin: 0; color: var(--soft); font-size: 0.93rem; }
 
+/* support */
+.support { max-width: 46rem; margin-top: 3rem; padding: 1.6rem 1.8rem; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; }
+.support h3 { margin: 0 0 0.5rem; font-size: 1.15rem; }
+.support > p { color: var(--soft); font-size: 0.94rem; margin: 0 0 1rem; }
+.support ol { padding-left: 1.2rem; margin: 0 0 1rem; font-size: 0.94rem; }
+.support li + li { margin-top: 0.8rem; }
+.support .small { margin: 0; }
+
+/* features page: per row the text left, its table / list / screenshot right */
+h1.page { font-size: clamp(2rem, 3.6vw, 3rem); margin: 0 0 0.8rem; }
+.feature { display: grid; grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.2fr); gap: clamp(1.5rem, 4vw, 4rem);
+  padding: 2.6rem 0; border-top: 1px solid var(--line); align-items: start; }
+.feature h2 { font-size: 1.35rem; margin: 0 0 0.6rem; }
+.feature > div > p { margin: 0; color: var(--soft); font-size: 0.95rem; }
+.feature ul { margin: 0; padding-left: 1.1rem; }
+.feature li + li { margin-top: 0.55rem; }
+.feature .shot { margin: 0; }
+.feature .shot img { max-width: 860px; }
+.data { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.data th, .data td { text-align: left; padding: 0.65rem 1rem 0.65rem 0; border-top: 1px solid var(--line);
+  vertical-align: top; }
+.data thead th { border-top: 0; color: var(--soft); font-weight: 600; }
+.data tbody th { font-weight: 600; }
+.data td { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.data .old th, .data .old td { color: var(--soft); font-weight: 400; white-space: normal; }
+.feature .small { margin: 0.8rem 0 0; }
+
 /* changelog page */
 .log { padding: 4rem 0; }
 .log .rel { grid-template-columns: 9rem 1fr; }
@@ -164,14 +196,16 @@ footer p { margin: 0 0 0.6rem; max-width: 48rem; }
   .os .req { min-height: 0; }
   .hero { padding: 3rem 0 3rem; }
   .shot { margin-top: 2.5rem; }
-  .oses, .steps, .about { grid-template-columns: 1fr; }
+  .oses, .steps, .about, .feature { grid-template-columns: 1fr; }
   .needs, .notes { grid-template-columns: 1fr; }
 }
 @media (max-width: 600px) {
   .bar nav { gap: 0.9rem; font-size: 0.85rem; }
   .needs div { grid-template-columns: 1fr; gap: 0.2rem; }
   .rel, .log .rel { grid-template-columns: 1fr; gap: 0.6rem; }
-  .matrix { font-size: 0.82rem; }
+  .matrix, .data { font-size: 0.82rem; }
+  .data td { white-space: normal; }
+  .support { padding: 1.2rem; }
   .matrix th, .matrix td { padding-right: 0.5rem; }
   section.block { padding: 3.2rem 0; }
 }

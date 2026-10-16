@@ -419,13 +419,13 @@ def page_landing(latest, releases, sums):
     win = os_card("Windows", "Windows 11 x64, also Windows 10", asset(latest, "-setup.exe"), asset(latest, ".msi"),
                   sums, ["Put the setup file next to your Access &ldquo;Virus TI Software Suite&rdquo; 64-bit "
                          "<code>.msi</code>.",
-                         "Run it. It is not code-signed: <em>More info &rarr; Run anyway</em>. Your Access installer "
+                         "Run it. It is not code-signed: <em>More info <span class='sep'>&rsaquo;</span> Run anyway</em>. Your Access installer "
                          "is only unpacked, not installed.",
                          "Connect the Virus, rescan plug-ins in your DAW and load <strong>TI Revive Virus "
                          "Control</strong>. The ASIO device <strong>TI Revive Virus Audio</strong> makes the Virus a "
                          "sound card."])
     mac = os_card("macOS", "macOS 14.4 or newer, Apple Silicon and Intel", asset(latest, "-mac.zip"), None, sums,
-                  ["Unpack the zip and open <code>TI Revive.pkg</code> (not signed: right-click &rarr; "
+                  ["Unpack the zip and open <code>TI Revive.pkg</code> (not signed: right-click <span class='sep'>&rsaquo;</span> "
                    "<em>Open</em>).",
                    "Put your Access <code>.pkg</code> next to <code>Set up Access Virus TI files.command</code> and "
                    "run it. It also parks old drivers that would block the Virus.",
@@ -448,7 +448,7 @@ def page_landing(latest, releases, sums):
     the old drivers.</strong> Its plug-in looks and works like the original Virus Control: every parameter, the preset
     browser, automation, and the synth's audio over the same USB cable.</p>
     <p class="actions"><a class="button" href="#download">Download {v}</a>
-    <a class="quiet" href="#news">What's new &rarr;</a></p>
+    <a class="second" href="#news">What's new</a></p>
     <p class="facts-line">Free &middot; open source &middot; VST3 and Audio Unit &middot; released {when}</p>
     <p class="thanks">&#9749; <strong>Free, and it will stay free.</strong> If TI Revive gives your Virus a second life
     and you'd like to say thanks, you can <a href="https://buymeacoffee.com/callmederpsn">buy me a coffee</a> -
@@ -474,7 +474,7 @@ def page_landing(latest, releases, sums):
     <div class="needs">
       <div><b>Synth</b><span>Virus TI and TI2: Desktop, Polar, Keyboard, and the TI Snow</span></div>
       <div><b>DAW</b><span>Any VST3 host; Audio Unit for Logic and GarageBand</span></div>
-      <div><b>Outputs</b><span>USB 1 and 2, USB 3 if you switch it on in PATCH UTILITY &rarr; Preferences</span></div>
+      <div><b>Outputs</b><span>USB 1 and 2, USB 3 if you switch it on in PATCH UTILITY <span class='sep'>&rsaquo;</span> Preferences</span></div>
       <div><b>Not included</b><span>Firmware or OS updates for the Virus, or anything else that writes its flash.
       On purpose.</span></div>
     </div>
@@ -485,7 +485,7 @@ def page_landing(latest, releases, sums):
   <div class="wrap">
     <h2>Three steps, then it stays out of the way</h2>
     <p class="intro">The plug-in talks to the Virus directly over USB, so there is no MIDI port to set up and no
-    driver of Access' left on your system.</p>
+    driver of Access' left on your system. <a href="features.html">All features and measurements</a></p>
     <div class="steps">
       <div><h3>Install TI Revive</h3><p>One installer per system. It sets up the USB access and puts the plug-in where
       your DAW looks for it.</p></div>
@@ -534,15 +534,15 @@ def page_landing(latest, releases, sums):
     <h2>Recent releases</h2>
     <div class="news">{"".join(news)}
     </div>
-    <p class="more"><a href="changelog.html">Every version &rarr;</a>
+    <p class="more"><a href="changelog.html">Every version</a>
     <a href="{GH}/releases.atom">Release feed (Atom)</a>
-    <a href="{GH}">On GitHub: <em>Watch &rarr; Custom &rarr; Releases</em></a></p>
+    <a href="{GH}">On GitHub: <em>Watch <span class='sep'>&rsaquo;</span> Custom <span class='sep'>&rsaquo;</span> Releases</em></a></p>
   </div>
 </section>
 
 <section class="block" id="help">
   <div class="wrap">
-    <h2>Common questions</h2>
+    <h2>Help and support</h2>
     <div class="faq">
       <details><summary>&ldquo;Virus TI not connected&rdquo;</summary>
       <p>Only one driver can use the Virus' USB interfaces. Old Access drivers, or third-party ones like the driver of
@@ -553,19 +553,35 @@ def page_landing(latest, releases, sums):
       &ldquo;USB 1&rdquo; in the plug-in to send the setting again. On macOS also check that your DAW may use the
       microphone.</p></details>
       <details><summary>Three separate outputs (USB 3)</summary>
-      <p>PATCH UTILITY &rarr; Preferences &rarr; &ldquo;Input and Output Configuration&rdquo; = &ldquo;3 Outs / No
+      <p>PATCH UTILITY <span class='sep'>&rsaquo;</span> Preferences <span class='sep'>&rsaquo;</span> &ldquo;Input and Output Configuration&rdquo; = &ldquo;3 Outs / No
       Input&rdquo;. Then a part's output can be &ldquo;USB3 L+R&rdquo; and its sound comes out of the plug-in's Out 3.
       In Ableton: an audio track with <em>Audio From</em> = the Virus track, <em>Out 3</em>, <em>Monitor In</em>.</p>
       </details>
       <details><summary>The first notes after Play are late</summary>
       <p>The plug-in sends notes slightly ahead to make up for the USB round trip, so start playback a little before
       the first note. The original driver did the same.</p></details>
-      <details><summary>Logs for a bug report</summary>
-      <p>Create an empty file <code>diag.on</code> in the plug-in's folder, reproduce the problem and attach
-      <code>diag.log</code> from the same folder to an <a href="{GH}/issues">issue</a>:</p>
-      <div class="paths"><b>Windows</b><code>%LOCALAPPDATA%\\virus-ti-native</code>
-      <b>macOS</b><code>~/Library/Application Support/virus-ti-native</code>
-      <b>Linux</b><code>~/.local/share/virus-ti-native</code></div></details>
+    </div>
+    <div class="support" id="support">
+      <h3>Report a problem</h3>
+      <p>If your question is not answered above, open a report on GitHub. Reports are read by the developer, and the
+      answer comes in the same thread; it is a hobby project, so it can take a day or two.</p>
+      <ol>
+        <li><strong>Collect the logs.</strong> Easiest: open the <strong>TI Revive Control Center</strong>, switch on
+        <em>Nerd mode</em> and press <em>Save logs...</em> &mdash; plug-in and broker logs in one file, without your
+        home folder or user name. Or by hand: create an empty file <code>diag.on</code> in the plug-in's folder,
+        reproduce the problem, and take <code>diag.log</code> from the same folder:
+        <div class="paths"><b>Windows</b><code>%LOCALAPPDATA%\\virus-ti-native</code>
+        <b>macOS</b><code>~/Library/Application Support/virus-ti-native</code>
+        <b>Linux</b><code>~/.local/share/virus-ti-native</code></div></li>
+        <li><strong>Open a <a href="{GH}/issues/new?template=bug_report.yml">bug report</a></strong>. The form asks
+        for your system, Virus model, the TI Revive and DAW versions, and what happened. Drag the log files into
+        it.</li>
+        <li><strong>Everything works?</strong> A <a href="{GH}/issues/new?template=test_report.yml">test report</a>
+        helps as much as a bug report &mdash; above all for the Snow, Polar and Keyboard, and DAWs we have not
+        tried.</li>
+      </ol>
+      <p class="small">You need a free GitHub account to post. Look through the logs before you attach them and remove
+      anything you consider private. Existing reports: <a href="{GH}/issues">all issues</a>.</p>
     </div>
   </div>
 </section>
@@ -578,6 +594,131 @@ def page_landing(latest, releases, sums):
       <div><h3>How it was built</h3><p>By working out the USB protocol and the original software's behaviour from
       logs, captures and analysis, and by testing on real hardware. Much of the work was done with an AI coding
       assistant; the tests on the synth are done by hand.</p></div>
+    </div>
+  </div>
+</section>
+"""
+
+
+def page_features_landing(latest):
+    v = latest["tag_name"][1:]
+    return f"""
+<section class="log">
+  <div class="wrap">
+    <h1 class="page">Features</h1>
+    <p class="intro">What TI Revive does, and what we measured on our own Virus TI2 Desktop. The raw numbers and how
+    they were taken are in the repository (<a href="{GH}/blob/main/findings/evidence.md">evidence</a>,
+    <a href="{GH}/blob/main/native/docs/status.md">development log</a>). Current version: {v}.</p>
+
+    <div class="feature">
+      <div><h2>The plug-in</h2>
+      <p><strong>TI Revive Virus Control</strong> is written from scratch and looks and works like Access' Virus
+      Control. It draws its look from your own Access installer at runtime.</p></div>
+      <ul>
+        <li>All 16 parts, every parameter, the preset browser, RAM and ROM banks, patch libraries.</li>
+        <li>Projects made with the original plug-in open with it; the saved state is byte for byte the same.</li>
+        <li>Presets and soft knobs chosen on the Virus itself are followed, as in the original.</li>
+        <li>Three stereo outputs over USB, plus the analog outputs of the Virus.</li>
+        <li>VST3 on Windows, macOS and Linux; Audio Unit for Logic and GarageBand. Native on Apple Silicon.</li>
+        <li>Editor sizes from 100 to 200 %. On larger sizes and Retina screens each image is enlarged once with a
+        sharp filter, in memory only.</li>
+      </ul>
+    </div>
+
+    <div class="feature">
+      <div><h2>Timing</h2>
+      <p>The plug-in finds the Virus' own clock on USB, stamps every note against it and reports its latency, so the
+      DAW lines recordings up with the grid. Any host sample rate works: a resampler converts to the Virus' 44.1 kHz
+      with -90 dB error.</p></div>
+      <div><table class="data">
+        <thead><tr><th>16th notes at 120 BPM</th><th>On the grid</th><th>Jitter</th><th>Drift</th></tr></thead>
+        <tbody>
+          <tr><th>Linux, REAPER</th><td>256 / 256</td><td>0.01 ms</td><td>0 ppm</td></tr>
+          <tr><th>macOS, Ableton 12 (M3)</th><td>256 / 256</td><td>0.02 ms</td><td>0 ppm</td></tr>
+          <tr><th>Windows 11, Ableton 11</th><td>304 / 304</td><td>&le; 0.66 ms*</td><td>0 ppm</td></tr>
+          <tr class="old"><th>Classic plug-in 0.7.x</th><td>first late, second missing</td><td>0.06 ms</td><td>&ndash;</td></tr>
+        </tbody>
+      </table>
+      <p class="small">Recorded from the Virus' USB audio and measured by onset analysis. *The upper bound of the
+      method on that machine.</p></div>
+    </div>
+
+    <div class="feature">
+      <div><h2>Light on the CPU, safe on the audio thread</h2>
+      <p>The audio thread never allocates memory or waits for a lock; note-offs always get a slot, so no note
+      hangs.</p></div>
+      <div><table class="data">
+        <thead><tr><th></th><th>Before (0.7.x)</th><th>Now</th></tr></thead>
+        <tbody>
+          <tr><th>Idle, Virus connected</th><td>5 %</td><td>1.4 %</td></tr>
+          <tr><th>Stress test: 16 channels of notes + 32 automated parameters</th><td>19 %</td><td>2.9 %</td></tr>
+          <tr><th>One audio block, 3 LFOs automating the Virus for 40 min</th><td>&ndash;</td><td>max 122 &micro;s, 0 dropouts</td></tr>
+        </tbody>
+      </table>
+      <p class="small">Checked with ThreadSanitizer and AddressSanitizer; {TESTS} unit tests run on every build.</p></div>
+    </div>
+
+    <div class="feature">
+      <div><h2>A fast editor</h2>
+      <p>Only the controls that change are redrawn, the backgrounds of recent pages are cached, and on Linux the
+      images live on the X server.</p></div>
+      <table class="data">
+        <thead><tr><th></th><th>Before</th><th>Now</th></tr></thead>
+        <tbody>
+          <tr><th>Full repaint on Linux</th><td>~70 ms</td><td>1&ndash;7 ms</td></tr>
+          <tr><th>One knob step</th><td>~5 ms</td><td>&lt; 1 ms</td></tr>
+          <tr><th>First visit of a page</th><td>27&ndash;52 ms</td><td>10&ndash;13 ms</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="feature">
+      <div><h2>Found with the Virus, fixed</h2>
+      <p>Things the synth does that no documentation mentions, found by testing on the hardware.</p></div>
+      <ul>
+        <li>A flood of parameter changes can hang the Virus' audio until it is switched off. Automation is limited to
+        250 messages per second and merged per parameter; a 4-minute full-load test passes.</li>
+        <li>The Virus drops the message right after a multi dump. The plug-in pauses after one, so new projects reset
+        the synth reliably.</li>
+        <li>Bank sync requests delay the Virus' notes. The sync pauses while you play and continues in the gaps.</li>
+        <li>Switch the Virus off and on, or replug it, while the DAW runs: the plug-in waits until it is ready and plays
+        in time again. Two DAWs share it: one plays, the other waits and takes over.</li>
+      </ul>
+    </div>
+
+    <div class="feature cc">
+      <div><h2>TI Revive Control Center</h2>
+      <p>A separate app in the look of Access' Virus Control Center, when that is in your Access installer. It
+      shows the connected Virus and its RAM banks, backs them up as patch libraries and converts libraries between
+      <code>.mid</code> and <code>.syx</code>. It only reads from the Virus.</p></div>
+      <figure class="shot"><img src="control-center.png" width="687" height="463"
+      alt="TI Revive Control Center in the look of Access' Virus Control Center">
+      <figcaption>The Control Center in the Access look, drawn from your own installer. The Burn To Flash ROM and OS
+      Updater pages are only kept for the look: they say that TI Revive does not offer these functions. TI Revive is
+      not affiliated with Access Music or Kemper.</figcaption></figure>
+    </div>
+
+    <div class="feature cc">
+      <div><h2>Nerd mode</h2>
+      <p>Shows live what goes between TI Revive and the Virus, decoded: notes, parameter changes by name, dumps, the
+      bank sync. It lists which programs use the Virus, shows the plug-in's and the broker's logs, and saves them all
+      for a bug report in one file. It only watches; it never sends anything to the Virus.</p></div>
+      <figure class="shot"><img src="control-center-nerd-mode.png" width="860" height="620"
+      alt="Nerd mode: the plug-in plays notes and checks its bank cache, decoded live">
+      <figcaption>The plug-in plays notes and checks its bank cache, decoded live.</figcaption></figure>
+    </div>
+
+    <div class="feature">
+      <div><h2>What TI Revive will not do</h2>
+      <p>On purpose, to keep your synth and your data safe.</p></div>
+      <ul>
+        <li>No firmware or OS updates for the Virus, no &ldquo;Burn To Flash&rdquo;, no factory reset &mdash;
+        anything that writes the Virus' flash can brick it.</li>
+        <li>No Access files in TI Revive: the skin, the parameter descriptions and the ROM banks come from the installer
+        you own.</li>
+        <li>No telemetry: TI Revive never connects to the internet. Its parts talk to each other on your computer only,
+        and the logs stay there.</li>
+      </ul>
     </div>
   </div>
 </section>
@@ -614,8 +755,13 @@ PAGES = [("index", "Home", page_home), ("download", "Download", page_download), 
          page_changelog), ("help", "Help", page_help), ("about", "About", page_about)]
 
 
+# the README's screenshots that the site shows too (copied at build time)
+SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png"]
+TESTS = 102 # unit tests in native/tests (vtitests), as of 2026-10-16
+
 # designs with their own set of pages (the others use PAGES)
 LAYOUTS = {"landing": [("index", "Home", lambda latest, releases, sums: page_landing(latest, releases, sums)),
+                       ("features", "Features", lambda latest, releases, sums: page_features_landing(latest)),
                        ("changelog", "Changelog", lambda latest, releases, sums: page_changelog_landing(releases))]}
 
 
@@ -627,6 +773,8 @@ def render(design, out, releases, sums):
     for name in os.listdir(src):
         if name != "base.html":
             shutil.copy(os.path.join(src, name), os.path.join(out, name))
+    for img in SHARED_IMAGES:
+        shutil.copy(os.path.join(ROOT, "docs", "images", img), os.path.join(out, img))
     latest = next(r for r in releases if not r.get("prerelease") and not r.get("draft"))
     pages = LAYOUTS.get(design, PAGES)
     for slug, label, fn in pages:
