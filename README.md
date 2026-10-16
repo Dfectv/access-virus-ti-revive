@@ -159,6 +159,11 @@ editor or driver changed that, the plug-in shows the right setting but the Virus
 in the plug-in, switch the part's output to "Out 1" and back to "USB 1" (this sends the setting to the Virus again).
 On macOS also check that your DAW may use the microphone (System Settings → Privacy & Security → Microphone).
 
+**Third USB output (USB 3).** Like the original, the Virus sends a third stereo output over USB only when you choose
+it: in the plug-in, open PATCH UTILITY → Preferences and set "Input and Output Configuration" to "3 Outs / No Input".
+Then a part's output can be "USB3 L+R" (greyed out before), and its sound comes out of the plug-in's **Out 3**. The
+setting is kept for this computer and sent to the Virus at every start; "2 Outs / No Input" switches it back.
+
 **Start playback slightly before the first note.** The plug-in sends notes to the Virus ahead of time to make up
 for the USB round trip; right at Play, notes in the first quarter second can come late or be skipped. This was the
 same with Access' own driver.

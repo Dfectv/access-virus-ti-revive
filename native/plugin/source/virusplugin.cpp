@@ -7,6 +7,7 @@
 #include "access/accessfiles.h"
 #include "access/firmware.h"
 #include "access/library.h"
+#include "cc/diag.h"
 #include "base/source/fstreamer.h"
 #include "device/usbmidi.h"
 #include "model/state.h"
@@ -54,6 +55,22 @@ static bool env_no_ping() // R5 test: the old stamping without sync ping / marke
 {
     static const bool on = getenv("VTI_NATIVE_NO_PING") != nullptr;
     return on;
+}
+
+static const char *const USB_IO_PATH = "Global USB/Virus Control USB IO Configuration";
+
+// the USB IO configuration of this computer: VTI_IO_CONFIG (tests), else <plug-in folder>/usb-io, else 0
+static int load_usb_io()
+{
+    int v = 0;
+    if (const char *e = std::getenv("VTI_IO_CONFIG"))
+        v = std::atoi(e);
+    else if (FILE *f = std::fopen((vti::cc::plugin_dir() + "/usb-io").c_str(), "r")) {
+        if (std::fscanf(f, "%d", &v) != 1)
+            v = 0;
+        std::fclose(f);
+    }
+    return v >= 0 && v <= 2 ? v : 0;
 }
 
 static bool env_stats()
@@ -573,24 +590,37 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
             out_->send(m);
         send_state();
     });
+    usb_io_ = load_usb_io();
     // the original's start-up: GlobalInit (remote mode, cable numbers, clock sync, ...) + ParamInit, before any state
     for (auto &m : startup_messages())
         out_->send(m);
     return kResultOk;
 }
 
-// GlobalInit + ParamInit; the USB IO configuration (Global USB index 9: 0 = 2 Outs / No Input, 1 = 3 Outs / No
-// Input, 2 = 3 Outs / 1 Input) the way the original sets it from its own setting ("IO Configuration", 0x18007ec30)
-// instead of GlobalInit's 0. EXPERIMENT (C10): the value from VTI_IO_CONFIG, else 0 as before.
+void VirusPlugin::set_usb_io(int value, bool save)
+{
+    if (value < 0 || value > 2)
+        return;
+    const int old = usb_io_.exchange(value);
+    if (save && value != old)
+        if (FILE *f = std::fopen((vti::cc::plugin_dir() + "/usb-io").c_str(), "w")) {
+            std::fprintf(f, "%d\n", value);
+            std::fclose(f);
+        }
+    if (value != old && out_)
+        out_->log("Virus TI native: USB IO configuration %d (%s)\n", value,
+                  value == 1 ? "3 Outs / No Input: Out 3 = USB 3" : value == 2 ? "3 Outs / 1 Input: Out 3 not measured yet, silent" : "2 Outs / No Input");
+    ui_dirty_ = true;
+}
+
+// GlobalInit + ParamInit, with this computer's USB IO configuration instead of GlobalInit's 0 - the original sends
+// its stored "IO Configuration" the same way on every connection (0x18007ec30)
 std::vector<std::vector<uint8_t>> VirusPlugin::startup_messages() const
 {
     auto msgs = dev_.init_messages();
-    const char *e = std::getenv("VTI_IO_CONFIG");
-    const int io = e ? std::atoi(e) : 0;
-    if (io >= 1 && io <= 2)
-        for (auto &m : msgs)
-            if (m.size() == 11 && m[6] == 0x73 && m[7] == 0x00 && m[8] == 0x09)
-                m[9] = (uint8_t)io;
+    for (auto &m : msgs)
+        if (m.size() == 11 && m[6] == 0x73 && m[7] == 0x00 && m[8] == 0x09)
+            m[9] = (uint8_t)usb_io_.load();
     return msgs;
 }
 
@@ -991,7 +1021,8 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         pending_.clear();
         pending_mu_.unlock();
     }
-    // audio: Out 1 = USB 1, Out 2 = USB 2 of the Virus (broker ring), Out 3 silent for now
+    // audio: Out 1 = USB 1, Out 2 = USB 2 of the Virus (broker ring), Out 3 = USB 3 while the USB IO configuration
+    // is "3 Outs / No Input" (raw channels 0/1, E158), else silent
     for (int32 b = 0; b < data.numOutputs; b++)
         for (int32 c = 0; c < data.outputs[b].numChannels; c++)
             if (data.outputs[b].channelBuffers32 && data.outputs[b].channelBuffers32[c])
@@ -999,8 +1030,14 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
     if (out_ && out_->audio_ready() && data.numOutputs >= 2 && data.outputs[0].numChannels >= 2 &&
         data.outputs[1].numChannels >= 2 && data.numSamples > 0) {
         float **o1 = data.outputs[0].channelBuffers32, **o2 = data.outputs[1].channelBuffers32;
+        float **o3 = usb_io_.load(std::memory_order_relaxed) == 1 && data.numOutputs >= 3 &&
+                             data.outputs[2].numChannels >= 2 && data.outputs[2].channelBuffers32 &&
+                             data.outputs[2].channelBuffers32[0] && data.outputs[2].channelBuffers32[1]
+                         ? data.outputs[2].channelBuffers32
+                         : nullptr;
+        float *l3 = o3 ? o3[0] : nullptr, *r3 = o3 ? o3[1] : nullptr;
         if (o1 && o2 && resampling())
-            read_resampled(o1, o2, data.numSamples, ratio, newest,
+            read_resampled(o1, o2, o3, data.numSamples, ratio, newest,
                            tl_valid_ && out_->marker.load() >= 0
                                ? block_start + lead() - latency_frames()
                                : newest - std::max<int64_t>(2 * block_frames + 256, 768) - Resampler::HALF);
@@ -1010,14 +1047,15 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
                 int64_t pos = block_start + lead() - latency_frames();
                 if (pos + data.numSamples > newest) // never read frames that are not there yet (silence, clicks)
                     pos = newest - data.numSamples;
-                out_->audio().read_at(o1[0], o1[1], o2[0], o2[1], data.numSamples, pos);
+                out_->audio().read_at(o1[0], o1[1], o2[0], o2[1], data.numSamples, pos, l3, r3);
                 int64_t margin = newest - (pos + data.numSamples); // < 0: frames not there yet (silence)
                 if (margin < out_->read_margin_min.load(std::memory_order_relaxed))
                     out_->read_margin_min.store(margin, std::memory_order_relaxed);
                 out_->aligned_blocks.fetch_add(1, std::memory_order_relaxed);
             } else
                 // at least 768 frames: with 64-sample blocks 2 * 64 + 256 gave a ring re-anchor (click) every ~30 s
-                out_->audio().read(o1[0], o1[1], o2[0], o2[1], data.numSamples, std::max(2 * block_ + 256, 768));
+                out_->audio().read(o1[0], o1[1], o2[0], o2[1], data.numSamples, std::max(2 * block_ + 256, 768), l3,
+                                   r3);
         }
     }
     return kResultOk;
@@ -1026,7 +1064,8 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
 // host rate != 44.1 kHz: n output samples from the Virus frame `target` on, resampled. The read position moves on
 // smoothly and steers towards the target by at most 0.2 % in speed (a jump only on a large error), so the audio has
 // no clicks while it follows the timeline.
-void VirusPlugin::read_resampled(float **o1, float **o2, int n, double ratio, int64_t newest, int64_t target)
+void VirusPlugin::read_resampled(float **o1, float **o2, float **o3, int n, double ratio, int64_t newest,
+                                 int64_t target)
 {
     double err = (double)target - rs_pos_;
     if (!rs_valid_ || std::fabs(err) > 2048) {
@@ -1047,9 +1086,10 @@ void VirusPlugin::read_resampled(float **o1, float **o2, int n, double ratio, in
         count = (int)rs_src_[0].size();
         n = std::max(0, std::min(n, (int)((count - 2 * Resampler::HALF) / step)));
     }
-    out_->audio().read_at(rs_src_[0].data(), rs_src_[1].data(), rs_src_[2].data(), rs_src_[3].data(), count, first);
-    float *dst[4] = {o1[0], o1[1], o2[0], o2[1]};
-    for (int c = 0; c < 4; c++)
+    out_->audio().read_at(rs_src_[0].data(), rs_src_[1].data(), rs_src_[2].data(), rs_src_[3].data(), count, first,
+                          o3 ? rs_src_[4].data() : nullptr, o3 ? rs_src_[5].data() : nullptr);
+    float *dst[6] = {o1[0], o1[1], o2[0], o2[1], o3 ? o3[0] : nullptr, o3 ? o3[1] : nullptr};
+    for (int c = 0; c < (o3 ? 6 : 4); c++)
         resampler_.process(rs_src_[c].data(), first, rs_pos_, step, dst[c], n);
     int64_t margin = newest - (int64_t)std::ceil(rs_pos_ + (n - 1) * step + Resampler::HALF);
     if (margin < out_->read_margin_min.load(std::memory_order_relaxed))
@@ -1097,6 +1137,8 @@ std::string VirusPlugin::softknob_target(const std::string &path, int part)
 
 int VirusPlugin::ui_value(const std::string &path, int part)
 {
+    if (path == USB_IO_PATH)
+        return usb_io_.load(); // this computer's setting, not the project's (menu, "Third USB Active" conditions)
     if (std::string t = softknob_target(path, part); !t.empty())
         return ui_value(t, part); // the soft knob shows its target's value (original: 0x1800a2890)
     int browser_bank;
@@ -1159,6 +1201,13 @@ std::string VirusPlugin::live_text(const std::string &param)
 
 void VirusPlugin::ui_set(const std::string &path, int part, int value)
 {
+    if (path == USB_IO_PATH) { // a hardware setting of this computer (original: registry), sent at once
+        set_usb_io(value, true);
+        if (out_)
+            if (auto msg = dev_.encode(path, usb_io_.load(), 0); !msg.empty())
+                out_->send(msg);
+        return;
+    }
     if (std::string t = softknob_target(path, part); !t.empty()) {
         ui_set(t, part, value); // turning a soft knob edits its target (original: 0x1800a2840)
         return;
@@ -2041,6 +2090,10 @@ void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
                 if (auto m = dev_.encode(target, v, part); !m.empty())
                     out_->send(m);
         }
+        if (c.path == USB_IO_PATH) { // changed on the Virus: keep it as this computer's setting
+            set_usb_io(c.value, true);
+            continue;
+        }
         if (c.part > 15)
             continue; // globals are not plug-in parameters
         // a preset selected on the Virus: it reports the part's Bank / Patch and then waits for the host to send the
@@ -2166,8 +2219,12 @@ void VirusPlugin::send_state()
     std::lock_guard<std::mutex> lk(state_mu_);
     std::vector<std::vector<uint8_t>> recs;
     for (auto &r : state_)
-        if (!r.empty() && !(r.size() > 2 && r[0] == 0xF0 && r[1] == 0x7D)) // not our editor-only records
+        if (!r.empty() && !(r.size() > 2 && r[0] == 0xF0 && r[1] == 0x7D)) { // not our editor-only records
             recs.push_back(r);
+            auto &m = recs.back(); // a project's USB IO configuration: this computer's setting wins
+            if (m.size() == 11 && m[0] == 0xF0 && m[6] == 0x73 && m[7] == 0x00 && m[8] == 0x09)
+                m[9] = (uint8_t)usb_io_.load();
+        }
     const int n = (int)recs.size();
     const int dropped = out_->send_state(std::move(recs));
     out_->log("Virus TI native: state sent (%d messages, part 1 \"%s\", device %s)%s\n", n, part1_name(state_).c_str(),

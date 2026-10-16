@@ -47,7 +47,7 @@ static const char *DEVICE = R"(<?xml version="1.0"?>
  </ParameterSets>
  <Valuelists>
   <Valuelist name="Modes" type="plain"><Entry index="0">Off</Entry><Entry index="1"> Saw</Entry><Entry index="2">Pulse</Entry><Entry index="3"></Entry></Valuelist>
-  <Valuelist name="Waves" type="mapped"><Entry index="0" value="9">Nine</Entry><Entry index="1" value="4">Four</Entry><Entry index="2" value="40">Out</Entry></Valuelist>
+  <Valuelist name="Waves" type="mapped"><Entry index="0" value="9">Nine</Entry><Entry index="1" value="4">Four</Entry><Entry index="2" value="40">Out</Entry><Entry index="3" value="5">-GGrey</Entry></Valuelist>
  </Valuelists>
  <Conditionsets>
   <Condition name="Mode Is Two"><Test type="equals" param="Osc/Mode" minvalue="2"/></Condition>
@@ -448,7 +448,9 @@ TEST(editor_value_texts)
     CHECK(g.r->value_text("Osc/Wave", 4) == "Four"); // mapped list: value, not position
     CHECK(g.r->value_text("Unknown/Param", 5) == "5");
     auto m = g.r->menu_entries("Osc/Wave");
-    CHECK(m.size() == 2 && m[0].first == 9 && m[0].second == "Nine" && m[1].first == 4); // menu order; 40 out of range
+    CHECK(m.size() == 3 && m[0].first == 9 && m[0].second == "Nine" && m[1].first == 4); // menu order; 40 out of range
+    CHECK(m[2].first == 5 && m[2].second == "-GGrey");   // the menu keeps the "greyed" marker (the editor disables it)
+    CHECK(g.r->value_text("Osc/Wave", 5) == "Grey");    // the control shows the text without it
     auto modes = g.r->menu_entries("Osc/Mode");
     CHECK(modes.size() == 3); // the empty entry is left out
     auto plain = g.r->menu_entries("Osc/Plain");

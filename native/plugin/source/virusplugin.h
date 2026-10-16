@@ -418,7 +418,7 @@ private:
         return timing_a() + std::max(block_, 256) + 640 + (resampling() ? Resampler::HALF + 2 : 0);
     }
     bool resampling() const { return std::fabs(rate_ - 44100.0) > 0.5; }
-    void read_resampled(float **o1, float **o2, int n, double ratio, int64_t newest, int64_t target);
+    void read_resampled(float **o1, float **o2, float **o3, int n, double ratio, int64_t newest, int64_t target);
 public:
     Steinberg::uint32 PLUGIN_API getLatencySamples() override
     {
@@ -435,7 +435,12 @@ private:
     int64_t stream_start_ = -1;
     // host rate != 44.1 kHz: the Virus' audio through the resampler, read from a steered fractional position
     Resampler resampler_;
-    std::vector<float> rs_src_[4];
+    std::vector<float> rs_src_[6]; // USB 1 L/R, USB 2 L/R, USB 3 L/R
+    // the Virus' USB IO configuration ("Global USB/Virus Control USB IO Configuration": 0 = 2 Outs / No Input,
+    // 1 = 3 Outs / No Input, 2 = 3 Outs / 1 Input), kept per computer like the original's "IO Configuration"
+    // setting (0x18007ec30, E158), not per project; Out 3 carries USB 3 while it is 1
+    std::atomic<int> usb_io_{0};
+    void set_usb_io(int value, bool save);
     double rs_pos_ = 0;
     bool rs_valid_ = false;
     int generation_seen_ = 0; // DeviceOut::generation handled by process()
