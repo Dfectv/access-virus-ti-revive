@@ -18,7 +18,13 @@ on Input Mode, Input Atomizer."), Xvfb screenshots with the TI2. 127 unit tests,
 Sidechain (E171), Windows sidechain on a real PC (no answer yet whether one exists). Test build 0.8.18 (CI run 38945354060, all green): installed on Linux and win11
 (setup.exe on the Desktop), Mac unpacked in ~/Downloads (user runs sudo installer). Checklist: https://claude.ai/artifact/41uVXA5BRHVExjWpex23Ee. User test (Linux, in progress): disconnect page ok with power, but after a USB cable replug and after a
 power-on with REAPER closed the Virus stayed silent on USB (MIDI fine) until a power cycle - E175, cause open, next round.
-Recall confirmed: after that power cycle the reopened project played ARP Up. Note for the user: the original's
+Recall confirmed: after that power cycle the reopened project played ARP Up.
+Linux results (user, 2026-10-16): all pass except (a) tabs locked on the "No Virus" page = original behaviour (the tab
+buttons exist twice, Enabled="false" under "Any Communication Error"; checklist expectation was wrong), (b) E175 twice,
+(c) Chorus Type "Classic" in a new project = the Virus' conversion of the original's v9 Init patch (0.8.17 showed
+"Off" from the wrong positions), (d) Input Select "active and clickable" with Mode/Atomizer Off (saved project: both 0)
+- asked the user whether the "Inactive now" line appeared; param-inactive controls stay clickable in our editor
+(original: unknown, check with REA). REAPER pins 3/4 -> Sidechain by default: pass (E171 closed). Note for the user: the original's
 diagnostics page advises holding ARP EDIT while powering on - effect unknown (rule 2: we do not advise it).
 
 ## Previous state (2026-10-16 evening, after the 0.8.17 release)
