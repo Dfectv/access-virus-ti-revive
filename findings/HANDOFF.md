@@ -29,7 +29,10 @@ Windows results (win11 VM, Ableton 11, user 2026-10-16): all pass, incl. USB cab
 on Claude's re-attach, seconds after it booted - supports the E175 hypothesis "stream starts while the Virus boots"),
 recall (ARP Up, Unison 8 heard after power cycle), help notes, and the sidechain in Ableton (VM; real PC still not
 available). Note: Chorus Type changed while a key is held applies from the next note - the Virus' own behaviour (user:
-the hardware panel does the same), not a bug. Handover Linux -> VM: the Virus answered every WinUSB transfer with error 31 until a
+the hardware panel does the same), not a bug.
+macOS results (Ableton Live 12, user 2026-10-16): all pass, incl. the USB cable replug and the power-on with the DAW
+closed - so E175 (silent after replug / power-on) shows only on Linux so far. Round 0.8.18 is through on all three
+OSes; open for release: README + site (disconnect page, full recall, help reasons; screenshot), then the release. Handover Linux -> VM: the Virus answered every WinUSB transfer with error 31 until a
 power cycle (+ re-attach, the VM keeps the old USB address) - possibly the Linux give-back reset or E175. Note for the user: the original's
 diagnostics page advises holding ARP EDIT while powering on - effect unknown (rule 2: we do not advise it).
 
