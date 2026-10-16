@@ -79,6 +79,7 @@ Environment settings for testing:
 |---|---|
 | `vtimodel` | inspect the Access files: params, messages, dumps, categories, automation, ROM, libraries, init multi |
 | `virusctl` | talk to the Virus through the broker: state, set, note, sysex, timing tests |
+| `virusmon` | watch the traffic to and from the Virus read-only (broker observer), decoded like Nerd mode: `virusmon [seconds] [--clock]` |
 | `virussync` | bank sync without a host |
 | `asiohost` | Windows: load an ASIO driver, list channels, count buffer switches, play a test tone |
 | `nativehost` | minimal VST3 host: states, params, notes, WAV, editor on X11 with click/drag/type/screenshot |
