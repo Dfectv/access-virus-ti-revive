@@ -110,3 +110,41 @@ TEST(library_edge_cases)
     CHECK(save_library(out, err) && load_library_file(out.path, back) && back.dumps.size() == 1);
     fs::remove_all(dir);
 }
+
+#ifndef _WIN32
+#include <unistd.h>
+// Linux: the documents folder from the XDG user dirs (localized, e.g. ~/Dokumente), an existing ~/Documents library
+// folder first (installs before this change put the factory libraries there)
+TEST(library_dir_xdg_documents)
+{
+    CHECK(vti::xdg_documents_dir("/h", "XDG_DOCUMENTS_DIR=\"$HOME/Dokumente\"\n") == "/h/Dokumente");
+    CHECK(vti::xdg_documents_dir("/h", "# comment\nXDG_MUSIC_DIR=\"$HOME/Musik\"\n  XDG_DOCUMENTS_DIR=\"/data/docs\"\n") ==
+          "/data/docs");
+    CHECK(vti::xdg_documents_dir("/h", "XDG_MUSIC_DIR=\"$HOME/Musik\"\n").empty());
+    CHECK(vti::xdg_documents_dir("/h", "XDG_DOCUMENTS_DIR=\"$HOME/\"\n").empty()); // = the home itself: unusable
+    CHECK(vti::xdg_documents_dir("/h", "XDG_DOCUMENTS_DIR=\"relative\"\n").empty());
+
+    struct Env {
+        std::string k, old;
+        bool had;
+        Env(const char *key, const std::string &v) : k(key), had(getenv(key) != nullptr)
+        {
+            if (had)
+                old = getenv(key);
+            setenv(key, v.c_str(), 1);
+        }
+        ~Env() { had ? setenv(k.c_str(), old.c_str(), 1) : unsetenv(k.c_str()); }
+    };
+    fs::path dir = fs::temp_directory_path() / ("vtitests-libdir-" + std::to_string(getpid()));
+    fs::remove_all(dir);
+    fs::create_directories(dir / "cfg");
+    Env home("HOME", dir.string()), cfg("XDG_CONFIG_HOME", (dir / "cfg").string());
+    const std::string tail = "/Access Music/Virus TI/Patches";
+    CHECK(vti::library_dir() == dir.string() + "/Documents" + tail); // no user-dirs.dirs: ~/Documents
+    std::ofstream(dir / "cfg/user-dirs.dirs") << "XDG_DOCUMENTS_DIR=\"$HOME/Dokumente\"\n";
+    CHECK(vti::library_dir() == dir.string() + "/Dokumente" + tail);
+    fs::create_directories(dir.string() + "/Documents" + tail); // an earlier install's folder wins
+    CHECK(vti::library_dir() == dir.string() + "/Documents" + tail);
+    fs::remove_all(dir);
+}
+#endif
