@@ -188,6 +188,16 @@ def page_home(latest):
     <dt>Not included</dt><dd>Firmware or OS updates for the Virus and anything that writes its flash. On purpose.</dd>
   </dl>
 </section>
+
+<section>
+  <h2>Known limits</h2>
+  <ul>
+    <li>The Virus' USB audio <em>input</em> (&ldquo;3 Outs / 1 Input&rdquo;) is not fed by the plug-in yet; its
+    outputs work.</li>
+    <li>Snow, Polar and Keyboard are not tested by us &mdash; we have a TI2 Desktop. Reports are welcome.</li>
+    <li>The installers are not signed, so Windows and macOS ask once before they run them.</li>
+  </ul>
+</section>
 """
 
 
@@ -352,6 +362,11 @@ def page_about():
   <p>Test reports for the Snow, Polar and Keyboard, other DAWs and systems help most &mdash; no coding needed. See the
   <a href="{GH}#readme">README</a> and the <a href="{GH}/issues/new?template=test_report.yml">test report form</a>.
   Source code and licence: <a href="{GH}">github.com/{REPO}</a>.</p>
+
+  <h2>Saying thanks</h2>
+  <p>Everything works the same whether you pay or not. If TI Revive gave your Virus a second life and you want to,
+  you can <a href="https://buymeacoffee.com/callmederpsn">buy the developer a coffee</a>. A test report or a kind
+  word helps just as much.</p>
 </section>
 """
 
