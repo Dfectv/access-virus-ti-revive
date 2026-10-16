@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-# build.py - the TI Revive website (GitHub Pages) from the GitHub releases and the texts below.
-# Static pages, no JavaScript, no external fonts or trackers. Each design in site/src/<design>/ has a page frame
-# (base.html) and a style sheet; the content is the same for all of them.
+# build.py - the TI Revive website (GitHub Pages) from the GitHub releases and the texts below: one page
+# (index.html) and the changelog archive. Static, no JavaScript, no external fonts or trackers. site/src/ holds the
+# page frame (base.html), the style sheet and the plug-in screenshot; the Control Center screenshots are the
+# README's (docs/images). Deployed by .github/workflows/site.yml.
 #
-#   python3 scripts/site/build.py [--releases FILE] [--checksums] [--design NAME ...] [--out DIR]
+#   python3 scripts/site/build.py [--releases FILE] [--checksums] [--out DIR]
 #
 # --releases: a saved `gh api repos/derpsn/access-virus-ti-revive/releases?per_page=100` (else gh is called)
 # --checksums: download the newest release's files once (cached in --cache) and show their SHA-256
@@ -27,7 +28,7 @@ CHANGELOG_EXTRA = {
               "the macOS package holds only the plug-in (VST3 + AU) and the USB service, the Access `.pkg` is only "
               "unpacked.",
     "v0.8.0": "**TI Revive Virus Control**: a plug-in written from scratch that looks and works like the original "
-              "Virus Control and runs natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, "
+              "Virus Control and runs natively on Windows, macOS (Apple Silicon and Intel) and Linux, without Rosetta, "
               "Wine or yabridge. Projects of the classic plug-in open with it.",
     "v0.2.0": "First public release: Windows 10/11 x64 installer for the original Access plug-in without the old "
               "kernel driver.",
@@ -126,7 +127,6 @@ def sha256_of_assets(rel, cache):
     return sums
 
 
-# ------------------------------------------------------------------------------------------------ the pages
 def size(n):
     return "%.1f MB" % (n / 1e6) if n >= 1e6 else "%d KB" % max(1, n // 1000)
 
@@ -144,234 +144,7 @@ def asset(rel, suffix):
     return None
 
 
-def page_home(latest):
-    v = latest["tag_name"][1:]
-    return f"""
-<section class="lead">
-  <h1>TI Revive</h1>
-  <p class="claim">Total Integration for the Access Virus TI on Windows 11, macOS and Linux &mdash; without the old
-  drivers.</p>
-  <p>The Virus TI was built to live inside your DAW: its plug-in edits every parameter, the synth's audio comes back
-  over the same USB cable, and the timing is locked to the host. The drivers that made this work stopped working on
-  current systems. TI Revive replaces them.</p>
-  <p>It comes with <strong>TI Revive Virus Control</strong>, a plug-in written from scratch that looks and works like
-  Access' original &mdash; parameter sync, preset browser, patch libraries, automation, the Virus audio in your DAW
-  &mdash; and runs natively, without Rosetta, Wine or yabridge.</p>
-  <p class="actions"><a class="button" href="download.html">Download {v}</a>
-  <a href="changelog.html">What changed</a></p>
-</section>
-
-<section>
-  <h2>What you need</h2>
-  <table class="facts">
-    <tr><th>Synth</th><td>Access Virus TI, TI2 (Desktop, Polar, Keyboard). The TI Snow works according to the first
-    user reports; we have none to test with.</td></tr>
-    <tr><th>Computer</th><td>Windows 11 x64 (also 10) &middot; macOS 14.4 or newer, Apple Silicon or Intel &middot;
-    Linux x86_64 with systemd (Ubuntu 22.04 / Debian 12 or newer)</td></tr>
-    <tr><th>Access files</th><td>Your own &ldquo;Virus TI Software Suite&rdquo; installer (e.g. 5.1.7). TI Revive only
-    unpacks the parts the plug-in reads &mdash; the skin, the parameter descriptions, the ROM banks. It contains no
-    Access material itself.</td></tr>
-    <tr><th>DAW</th><td>Any VST3 host; Audio Unit on macOS (Logic, GarageBand). Tested with Ableton Live 11 and 12,
-    REAPER and GarageBand.</td></tr>
-  </table>
-</section>
-
-<section>
-  <h2>In practice</h2>
-  <dl class="notes">
-    <dt>Timing</dt><dd>Notes land on the grid within a tenth of a millisecond (measured on Linux and macOS), and the
-    plug-in reports its latency so the DAW compensates it. Any host sample rate works.</dd>
-    <dt>First start</dt><dd>The plug-in reads RAM A&ndash;D from the Virus once, which takes a few minutes; you can play
-    while it runs. After that it takes seconds.</dd>
-    <dt>Outputs</dt><dd>USB 1 and 2 by default, USB 3 if you switch it on (PATCH UTILITY &rarr; Preferences). Windows
-    also gets an ASIO device, &ldquo;TI Revive Virus Audio&rdquo;, to use the Virus as a sound card.</dd>
-    <dt>Not included</dt><dd>Firmware or OS updates for the Virus and anything that writes its flash. On purpose.</dd>
-  </dl>
-</section>
-
-<section>
-  <h2>Known limits</h2>
-  <ul>
-    <li>The Virus' USB audio <em>input</em> (&ldquo;3 Outs / 1 Input&rdquo;) is not fed by the plug-in yet; its
-    outputs work.</li>
-    <li>Snow, Polar and Keyboard are not tested by us &mdash; we have a TI2 Desktop. Reports are welcome.</li>
-    <li>The installers are not signed, so Windows and macOS ask once before they run them.</li>
-  </ul>
-</section>
-"""
-
-
-def page_download(latest, sums):
-    v = latest["tag_name"][1:]
-    win = asset(latest, "-setup.exe")
-    msi = asset(latest, ".msi")
-    mac = asset(latest, "-mac.zip")
-    lin = asset(latest, "-linux.tar.gz")
-
-    def link(a):
-        if not a:
-            return ""
-        s = sums.get(a["name"])
-        return (f'<a class="file" href="{a["browser_download_url"]}">{a["name"]}</a> '
-                f'<span class="size">{size(a["size"])}</span>' +
-                (f'<br><code class="sum" title="SHA-256">{s}</code>' if s else ""))
-
-    return f"""
-<section class="lead">
-  <h1>Download</h1>
-  <p>Version <strong>{v}</strong>, released {date(latest["published_at"])}. Free, and it stays free.
-  <a href="changelog.html#v{v}">What is new in {v}</a></p>
-</section>
-
-<section class="platform" id="windows">
-  <h2>Windows 11 <span class="sub">x64, also Windows 10</span></h2>
-  <p class="files">{link(win)}<br>{link(msi)}</p>
-  <ol>
-    <li>Put the setup file and your Access &ldquo;Virus TI Software Suite&rdquo; 64-bit <code>.msi</code> in the
-    same folder. The <code>.msi</code> of TI Revive is the same installer without the wrapper.</li>
-    <li>Run it. It is not code-signed, so Windows may say &ldquo;Windows protected your PC&rdquo;: <em>More info
-    &rarr; Run anyway</em>. Keep &ldquo;Set up the Access Virus TI files now&rdquo; checked &mdash; your Access
-    installer is only unpacked, not installed.</li>
-    <li>Connect the Virus, rescan plug-ins and use <strong>TI Revive Virus Control</strong>. For the Virus as a sound
-    card choose the ASIO device <strong>TI Revive Virus Audio</strong>.</li>
-  </ol>
-</section>
-
-<section class="platform" id="macos">
-  <h2>macOS <span class="sub">14.4 or newer, Apple Silicon and Intel</span></h2>
-  <p class="files">{link(mac)}</p>
-  <ol>
-    <li>Unpack the zip and open <code>TI Revive.pkg</code>. It is not signed: right-click &rarr; <em>Open</em>, or
-    <em>System Settings &rarr; Privacy &amp; Security &rarr; Open Anyway</em>.</li>
-    <li>Put your Access <code>.pkg</code> next to <code>Set up Access Virus TI files.command</code> and run it. It
-    unpacks only what the plug-in reads and parks old drivers that would block the Virus.</li>
-    <li>Start your DAW and allow it to use the microphone when macOS asks &mdash; macOS gives the Virus' audio only to
-    apps with that permission. Use <strong>TI Revive Virus Control</strong> as VST3 or Audio Unit.</li>
-  </ol>
-</section>
-
-<section class="platform" id="linux">
-  <h2>Linux <span class="sub">x86_64, systemd</span></h2>
-  <p class="files">{link(lin)}</p>
-  <ol>
-    <li>Install <code>msitools</code> (<code>sudo apt install msitools</code>) to unpack the Access installer.</li>
-    <li>Unpack the archive and run <code>./install.sh "/path/to/Virus TI Software Suite 64-bit.msi"</code>. It asks
-    for your password once (udev rule) and puts the plug-in into <code>~/.vst3</code>.</li>
-    <li>For steady audio add your user to the real-time group (Ubuntu: <code>sudo usermod -aG pipewire $USER</code>,
-    then log out and in), rescan plug-ins and use <strong>TI Revive Virus Control</strong>.</li>
-  </ol>
-</section>
-
-<section>
-  <h2>Older versions</h2>
-  <p>Every release with its files is on <a href="{GH}/releases">GitHub</a>. Coming from 0.7.x: the classic plug-in
-  &ldquo;Virus TI (TI Revive)&rdquo; is replaced, its projects open with the new one.</p>
-</section>
-"""
-
-
-def page_changelog(releases):
-    rows = []
-    for r in releases:
-        v = r["tag_name"]
-        t = title_of(r)
-        tag = '<span class="pre">pre-release</span>' if r.get("prerelease") else ""
-        rows.append(f"""
-<article class="release" id="{html.escape(v)}">
-  <header><h2><a href="#{html.escape(v)}">{html.escape(v[1:])}</a>{(" &mdash; " + html.escape(t)) if t else ""}</h2>
-  <p class="meta"><time datetime="{r["published_at"][:10]}">{date(r["published_at"])}</time> {tag}
-  <a href="{r["html_url"]}">files</a></p></header>
-  {md(summary(r))}
-</article>""")
-    return f"""
-<section class="lead">
-  <h1>Changelog</h1>
-  <p>What changed in each version, newest first. Versions before 0.8.0 ran Access' original plug-in through an
-  emulated driver; 0.8.0 replaced it with TI Revive's own plug-in.</p>
-</section>
-{"".join(rows)}
-"""
-
-
-def page_help():
-    return f"""
-<section class="lead">
-  <h1>Help</h1>
-  <p>The usual problems and what to do. If yours is not here, open an
-  <a href="{GH}/issues">issue</a> and attach the logs (see below).</p>
-</section>
-
-<section class="faq">
-  <h2 id="not-connected">&ldquo;Virus TI not connected&rdquo;</h2>
-  <p>Only one driver can use the Virus' USB interfaces. Old Access drivers from a full Access install, or third-party
-  ones like the USB driver of Aura's Virus Editor, take them first. Disable the other driver and restart. On macOS the
-  setup script offers to park the known ones.</p>
-
-  <h2 id="silent">Connected, but no sound</h2>
-  <p>The Virus decides per part where its sound goes. If another editor changed that, switch the part's output to
-  &ldquo;Out 1&rdquo; and back to &ldquo;USB 1&rdquo; in the plug-in &mdash; that sends the setting again. On macOS
-  also check that your DAW may use the microphone.</p>
-
-  <h2 id="usb3">Three separate outputs (USB 3)</h2>
-  <p>In the plug-in, open PATCH UTILITY &rarr; Preferences and set &ldquo;Input and Output Configuration&rdquo; to
-  &ldquo;3 Outs / No Input&rdquo;. Then a part's output can be &ldquo;USB3 L+R&rdquo;, and its sound comes out of the
-  plug-in's Out 3. In Ableton: an audio track with <em>Audio From</em> = the Virus track, <em>Out 3</em>,
-  <em>Monitor In</em>.</p>
-
-  <h2 id="first-notes">The first notes after Play are late</h2>
-  <p>The plug-in sends notes slightly ahead to make up for the USB round trip, so start playback a little before the
-  first note. The original driver behaved the same.</p>
-
-  <h2 id="two-daws">Two DAWs, or a duplicated track</h2>
-  <p>One plug-in uses the Virus at a time; the others show &ldquo;Virus unavailable&rdquo; and take over when it is
-  removed or its DAW closes.</p>
-
-  <h2 id="logs">Logs for a bug report</h2>
-  <p>Create an empty file <code>diag.on</code> in the plug-in's folder, reproduce the problem, and attach
-  <code>diag.log</code> from the same folder:</p>
-  <table class="facts">
-    <tr><th>Windows</th><td><code>%LOCALAPPDATA%\\virus-ti-native</code></td></tr>
-    <tr><th>macOS</th><td><code>~/Library/Application Support/virus-ti-native</code></td></tr>
-    <tr><th>Linux</th><td><code>~/.local/share/virus-ti-native</code></td></tr>
-  </table>
-  <p>The Control Center's Nerd mode collects the same logs, without the home folder or user name.</p>
-</section>
-"""
-
-
-def page_about():
-    return f"""
-<section class="lead">
-  <h1>About</h1>
-  <p>TI Revive is a free, open-source project. It started because a Virus TI deserved to keep working on the
-  computers people use today.</p>
-</section>
-
-<section>
-  <h2>Not Access</h2>
-  <p>TI Revive is not affiliated with, endorsed by or connected to Access Music or Kemper. &ldquo;Access&rdquo; and
-  &ldquo;Virus&rdquo; are their names. TI Revive contains no Access software, skins, firmware or patches; the plug-in
-  reads them at runtime from the installer you own.</p>
-
-  <h2>How it was built</h2>
-  <p>By reverse engineering the USB protocol and the original software's behaviour from logs, captures and static
-  analysis, and by testing on real hardware. Every claim about the device is written down with its source in the
-  repository. Much of the work was done with an AI coding assistant; the tests on the synth were done by hand.</p>
-
-  <h2>Taking part</h2>
-  <p>Test reports for the Snow, Polar and Keyboard, other DAWs and systems help most &mdash; no coding needed. See the
-  <a href="{GH}#readme">README</a> and the <a href="{GH}/issues/new?template=test_report.yml">test report form</a>.
-  Source code and licence: <a href="{GH}">github.com/{REPO}</a>.</p>
-
-  <h2>Saying thanks</h2>
-  <p>Everything works the same whether you pay or not. If TI Revive gave your Virus a second life and you want to,
-  you can <a href="https://buymeacoffee.com/callmederpsn">buy the developer a coffee</a>. A test report or a kind
-  word helps just as much.</p>
-</section>
-"""
-
-
-# ------------------------------------------------------------------------------------- the one-page design
+# ------------------------------------------------------------------------------------------------ the pages
 def highlights(rel, n=3):
     """the first points of a version's summary (its list items, else its first sentences)"""
     text = summary(rel).replace("\r", "")
@@ -429,7 +202,7 @@ def page_landing(latest, releases, sums):
                    "<em>Open</em>).",
                    "Put your Access <code>.pkg</code> next to <code>Set up Access Virus TI files.command</code> and "
                    "run it. It also parks old drivers that would block the Virus.",
-                   "Start your DAW and allow microphone access when asked &mdash; macOS hands the Virus' audio only "
+                   "Start your DAW and allow microphone access when asked: macOS hands the Virus' audio only "
                    "to apps with it. VST3 and Audio Unit."])
     lin = os_card("Linux", "x86_64 with systemd, Ubuntu 22.04 / Debian 12 or newer", asset(latest, "-linux.tar.gz"),
                   None, sums,
@@ -444,7 +217,7 @@ def page_landing(latest, releases, sums):
     <div class="hero-text">
     <h1>TI Revive</h1>
     <p class="tagline">Like meeting an old best friend again.</p>
-    <p class="lead"><strong>Total Integration for the Access Virus TI on Windows 11, macOS and Linux &mdash; without
+    <p class="lead"><strong>Total Integration for the Access Virus TI on Windows 11, macOS and Linux, without
     the old drivers.</strong> Its plug-in looks and works like the original Virus Control: every parameter, the preset
     browser, automation, and the synth's audio over the same USB cable.</p>
     <p class="actions"><a class="button" href="#download">Download {v}</a>
@@ -452,8 +225,8 @@ def page_landing(latest, releases, sums):
     <p class="facts-line">Free &middot; open source &middot; VST3 and Audio Unit &middot; released {when}</p>
     <p class="thanks">&#9749; <strong>Free, and it will stay free.</strong> Every change is tested on the real synth
     on Windows, macOS and Linux, often back and forth between the three, and that takes a lot of evenings. If TI Revive
-    gives your Virus a second life and you'd like to say thanks, you can <a href="https://buymeacoffee.com/callmederpsn">buy me a coffee</a> -
-    entirely optional, every feature works the same either way. A test report or a kind word helps just as much.</p>
+    gives your Virus a second life and you'd like to say thanks, you can <a href="https://buymeacoffee.com/callmederpsn">buy me a coffee</a>.
+    It is entirely optional; every feature works the same either way. A test report or a kind word helps just as much.</p>
     </div>
     <figure class="shot">
       <img src="plugin-filter.png" width="1280" height="724"
@@ -467,7 +240,7 @@ def page_landing(latest, releases, sums):
   <div class="wrap">
     <h2>Version {v}, released {when}</h2>
     <p class="intro">You also need your own Access &ldquo;Virus TI Software Suite&rdquo; installer (e.g. 5.1.7).
-    TI Revive unpacks only what the plug-in reads from it &mdash; the skin, the parameter descriptions, the ROM banks.
+    TI Revive unpacks only what the plug-in reads from it: the skin, the parameter descriptions, the ROM banks.
     Older versions are on <a href="{GH}/releases">GitHub</a>.</p>
     <div class="oses">{win}{mac}{lin}
     </div>
@@ -503,8 +276,8 @@ def page_landing(latest, releases, sums):
 <section class="block" id="status">
   <div class="wrap">
     <h2>What is tested where</h2>
-    <p class="intro">We test on a Virus TI2 Desktop. Everything else depends on reports from people who own one
-    &mdash; a <a href="{GH}/issues/new?template=test_report.yml">test report</a> helps more than anything.</p>
+    <p class="intro">We test on a Virus TI2 Desktop. Everything else depends on reports from people who own one.
+    A <a href="{GH}/issues/new?template=test_report.yml">test report</a> helps more than anything.</p>
     <table class="matrix">
       <thead><tr><th>Model</th><th>Windows</th><th>macOS</th><th>Linux</th></tr></thead>
       <tbody>
@@ -521,8 +294,8 @@ def page_landing(latest, releases, sums):
     </ul>
     <div class="testing">
       <div><h3>Automated tests</h3><p>{TESTS} unit tests run with every release build on Windows and Linux. They
-      cover {COVERAGE} of the lines of the core library &mdash; the USB protocol, the device access, the editor and the
-      reader for the Access files (measured {COVERAGE_DATE}).</p></div>
+      cover {COVERAGE} of the lines of the core library: the USB protocol, the device access, the editor and the reader
+      for the Access files (measured {COVERAGE_DATE}).</p></div>
       <div><h3>On the synth</h3><p>Changes that touch the Virus are tried on our TI2 Desktop before a release; the
       release notes say on which systems and in which DAWs.</p></div>
       <div><h3>Your reports</h3><p>They make TI Revive better with every version: the soft knobs (0.8.7, 0.8.8) and
@@ -571,8 +344,8 @@ def page_landing(latest, releases, sums):
       what changed in the recent versions started with one.</p>
       <ol>
         <li><strong>Collect the logs.</strong> Easiest: open the <strong>TI Revive Control Center</strong>, switch on
-        <em>Nerd mode</em> and press <em>Save logs...</em> &mdash; plug-in and broker logs in one file, without your
-        home folder or user name. Or by hand: create an empty file <code>diag.on</code> in the plug-in's folder,
+        <em>Nerd mode</em> and press <em>Save logs...</em>. You get the plug-in and broker logs in one file,
+        without your home folder or user name. Or by hand: create an empty file <code>diag.on</code> in the plug-in's folder,
         reproduce the problem, and take <code>diag.log</code> from the same folder:
         <div class="paths"><b>Windows</b><code>%LOCALAPPDATA%\\virus-ti-native</code>
         <b>macOS</b><code>~/Library/Application Support/virus-ti-native</code>
@@ -581,7 +354,7 @@ def page_landing(latest, releases, sums):
         for your system, Virus model, the TI Revive and DAW versions, and what happened. Drag the log files into
         it.</li>
         <li><strong>Everything works?</strong> A <a href="{GH}/issues/new?template=test_report.yml">test report</a>
-        helps as much as a bug report &mdash; above all for the Snow, Polar and Keyboard, and DAWs we have not
+        helps as much as a bug report, above all for the Snow, Polar and Keyboard, and DAWs we have not
         tried.</li>
       </ol>
       <p class="small">You need a free GitHub account to post. Look through the logs before you attach them and remove
@@ -639,7 +412,7 @@ def features_section():
           <tr><th>Linux, REAPER</th><td>256 / 256</td><td>0.01 ms</td><td>0 ppm</td></tr>
           <tr><th>macOS, Ableton 12 (M3)</th><td>256 / 256</td><td>0.02 ms</td><td>0 ppm</td></tr>
           <tr><th>Windows 11, Ableton 11</th><td>304 / 304</td><td>&le; 0.66 ms*</td><td>0 ppm</td></tr>
-          <tr class="old"><th>Classic plug-in 0.7.x</th><td>first late, second missing</td><td>0.06 ms</td><td>&ndash;</td></tr>
+          <tr class="old"><th>Classic plug-in 0.7.x</th><td>first late, second missing</td><td>0.06 ms</td><td>n/a</td></tr>
         </tbody>
       </table>
       <p class="small">Recorded from the Virus' USB audio and measured by onset analysis. *The upper bound of the
@@ -655,7 +428,7 @@ def features_section():
         <tbody>
           <tr><th>Idle, Virus connected</th><td>5 %</td><td>1.4 %</td></tr>
           <tr><th>Stress test: 16 channels of notes + 32 automated parameters</th><td>19 %</td><td>2.9 %</td></tr>
-          <tr><th>One audio block, 3 LFOs automating the Virus for 40 min</th><td>&ndash;</td><td>max 122 &micro;s, 0 dropouts</td></tr>
+          <tr><th>One audio block, 3 LFOs automating the Virus for 40 min</th><td>n/a</td><td>max 122 &micro;s, 0 dropouts</td></tr>
         </tbody>
       </table>
       <p class="small">Checked with ThreadSanitizer and AddressSanitizer; {TESTS} unit tests run with every release build on Windows and
@@ -716,8 +489,8 @@ def features_section():
       <div><h3>What TI Revive will not do</h3>
       <p>On purpose, to keep your synth and your data safe.</p></div>
       <ul>
-        <li>No firmware or OS updates for the Virus, no &ldquo;Burn To Flash&rdquo;, no factory reset &mdash;
-        anything that writes the Virus' flash can brick it.</li>
+        <li>No firmware or OS updates for the Virus, no &ldquo;Burn To Flash&rdquo;, no factory reset. Anything
+        that writes the Virus' flash can brick it.</li>
         <li>No Access files in TI Revive: the skin, the parameter descriptions and the ROM banks come from the installer
         you own.</li>
         <li>No telemetry: TI Revive never connects to the internet. Its parts talk to each other on your computer only,
@@ -755,44 +528,32 @@ def page_changelog_landing(releases):
 """
 
 
-PAGES = [("index", "Home", page_home), ("download", "Download", page_download), ("changelog", "Changelog",
-         page_changelog), ("help", "Help", page_help), ("about", "About", page_about)]
-
-
 # the README's screenshots that the site shows too (copied at build time)
 SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png"]
 TESTS = 102 # unit tests in native/tests (vtitests), as of 2026-10-16
 # line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
 COVERAGE, COVERAGE_DATE = "92 %", "16 Oct 2026"
 
-# designs with their own set of pages (the others use PAGES)
-LAYOUTS = {"landing": [("index", "Home", lambda latest, releases, sums: page_landing(latest, releases, sums)),
-                       ("changelog", "Changelog", lambda latest, releases, sums: page_changelog_landing(releases))]}
+# the site: one page plus the changelog archive
+PAGES = [("index", "TI Revive", lambda latest, releases, sums: page_landing(latest, releases, sums)),
+         ("changelog", "TI Revive changelog", lambda latest, releases, sums: page_changelog_landing(releases))]
 
 
-def render(design, out, releases, sums):
-    src = os.path.join(ROOT, "site", "src", design)
+def render(out, releases, sums):
+    src = os.path.join(ROOT, "site", "src")
     with open(os.path.join(src, "base.html")) as f:
         base = f.read()
     os.makedirs(out, exist_ok=True)
     for name in os.listdir(src):
-        if name != "base.html":
+        if name != "base.html" and os.path.isfile(os.path.join(src, name)):
             shutil.copy(os.path.join(src, name), os.path.join(out, name))
     for img in SHARED_IMAGES:
         shutil.copy(os.path.join(ROOT, "docs", "images", img), os.path.join(out, img))
     latest = next(r for r in releases if not r.get("prerelease") and not r.get("draft"))
-    pages = LAYOUTS.get(design, PAGES)
-    for slug, label, fn in pages:
-        if design in LAYOUTS:
-            body = fn(latest, releases, sums)
-        else:
-            body = {"index": lambda: fn(latest), "download": lambda: fn(latest, sums),
-                    "changelog": lambda: fn(releases)}.get(slug, fn)()
-        nav = "\n".join(f'<a href="{s}.html"{" aria-current=\"page\"" if s == slug else ""}>{lab}</a>'
-                        for s, lab, _ in pages)
-        page = (base.replace("{{title}}", "TI Revive" if slug == "index" else label + " - TI Revive")
-                .replace("{{nav}}", nav).replace("{{body}}", body).replace("{{version}}", latest["tag_name"][1:])
-                .replace("{{date}}", date(latest["published_at"])).replace("{{repo}}", GH))
+    for slug, title, fn in PAGES:
+        page = (base.replace("{{title}}", title).replace("{{body}}", fn(latest, releases, sums))
+                .replace("{{version}}", latest["tag_name"][1:]).replace("{{date}}", date(latest["published_at"]))
+                .replace("{{repo}}", GH))
         with open(os.path.join(out, slug + ".html"), "w") as f:
             f.write(page)
 
@@ -802,23 +563,13 @@ def main():
     ap.add_argument("--releases")
     ap.add_argument("--checksums", action="store_true")
     ap.add_argument("--cache", default=os.path.join(ROOT, "site", ".cache"))
-    ap.add_argument("--design", action="append")
     ap.add_argument("--out", default=os.path.join(ROOT, "site", "dist"))
     a = ap.parse_args()
     releases = sorted(load_releases(a.releases), key=lambda r: r["published_at"], reverse=True)
     latest = next(r for r in releases if not r.get("prerelease") and not r.get("draft"))
     sums = sha256_of_assets(latest, a.cache) if a.checksums else {}
-    designs = a.design or sorted(d for d in os.listdir(os.path.join(ROOT, "site", "src"))
-                                 if os.path.isdir(os.path.join(ROOT, "site", "src", d)))
-    for d in designs:
-        render(d, os.path.join(a.out, d) if len(designs) > 1 else a.out, releases, sums)
-    if len(designs) > 1: # the drafts side by side
-        links = "".join(f'<li><a href="{d}/index.html">{d}</a></li>' for d in designs)
-        with open(os.path.join(a.out, "index.html"), "w") as f:
-            f.write(f'<!doctype html><meta charset="utf-8"><title>TI Revive drafts</title>'
-                    f'<style>body{{font:16px/1.5 system-ui;margin:3em;max-width:30em}}</style>'
-                    f'<h1>TI Revive - website drafts</h1><ul>{links}</ul>')
-    print("built", ", ".join(designs), "->", a.out, "(%d releases, checksums %s)" % (len(releases),
+    render(a.out, releases, sums)
+    print("built ->", a.out, "(%d releases, latest %s, checksums %s)" % (len(releases), latest["tag_name"],
           "yes" if sums else "no"))
 
 
