@@ -369,6 +369,7 @@ private:
     // last report the stored patch from the bank cache goes into that part's edit buffer (sender thread, idle hook)
     vti::PanelFollow follow_;
     void load_reported_presets();
+    std::vector<std::vector<uint8_t>> startup_messages() const; // GlobalInit + ParamInit (+ USB IO configuration)
     std::map<int, std::vector<std::vector<uint8_t>>> banks_; // RAM A..D (bank cache, see load_banks), ROM, libraries
     std::vector<std::string> lib_names_, lib_paths_;
     std::mutex banks_mu_;

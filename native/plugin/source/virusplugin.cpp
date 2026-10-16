@@ -369,6 +369,9 @@ void DeviceOut::run()
                 (long long)(stats_newest_ >= 0 ? newest - stats_newest_ : -1), (long long)anchors.exchange(0),
                 (long long)err_min.exchange(INT64_MAX), (long long)err_max.exchange(INT64_MIN));
             stats_newest_ = newest;
+            int pk[6];
+            if (audio_ok_ && audio_.raw_peaks(44100, pk)) // the last second per raw channel (0/1 in, 2/3 USB 1, 4/5 USB 2)
+                log("stats: raw peaks %d %d | %d %d | %d %d\n", pk[0], pk[1], pk[2], pk[3], pk[4], pk[5]);
         }
         // the broker may refuse the audio start right after another session ended (stress test: every second
         // quick re-open had no sound): retry every 500 ms while connected without audio
@@ -566,14 +569,29 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
             return;
         }
         set_lcd("Virus reconnected", std::string(), std::string(), std::string());
-        for (auto &m : dev_.init_messages())
+        for (auto &m : startup_messages())
             out_->send(m);
         send_state();
     });
     // the original's start-up: GlobalInit (remote mode, cable numbers, clock sync, ...) + ParamInit, before any state
-    for (auto &m : dev_.init_messages())
+    for (auto &m : startup_messages())
         out_->send(m);
     return kResultOk;
+}
+
+// GlobalInit + ParamInit; the USB IO configuration (Global USB index 9: 0 = 2 Outs / No Input, 1 = 3 Outs / No
+// Input, 2 = 3 Outs / 1 Input) the way the original sets it from its own setting ("IO Configuration", 0x18007ec30)
+// instead of GlobalInit's 0. EXPERIMENT (C10): the value from VTI_IO_CONFIG, else 0 as before.
+std::vector<std::vector<uint8_t>> VirusPlugin::startup_messages() const
+{
+    auto msgs = dev_.init_messages();
+    const char *e = std::getenv("VTI_IO_CONFIG");
+    const int io = e ? std::atoi(e) : 0;
+    if (io >= 1 && io <= 2)
+        for (auto &m : msgs)
+            if (m.size() == 11 && m[6] == 0x73 && m[7] == 0x00 && m[8] == 0x09)
+                m[9] = (uint8_t)io;
+    return msgs;
 }
 
 tresult PLUGIN_API VirusPlugin::terminate()

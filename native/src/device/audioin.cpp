@@ -3,7 +3,9 @@
 extern "C" {
 #include "vtiaudioshm.h"
 }
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #ifdef _WIN32
 #include <windows.h>
@@ -216,6 +218,22 @@ void AudioIn::close()
 bool AudioIn::streaming() const { return shm_ && shm_->streaming; }
 
 int64_t AudioIn::newest_frame() const { return streaming() ? load_acquire(&shm_->in_frames) : -1; }
+
+bool AudioIn::raw_peaks(int frames, int peak[6]) const
+{
+    for (int c = 0; c < 6; c++)
+        peak[c] = 0;
+    int64_t newest = newest_frame();
+    if (newest < 0)
+        return false;
+    frames = std::min<int64_t>(frames, std::min<int64_t>(newest, VTI_AUDIO_RING - 1024));
+    for (int64_t f = newest - frames; f < newest; f++) {
+        const int16_t *fr = shm_->in + (f & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_IN_CH;
+        for (int c = 0; c < 6 && c < VTI_AUDIO_IN_CH; c++)
+            peak[c] = std::max(peak[c], std::abs((int)fr[c]));
+    }
+    return true;
+}
 
 void AudioIn::read_at(float *l1, float *r1, float *l2, float *r2, int n, int64_t pos)
 {

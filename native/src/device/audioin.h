@@ -23,6 +23,9 @@ public:
     // n frames from the absolute ring frame `pos` (silence where not available)
     void read_at(float *usb1l, float *usb1r, float *usb2l, float *usb2r, int n, int64_t pos);
     int64_t newest_frame() const; // synth frames produced so far (-1 if not streaming)
+    // the highest absolute sample per raw channel (VTI_AUDIO_IN_CH, device order) over the newest `frames` frames:
+    // diagnostics (which channels carry sound, e.g. the third USB output); false if not streaming
+    bool raw_peaks(int frames, int peak[6]) const;
     // all 6 input channels (0/1 analog inputs, 2/3 USB 1, 4/5 USB 2) of n frames from ring frame `pos` as int16, frame
     // interleaved (6 per frame); frames not there (yet) are silence. For the ASIO driver.
     void read_raw_at(int16_t *dst, int n, int64_t pos) const;
