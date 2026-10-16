@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.9 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E161), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E162), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-16, after the 0.8.9 release)
@@ -11,7 +11,8 @@ UTILITY > Preferences > "3 Outs / No Input" -> Out 3 = USB 3, kept per computer;
 (TI2) and Windows (VM, Ableton 11)). v0.8.8 (CI run 38864936021): soft knobs on the Virus change the sound (E154),
 controllers after a preset load; tested on Linux and Windows (E155). v0.8.7: presets chosen on the Virus (E152),
 soft knobs in the editor (E150). All work branches merged into main (88 unit tests, CI-like vticore line coverage
-81.8 %, measured with gcov, see below). Not tested: macOS, the Snow, parts other than 1, USB IO mode 2.
+81.8 %, measured with gcov, see below). macOS (M3, Ableton 12): 0.8.9 FX + automation fine (E162). Not tested:
+the Snow, parts other than 1, USB IO mode 2, USB 3 on macOS.
 
 **Replies on #4 (2026-10-16):** 6208931585 (nasguile, 0.8.7), 6208931949 (Manu, 0.8.7, logs asked), 6210139464
 (both: correction - use 0.8.8, soft knobs on the Virus now change the sound). Waiting for their test results/logs.
