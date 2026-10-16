@@ -9,6 +9,7 @@
 #include "device/broker.h"
 #include "device/memsync.h"
 #include "device/resampler.h"
+#include "device/sidechain.h"
 #include "model/panelfollow.h"
 #include "model/remotedevice.h"
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
@@ -97,9 +98,10 @@ public:
     std::atomic<int64_t> aligned_blocks{0}, read_margin_min{INT64_MAX}, tl_steps{0};
     // process() calls/samples and timeline events (anticipative hosts call in bursts ahead of real time)
     std::atomic<int64_t> host_frames{0}, anchors{0}, err_min{INT64_MAX}, err_max{INT64_MIN};
-    // the Sidechain bus towards the Virus' USB input ("3 Outs / 1 Input", E167): frames sent, refills after the
-    // broker ran dry, one-frame corrections both ways, the smallest/largest queue seen before a block
-    std::atomic<int64_t> sc_frames{0}, sc_refills{0}, sc_repeats{0}, sc_skips{0}, sc_queued_min{INT64_MAX},
+    // the Sidechain bus towards the Virus' USB input ("3 Outs / 1 Input", E167): frames sent, refills (start, the
+    // broker ran dry), pauses for another writer of the ring (the ASIO driver), the converter's rate correction
+    // (ppm), the smallest/largest queue seen before a block
+    std::atomic<int64_t> sc_frames{0}, sc_refills{0}, sc_yields{0}, sc_corr_ppm{0}, sc_queued_min{INT64_MAX},
         sc_queued_max{INT64_MIN};
     // R5 lines also go to this file (diag.on, field tests); set once after construction, read by the worker
     void set_diag_path(const std::string &p)
@@ -456,12 +458,11 @@ private:
     std::atomic<int> usb_io_{0};
     void set_usb_io(int value, bool save);
     // "3 Outs / 1 Input": the Sidechain bus goes to the Virus' USB input, as in the original (E167)
-    // frames kept queued in the broker's ring before each block: at least its prefill (512), and with a block on
-    // top below its limit (2048, it drops beyond); the DAW's and the Virus' clocks differ, so one frame per block is
-    // repeated or left out to stay there (the original uses a rate-controlled converter, 0x1800aa1c0)
-    static constexpr int SC_TARGET = 512;
-    std::vector<int16_t> sc_buf_; // 16-bit stereo for the broker's ring, sized in setupProcessing
-    double sc_avg_ = SC_TARGET;   // the broker's queue before a block, averaged (audio thread)
+    SidechainSender sc_;          // rate-controlled converter towards the Virus' clock (audio thread)
+    std::vector<int16_t> sc_buf_; // its 16-bit stereo output for the ring, sized in setupProcessing
+    int64_t sc_expect_ = -1;      // the ring's write position after our last write (-1: we did not write)
+    int64_t sc_seen_ = -1;        // the write position at the last block (another writer moves it)
+    int64_t sc_hold_ = 0;         // host frames to stay out after another writer was seen
     void send_sidechain(Steinberg::Vst::ProcessData &data);
     double rs_pos_ = 0;
     bool rs_valid_ = false;

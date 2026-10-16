@@ -6,6 +6,33 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __linux__
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <unistd.h>
+// E136: several give-back resets within a second (brokers ending one after another during tests) once hung the
+// Virus until a power cycle. The resets of all brokers of this user are spaced: a time stamp file per user, and a
+// reset less than RESET_GAP_S after the previous one is skipped (snd-usb-audio then gets the Virus back with the
+// next reset or a replug).
+#define RESET_GAP_S 5
+static int reset_allowed(void)
+{
+    char path[64];
+    snprintf(path, sizeof path, "/tmp/tirevive-usbreset-%u", (unsigned)getuid());
+    struct stat st;
+    time_t now = time(NULL);
+    if (stat(path, &st) == 0 && now >= st.st_mtime && now - st.st_mtime < RESET_GAP_S)
+        return 0;
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0600);
+    if (fd >= 0) { // its modification time marks this reset
+        futimens(fd, NULL);
+        close(fd);
+    }
+    return 1;
+}
+#endif
+
 static const uint8_t HANDSHAKE[4] = {0x4e, 0x73, 0x52, 0x01}; // spec §3, sent raw on EP 0x05
 
 struct vti {
@@ -112,7 +139,10 @@ void vti_close(vti *v)
         libusb_claim_interface(v->h, i);
     for (int i = 0; i <= 4; i++)
         libusb_release_interface(v->h, i);
-    libusb_reset_device(v->h);
+    if (reset_allowed())
+        libusb_reset_device(v->h);
+    else
+        vti_log("vti: give-back reset skipped (the last one was less than %d s ago, E136)\n", RESET_GAP_S);
 #else
     for (int i = 3; i <= 4; i++)
         libusb_release_interface(v->h, i);

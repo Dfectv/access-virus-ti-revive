@@ -420,11 +420,13 @@ void DeviceOut::run()
             int pk[6];
             if (audio_ok_ && audio_.raw_peaks(44100, pk)) // the last second per raw channel (0/1 in, 2/3 USB 1, 4/5 USB 2)
                 log("stats: raw peaks %d %d | %d %d | %d %d\n", pk[0], pk[1], pk[2], pk[3], pk[4], pk[5]);
-            if (int64_t f = sc_frames.exchange(0))
-                log("stats: sidechain to the Virus %lld frames, refills %lld, repeats %lld, skips %lld, queued %lld..%lld\n",
-                    (long long)f, (long long)sc_refills.exchange(0), (long long)sc_repeats.exchange(0),
-                    (long long)sc_skips.exchange(0), (long long)sc_queued_min.exchange(INT64_MAX),
-                    (long long)sc_queued_max.exchange(INT64_MIN));
+            int64_t sc_f = sc_frames.exchange(0), sc_y = sc_yields.exchange(0);
+            if (sc_f || sc_y)
+                log("stats: sidechain to the Virus %lld frames, refills %lld, rate %+lld ppm, queued %lld..%lld, "
+                    "paused for another writer %lld\n",
+                    (long long)sc_f, (long long)sc_refills.exchange(0), (long long)sc_corr_ppm.load(),
+                    (long long)sc_queued_min.exchange(INT64_MAX), (long long)sc_queued_max.exchange(INT64_MIN),
+                    (long long)sc_y);
         }
         // the broker may refuse the audio start right after another session ended (stress test: every second
         // quick re-open had no sound): retry every 500 ms while connected without audio
@@ -726,7 +728,10 @@ tresult PLUGIN_API VirusPlugin::setupProcessing(ProcessSetup &setup)
             b.assign((size_t)(block_ * step * 1.01) + 2 * Resampler::TAPS + 8, 0.0f);
         rs_valid_ = false;
     }
-    sc_buf_.assign((size_t)(std::max(block_, 0) + SC_TARGET + 1) * 2, 0);
+    sc_.setup(rate_, std::max(block_, 1));
+    sc_buf_.assign((size_t)sc_.max_out() * 2, 0);
+    sc_expect_ = sc_seen_ = -1;
+    sc_hold_ = 0;
     return SingleComponentEffect::setupProcessing(setup);
 }
 
@@ -1109,71 +1114,50 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
 }
 
 // "3 Outs / 1 Input": the Sidechain bus (input bus 1) to the Virus' USB input, as the original does (E167: its VST3
-// shell passes only the Sidechain bus on, "Dummy In" is never read; silence without buffers). Linux only for now: on
-// Windows the ASIO driver writes the same ring, on macOS the plug-in has no output to the Virus. 44.1 kHz hosts only.
+// shell passes only the Sidechain bus on, "Dummy In" is never read; silence without buffers), through a
+// rate-controlled converter (SidechainSender) at any host rate. The ring has one writer: if the write position
+// moves without us (Windows: the ASIO driver plays the DAW to the Virus), we stay out for 2 s and start again.
 void VirusPlugin::send_sidechain(ProcessData &data)
 {
-#ifdef __linux__
     const int n = data.numSamples;
-    if (usb_io_.load(std::memory_order_relaxed) != 2 || resampling() || n <= 0 || n > block_ || sc_buf_.empty())
+    if (usb_io_.load(std::memory_order_relaxed) != 2 || n <= 0 || n > block_ || sc_buf_.empty()) {
+        sc_expect_ = sc_seen_ = -1;
         return;
+    }
+    AudioIn &audio = out_->audio();
+    const int64_t w0 = audio.out_written();
+    if (w0 < 0)
+        return;
+    const bool foreign = sc_expect_ >= 0 ? w0 != sc_expect_ : sc_seen_ >= 0 && w0 != sc_seen_;
+    sc_seen_ = w0;
+    if (foreign || sc_hold_ > 0) {
+        if (foreign) {
+            sc_hold_ = (int64_t)(2 * rate_);
+            out_->sc_yields.fetch_add(1, std::memory_order_relaxed);
+        } else
+            sc_hold_ -= n;
+        if (sc_hold_ <= 0)
+            sc_.reset(); // the next block starts the stream again
+        sc_expect_ = -1;
+        return;
+    }
     const float *l = nullptr, *r = nullptr;
     if (data.numInputs >= 2 && data.inputs[1].numChannels >= 2 && data.inputs[1].channelBuffers32) {
         l = data.inputs[1].channelBuffers32[0];
         r = data.inputs[1].channelBuffers32[1];
     }
-    auto pcm = [](const float *s, int i) {
-        if (!s)
-            return (int16_t)0;
-        float v = std::max(-1.0f, std::min(1.0f, s[i]));
-        return (int16_t)std::lrint(v * 32767.0f);
-    };
-    AudioIn &audio = out_->audio();
     const int64_t q = audio.out_queued();
     if (q < out_->sc_queued_min.load(std::memory_order_relaxed))
         out_->sc_queued_min.store(q, std::memory_order_relaxed);
     if (q > out_->sc_queued_max.load(std::memory_order_relaxed))
         out_->sc_queued_max.store(q, std::memory_order_relaxed);
-    int16_t *d = sc_buf_.data();
-    int w = 0;
-    if (q < SC_TARGET / 4) { // the start, or the broker ran dry: fill up to the target at once (silence first)
-        int pad = (int)(SC_TARGET - std::max<int64_t>(q, 0));
-        memset(d, 0, (size_t)pad * 2 * sizeof(int16_t));
-        w = pad;
-        sc_avg_ = SC_TARGET;
-        out_->sc_refills.fetch_add(1, std::memory_order_relaxed);
-    }
-    // the broker takes frames in bursts of USB transfers (single readings jump by a few hundred frames): steer on
-    // an average over ~32 blocks, and only outside +-128 frames, so a correction is rare (the clocks differ by
-    // well under 0.1 %, a few frames per second)
-    sc_avg_ += ((double)q - sc_avg_) / 32.0;
-    int skip = -1, repeat = -1; // one frame per block towards the target
-    if (w == 0 && sc_avg_ < SC_TARGET - 128) {
-        repeat = n / 2;
-        sc_avg_ += 1;
-        out_->sc_repeats.fetch_add(1, std::memory_order_relaxed);
-    } else if (sc_avg_ > SC_TARGET + 128 && n > 1) {
-        sc_avg_ -= 1;
-        skip = n / 2;
-        out_->sc_skips.fetch_add(1, std::memory_order_relaxed);
-    }
-    for (int i = 0; i < n; i++) {
-        if (i == skip)
-            continue;
-        d[2 * w] = pcm(l, i);
-        d[2 * w + 1] = pcm(r, i);
-        w++;
-        if (i == repeat) {
-            d[2 * w] = d[2 * w - 2];
-            d[2 * w + 1] = d[2 * w - 1];
-            w++;
-        }
-    }
-    audio.write_out(d, w);
+    const int64_t refills = sc_.refills();
+    const int w = sc_.process(l, r, n, q, sc_buf_.data());
+    audio.write_out(sc_buf_.data(), w);
+    sc_expect_ = w0 + w;
     out_->sc_frames.fetch_add(w, std::memory_order_relaxed);
-#else
-    (void)data;
-#endif
+    out_->sc_refills.fetch_add(sc_.refills() - refills, std::memory_order_relaxed);
+    out_->sc_corr_ppm.store(std::llround(sc_.correction() * 1e6), std::memory_order_relaxed);
 }
 
 // host rate != 44.1 kHz: n output samples from the Virus frame `target` on, resampled. The read position moves on

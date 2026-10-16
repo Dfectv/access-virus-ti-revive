@@ -37,6 +37,7 @@ public:
     // the broker plays them at the synth's rate (prefill 512, at most 2048 ahead). Frames queued and not played yet:
     void write_out(const int16_t *stereo, int n);
     int64_t out_queued() const;
+    int64_t out_written() const; // the ring's write position (all writers): another writer moves it too
 
 private:
     void *map_ = nullptr; // vti_audio_shm (vtiaudioshm.h)
