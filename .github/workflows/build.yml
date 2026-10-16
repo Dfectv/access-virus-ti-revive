@@ -211,7 +211,13 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
-          **New in 0.8.6: steadier start-up.** The plug-in now waits until the Virus has really worked through its
+          **New in 0.8.7: presets and soft knobs on the Virus itself.** A preset you choose on the Virus (its
+          display, knobs or buttons) now loads into the plug-in and sounds - before, the part kept its old sound and
+          the plug-in stayed on the old patch. The three soft knobs work in both directions now: in the editor they
+          control the parameter their destination selects (Easy page), and when you turn them on the Virus the
+          plug-in follows. Thanks for the reports (issue #4)!
+
+          **Since 0.8.6: steadier start-up.** The plug-in now waits until the Virus has really worked through its
           start-up messages and your project's sound, instead of a fixed 4 seconds: the first notes play in time,
           also when a duplicated track takes over the Virus (before, the first notes after the takeover could be
           up to 2 s late).

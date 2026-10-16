@@ -27,7 +27,7 @@ jobs:
           auval -a | grep -i "TIRv" || true
           auval -v aumu VTIr TIRv || echo "auval failed (the runner has no Access files and no Virus)"
       - name: Mac package (as the release builds it)
-        run: bash scripts/mac-build-release.sh "$PWD" 0.8.6-dev "$PWD/out"
+        run: bash scripts/mac-build-release.sh "$PWD" 0.8.7-dev "$PWD/out"
       - name: Collect
         run: |
           mkdir dev && cp -R "build-native/AU/Release/TI Revive Virus Control.component" dev/
