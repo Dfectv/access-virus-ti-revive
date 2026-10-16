@@ -363,12 +363,6 @@ def page_landing(latest, releases, sums):
       </details>
       <details><summary>Process audio through the Virus (sidechain input)</summary>
       <p>Like the original, the plug-in can send audio from your DAW into the Virus: set &ldquo;Input and Output Configuration&rdquo; to &ldquo;3 Outs / 1 Input&rdquo;, and on the FX 1 page set a part's Input Mode to Static (always on) or Dynamic (played with notes) and Select to L + R. Then send an audio track to the plug-in's sidechain input; the part's filters and effects process it. In REAPER, give the Virus track 4 channels and send the audio to channels 3/4 (check in the pin connector that they feed Sidechain 1/2). In Ableton Live, pick the audio track in the device's Sidechain section. In this mode the Virus does not work as a sound card for your computer. After reopening a project, set Input Mode once more (a known issue, fixed in the next version). Tested on Linux (REAPER) and macOS (Ableton Live 12); not yet on a real Windows PC.</p></details>
-      <details><summary>Help mode</summary>
-      <p>Click the ? at the bottom right of the editor: every control gets a short note on what it does. Point at a control to read it, click to keep the note on screen; clicks do not change values in this mode, and the page tabs still work. Esc or ? ends it. The notes are written for TI Revive, not taken from the Access manual.</p>
-      <figure class="shot"><img src="plugin-help-mode.png" width="1360" height="769"
-      alt="The plug-in's help mode: a note explains the sub oscillator knob">
-      <figcaption>Help mode, drawn from your own Access installer. TI Revive is not affiliated with Access Music or
-      Kemper.</figcaption></figure></details>
       <details><summary>The first notes after Play are late</summary>
       <p>The plug-in sends notes slightly ahead to make up for the USB round trip, so start playback a little before
       the first note. The original driver did the same.</p></details>
@@ -454,6 +448,17 @@ def features_section():
         <li>Editor sizes from 100 to 200 %. On larger sizes and Retina screens each image is enlarged once with a
         sharp filter, in memory only.</li>
       </ul>
+    </div>
+
+    <div class="feature">
+      <div><h3>Help mode</h3>
+      <p>Click the ? at the bottom right of the editor: every control gets a short note on what it does. Point at a
+      control to read it, click to keep the note on screen; clicks do not change values in this mode, and the page tabs
+      still work. Esc or ? ends it. The notes are written for TI Revive, not taken from the Access manual.</p></div>
+      <figure class="shot"><img src="plugin-help-mode.png" width="1360" height="769"
+      alt="The plug-in's help mode: a note explains the sub oscillator knob">
+      <figcaption>Help mode, drawn from your own Access installer. TI Revive is not affiliated with Access Music or
+      Kemper.</figcaption></figure>
     </div>
 
     <div class="feature">
