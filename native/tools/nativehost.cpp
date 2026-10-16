@@ -2,6 +2,8 @@
 //   nativehost <plugin.vst3> [--state FILE] [--param ID=NORM]... [--save FILE] [--seconds N] [--notes] [--wav FILE] [--scan]
 // --notes plays C4 (channel 1) for the first half of every second, --wav writes Out 1 (16-bit stereo 44.1 kHz),
 // --wav-bus N the output bus N instead (1..3, e.g. 3 = Out 3 = USB 3).
+// --hold T: C4 on at T s and held to the end; --param-at T:ID=NORM: a parameter change at T s (repeatable) - e.g. to
+// hear whether the Virus applies a change to a held note.
 // --duplicate T: a second instance runs next to the first from the start (a DAW's duplicated track, issue #6) with
 // the same notes; at T s the first is removed and the second takes over the Virus.
 // --state loads a state (a raw component state, or vtihost's VTISTATE file: the original's state), checks that
@@ -210,6 +212,14 @@ int main(int argc, char **argv)
     std::vector<Action> actions;
     double seconds = 1;
     std::vector<std::pair<ParamID, double>> changes;
+    double hold = -1; // --hold: note on at this time, never off
+    struct TimedChange {
+        double t;
+        ParamID id;
+        double v;
+        bool done;
+    };
+    std::vector<TimedChange> timed;
     for (int i = 2; i < argc; i++) {
         if (!strcmp(argv[i], "--state") && i + 1 < argc)
             state = argv[++i];
@@ -221,6 +231,14 @@ int main(int argc, char **argv)
             wav_bus = std::max(0, atoi(argv[++i]) - 1);
         else if (!strcmp(argv[i], "--notes"))
             notes = true;
+        else if (!strcmp(argv[i], "--hold") && i + 1 < argc)
+            hold = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--param-at") && i + 1 < argc) {
+            double t = 0, v = 0;
+            unsigned id = 0;
+            if (sscanf(argv[++i], "%lf:%u=%lf", &t, &id, &v) == 3)
+                timed.push_back({t, (ParamID)id, v, false});
+        }
         else if (!strcmp(argv[i], "--stress")) // MIDI load: notes on 16 channels + 32 automated parameters per block
             stress = true;
         else if (!strcmp(argv[i], "--stress-notes")) // only the notes of --stress
@@ -406,6 +424,23 @@ int main(int argc, char **argv)
                     ev.addEvent(e);
                 }
         }
+        if (hold >= 0) { // one C4 from `hold` on, released only at the end
+            long f0 = (long)b * block, on = (long)(hold * rate);
+            if (on >= f0 && on < f0 + block) {
+                Event e{};
+                e.sampleOffset = (int32)(on - f0);
+                e.type = Event::kNoteOnEvent;
+                e.noteOn = {0, 60, 0, 0.8f, 0, -1};
+                ev.addEvent(e);
+                printf("hold: C4 on at %.2f s\n", hold);
+            }
+            if (b == blocks - 1) {
+                Event e{};
+                e.type = Event::kNoteOffEvent;
+                e.noteOff = {0, 60, 0.f, -1, 0};
+                ev.addEvent(e);
+            }
+        }
         if (stress && stress_notes) { // every block: a note on/off pair on each of the 16 channels (cycling pitches)
             for (int ch = 0; ch < 16; ch++) {
                 Event e{};
@@ -435,6 +470,15 @@ int main(int argc, char **argv)
                     q->addPoint((int32)(k * 15), 0.5 + 0.4 * std::sin((b + k * 7) * 0.05), idx);
             }
         }
+        for (auto &c : timed)
+            if (!c.done && (double)(b + 1) * block / rate > c.t) {
+                c.done = true;
+                int32 idx;
+                if (auto *q = pc.addParameterData(c.id, idx)) {
+                    q->addPoint(0, c.v, idx);
+                    printf("param-at %.2f s: %u = %.4f\n", c.t, (unsigned)c.id, c.v);
+                }
+            }
         if (b == 1)
             for (auto &c : changes) {
                 int32 idx;
