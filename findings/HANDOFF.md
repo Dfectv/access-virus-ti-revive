@@ -58,6 +58,9 @@ is silent; all IO configurations play). Open: Ableton's sidechain buffers vs. th
 driver (same OUT path). Next round (TDD): the stats line also reports the sidechain input level.
 Windows results (user, win11 VM): smoke 4/4 (reconnect after a VM re-attach), help mode 8/8 (Esc, ?, 150 %),
 sidechain open (E170). The ASIO device is no check in 3 Outs / 1 Input (the Virus is no sound card then; feedback).
+Linux sidechain re-test (E171): WORKS in REAPER once the pins are Track 3 -> Sidechain 1, 4 -> Sidechain 2 (USB 1 peaks
+~15000, rate +-30 ppm). REAPER mapped 4-pin buses wrongly by default. Next round (TDD): Sidechain bus strictly stereo;
+stats line with the sidechain input level; disconnect page (above).
 
 **Branch `help-mode` (2026-10-16):** the "?" button (the original's Help Menu, which listed manuals; ours showed
 numbers 0-127) toggles a help mode: frames around every explained control, a note for the control under the mouse
