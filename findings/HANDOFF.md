@@ -10,7 +10,7 @@ Evidence: [evidence.md](evidence.md) (E001-E154), protocol: [spec.md](spec.md); 
 change the sound (0.8.7 only moved them in the editor, E154), controllers restored after a preset chosen on the
 Virus. v0.8.7 (CI run 38856677383, same day): presets chosen on the Virus are loaded (ignored since 0.8.0, E152),
 soft knobs in the editor control their destination (E150). Branches `softknobs`, `tests-coverage` and
-`preset-followups` are merged into main (88 unit tests; CI-like vticore line coverage 81.8 %, E-free: measured
+`preset-followups` are merged into main (88 unit tests; CI-like vticore line coverage 81.8 %, measured
 with gcov, see below). Tested on the TI2 under Linux only (REAPER with the branch build in ~/.vst3; nativehost).
 Not tested: Windows, macOS, the Snow, parts other than 1.
 
