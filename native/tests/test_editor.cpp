@@ -472,6 +472,21 @@ TEST(editor_hit_disabled_for_help)
     CHECK(n.element && !n.disabled && n.why.empty());
 }
 
+TEST(editor_hit_inactive_parameter_for_help)
+{
+    // a control greyed by its parameter's own condition (Osc/Gated needs Mode Is Two; the original's Input Select
+    // needs Input Mode on): the help names the parameters that condition tests
+    Rig g;
+    Hit h = g.r->hit_test(37, 22, true);
+    CHECK(h.element && h.element->get("Parameter") == "Osc/Gated" && !h.disabled && h.inactive);
+    CHECK(h.depends == std::vector<std::string>{"Osc/Mode"});
+    g.vals[{"Osc/Mode", 0}] = 2;
+    Hit a = g.r->hit_test(37, 22, true);
+    CHECK(a.element && !a.inactive && a.depends.empty());
+    Hit d = g.r->hit_test(652, 22, true); // Enabled="false" is inactive too
+    CHECK(d.inactive && d.disabled);
+}
+
 TEST(editor_value_texts)
 {
     Rig g;

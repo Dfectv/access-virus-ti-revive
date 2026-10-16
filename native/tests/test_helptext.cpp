@@ -41,3 +41,11 @@ TEST(help_inactive_reason)
     CHECK(inactive_reason("Parameter Active Condition/Delay/Type Is NOT Classic") == "Delay Type is not Classic");
     CHECK(inactive_reason("").empty());
 }
+
+TEST(help_depends_reason)
+{
+    // a control greyed by its parameter's own condition: the parameters that condition tests, readable
+    CHECK(depends_reason({"Input/Mode"}) == "depends on Input Mode");
+    CHECK(depends_reason({"Vocoder/Mode", "Filter 2/Cutoff Link"}) == "depends on Vocoder Mode, Filter 2 Cutoff Link");
+    CHECK(depends_reason({}).empty());
+}
