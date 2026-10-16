@@ -53,8 +53,9 @@ VM limit, not a plug-in bug) - then it played again (pass). NEW FINDING (user, L
 switched off the plug-in only writes "Virus disconnected" on the LCD; the layout's communication error page never
 shows, because the plug-in never sets "Internal System Info/USB Communication" (conditions "... USB Communication
 Error" / SystemStatus/Error). Next round, TDD: look up with REA when the original sets these, then implement.
-Windows VM: "3 Outs / 1 Input" mutes all USB audio of the Virus there (E170, QEMU's broken iso OUT) - the sidechain
-needs a real Windows PC; back to "2 Outs" restores the sound at once.
+Windows VM: the sidechain arrived silent at the Virus (E170, corrected: Input Mode Static silences part 1 when the input
+is silent; all IO configurations play). Open: Ableton's sidechain buffers vs. the VM's iso OUT - check via the ASIO
+driver (same OUT path). Next round (TDD): the stats line also reports the sidechain input level.
 
 **Branch `help-mode` (2026-10-16):** the "?" button (the original's Help Menu, which listed manuals; ours showed
 numbers 0-127) toggles a help mode: frames around every explained control, a note for the control under the mouse
