@@ -22,7 +22,9 @@ decode_describe_with_model (hand-written model: Nerd mode's parameter names, glo
 truncated-message fallbacks; decode.cpp 90.2 -> 99.4 %, CI-like vticore 93.5 -> 94.1 % of 2696 lines (97.0 % with
 header lines merged over the test objects); no file under 90 %. README/site: 128 tests, 94 % (site not rebuilt). Left
 uncovered on purpose: controlcenter "did not answer"/"incomplete" (would wait out 3 x 3 s MemorySync retries) and
-diag.cpp filesystem/platform branches.
+diag.cpp filesystem/platform branches. Dead-code pass (commit 9a2edd7): a separate build with -Wunused found only two
+unused locals (editorrender.cpp osc_classic, nativehost.cpp), removed; no unused vti:: functions (checked against the
+plug-in, CC app, tools, tests and the ASIO/AU sources). The native build itself has no warning flags (option for later).
 
 **Next round:** (1) E175 on Linux: capture the IN stream in the stuck state (E112 pattern?), compare the broker's
 open/stream timing with macOS and the VM (the VM got the Virus late and recovered), REA: the original's start-up;
