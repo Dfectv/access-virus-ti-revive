@@ -15,6 +15,19 @@ Virus. All work branches merged into main (99 unit tests, CI-like vticore covera
 Two programs on macOS: tested 2026-10-16 (Ableton 12 + Cubase 15, E166). Open: the Virus' USB input in mode 2
 (the plug-in sends no audio; the original's Sidechain bus not examined), the Snow reports on #4.
 
+**Branch `skins` (local, NOT merged - the user decides whether we support it):** option A of the skin question:
+sharper editor images on scaled displays, computed at runtime from the user's own Access bitmaps (Lanczos-3,
+`native/src/editor/upscale.*`, 3 tests; editor integration in viruseditor.cpp, see native/docs/architecture.md).
+Built + 102 tests on Linux; checked under Xvfb at VTI_NATIVE_ZOOM=2 and 1.5 (sync, Easy, Filter pages) and with
+forced tiles (VTI_NATIVE_TILE=1000: identical pixels). NOT built on Windows/macOS (D2D/CG paths untested), not
+tested in a DAW or on a real HiDPI screen. User decision 2026-10-16: we support it (goes into 0.8.12; CI test build 0.8.11 still to do - pushing the branch needs
+the user's OK). Found while testing in REAPER on Linux, fixed on the branch: (1) reopening the editor crashed the
+host (cairo-xcb-screen.c _get_screen_index assertion) - VSTGUI disconnects X without cairo_device_finish and the
+next connection reuses the address, our static `ref` surface outlived its connection too; since 0.8.0, also in 0.8.10
+(nativehost --reopen: 3 of 6 runs crashed, after the fix 48 reopens without one). (2) Linux menus at 150/200 % opened
+at zoom x the click position (VSTGUI's generic menu adds the zoom twice) - menu_at() divides it out. User test in REAPER on Linux (2026-10-16): sharper images, reopening and the menus at 150/200 % work ("works"). Option C (recreated artwork) is a rule-1 problem - advised against,
+awaiting the user. Branch `website` (local): site drafts, waiting for the user's design choice.
+
 **Test builds:** always a NEW version number (a forced reinstall of the same version removed the WinUSB driver in the VM, E166).
 
 **Replies on #4 (2026-10-16):** 6208931585 (nasguile, 0.8.7), 6208931949 (Manu, 0.8.7, logs asked), 6210139464

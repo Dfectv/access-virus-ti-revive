@@ -71,6 +71,12 @@ Access is installed or registered. These are the files it loads:
 - The displays (envelope, filter, oscillators, arpeggiator) are clipped to their element, like VSTGUI views.
 - The static layer (backgrounds, panels, labels) of the last 8 page states is cached; the skin bitmaps are decoded
   (and on Linux uploaded as X pixmaps) on idle ticks after the editor opens, so a page switch costs ~10 ms.
+- Scaled displays and editor sizes (branch `skins`, not released): the skin bitmaps are 1x artwork. When the editor
+  is drawn at more than one device pixel per editor pixel, each image gets a copy enlarged to that scale
+  (`vti::upscale`, Lanczos-3; filmstrips frame by frame through `Canvas::frames`) the first time it is drawn, in
+  memory only; VSTGUI picks the copy by scale factor. The static layer is rendered at device resolution. Cost: a
+  page's first visit at zoom 2 ~150-380 ms instead of ~15-40 ms (the 129x16512 knob strips take ~185 ms each), later
+  repaints as before. `VTI_NATIVE_NO_HIDPI=1` draws the 1x images.
 
 ### Plug-in: `plugin/source/virusplugin.*`
 - **VST3 `SingleComponentEffect`:** stereo out, MIDI in, 224 automatable parameters with the original's IDs and an

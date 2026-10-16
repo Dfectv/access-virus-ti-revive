@@ -27,6 +27,9 @@ public:
     // (envelope, filter, oscillators) never draw outside their element
     virtual void push_clip(int x, int y, int w, int h) { (void)x, (void)y, (void)w, (void)h; }
     virtual void pop_clip() {}
+    // `img` is a vertical strip of frames `frame_h` tall (knob filmstrips, fonts): canvases that resample images
+    // (sharper copies on scaled displays) filter each frame alone. Called before the strip's blits.
+    virtual void frames(void *img, int frame_h) { (void)img, (void)frame_h; }
 };
 
 struct Hit {

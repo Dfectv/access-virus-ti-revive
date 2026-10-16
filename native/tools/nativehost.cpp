@@ -277,7 +277,11 @@ int main(int argc, char **argv)
                 sscanf(v.c_str(), "%d,%d,%d", &a.x, &a.y, &a.dy);
             actions.push_back(a);
         }
-        else if (!strcmp(argv[i], "--duplicate") && i + 1 < argc)
+        else if (!strcmp(argv[i], "--reopen") && i + 1 < argc) { // --reopen T: close the editor at T s, open a new
+            Action a{};                                           // one in the same window (a DAW's FX window)
+            a.kind = 'o', a.t = atof(argv[++i]);
+            actions.push_back(a);
+        } else if (!strcmp(argv[i], "--duplicate") && i + 1 < argc)
             duplicate = atof(argv[++i]);
         else if (!strcmp(argv[i], "--seconds") && i + 1 < argc)
             seconds = atof(argv[++i]);
@@ -336,6 +340,18 @@ int main(int argc, char **argv)
     }
 
 #ifdef __linux__
+    // XEmbed: the embedder maps the plug-in's window (real hosts do this)
+    auto map_children = [](Display *d, Window w) {
+        Window root_ret, parent_ret, *kids = nullptr;
+        unsigned nkids = 0;
+        if (XQueryTree(d, w, &root_ret, &parent_ret, &kids, &nkids)) {
+            for (unsigned k = 0; k < nkids; k++)
+                XMapWindow(d, kids[k]);
+            if (kids)
+                XFree(kids);
+        }
+        XFlush(d);
+    };
     Display *dpy = nullptr;
     Window win = 0;
     IPlugView *view = nullptr;
@@ -356,16 +372,7 @@ int main(int argc, char **argv)
         view->setFrame(&runloop);
         printf("editor %dx%d attached -> %d\n", r.getWidth(), r.getHeight(),
                (int)view->attached((void *)(uintptr_t)win, kPlatformTypeX11EmbedWindowID));
-        // XEmbed: the embedder maps the plug-in's window (real hosts do this)
-        Window root_ret, parent_ret, *kids = nullptr;
-        unsigned nkids = 0;
-        if (XQueryTree(dpy, win, &root_ret, &parent_ret, &kids, &nkids)) {
-            for (unsigned k = 0; k < nkids; k++)
-                XMapWindow(dpy, kids[k]);
-            if (kids)
-                XFree(kids);
-        }
-        XFlush(dpy);
+        map_children(dpy, win);
     }
 #endif
     ProcessSetup ps{kRealtime, kSample32, block, static_cast<SampleRate>(rate)}; // explicit: newer clang refuses narrowing
@@ -558,6 +565,20 @@ int main(int argc, char **argv)
             for (auto &a : actions)
                 if (!a.done && now >= a.t) {
                     a.done = true;
+                    if (a.kind == 'o') {
+                        view->removed();
+                        view->release();
+                        view = ctl->createView(ViewType::kEditor);
+                        if (!view) {
+                            fprintf(stderr, "nativehost: no editor on reopen\n");
+                            break;
+                        }
+                        view->setFrame(&runloop);
+                        printf("editor reopened at %.1f s -> %d\n", now,
+                               (int)view->attached((void *)(uintptr_t)win, kPlatformTypeX11EmbedWindowID));
+                        map_children(dpy, win);
+                        continue;
+                    }
                     if (a.kind == 's') {
                         save_window_ppm(dpy, win, a.file.c_str());
                         printf("screenshot %s at %.1f s\n", a.file.c_str(), now);

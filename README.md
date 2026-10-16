@@ -175,8 +175,10 @@ same with Access' own driver.
 **All systems**
 
 - **Editor size:** right-click on an empty spot of the editor (or of the Control Center's Access look; there also
-  *View > Size*) and choose 100 % to 200 %; the plug-in also follows Windows' display scaling. The original images are
-  enlarged, so they look a little soft at 200 %.
+  *View > Size*) and choose 100 % to 200 %; the plug-in also follows Windows' display scaling. The original images
+  are made for 100 %: at larger sizes and on high-resolution screens (Retina) the plug-in enlarges each image once
+  with a sharp filter, in memory only, so they stay crisp (the first visit of a page takes a moment longer). The
+  Control Center's Access look still stretches them.
 - **One plug-in instance per synth.** Virus Control is designed that way (it controls all 16 parts);
   a second instance shows "Virus in use by another instance" and takes over when the first one is removed.
 - **Hearing the Virus**: with a part output set to *USB*, the audio comes through the plug-in track.

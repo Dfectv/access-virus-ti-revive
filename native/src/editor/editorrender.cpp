@@ -63,6 +63,7 @@ void EditorRenderer::text(Canvas &c, const std::string &font, const std::string 
     if (!f || str.empty())
         return;
     const int gw = 6, gh = c.image_height(f) / 96;
+    c.frames(f, gh);
     int tw = (int)str.size() * gw;
     int tx = align.find("Left") != std::string::npos    ? x
              : align.find("Right") != std::string::npos ? x + w - tw
@@ -87,6 +88,7 @@ void EditorRenderer::image(Canvas &c, const std::string &name, void *img, int sy
 {
     auto t = layout_.tiles.find(name);
     int iw = c.image_width(img);
+    c.frames(img, fh);
     if (t == layout_.tiles.end() || (iw == w && fh == h)) {
         c.blit(img, 0, sy, x, y, std::min(w, iw), std::min(h, fh), alpha);
         return;
@@ -469,6 +471,7 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
             int hw = hd ? c.image_width(hd) : 0;
             int pos = hi > lo ? (int)std::lround((double)(v - lo) / (hi - lo) * (e.w - hw)) : 0;
             int act = meter ? meter(pt) : 0; // the plug-in's fixed multi: part n listens on channel n
+            c.frames(normal, e.h);
             c.blit(normal, 0, frame_of(act, 0, 127, frames) * e.h, x, y, e.w, e.h, alpha);
             if (hd)
                 c.blit(hd, 0, 0, x + pos, y + (e.h - c.image_height(hd)) / 2, hw, c.image_height(hd), alpha);
