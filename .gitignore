@@ -9,6 +9,8 @@
 # the native plug-in (moved in from virus-ti-native with its history; its own .gitignore covers build folders)
 !/native/
 !/.gitmodules
+# the website's sources (site/.gitignore keeps its build output and download cache out)
+!/site/
 !/CONTRIBUTING.md
 !/AGENTS.md
 !/CLAUDE.md
