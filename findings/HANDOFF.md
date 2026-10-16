@@ -11,7 +11,7 @@ finds a new marker (E163); the queue waits for a Virus that is not there yet (DA
 plug-in owner across programs, the second DAW shows "Virus unavailable" and takes over (E166); Out 3 in "3 Outs /
 1 Input" (E164). Tested: Linux (TI2: reconnect, absent start), Windows VM (Ableton + REAPER). v0.8.9: the third USB
 output (E159, Linux/Windows/macOS). v0.8.8: soft knobs on the Virus change the sound. v0.8.7: presets chosen on the
-Virus. All work branches merged into main (99 unit tests, CI-like vticore coverage 92.3 %).
+Virus. All work branches merged into main (102 unit tests; CI-like vticore coverage 92.4 % of 2507 lines, measured 2026-10-16 after the upscaler, 94 run / 8 need Access files; CI runs them on Windows and Linux only - README still says all three).
 Two programs on macOS: tested 2026-10-16 (Ableton 12 + Cubase 15, E166). Open: the Virus' USB input in mode 2
 (the plug-in sends no audio; the original's Sidechain bus not examined), the Snow reports on #4.
 
