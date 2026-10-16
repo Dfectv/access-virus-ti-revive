@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-16 (CONTINUE HERE below; 0.8.8 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E154), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E155), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-16, after the 0.8.8 release)
@@ -12,7 +12,8 @@ Virus. v0.8.7 (CI run 38856677383, same day): presets chosen on the Virus are lo
 soft knobs in the editor control their destination (E150). Branches `softknobs`, `tests-coverage` and
 `preset-followups` are merged into main (88 unit tests; CI-like vticore line coverage 81.8 %, measured
 with gcov, see below). Tested on the TI2 under Linux only (REAPER with the branch build in ~/.vst3; nativehost).
-Not tested: Windows, macOS, the Snow, parts other than 1.
+Windows (VM, Ableton 11) tested with the 0.8.8 MSI and passed (E155). Not tested: macOS, the Snow, parts other
+than 1.
 
 **Replies on #4 (2026-10-16):** 6208931585 (nasguile, 0.8.7), 6208931949 (Manu, 0.8.7, logs asked), 6210139464
 (both: correction - use 0.8.8, soft knobs on the Virus now change the sound). Waiting for their test results/logs.
@@ -24,7 +25,7 @@ FETCHCONTENT_BASE_DIR=build-native/_deps - that broke build-native's pugixml bui
 folder and XDG_CONFIG_HOME/WINEPREFIX/VTI_ACCESS_DIR unset, gcov over CMakeFiles/vticore.dir, LC_ALL=C.
 
 **Open, in order of value:**
-1. Windows check of 0.8.8 (VM, Ableton): preset switched on the Virus, soft knobs both directions (sound!).
+1. DONE 2026-10-16: Windows check of 0.8.8 (E155).
 2. E154 (3) open: on a cache miss the read-back of the edit buffer is built but switched off
    (`READ_EDIT_BUFFER_ON_MISS`), the Virus ignored the dump written back - compare the raw bytes of a read-back dump
    with a cache dump (the original rewrites bytes 10..12). Not tested: parts other than 1, Snow, macOS/Windows.
