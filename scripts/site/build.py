@@ -238,13 +238,12 @@ def page_landing(latest, releases, sums):
 
 <section class="block" id="original">
   <div class="wrap">
-    <h2>Did the original ever let you down?</h2>
-    <p class="intro">You know the Virus from years of music, and you probably know where Access' Virus Control was
-    weak. Tell us. TI Revive rebuilds the original, and where it had problems we would rather fix them than copy
-    them.</p>
+    <h2>Problems in the original</h2>
+    <p class="intro">Did Access' Virus Control have problems for you? TI Revive rebuilds it, and we want to fix those
+    problems instead of copying them.</p>
     <div class="original">
       <div>
-        <h3>Already done better</h3>
+        <h3>Already fixed</h3>
         <ul>
           <li>In our timing test the original played the first note late and dropped the second. TI Revive puts all 256
           notes on the grid.</li>
@@ -253,11 +252,11 @@ def page_landing(latest, releases, sums):
         </ul>
       </div>
       <div>
-        <h3>What we would like to hear</h3>
-        <p>Hanging notes, sync errors, crashes, projects that did not open, the preset browser, automation, timing,
-        anything that cost you time. Old memories count too: write what you remember and how sure you are.</p>
-        <p class="actions"><a class="button" href="{GH}/issues/new?template=original_problem.yml">Tell us what went
-        wrong</a> <a class="second" href="{GH}/issues?q=label%3Aoriginal">Reports so far</a></p>
+        <h3>What to report</h3>
+        <p>Hanging notes, sync errors, crashes, projects that did not open, the preset browser, automation, timing.
+        If you only remember it roughly, say so.</p>
+        <p class="actions"><a class="button" href="{GH}/issues/new?template=original_problem.yml">Report a problem in
+        the original</a> <a class="second" href="{GH}/issues?q=label%3Aoriginal">Reports so far</a></p>
       </div>
     </div>
   </div>
@@ -283,7 +282,7 @@ def page_landing(latest, releases, sums):
 
 <section class="block" id="how">
   <div class="wrap">
-    <h2>Three steps, then it stays out of the way</h2>
+    <h2>How it works</h2>
     <p class="intro">The plug-in talks to the Virus directly over USB, so there is no MIDI port to set up and no
     driver of Access' left on your system.</p>
     <div class="steps">
@@ -303,8 +302,8 @@ def page_landing(latest, releases, sums):
 <section class="block" id="status">
   <div class="wrap">
     <h2>What is tested where</h2>
-    <p class="intro">We test on a Virus TI2 Desktop. Everything else depends on reports from people who own one.
-    A <a href="{GH}/issues/new?template=test_report.yml">test report</a> helps more than anything.</p>
+    <p class="intro">We test on a Virus TI2 Desktop. For other models, systems and DAWs we depend on
+    <a href="{GH}/issues/new?template=test_report.yml">test reports</a> from their owners.</p>
     <table class="matrix">
       <thead><tr><th>Model</th><th>Windows</th><th>macOS</th><th>Linux</th></tr></thead>
       <tbody>
@@ -325,9 +324,9 @@ def page_landing(latest, releases, sums):
       for the Access files (measured {COVERAGE_DATE}).</p></div>
       <div><h3>On the synth</h3><p>Changes that touch the Virus are tried on our TI2 Desktop before a release; the
       release notes say on which systems and in which DAWs.</p></div>
-      <div><h3>Your reports</h3><p>They make TI Revive better with every version: the soft knobs (0.8.7, 0.8.8) and
-      the third USB output (0.8.9) came straight from a user's report. A <a href="#support">bug report</a> or a
-      <a href="{GH}/issues/new?template=test_report.yml">test report</a> from your setup helps the next release.</p></div>
+      <div><h3>Your reports</h3><p>The soft knobs (0.8.7, 0.8.8) and the third USB output (0.8.9) were fixed after a
+      user's report. <a href="#support">Bug reports</a> and <a href="{GH}/issues/new?template=test_report.yml">test
+      reports</a> from other setups show us what to fix next.</p></div>
     </div>
   </div>
 </section>
@@ -367,8 +366,7 @@ def page_landing(latest, releases, sums):
     <div class="support" id="support">
       <h3>Report a problem</h3>
       <p>If your question is not answered above, open a report on GitHub. Reports are read by the developer, and the
-      answer comes in the same thread; it is a hobby project, so it can take a day or two. Every report helps: most of
-      what changed in the recent versions started with one.</p>
+      answer comes in the same thread; it is a hobby project, so it can take a day or two.</p>
       <ol>
         <li><strong>Collect the logs.</strong> Easiest: open the <strong>TI Revive Control Center</strong>, switch on
         <em>Nerd mode</em> and press the <em>Save logs...</em> button. You get the plug-in and broker logs in one file,
@@ -392,18 +390,17 @@ def page_landing(latest, releases, sums):
 
 <section class="block" id="contribute">
   <div class="wrap">
-    <h2>Help move it forward</h2>
-    <p class="intro">TI Revive is built in the open, and the repository is set up so that you can work on it together
-    with an AI coding assistant. You do not need to know the code to start.</p>
+    <h2>Contributing</h2>
+    <p class="intro">The repository is prepared for working on it with an AI coding assistant.</p>
     <div class="testing">
-      <div><h3>Ready for coding agents</h3><p><a href="{GH}/blob/main/AGENTS.md">AGENTS.md</a> gives any assistant the
+      <div><h3>For AI assistants</h3><p><a href="{GH}/blob/main/AGENTS.md">AGENTS.md</a> gives any assistant the
       rules and a map of the repository: no Access material in the code, never risk the synth, evidence before claims,
-      and say exactly what was tested. Point your assistant at the repository and it knows how we work.</p></div>
-      <div><h3>Three skills</h3><p>Step-by-step guides in <a href="{GH}/tree/main/.claude/skills">.claude/skills</a>:
+      and say exactly what was tested.</p></div>
+      <div><h3>Skills</h3><p>Step-by-step guides in <a href="{GH}/tree/main/.claude/skills">.claude/skills</a>:
       test your setup safely and write a report, find the cause of a problem in the logs, and prepare a pull request
       the way we review it. They are plain text, so they work without an assistant too.</p></div>
-      <div><h3>No code needed</h3><p>A test report from your setup, what you know about the original, or a second look
-      at someone's logs moves TI Revive forward as much as a pull request.</p></div>
+      <div><h3>Without code</h3><p>Test reports, reports about problems in the original, and help with reading
+      someone's logs are as useful as pull requests.</p></div>
     </div>
     <p class="actions contribute-actions"><a class="button" href="{GH}/blob/main/CONTRIBUTING.md">How to
     contribute</a> <a class="second" href="{GH}">Open the repository</a></p>
@@ -413,8 +410,8 @@ def page_landing(latest, releases, sums):
 <section class="block" id="about">
   <div class="wrap">
     <div class="about">
-      <div><h3>Why</h3><p>A Virus TI deserves to keep working on the computers people use today. TI Revive is free and
-      open source, and it stays that way.</p></div>
+      <div><h3>Why</h3><p>The Access drivers stopped working on current systems. TI Revive is free and open
+      source.</p></div>
       <div><h3>How it was built</h3><p>By working out the USB protocol and the original software's behaviour from
       logs, captures and analysis, and by testing on real hardware. Much of the work was done with an AI coding
       assistant; the tests on the synth are done by hand.</p></div>
@@ -467,7 +464,7 @@ def features_section():
     </div>
 
     <div class="feature">
-      <div><h3>Light on the CPU, safe on the audio thread</h3>
+      <div><h3>CPU and audio thread</h3>
       <p>The audio thread never allocates memory or waits for a lock; note-offs always get a slot, so no note
       hangs.</p></div>
       <div><table class="data">
@@ -483,7 +480,7 @@ def features_section():
     </div>
 
     <div class="feature">
-      <div><h3>A fast editor</h3>
+      <div><h3>Editor speed</h3>
       <p>Only the controls that change are redrawn, the backgrounds of recent pages are cached, and on Linux the
       images live on the X server.</p></div>
       <table class="data">
@@ -497,8 +494,8 @@ def features_section():
     </div>
 
     <div class="feature">
-      <div><h3>Found with the Virus, fixed</h3>
-      <p>Things the synth does that no documentation mentions, found by testing on the hardware.</p></div>
+      <div><h3>Problems found on the hardware</h3>
+      <p>Behaviour of the Virus that is not documented anywhere, found by testing.</p></div>
       <ul>
         <li>A flood of parameter changes can hang the Virus' audio until it is switched off. Automation is limited to
         250 messages per second and merged per parameter; a 4-minute full-load test passes.</li>
@@ -534,7 +531,7 @@ def features_section():
 
     <div class="feature">
       <div><h3>What TI Revive will not do</h3>
-      <p>On purpose, to keep your synth and your data safe.</p></div>
+      <p>On purpose.</p></div>
       <ul>
         <li>No firmware or OS updates for the Virus, no &ldquo;Burn To Flash&rdquo;, no factory reset. Anything
         that writes the Virus' flash can brick it.</li>
