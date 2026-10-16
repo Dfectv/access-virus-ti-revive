@@ -368,8 +368,14 @@ void DeviceOut::run()
             if (!present) {
                 audio_ok_ = false;
                 audio_.close();
-            } else
+            } else {
+                // a new audio stream counts its frames from 0 again: the scan positions of the old one would keep
+                // scan_audio idle (and the sync marker unfound) until the new stream passed them - ~19 s (user test)
+                scanned_ = -1;
+                marker_skip_ = -1;
+                last_sound = -1;
                 generation++;
+            }
             if (device_ && (was || present))
                 device_(present != 0);
         }
@@ -589,6 +595,7 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
         for (auto &m : startup_messages())
             out_->send(m);
         send_state();
+        after_reconnect();
     });
     usb_io_ = load_usb_io();
     // the original's start-up: GlobalInit (remote mode, cable numbers, clock sync, ...) + ParamInit, before any state
@@ -629,6 +636,8 @@ tresult PLUGIN_API VirusPlugin::terminate()
     stop_warm_ = true;
     if (sync_thread_.joinable())
         sync_thread_.join(); // stop_warm_ also cancels the bank sync between two requests (<= ~1 s)
+    if (reconnect_thread_.joinable())
+        reconnect_thread_.join(); // a readiness probe after a reconnect: at most its 10 s timeout
     out_.reset();
     return SingleComponentEffect::terminate();
 }
@@ -1560,17 +1569,54 @@ void VirusPlugin::wait_virus_ready()
         ready_ = true;
         return;
     }
-    const int64_t tp = now_ms();
-    // one try: a second request behind a slow first one would only lengthen the Virus' backlog
-    Dump r = sync_->transact({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x30, 0x00, 0x00, 0xF7}, {0x10, 0x00, 0x00}, 10000, 1);
-    out_->log("Virus TI native: Virus ready after %.1f s%s\n", (now_ms() - tp) / 1000.0,
-              r.empty() ? " (no reply to the probe)" : "");
+    probe_virus_ready();
     ready_ = true;
     // process() anchors now and sends the ping (0.5 s of stream, 1 s of silence); notes stay held until its marker
     // is found, so the first notes are stamped on the Virus' clock (at most 3 s, else stamps stay ring-relative)
     const int64_t tm = now_ms();
     while (!stop_warm_ && out_->marker.load() < 0 && now_ms() - tm < 3000)
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
+}
+
+bool VirusPlugin::probe_virus_ready()
+{
+    const int64_t tp = now_ms();
+    // one try: a second request behind a slow first one would only lengthen the Virus' backlog
+    Dump r = sync_->transact({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x30, 0x00, 0x00, 0xF7}, {0x10, 0x00, 0x00}, 10000, 1);
+    out_->log("Virus TI native: Virus ready after %.1f s%s\n", (now_ms() - tp) / 1000.0,
+              r.empty() ? " (no reply to the probe)" : "");
+    return !r.empty();
+}
+
+// The Virus is back (sender thread, after the start-up messages and the state were queued): until it has worked
+// through them, notes are held and the timeline does not anchor - else notes play up to 1.6 s late and the sync ping
+// goes unanswered (E144, E148), as before 0.8.6 at a first start. A reconnect during a running probe lets it run again.
+void VirusPlugin::after_reconnect()
+{
+    if (!sync_)
+        return;
+    ready_ = false;
+    starting_ = true;
+    if (out_)
+        out_->marker = -1; // the old marker belongs to the stream before: the wait below is for the new one
+    reconnect_again_ = true;
+    if (reconnect_busy_.exchange(true))
+        return; // the running probe goes once more
+    if (reconnect_thread_.joinable())
+        reconnect_thread_.join(); // the previous one has finished (busy was false)
+    reconnect_thread_ = std::thread([this] {
+        do {
+            while (!stop_warm_ && reconnect_again_.exchange(false))
+                probe_virus_ready();
+            ready_ = true;
+            // process() anchors and pings now; notes wait for its marker like at a first start (at most 3 s)
+            const int64_t tm = now_ms();
+            while (!stop_warm_ && out_ && out_->marker.load() < 0 && now_ms() - tm < 3000)
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            starting_ = false;
+            reconnect_busy_ = false;
+        } while (!stop_warm_ && reconnect_again_.load() && !reconnect_busy_.exchange(true));
+    });
 }
 
 void VirusPlugin::sync_banks()

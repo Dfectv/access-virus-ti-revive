@@ -376,6 +376,12 @@ private:
     void load_banks();
     std::unique_ptr<MemorySync> sync_;
     std::thread sync_thread_;
+    // the Virus came back (switched off and on, replugged): the readiness probe and note hold of a first start again
+    // (worker thread: the sender thread itself must not wait for the probe's reply)
+    std::thread reconnect_thread_;
+    std::atomic<bool> reconnect_busy_{false}, reconnect_again_{false};
+    void after_reconnect();
+    bool probe_virus_ready(); // the readiness probe (30 00 00 behind everything queued); false: no reply
     std::atomic<bool> sync_started_{false};
     void sync_banks(); // brings the bank cache up to date with the Virus (background thread)
     void load_rom_banks(); // ROM A.. from the user's firmware.bin for the connected model
