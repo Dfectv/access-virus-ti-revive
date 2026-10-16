@@ -199,6 +199,7 @@ int main(int argc, char **argv)
     bool notes = false, editor = false, stress = false, stress_notes = true, stress_params = true, scan = false;
     double stress_stop = 1e9;
     double duplicate = 0; // --duplicate T: remove the first of two instances after T s
+    double sc_sine = 0; // --sidechain-sine HZ: a sine (-6 dBFS) on the Sidechain bus (input bus 1)
     std::vector<std::pair<double, double>> aheads; // (at s, ms)
     int block = 512; // --block N: host block size
     int rate = 44100; // --rate N: host sample rate
@@ -283,6 +284,8 @@ int main(int argc, char **argv)
             actions.push_back(a);
         } else if (!strcmp(argv[i], "--duplicate") && i + 1 < argc)
             duplicate = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--sidechain-sine") && i + 1 < argc)
+            sc_sine = atof(argv[++i]);
         else if (!strcmp(argv[i], "--seconds") && i + 1 < argc)
             seconds = atof(argv[++i]);
         else if (!strcmp(argv[i], "--param") && i + 1 < argc) {
@@ -497,6 +500,11 @@ int main(int argc, char **argv)
         data.inputParameterChanges = &pc;
         outpc.clearQueue();
         data.outputParameterChanges = &outpc;
+        if (sc_sine > 0 && data.numInputs >= 2) // the same tone on both channels, continuous across blocks
+            for (int32 c = 0; c < data.inputs[1].numChannels && c < 2; c++)
+                if (float *s = data.inputs[1].channelBuffers32 ? data.inputs[1].channelBuffers32[c] : nullptr)
+                    for (int i = 0; i < block; i++)
+                        s[i] = 0.5f * (float)std::sin(2 * M_PI * sc_sine * ((double)b * block + i) / rate);
         if (proc)
             proc->process(data);
         if (proc2) { // the duplicate plays the same notes (same clip on the duplicated track)
