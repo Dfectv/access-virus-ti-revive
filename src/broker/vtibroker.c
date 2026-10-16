@@ -49,6 +49,15 @@ typedef struct {
 } client;
 static client *g_clients[MAX_CLIENTS];
 
+// Plug-in instances of different programs (two DAWs) must not share the Virus: each sends its own sync ping and resets
+// the Virus' only stamp clock (E148). Like the POSIX broker, the first "TI Revive Virus Control" owns it, the others
+// are told "no Virus" (and get no RX) until it leaves. The ASIO driver and the Control Center share it as before.
+#define PLUGIN_NAME_TEXT "TI Revive Virus Control"
+static const char *const PLUGIN_NAME = PLUGIN_NAME_TEXT;
+static client *g_plugin_owner; // g_cs_clients
+static int is_plugin(const client *c) { return !strcmp(c->name, PLUGIN_NAME); }
+static int plugin_waits(const client *c) { return is_plugin(c) && c != g_plugin_owner; } // g_cs_clients held
+
 // ------------------------------------------------------------------------------------------------- audio
 static vti_audio_shm *g_shm;
 static CRITICAL_SECTION g_cs_audio;     // g_audio list (short holds; also taken by the audio callback)
@@ -314,9 +323,19 @@ static DWORD WINAPI sender_thread(LPVOID arg)
 static void broadcast(uint16_t type, const void *a, int alen, const void *b, int blen) // not to observers
 {
     EnterCriticalSection(&g_cs_clients);
-    for (int i = 0; i < MAX_CLIENTS; i++)
-        if (g_clients[i] && !g_clients[i]->observer)
-            send_msg(g_clients[i], type, a, alen, b, blen);
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        client *c = g_clients[i];
+        if (!c || c->observer)
+            continue;
+        if (plugin_waits(c)) { // a waiting plug-in: "no Virus", no traffic
+            if (type == VTIMSG_STATE) {
+                uint32_t none = 0;
+                send_msg(c, type, &none, 4, NULL, 0);
+            }
+            continue;
+        }
+        send_msg(c, type, a, alen, b, blen);
+    }
     LeaveCriticalSection(&g_cs_clients);
 }
 
@@ -370,17 +389,19 @@ static void obs_status(int dev_open) // once a second (device thread)
             continue;
         size_t l = strlen(clients);
         snprintf(clients + l, sizeof clients - l, "%s%s%s", l ? ", " : "", c->name[0] ? c->name : "unnamed client",
-                 c->observer ? " (observer)" : "");
+                 c->observer ? " (observer)" : plugin_waits(c) ? " (waiting)" : c == g_plugin_owner ? " (owner)" : "");
     }
-    // Windows: every client shares the Virus (no owner); the drop counter is per observer
+    // Windows: the clients share the Virus, except plug-ins of different programs (the first one owns it); the drop
+    // counter is per observer
     for (int i = 0; i < MAX_CLIENTS; i++) {
         client *c = g_clients[i];
         if (!c || !c->observer)
             continue;
         int n = snprintf(st, sizeof st,
-                         "device=%d\towner=shared\tclients=%s\taudio=%d\tto_device=%lld\tfrom_device=%lld\tcontrol=%lld"
+                         "device=%d\towner=%s\tclients=%s\taudio=%d\tto_device=%lld\tfrom_device=%lld\tcontrol=%lld"
                          "\tuptime_s=%u\tdropped=%lld",
-                         dev_open, clients, g_audio_running ? 1 : 0, (long long)g_cnt_out, (long long)g_cnt_in,
+                         dev_open, g_plugin_owner ? "shared, plug-in " PLUGIN_NAME_TEXT : "shared", clients,
+                         g_audio_running ? 1 : 0, (long long)g_cnt_out, (long long)g_cnt_in,
                          (long long)g_cnt_ctl, (unsigned)((GetTickCount64() - g_t0) / 1000), (long long)c->dropped);
         send_msg(c, VTIMSG_OBS_STATUS, st, n < (int)sizeof st ? n : (int)sizeof st - 1, NULL, 0);
     }
@@ -474,21 +495,50 @@ static DWORD WINAPI device_thread(LPVOID unused)
     return 0;
 }
 
+// the device state for one client (0 for a waiting plug-in)
+static void send_state(client *c)
+{
+    EnterCriticalSection(&g_cs_dev);
+    uint32_t st = g_dev != NULL;
+    LeaveCriticalSection(&g_cs_dev);
+    EnterCriticalSection(&g_cs_clients);
+    if (plugin_waits(c))
+        st = 0;
+    LeaveCriticalSection(&g_cs_clients);
+    send_msg(c, VTIMSG_STATE, &st, 4, NULL, 0);
+}
+
 static DWORD WINAPI client_thread(LPVOID arg)
 {
     client *c = arg;
     uint8_t buf[VTIMSG_MAX];
     blog("client connected");
-    {
-        EnterCriticalSection(&g_cs_dev);
-        uint32_t st = g_dev != NULL;
-        LeaveCriticalSection(&g_cs_dev);
-        send_msg(c, VTIMSG_STATE, &st, 4, NULL, 0);
+    // the device state goes out after the client's HELLO (its name): a second program's plug-in must not see the Virus
+    // even for a moment - it would send its start-up messages into it. Clients say HELLO right after connecting; one
+    // that sends nothing within 300 ms gets the state anyway.
+    int state_sent = 0;
+    for (int i = 0; i < 30; i++) {
+        DWORD avail = 0;
+        if (!PeekNamedPipe(c->pipe, NULL, 0, NULL, &avail, NULL) || avail >= sizeof(vtimsg))
+            break;
+        Sleep(10);
+    }
+    DWORD avail0 = 0;
+    if (!PeekNamedPipe(c->pipe, NULL, 0, NULL, &avail0, NULL) || avail0 < sizeof(vtimsg)) {
+        send_state(c);
+        state_sent = 1;
     }
     for (;;) {
         vtimsg h;
         if (vtipipe_read(c->pipe, &h, sizeof h) || h.len > VTIMSG_MAX || vtipipe_read(c->pipe, buf, h.len))
             break;
+        if (!state_sent && h.type != VTIMSG_HELLO) {
+            send_state(c);
+            state_sent = 1;
+        }
+        EnterCriticalSection(&g_cs_clients);
+        const int waits = plugin_waits(c);
+        LeaveCriticalSection(&g_cs_clients);
         switch (h.type) {
         case VTIMSG_HELLO:
             if (h.len > 4) { // protocol 4: the client's name
@@ -499,9 +549,19 @@ static DWORD WINAPI client_thread(LPVOID arg)
                 for (char *p = c->name; *p; p++)
                     if ((unsigned char)*p < 32)
                         *p = ' ';
+                if (is_plugin(c) && !g_plugin_owner)
+                    g_plugin_owner = c;
                 LeaveCriticalSection(&g_cs_clients);
             }
             blog("client hello, protocol %u%s%s", h.len >= 4 ? *(uint32_t *)buf : 0, c->name[0] ? ": " : "", c->name);
+            EnterCriticalSection(&g_cs_clients);
+            if (is_plugin(c))
+                blog(c == g_plugin_owner ? "the plug-in owns the Virus" : "plug-in waiting: another program's plug-in uses the Virus");
+            LeaveCriticalSection(&g_cs_clients);
+            if (!state_sent) {
+                send_state(c);
+                state_sent = 1;
+            }
             break;
         case VTIMSG_OBSERVE: { // read-only observer: no RX, no writes; traffic copy, log and status instead
             EnterCriticalSection(&g_cs_clients);
@@ -515,7 +575,7 @@ static DWORD WINAPI client_thread(LPVOID arg)
             break;
         }
         case VTIMSG_WRITE:
-            if (h.len >= 1 && !c->observer) {
+            if (h.len >= 1 && !c->observer && !waits) {
                 if (buf[0] == VTI_EP_MI04_OUT && !c->notes && vti_has_note_on(buf + 1, h.len - 1))
                     c->notes = 1;
                 EnterCriticalSection(&g_cs_dev);
@@ -536,7 +596,8 @@ static DWORD WINAPI client_thread(LPVOID arg)
                 if (!(s[0] & 0x80))
                     memcpy(data, buf + 12, h.len - 12 < wl ? h.len - 12 : wl);
                 EnterCriticalSection(&g_cs_dev);
-                int32_t r = g_dev ? vti_control(g_dev, s[0], s[1], s[2] | s[3] << 8, s[4] | s[5] << 8, data, wl) : -1;
+                int32_t r = g_dev && !waits ? vti_control(g_dev, s[0], s[1], s[2] | s[3] << 8, s[4] | s[5] << 8, data, wl)
+                                            : -1;
                 LeaveCriticalSection(&g_cs_dev);
                 uint8_t rec[12];
                 memcpy(rec, s, 8);
@@ -551,7 +612,7 @@ static DWORD WINAPI client_thread(LPVOID arg)
         case VTIMSG_AUDIO:
             if (h.len >= 4 && !c->observer) {
                 buf[h.len < VTIMSG_MAX ? h.len : VTIMSG_MAX - 1] = 0;
-                int32_t r = audio_request(c, *(uint32_t *)buf, h.len > 4 ? (const char *)buf + 4 : "");
+                int32_t r = waits ? -1 : audio_request(c, *(uint32_t *)buf, h.len > 4 ? (const char *)buf + 4 : "");
                 blog("client audio %s -> %d", *(uint32_t *)buf ? "on" : "off", r);
                 send_msg(c, VTIMSG_AUDIO_REPLY, &r, 4, NULL, 0);
             }
@@ -572,11 +633,22 @@ static DWORD WINAPI client_thread(LPVOID arg)
         blog("all notes off (the client had played notes) -> %d", r);
     }
     audio_request(c, 0, NULL);
+    client *next = NULL;
     EnterCriticalSection(&g_cs_clients);
     for (int i = 0; i < MAX_CLIENTS; i++)
         if (g_clients[i] == c)
             g_clients[i] = NULL;
+    if (g_plugin_owner == c) { // hand the Virus to the next waiting plug-in (another program)
+        g_plugin_owner = NULL;
+        for (int i = 0; i < MAX_CLIENTS && !g_plugin_owner; i++)
+            if (g_clients[i] && !g_clients[i]->observer && is_plugin(g_clients[i]))
+                g_plugin_owner = next = g_clients[i];
+    }
     LeaveCriticalSection(&g_cs_clients);
+    if (next) {
+        blog("the next program's plug-in owns the Virus now");
+        send_state(next);
+    }
     c->alive = 0;
     SetEvent(c->q_event);
     WaitForSingleObject(c->sender, INFINITE); // removed from g_clients above: no new messages can arrive

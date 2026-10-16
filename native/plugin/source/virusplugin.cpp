@@ -251,6 +251,29 @@ void DeviceOut::scan_audio()
     }
 }
 
+// the Virus unplugged / switched off and back while the broker connection stays (user test): stop the audio, and on
+// its return let the plug-in send the start-up messages and its state again; the audio start retries (worker thread)
+void DeviceOut::check_presence()
+{
+    if (int present = broker_.device_present() ? 1 : 0; present != present_seen_) {
+        bool was = present_seen_ == 1;
+        present_seen_ = present;
+        if (!present) {
+            audio_ok_ = false;
+            audio_.close();
+        } else {
+            // a new audio stream counts its frames from 0 again: the scan positions of the old one would keep
+            // scan_audio idle (and the sync marker unfound) until the new stream passed them - ~19 s (user test)
+            scanned_ = -1;
+            marker_skip_ = -1;
+            last_sound = -1;
+            generation++;
+        }
+        if (device_ && (was || present))
+            device_(present != 0);
+    }
+}
+
 void DeviceOut::run()
 {
     while (!stop_ && !go_) // until the plug-in is activated (see start())
@@ -321,6 +344,18 @@ void DeviceOut::run()
                 continue;
             }
         }
+        // no Virus (switched off, or another program has it): keep the queued messages (start-up, state) until it is
+        // there - written into the void, a Virus switched on later never got them; events from process() (notes)
+        // are dropped, they would play late
+        if (!broker_.device_present()) {
+            rt_r_.store(rt_w_.load(std::memory_order_acquire), std::memory_order_release);
+            if (idle_)
+                idle_();
+            check_presence();
+            std::unique_lock<std::mutex> lk(mu_);
+            cv_.wait_for(lk, std::chrono::milliseconds(10), [this] { return stop_.load(); });
+            continue;
+        }
         std::vector<uint8_t> msg;
         int64_t stamp = -1;
         {
@@ -360,25 +395,7 @@ void DeviceOut::run()
         if (idle_)
             idle_();
         scan_audio();
-        // the Virus unplugged / switched off and back while the broker connection stays (user test): stop the audio,
-        // and on its return let the plug-in send the start-up messages and its state again; the audio start retries
-        if (int present = broker_.device_present() ? 1 : 0; present != present_seen_) {
-            bool was = present_seen_ == 1;
-            present_seen_ = present;
-            if (!present) {
-                audio_ok_ = false;
-                audio_.close();
-            } else {
-                // a new audio stream counts its frames from 0 again: the scan positions of the old one would keep
-                // scan_audio idle (and the sync marker unfound) until the new stream passed them - ~19 s (user test)
-                scanned_ = -1;
-                marker_skip_ = -1;
-                last_sound = -1;
-                generation++;
-            }
-            if (device_ && (was || present))
-                device_(present != 0);
-        }
+        check_presence();
         if ((env_stats() || diag_on_.load(std::memory_order_acquire)) && std::chrono::steady_clock::now() >= stats_next_) { // endurance tests
             stats_next_ = std::chrono::steady_clock::now() + std::chrono::seconds(10);
             int64_t newest = audio_ok_ ? audio_.newest_frame() : -1, pos = audio_ok_ ? audio_.position() : -1;
@@ -587,8 +604,12 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
             set_lcd("Virus disconnected", std::string(), std::string(), std::string());
             return;
         }
-        if (!device_seen_) { // the first connection: the start-up messages are already queued
+        if (!device_seen_) { // the first connection: the start-up messages are queued (held until now)
             device_seen_ = true;
+            // the start-up check gave up (no Virus then: switched on later, or another program had it): wait for the
+            // Virus now like after a reconnect
+            if (absent_at_start_)
+                after_reconnect();
             return;
         }
         set_lcd("Virus reconnected", std::string(), std::string(), std::string());
@@ -1567,7 +1588,8 @@ void VirusPlugin::wait_virus_ready()
         while (!stop_warm_ && !out_->connected() && now_ms() - t1 < 4000)
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-    if (stop_warm_ || !out_ || !out_->connected()) { // no Virus: nothing to wait for
+    if (stop_warm_ || !out_ || !out_->connected()) { // no Virus: nothing to wait for (when it comes: after_reconnect)
+        absent_at_start_ = !stop_warm_ && out_;
         ready_ = true;
         return;
     }

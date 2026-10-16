@@ -168,6 +168,7 @@ private:
     std::atomic<bool> go_{false};
     std::thread worker_;
     void run();
+    void check_presence(); // worker: the Virus went away / came back
 };
 
 class VirusPlugin : public Steinberg::Vst::SingleComponentEffect, public Steinberg::Vst::IMidiMapping {
@@ -380,6 +381,7 @@ private:
     // (worker thread: the sender thread itself must not wait for the probe's reply)
     std::thread reconnect_thread_;
     std::atomic<bool> reconnect_busy_{false}, reconnect_again_{false};
+    std::atomic<bool> absent_at_start_{false}; // the start-up check found no Virus: its first appearance waits too
     void after_reconnect();
     bool probe_virus_ready(); // the readiness probe (30 00 00 behind everything queued); false: no reply
     std::atomic<bool> sync_started_{false};
