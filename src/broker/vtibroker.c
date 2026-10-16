@@ -12,6 +12,7 @@
 // usage: vtibroker.exe [-v]      (-v: log every message; log file %TEMP%\vtibroker.log)
 #include "vticore.h"
 #include "vtiproto.h"
+#include "ctrlguard.h"
 #include "vtipipe_io.h"
 #include "vtiaudioshm.h"
 #include "../wrapper/vtiusbaudio.h"
@@ -595,9 +596,13 @@ static DWORD WINAPI client_thread(LPVOID arg)
                     wl = VTIMSG_MAX - 16;
                 if (!(s[0] & 0x80))
                     memcpy(data, buf + 12, h.len - 12 < wl ? h.len - 12 : wl);
+                int ok = vti_control_allowed(s);
+                if (!ok)
+                    blog("refused control request %02x %02x (only standard reads pass, rule 2)", s[0], s[1]);
                 EnterCriticalSection(&g_cs_dev);
-                int32_t r = g_dev && !waits ? vti_control(g_dev, s[0], s[1], s[2] | s[3] << 8, s[4] | s[5] << 8, data, wl)
-                                            : -1;
+                int32_t r = g_dev && !waits && ok
+                                ? vti_control(g_dev, s[0], s[1], s[2] | s[3] << 8, s[4] | s[5] << 8, data, wl)
+                                : -1;
                 LeaveCriticalSection(&g_cs_dev);
                 uint8_t rec[12];
                 memcpy(rec, s, 8);

@@ -10,6 +10,7 @@
 // usage: vtibroker [-v] [-stay]     socket: /tmp/vtibroker-<uid>.sock (VTI_SOCK_FMT)
 #include "vticore.h"
 #include "vtiproto.h"
+#include "ctrlguard.h"
 #include <errno.h>
 #include <pthread.h>
 #include <signal.h>
@@ -945,9 +946,11 @@ static void *client_thread(void *arg)
                     wl = VTIMSG_MAX - 16;
                 if (!(s[0] & 0x80))
                     memcpy(data, buf + 12, h.len - 12 < wl ? h.len - 12 : wl);
-                int owner = is_owner(c);
+                int owner = is_owner(c), ok = vti_control_allowed(s);
+                if (!ok)
+                    blog("refused control request %02x %02x (only standard reads pass, rule 2)", s[0], s[1]);
                 pthread_mutex_lock(&g_cs_dev);
-                int32_t r = g_dev && owner ? vti_control(g_dev, s[0], s[1], (uint16_t)(s[2] | s[3] << 8),
+                int32_t r = g_dev && owner && ok ? vti_control(g_dev, s[0], s[1], (uint16_t)(s[2] | s[3] << 8),
                                                 (uint16_t)(s[4] | s[5] << 8), data, wl)
                                   : -1;
                 pthread_mutex_unlock(&g_cs_dev);
