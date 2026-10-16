@@ -33,8 +33,8 @@ Virus answering error 31 until a power cycle (give-back reset?); (4) bare-metal 
 booted into Windows (user, 2026-10-16) - test everything possible in the win11 VM first, then one self-contained
 bare-metal session (no Claude during it): sidechain, timing render (E141 gap pattern), reconnect without libvirt
 re-attach (E175 on Windows?), ASIO latency; save logs/renders where Linux can read them. Bench against the original:
-plan in [bench-original.md](bench-original.md) (stage B needs Windows 10 + the Access driver on that PC - open
-whether it has one; until then no performance comparison with the original anywhere).
+plan in [bench-original.md](bench-original.md) (stage B needs Windows 10 + the Access driver; that PC runs
+Windows 11 - blocked; until then no performance comparison with the original anywhere).
 
 ## Round 0.8.18 notes (branch round-0.8.18, merged)
 

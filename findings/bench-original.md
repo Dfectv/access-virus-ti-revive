@@ -1,6 +1,7 @@
 # Plan: benchmark against the original Access driver and plug-in (2026-10-16)
 
-Status: **planned, not possible for now** - stage B needs a real Windows PC (none available). Nothing measured yet.
+Status: **planned, not possible for now** - stage B needs Windows 10 with the Access driver on bare metal; the only
+real Windows PC (this Linux PC dual-booted, user 2026-10-16) runs Windows 11, where the Access driver is blocked. Nothing measured yet.
 Until stage B has results, README, website, issues and release notes make **no** performance comparison with the
 original (timing, latency, stability, CPU). What they compare today is the native plug-in against our own classic
 0.7.x plug-in (README "Performance and improvements", E139-E143). This plan details step R7 of
@@ -32,7 +33,7 @@ setup where neither side has an advantage the other does not have.
   4352), behaviour after a Virus power cycle.
 - Every result is labelled "VM". No timing numbers from this stage go into README or website.
 
-## Stage B - performance on bare metal (blocked: no Windows PC)
+## Stage B - performance on bare metal (blocked: no Windows 10 installation on bare metal)
 
 Setup:
 1. One PC, two system images (or two SSDs): Windows 10 22H2 with the Access driver and the Virus TI Software Suite;
