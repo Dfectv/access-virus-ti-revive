@@ -5,6 +5,8 @@ on Windows 11, macOS and Linux without the old Access drivers. Since 0.8.0 its p
 (`native/`), a rewrite that looks and works like the original "Virus Control" and loads the Access files from the
 user's own installer at runtime.
 Read this file completely before changing anything. Human contributors: see [CONTRIBUTING.md](CONTRIBUTING.md).
+The findings are free to use elsewhere; the maintainers would be happy about a mention (credit line in the README,
+"Using our findings").
 
 ## Hard rules (never break these)
 

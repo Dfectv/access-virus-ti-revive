@@ -1,5 +1,7 @@
 # Evidence log
 
+If these findings help your project, we would be happy about a mention, for example: "Protocol knowledge from TI Revive (https://github.com/derpsn/access-virus-ti-revive)". Corrections and new observations are welcome as issues, so everyone benefits.
+
 Every conclusion gets an entry. Pointer = capture file + frame number(s), or binary (SHA256 prefix) + function address, or file + line/offset.
 Confidence: HIGH (directly observed) / MED (strong inference) / LOW (plausible, needs confirmation).
 

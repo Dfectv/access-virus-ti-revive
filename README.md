@@ -577,6 +577,13 @@ Bug reports, tests on your setup and pull requests are welcome — see [CONTRIBU
 with an AI coding assistant, it finds its instructions in [AGENTS.md](AGENTS.md) (Claude Code also reads
 `CLAUDE.md` and the skills in `.claude/skills/`).
 
+## Using our findings
+
+The protocol knowledge in [findings/](findings/) is free to use. If it helps your project, we would be happy about a
+mention, for example: "Protocol knowledge from TI Revive (https://github.com/derpsn/access-virus-ti-revive)".
+Corrections and new observations are welcome as issues, so everyone benefits. GitHub's "Cite this repository" button
+gives the same as a citation.
+
 ## License
 
 [MIT](LICENSE) © 2026 derpsn. Provided as is, without warranty — on Windows this installs a driver
