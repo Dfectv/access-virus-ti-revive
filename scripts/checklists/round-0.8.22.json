@@ -12,7 +12,7 @@
    "title": "Linux",
    "where": "REAPER via pw-jack, Virus on this PC",
    "prep": [
-    "Claude unpacks the CI build to <code>~/Downloads/TI-Revive-0.8.22c-linux</code>. Close REAPER, then in a terminal: <code>cd ~/Downloads/TI-Revive-0.8.22c-linux/TI-Revive-0.8.22-linux &amp;&amp; sudo ./install.sh</code> (replaces Claude's dev build in ~/.vst3)."
+    "Claude unpacks the CI build to <code>~/Downloads/TI-Revive-0.8.22c-linux</code>. Close REAPER, then in a terminal: <code>cd ~/Downloads/TI-Revive-0.8.22c-linux/TI-Revive-0.0.1-linux &amp;&amp; sudo ./install.sh</code> (replaces Claude's dev build in ~/.vst3)."
    ],
    "notes": [
     "Results so far: L1, L2 FAIL (0.8.22a), L3 pass, L5 pass, L4 FAIL (0.8.22b: menus bound to the plug-in window, RAM A's patches switched on the way). L6 and L7 test the new menus."
