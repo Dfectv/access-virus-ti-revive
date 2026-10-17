@@ -19,7 +19,7 @@ factory libraries there were never found before), install.sh same rule, README. 
 on purpose. Installed: win11 VM (MSI 0.8.19 silent, VM shut down); Linux: unpacked in ~/Downloads/TI-Revive-0.8.19-linux
 (user runs install.sh, needs sudo); Mac was unreachable - ~/Downloads/TI-Revive-0.8.19-mac.zip on this PC. The Virus is
 on the Mac. Checklist (4 blocks: Linux, win11 VM, Windows 11 bare metal on this PC, macOS):
-https://claude.ai/artifact/KLiVDuPbKkzizCk9xZN29B. Bare-metal results go to a folder tirevive-0.8.19 on one of the
+https://claude.ai/artifact/1gKwV9ZEiB8JiZ6GpzgFLj (2026-10-17: macOS first; Mac unpacked in ~/Downloads, win11 VM running with setup.exe 0.8.19 installed over the bundle). Bare-metal results go to a folder tirevive-0.8.19 on one of the
 NTFS data disks (mount read-only from Linux afterwards). After the tests: read the broker journal for the new packet
 lines (L2/L3), merge, README/site, release 0.8.19 (bump CMake version).
 **Branch `osc-wavetables` (pushed, from round-0.8.19, NOT in the test build):** (D) classic OSC display with the
