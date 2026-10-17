@@ -35,6 +35,13 @@ Linux unpacked ~/Downloads/TI-Revive-0.8.21b-linux (user runs install.sh); Mac u
 TI-Revive-0.8.21b-mac (user runs sudo installer). The Virus is on Linux; the win10 VM still has the original +
 Access driver (snapshot before-original-driver = with TI Revive 0.8.17).
 
+**Round 0.8.21 second build results (user, 2026-10-17):** Linux L4, L5 pass; VM W2, W3 pass; macOS M1, M3 pass.
+L3/M2 FAIL = the Wavetable list is one long column on Linux and macOS: VSTGUI's columns (setNbItemsPerColumn) only
+exist in its Windows menu (macOS NSMenu has none, the Linux menu ignores it) - needs our own popup view (the user's
+"modern menu" idea), next step. L5 notes: the link must point to our website -> done (sysinfo website_url, click
+opens the browser; not yet in a build); the REMOTE MIDI channel menu is locked on purpose (read-only page). Bare
+metal (B1, B2): postponed by the user - collect a bigger bare-metal list for one session later.
+
 **Round 0.8.21 POSTPONED (user, 2026-10-17 noon): W2 failed (Wavetable list), then a full comparison with the
 original.** Reference: the original Virus Control 5.1.7 in the win10 VM with the Access driver (TI Revive removed
 there, snapshot before-original-driver), 21 screenshots of every page taken with virsh screenshot (scratchpad only,
