@@ -163,7 +163,26 @@ bool popup_pointer(CFrame *, int &x, int &y, bool &down)
     return true;
 }
 
-uintptr_t popup_focus_token(CFrame *) { return 0; } // a click elsewhere closes the menu; keyboard switches do not
+// the window manager's active window (_NET_ACTIVE_WINDOW on the root; XWayland keeps it too and sets it to None while
+// a Wayland application has the focus): Alt-Tab to another window changes it (round 0.8.22 test L7)
+uintptr_t popup_focus_token(CFrame *)
+{
+    auto *c = conn();
+    if (!c)
+        return 0;
+    static const xcb_atom_t active = atom(c, "_NET_ACTIVE_WINDOW");
+    if (active == XCB_ATOM_NONE)
+        return 0;
+    auto *p = xcb_get_property_reply(c, xcb_get_property(c, 0, screen_of(c)->root, active, XCB_ATOM_WINDOW, 0, 1),
+                                     nullptr);
+    if (!p)
+        return 0;
+    uintptr_t token = 0; // no such property: the window manager cannot tell
+    if (p->type == XCB_ATOM_WINDOW && xcb_get_property_value_length(p) >= 4)
+        token = 1 + *static_cast<const uint32_t *>(xcb_get_property_value(p)); // None (0) counts as a window too
+    free(p);
+    return token;
+}
 
 int popup_submenu_delay() { return 400; }
 
