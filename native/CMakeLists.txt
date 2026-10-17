@@ -192,6 +192,11 @@ if(NOT MSVC)
         endif()
     endforeach()
     set(_vti_warn -Wall -Wextra $<$<BOOL:${VTI_WERROR}>:-Werror>)
+    # GCC 11/12 (CI: Ubuntu 22.04) report false overflows inside std::vector::insert at -O2: warnings, not errors
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13)
+        list(APPEND _vti_warn -Wno-error=stringop-overread -Wno-error=stringop-overflow -Wno-error=array-bounds
+             -Wno-error=restrict)
+    endif()
     foreach(_t vticore vtimodel virusctl virusmon virussync tirevive-cc TIReviveControlCenter vtitests nativehost
                vtirender xclose VirusTINative VirusTINative_AU VirusTINative_ASIO asiohost)
         if(NOT TARGET ${_t})

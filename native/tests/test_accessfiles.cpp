@@ -291,7 +291,6 @@ TEST(accessfiles_control_center)
     auto b = AccessFiles::open_control_center(err);
     CHECK(b && b->source() == (common / "Virus Control Center.exe").string());
 }
-#endif
 
 // the classic oscillator's 64 waves (64 x 64 floats in the plug-in binary, row 0 = one sine period): found by
 // content, so the Windows DLL and the macOS bundle binary both work; anything implausible is rejected
@@ -346,3 +345,4 @@ TEST(accessfiles_osc_waves_mac_bundle)
     write(bundle / "Contents" / "MacOS" / "Virus Control", Bytes(0x2000, 0x5A));
     CHECK(AccessFiles::open("", err)->osc_waves().empty());
 }
+#endif
