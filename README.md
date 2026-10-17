@@ -65,8 +65,9 @@ contains no Access material. No kernel code of its own is installed.
 - **Coming from 0.7.x:** the classic plug-in "Virus TI (TI Revive)" (the original Access plug-in in a wrapper) is
   replaced. Projects saved with it open with "TI Revive Virus Control" (same plug-in ID). The Access software that
   earlier versions installed is offered for removal; the files the plug-in needs stay.
-- **Virus TI Snow:** works with the native plug-in according to the first user reports (macOS, 0.8.3 and later:
-  sound, both USB outputs, parameters); not tested by us - we have no Snow. Please tell us in a
+- **Virus TI Snow:** works with the native plug-in according to user reports (macOS, 0.8.3 and later:
+  sound, both USB outputs, parameters; with 0.8.20 also USB 3 and the soft knobs); not tested by us - we have no
+  Snow. Please tell us in a
   [GitHub issue](https://github.com/derpsn/access-virus-ti-revive/issues) what works and what not.
   [TI Revive 0.7.4](https://github.com/derpsn/access-virus-ti-revive/releases/tag/v0.7.4) with its classic plug-in
   "Virus TI Snow (TI Revive)" stays available for Windows. If TI Revive does not find your Snow, run
@@ -488,7 +489,7 @@ measurements: [`findings/design-linux.md`](findings/design-linux.md), evidence E
 | Timing: sample-accurate, latency reported to the DAW, any sample rate | done: 0.01-0.24 ms jitter, 0-2 ppm drift (E139-E143, E186) |
 | ASIO sound card "TI Revive Virus Audio" (Windows, 6 in / 2 out, no Access driver) | done: clean on a real PC |
 | Installers: Access software only unpacked (Windows/Linux), clean-up of earlier versions | done |
-| Virus TI Snow | works per first user reports (macOS, 0.8.3+); not tested by us |
+| Virus TI Snow | works per user reports (macOS, 0.8.3+; USB 3 and soft knobs with 0.8.20); not tested by us |
 | Audio Unit (AUv2) of the native plug-in, with the classic Audio Unit's codes (its Logic / GarageBand projects open) | done: passes `auval`, tested in GarageBand |
 | Control Center app + command line `tirevive-cc` (device info, backup, library export; read-only) | done: CLI tested on macOS (M3), app on Linux, both with a TI2 |
 | Control Center: restore into RAM | open (flash functions and OS update: never) |
