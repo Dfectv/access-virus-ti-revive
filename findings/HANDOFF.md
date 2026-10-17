@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-17 (CONTINUE HERE below; round 0.8.22 in progress). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E195), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E196), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-17 late afternoon: round 0.8.22 started)
@@ -13,8 +13,9 @@ COptionMenu and the generic Linux menu theme are gone from the editor. Value lis
 (entries / 4 above 32 entries, REA 0x180040f50) instead of 25 for all. Checked under Xvfb with the TI2 (LOAD > device >
 RAM A 6 columns, Personal Libraries, browser bank menu, choice ROM A). Open: the original's "Create Empty Library"
 entry; n of the original's patch submenus. (2) The Mac Wavetable delay re-check (655cf8c): user decision - with the
-next major release test round, not now. NEXT (user, 2026-10-17): item 3 = REMOTE page sending/SAVE (E193), REA first,
-then a hardware test only after the user agrees (rule 2).
+next major release test round, not now. Item 3 (REMOTE page sending/SAVE) started 2026-10-17: REA done (E196: record layout, the original's
+cache file and when it sends; nothing sent by ours yet). Waiting for the user's decision on how to go on (rule 2:
+where the Virus stores the records is open).
 
 ## Previous state (2026-10-17 afternoon: v0.8.21 released)
 
