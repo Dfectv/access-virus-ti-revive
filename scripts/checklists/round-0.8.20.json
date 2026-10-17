@@ -3,7 +3,7 @@
  "lead": "Test build 0.8.20 (CI run 39003702169, branch round-0.8.20), the fixes for the macOS results of 0.8.19: the Control Center works next to the DAW on every system, a duplicated track shows \"Virus unavailable\" again, and the backup folder that the Access installer created as administrator is given back to you. One block per system, about 30 to 45 minutes each. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
  "rules": [
   "Second build (CI run 39006712326): fixes for L5 (REAPER crash), the Control Center's window and closing, and the missing Access look on Windows. Items you already passed stay passed; the new items M5, L6, L7, W5 and B5 check the fixes.",
-  "Third build (CI run 39009767271): only for B6 and B7 on Windows; everything else is done.",
+  "Third build (CI run 39010110029): only for B6 and B7 on Windows; everything else is done.",
   "Disposable DAW project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches.",
   "Order: macOS (the Virus is there), then Linux, then the Windows 11 VM, and Windows 11 on this PC last.",
   "Close the DAW before moving the Virus to another machine."
@@ -211,7 +211,7 @@
    "where": "boot into Windows; Claude is not available during it",
    "prep": [
     "Prepare: in Windows, download the 0.8.20 setup.exe from <code>github.com/derpsn/access-virus-ti-revive/actions/runs/39006712326</code> (artifact \"TI-Revive-msi\", GitHub login) and install it. On one of the NTFS data disks (\"Volume\") create a folder <code>tirevive-0.8.20</code> for the results. Take the second build (run 39006712326), not the first.",
-    "Third build for B6/B7 (CI run 39009767271): download its setup.exe the same way (artifact \"TI-Revive-msi\") and install it over the second. It fixes the dropouts at 4096 in the first seconds and logs the sound card's rate and buffer size in diag.log."
+    "Third build for B6/B7 (CI run 39010110029): download its setup.exe the same way (artifact \"TI-Revive-msi\") and install it over the second. It fixes the dropouts at 4096 in the first seconds and logs the sound card's rate and buffer size in diag.log."
    ],
    "notes": [
     "Do this block last. Reboot to Linux at the end; Claude then reads the folder read-only."

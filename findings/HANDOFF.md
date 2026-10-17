@@ -28,8 +28,13 @@ test skips without Access files, e.g. CI), CITATION.cff + "Using our findings" (
 CI run 39007000903 (green) installed: Mac ~/Downloads/TI-Revive-0.8.20b-mac (user runs installer), Linux
 ~/Downloads/TI-Revive-0.8.20b-linux (user runs install.sh), VM setup.exe silent. Checklist (same link) has redo items
 M5, L6, L7, W5, B5 - all PASS (user, 2026-10-17: macOS M1-M5, Linux L1, L2, L4-L7, VM W1-W5; L3 not needed,
-E175 did not occur). Bare metal B1-B5 still open (user boots this PC into Windows; results to tirevive-0.8.20 on an
-NTFS data disk, read it read-only from Linux afterwards). The Virus is in the VM. After merge: post the short findings update
+E175 did not occur). Bare metal B1-B5 PASS (E186: render 224/224 on the grid, the VM's
+gaps were the passthrough; packets clean; replug recovers). User question: crackling with a sound card at buffer
+2048/4096 -> E187: 4096 re-anchored every block in the first seconds (fixed test-first, 140 tests), 2048 on Windows
+not measured yet. User chose: investigate 2048 before the release. Third build CI run 39010110029 (green): the 4096
+fix + diag.log line with host rate and block sizes (also with the editor closed). Checklist items B6/B7 (same link):
+the user plays at 2048/4096 on bare metal; afterwards read C:\Users\<user>\AppData\Local\virus-ti-native\diag.log
+from the Windows partition read-only (udisksctl mount -o ro). Then release 0.8.20. The Virus is in the VM. After merge: post the short findings update
 on Give-me-a-signal/virus-ti-rework#5 (draft approved by the user: scratchpad rework-update.md - pointer to
 findings/evidence.md, no credit request).
 
