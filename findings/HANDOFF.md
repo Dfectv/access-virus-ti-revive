@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-17 (CONTINUE HERE below; round 0.8.21 in progress). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E180), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E194), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-17 noon: round 0.8.21, small leftovers)
@@ -38,7 +38,13 @@ Access driver (snapshot before-original-driver = with TI Revive 0.8.17).
 **Round 0.8.21 second build results (user, 2026-10-17):** Linux L4, L5 pass; VM W2, W3 pass; macOS M1, M3 pass.
 L3/M2 FAIL = the Wavetable list is one long column on Linux and macOS: VSTGUI's columns (setNbItemsPerColumn) only
 exist in its Windows menu (macOS NSMenu has none, the Linux menu ignores it) - needs our own popup view (the user's
-"modern menu" idea), next step. L5 notes: the link must point to our website -> done (sysinfo website_url, click
+"modern menu" idea), next step. DONE (2026-10-17, not in a build yet): our own popup (E194; native/src/editor/popupmenu.* +
+PopupView in viruseditor.cpp, unit tests popup_*, 164 tests) for value lists, category filter and size menu on all
+platforms: the original's Windows look measured from the screenshots (classic style with columns), 25 per column, at
+the control's corner, inside the editor (moved up/left; more columns if taller), keys + Return + Esc. Checked under
+Xvfb with nativehost (Wavetable 4 x 25, Osc 1 Mode, Return, size menu at 200 %; the editor needs a Virus to leave the
+status page - a temporary local hack, not committed). The patch/bank menus (submenus) are still VSTGUI's native/generic
+ones. Open: Esc and the Windows/macOS look in the next build; the "modern" look as an option (user idea) later. L5 notes: the link must point to our website -> done (sysinfo website_url, click
 opens the browser; not yet in a build); the REMOTE MIDI channel menu is locked on purpose (read-only page). Bare
 metal (B1, B2): postponed by the user - collect a bigger bare-metal list for one session later.
 

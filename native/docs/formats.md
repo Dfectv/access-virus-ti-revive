@@ -139,8 +139,8 @@ upgrade both checksums are recomputed: byte 265 = sum of bytes 5..264 & 0x7F, by
   9 doubles (HalfliteBC, Poly5thmi@, EP+Faze, EP3DosNyt@, CuttaD6, D50-50, Funk-U, SineLang, EP Res).
 - Personal Libraries: recursive; folders are submenus in the bank and LOAD/SAVE menus.
 - LCD: "VirusControl/Display Original Value" = "[value when editing of this parameter started]"; the category filter
-  shows as "Repository Actions Category Filter" / name / [before] / Part n. Cleared, browser 0 returns to its bank. The generic (Linux) menu ticks
-  the entry of the menu's value (setValue), not checkEntryAlone.
+  shows as "Repository Actions Category Filter" / name / [before] / Part n. Cleared, browser 0 returns to its bank. Our popup (E194) ticks
+  the current entry.
 - Inactive controls (the parameter's own `condition` false, e.g. Chorus Mix with chorus off, Live Mode while the
   sequencer runs; soft knobs without destination) are painted with alpha 0.4.
 - Text: bitmap fonts FNT_LCD_5x7_*.png = 96 glyphs (ASCII 32..127) of 6x9 in a vertical strip; StaticText shows its

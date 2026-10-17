@@ -20,9 +20,11 @@ extern char **environ;
 #include "vstgui/lib/controls/itexteditlistener.h"
 #include "vstgui/lib/cvstguitimer.h"
 #include "vstgui/lib/events.h"
+#include "vstgui/lib/platform/iplatformfont.h"
 #include "vstgui/lib/platform/platformfactory.h"
 #include "cc/diag.h"
 #include "editor/helptext.h"
+#include "editor/popupmenu.h"
 #include "editor/upscale.h"
 #include "vstgui/lib/cfont.h"
 #include "vstgui/lib/cgraphicspath.h"
@@ -449,6 +451,174 @@ private:
             fprintf(stderr, "editor: %dx%d image enlarged x%.2f in %.1f ms\n", im.w, im.h, scale,
                     std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
     }
+};
+
+// runs `fn` once the frame has finished the current event (a view must not remove itself while handling it), or now
+static void after_event(CFrame *frame, std::function<void()> fn)
+{
+    if (!frame->doAfterEventProcessing(fn))
+        fn();
+}
+
+// our popup menu (editor/popupmenu.h) as a modal view over the whole editor, drawn like the original's Windows menus
+// with columns (E194) on every platform. A click on an entry or Return calls `chosen` with its index; a click outside
+// or Esc closes it without a choice.
+class PopupView : public CView {
+public:
+    static void open(CFrame *frame, const CRect &area, std::vector<vti::PopupItem> items, int checked, int per_column,
+                     CPoint at, std::function<void(int)> chosen)
+    {
+        if (!frame || items.empty())
+            return;
+        auto font = popup_font();
+        auto width = [font](const std::string &s) {
+            auto str = getPlatformFactory().createString(s.c_str());
+            auto *painter = font->getPlatformFont() ? font->getPlatformFont()->getPainter() : nullptr;
+            return painter ? (int)std::ceil(painter->getStringWidth(nullptr, str, true)) : 7 * (int)s.size();
+        };
+        vti::PopupMenu menu(std::move(items), checked, width);
+        menu.layout(per_column, (int)area.getHeight());
+        menu.place((int)at.x, (int)at.y, (int)area.getWidth(), (int)area.getHeight());
+        auto *v = new PopupView(area, std::move(menu), std::move(chosen), font);
+        if (auto id = frame->beginModalViewSession(v)) { // the frame owns the view until the session ends
+            v->session_ = *id;
+            v->in_session_ = true;
+        } else
+            v->forget();
+    }
+
+    void draw(CDrawContext *ctx) override
+    {
+        const CColor back(240, 240, 240, 255), border(160, 160, 160, 255), light(255, 255, 255, 255),
+            hot(145, 201, 247, 255), text(0, 0, 0, 255), grey(109, 109, 109, 255);
+        const double x0 = getViewSize().left + menu_.x, y0 = getViewSize().top + menu_.y;
+        ctx->setDrawMode(kAliasing);
+        ctx->setLineWidth(1);
+        ctx->setFillColor(border);
+        ctx->drawRect(CRect(x0, y0, x0 + menu_.width(), y0 + menu_.height()), kDrawFilled);
+        ctx->setFillColor(back);
+        ctx->drawRect(CRect(x0 + 1, y0 + 1, x0 + menu_.width() - 1, y0 + menu_.height() - 1), kDrawFilled);
+        // between the columns a dark and a light line, the full height inside the border
+        for (int c = 1; c < menu_.columns(); c++) {
+            const double sx = x0 + menu_.column_x()[c] - vti::PopupMenu::kSeparator;
+            ctx->setFillColor(border);
+            ctx->drawRect(CRect(sx, y0 + 1, sx + 1, y0 + menu_.height() - 1), kDrawFilled);
+            ctx->setFillColor(light);
+            ctx->drawRect(CRect(sx + 1, y0 + 1, sx + 2, y0 + menu_.height() - 1), kDrawFilled);
+        }
+        ctx->setFont(font_);
+        const auto &items = menu_.items();
+        for (int i = 0; i < (int)items.size(); i++) {
+            auto r = menu_.item_rect(i);
+            const CRect row(x0 + r.x, y0 + r.y, x0 + r.x + r.w, y0 + r.y + r.h);
+            if (i == menu_.hot) {
+                ctx->setFillColor(hot);
+                ctx->drawRect(row, kDrawFilled);
+            }
+            if (i == menu_.checked()) { // a tick in the space before the text
+                ctx->setDrawMode(kAntiAliasing);
+                ctx->setLineWidth(1.6);
+                ctx->setFrameColor(text);
+                ctx->drawLine(CPoint(row.left + 6, row.top + 9.5), CPoint(row.left + 8.5, row.top + 12));
+                ctx->drawLine(CPoint(row.left + 8.5, row.top + 12), CPoint(row.left + 13, row.top + 6));
+                ctx->setDrawMode(kAliasing);
+                ctx->setLineWidth(1);
+            }
+            ctx->setFontColor(items[i].enabled ? text : grey);
+            CRect tr(row);
+            tr.left += vti::PopupMenu::kTextLeft;
+            ctx->drawString(items[i].text.c_str(), tr, kLeftText, true);
+        }
+        setDirty(false);
+    }
+
+    void onMouseMoveEvent(MouseMoveEvent &event) override
+    {
+        set_hot(menu_.item_at(local_x(event.mousePosition), local_y(event.mousePosition)));
+        event.consumed = true;
+    }
+    void onMouseDownEvent(MouseDownEvent &event) override
+    {
+        const int px = local_x(event.mousePosition), py = local_y(event.mousePosition);
+        const int i = menu_.item_at(px, py);
+        if (i >= 0)
+            finish(i);
+        else if (!menu_.contains(px, py))
+            finish(-1); // a click outside only closes the menu, like a native one
+        event.consumed = true;
+    }
+    void onMouseUpEvent(MouseUpEvent &event) override { event.consumed = true; }
+    void onMouseWheelEvent(MouseWheelEvent &event) override { event.consumed = true; }
+    void onKeyboardEvent(KeyboardEvent &event) override
+    {
+        if (event.type != EventType::KeyDown)
+            return;
+        using K = vti::PopupMenu::Key;
+        switch (event.virt) {
+        case VirtualKey::Escape: finish(-1); break;
+        case VirtualKey::Return:
+        case VirtualKey::Enter: finish(menu_.hot); break;
+        case VirtualKey::Up: move(K::Up); break;
+        case VirtualKey::Down: move(K::Down); break;
+        case VirtualKey::Left: move(K::Left); break;
+        case VirtualKey::Right: move(K::Right); break;
+        case VirtualKey::Home: move(K::Home); break;
+        case VirtualKey::End: move(K::End); break;
+        default: break;
+        }
+        event.consumed = true; // nothing reaches the editor while the menu is open
+    }
+
+private:
+    PopupView(const CRect &area, vti::PopupMenu menu, std::function<void(int)> chosen, SharedPointer<CFontDesc> font)
+        : CView(area), menu_(std::move(menu)), chosen_(std::move(chosen)), font_(std::move(font))
+    {
+    }
+    // the menu font: Windows' own menu font, a sans serif of the same size elsewhere
+    static SharedPointer<CFontDesc> popup_font()
+    {
+#if SMTG_OS_WINDOWS
+        return makeOwned<CFontDesc>("Segoe UI", 12);
+#elif SMTG_OS_MACOS
+        return makeOwned<CFontDesc>("Helvetica Neue", 12);
+#else
+        return makeOwned<CFontDesc>(kSystemFont->getName(), 12);
+#endif
+    }
+    int local_x(const CPoint &p) const { return (int)std::floor(p.x - getViewSize().left); }
+    int local_y(const CPoint &p) const { return (int)std::floor(p.y - getViewSize().top); }
+    void set_hot(int i)
+    {
+        if (i != menu_.hot) {
+            menu_.hot = i;
+            invalid();
+        }
+    }
+    void move(vti::PopupMenu::Key k)
+    {
+        menu_.key(k);
+        invalid();
+    }
+    // closes the menu after the current event (the frame removes the view when the session ends); -1 = no choice
+    void finish(int i)
+    {
+        if (done_)
+            return;
+        done_ = true;
+        if (auto *frame = getFrame(); frame && in_session_) {
+            ModalViewSessionID id = session_;
+            SharedPointer<CFrame> f(frame);
+            after_event(frame, [f, id]() { f->endModalViewSession(id); });
+        }
+        if (i >= 0 && i < (int)menu_.items().size() && menu_.items()[i].enabled && chosen_)
+            chosen_(i);
+    }
+
+    vti::PopupMenu menu_;
+    std::function<void(int)> chosen_;
+    SharedPointer<CFontDesc> font_;
+    ModalViewSessionID session_ = 0;
+    bool in_session_ = false, done_ = false;
 };
 
 class EditorCanvasView : public CView, public IControlListener, public TextEditListenerAdapter, public IKeyboardHook,
@@ -1260,25 +1430,28 @@ private:
 
     void category_menu(const CPoint &where)
     {
-        auto *menu = new COptionMenu(CRect(), nullptr, -1, nullptr, nullptr, COptionMenu::kCheckStyle);
         // the original's list: "All" + the categories in alphabetical order (editordevice "Val Name Category Filter")
+        std::vector<vti::PopupItem> items;
         auto vl = plugin_->editor_device().valuelists.find("Val Name Category Filter");
         if (vl != plugin_->editor_device().valuelists.end())
             for (auto &en : vl->second.entries)
-                menu->addEntry(en.text.c_str());
+                items.push_back({en.text, true});
         else
-            menu->addEntry("All");
-        // the generic (Linux) menu ticks the entry of the menu's value
+            items.push_back({"All", true});
         int cur = plugin_->ui_value("Repository Actions/Category Filter", -1);
-        menu->setMax((float)std::max(0, menu->getNbEntries() - 1));
-        menu->setValue((float)cur);
-        menu->checkEntryAlone(cur);
-        menu->popup(getFrame(), menu_at(where), [this](COptionMenu *m) {
-            if (m->getLastResult() >= 0)
-                plugin_->ui_set("Repository Actions/Category Filter", -1, m->getLastResult());
+        const int per_column = EditorRenderer::menu_items_per_column(items.size());
+        show_popup(std::move(items), cur, per_column, where, [this](int i) {
+            plugin_->ui_set("Repository Actions/Category Filter", -1, i);
             invalid();
         });
-        menu->forget();
+    }
+
+    // our popup (PopupView) over the editor; `where` in editor coordinates
+    void show_popup(std::vector<vti::PopupItem> items, int checked, int per_column, const CPoint &where,
+                    std::function<void(int)> chosen)
+    {
+        CRect area = getViewSize();
+        PopupView::open(getFrame(), area, std::move(items), checked, per_column, where, std::move(chosen));
     }
 
     void edit_search(const Hit &h)
@@ -1361,7 +1534,7 @@ private:
         const Parameter *p = plugin_->conditions().find(param);
         if (!p)
             return;
-        auto *menu = new COptionMenu();
+        std::vector<vti::PopupItem> items;
         std::vector<int> values;
         int current = plugin_->ui_value(param, h.part), index = -1;
         for (auto &[v, t] : renderer_.menu_entries(param)) { // the list's order (mapped lists: index, not value)
@@ -1370,22 +1543,17 @@ private:
             // "-G": the original's marker for an entry shown greyed (e.g. "-GUSB3 L+R" while the third USB output is
             // off, E158) - disabled here, without the marker
             const bool grey = t.rfind("-G", 0) == 0;
-            menu->addEntry(grey ? t.substr(2).c_str() : t.c_str(), -1, grey ? CMenuItem::kDisabled : CMenuItem::kNoFlags);
+            items.push_back({grey ? t.substr(2) : t, !grey});
             values.push_back(v);
         }
-        if (index >= 0)
-            menu->setCurrent(index);
-        menu->setNbItemsPerColumn(EditorRenderer::menu_items_per_column(values.size())); // 4 x 25 wavetables
         int part = h.part;
-        CPoint loc(where);
-        menu->popup(getFrame(), menu_at(loc), [this, param, part, values](COptionMenu *m) {
-            int r = m->getLastResult();
+        const int per_column = EditorRenderer::menu_items_per_column(values.size()); // 4 x 25 wavetables
+        show_popup(std::move(items), index, per_column, where, [this, param, part, values](int r) {
             if (r >= 0 && r < (int)values.size()) {
                 plugin_->ui_set(param, part, values[r]);
                 invalid();
             }
         });
-        menu->forget();
     }
 
     VirusPlugin *plugin_;
@@ -1394,20 +1562,21 @@ private:
     void size_menu(const CPoint &where)
     {
         static const double sizes[] = {1.0, 1.25, 1.5, 1.75, 2.0};
-        auto *menu = new COptionMenu();
+        std::vector<vti::PopupItem> items;
+        int checked = -1;
         for (double z : sizes) {
             char t[32];
             snprintf(t, sizeof t, "Size %d %%", (int)std::lround(z * 100));
-            auto *item = menu->addEntry(t);
             if (std::fabs(editor_->user_zoom() - z) < 0.01)
-                item->setChecked(true);
+                checked = (int)items.size();
+            items.push_back({t, true});
         }
-        menu->popup(getFrame(), menu_at(where), [this](COptionMenu *m) {
-            int idx = m->getLastResult();
+        // the zoom changes the frame: after the menu's session has ended
+        show_popup(std::move(items), checked, 0, where, [this](int idx) {
             if (idx >= 0 && idx < (int)(sizeof sizes / sizeof sizes[0]))
-                editor_->set_user_zoom(sizes[idx]);
+                if (auto *f = getFrame())
+                    after_event(f, [this, idx]() { editor_->set_user_zoom(sizes[idx]); });
         });
-        menu->forget();
     }
     EditorRenderer renderer_;
     std::map<std::string, SharedPointer<CBitmap>> bitmaps_;
