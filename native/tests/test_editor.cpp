@@ -146,6 +146,17 @@ struct RecCanvas : Canvas {
     void line(double, double, double, double, Rgba) override { lines++; }
     void push_clip(int, int, int, int) override { clips++, depth++, max_depth = std::max(max_depth, depth); }
     void pop_clip() override { depth--; }
+    struct Label {
+        int x, y, w, h;
+        std::string text;
+        int size;
+        Rgba c;
+    };
+    std::vector<Label> labels;
+    void label(int x, int y, int w, int h, const std::string &text, int size, Rgba c) override
+    {
+        labels.push_back({x, y, w, h, text, size, c});
+    }
 
     std::vector<Blit> at(const std::string &img, int dx, int dy) const
     {
@@ -730,4 +741,27 @@ TEST(editor_osc_classic_value)
     CHECK(std::fabs(v(127, 127, 0, 40, t) - 1.0) < 1e-6); // pw 127: switch at 64 - high all along
     CHECK(v(100, 0, 0, 1, t) <= 1.0 && v(100, 0, 0, 1, t) >= -1.0); // clamped
     CHECK(std::fabs(v(0, 0, 70, 16, t) - v(0, 0, 63, 16, t)) < 1e-9); // WaveSelect beyond 63: the last row
+}
+
+// a text field without a bitmap font draws its text in the system font at its FontSize and ForeColor - the REMOTE
+// page's "MIDI String Info" (FontSize 8, ForeColor 245, disabled: a display), E198
+TEST(editor_system_font_text)
+{
+    static const char *L = R"(<?xml version="1.0"?>
+<Editor><Frame width="100" height="20"><Container><Size left="0" top="0" width="100" height="20"/>
+ <SearchEdit Parameter="Osc/Shape" FontSize="8" Align="Middle Left" Enabled="false"><ForeColor red="245" green="245" blue="245" alpha="255"/><Size left="4" top="3" width="80" height="12"/></SearchEdit>
+ <SearchEdit Parameter="Osc/Mode" FontSize="8" Align="Middle Left"><Size left="4" top="3" width="80" height="12"/></SearchEdit>
+</Container></Frame></Editor>)";
+    Rig g;
+    EditorLayout lay;
+    std::string err;
+    CHECK(lay.load(Bytes(L, L + strlen(L)), err));
+    EditorRenderer r(lay, *g.cond, g.dev, g.ed);
+    r.values = g.r->values;
+    r.live_text = [](const std::string &p) { return p == "Osc/Shape" ? std::string("Control Change Ch 1, 5") : ""; };
+    r.render(g.canvas);
+    CHECK(g.canvas.labels.size() == 1); // Osc/Mode has no live text: nothing
+    auto &l = g.canvas.labels[0];
+    CHECK(l.text == "Control Change Ch 1, 5" && l.size == 8 && l.x == 4 && l.y == 3 && l.w == 80 && l.h == 12);
+    CHECK(l.c.r == 245 && l.c.g == 245 && l.c.a == 255);
 }

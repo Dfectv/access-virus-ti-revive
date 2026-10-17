@@ -23,6 +23,10 @@ public:
     int knob_behaviour(int t, int k) const;    // 0..127
 
     std::string midi_string(int t, int k) const; // the knob's MIDI string as text ("B0 05 *")
+    // what the MIDI string means, like the original's "MIDI String Info" (0x18008bee0): "Control Change Ch 1, 5,
+    // Value " - per byte a data value in decimal, a channel message's type and channel, or SysEx / End / Value /
+    // System Realtime
+    std::string midi_info(int t, int k) const;
 
     // the 40 bytes of a MIDI string typed as text, like the original's parser (0x1800893f0): each MIDI byte as two
     // bytes (low nibble, high nibble), "*" / "X" / "V" = the knob's value (0F 0F), "%n" = a decimal byte, a lone hex
@@ -50,6 +54,12 @@ public:
     // the cache file: every template's name record followed by its knob records, in a "MIDI" container
     std::vector<uint8_t> cache() const;
     int load_cache(const std::vector<uint8_t> &bytes); // the number of records taken (0: not a container)
+    // a template file (*.vrt, E198) of template t: "RMOT" header, an "RSET" chunk with its 33 records in a "MIDI"
+    // container
+    std::vector<uint8_t> template_file(int t) const;
+    // a template file's records into template t (whatever template they were saved from, like the original); the
+    // number of records taken, 0 if it is no template file (or another version)
+    int load_template_file(const std::vector<uint8_t> &bytes, int t);
     bool load_file(const std::string &path);          // false: no file or no records in it
     bool save_file(const std::string &path) const;    // whole: a temporary file renamed over the old one
 
@@ -58,8 +68,14 @@ private:
     std::array<std::array<std::vector<uint8_t>, kKnobs>, kTemplates> knobs_;
 };
 
+// the template files below `dir` like the original's list: *.vrt (any case), in sub folders as "folder/name.vrt",
+// sorted; empty if there is no such folder
+std::vector<std::string> remote_template_files(const std::string &dir);
+// a list entry's menu text: the path without ".vrt"
+std::string remote_template_name(const std::string &file);
+
 // the text of one of the page's code-defined parameters ("" for any other): the selected template's name and MIDI
-// channel behaviour ("Disable MIDI channel" / "Enable MIDI Channel"), the selected knob's name and MIDI string;
+// channel behaviour ("Disable MIDI channel" / "Enable MIDI Channel"), the selected knob's name, MIDI string and info;
 // `selected` -1 =
 // template 0, as the original shows it
 std::string remote_text(const std::string &param, const RemoteTemplates &t, int selected, int knob);

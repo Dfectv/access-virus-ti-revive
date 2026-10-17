@@ -168,6 +168,30 @@ std::string RemoteTemplates::midi_text(const uint8_t *b)
     return trimmed(s);
 }
 
+std::string RemoteTemplates::midi_info(int t, int k) const
+{
+    if (!valid(t, k))
+        return {};
+    static const char *const types[] = {"Note Off",       "Note On",          "Poly Pressure", "Control Change",
+                                        "Program Change", "Channel Pressure", "Pitch Bend"};
+    const uint8_t *b = knobs_[t][k].data() + kMidiAt;
+    std::string s;
+    for (int i = 0; i < kMidiLen; i += 2) {
+        int lo = b[i] & 0x0F, hi = b[i + 1] & 0x0F;
+        if (lo == 0x0E && hi == 0x0F)
+            break;
+        if (i > 0)
+            s += ", ";
+        if (hi < 8)
+            s += std::to_string(hi * 16 + lo);
+        else if (hi < 0x0F)
+            s += std::string(types[hi - 8]) + " Ch " + std::to_string(lo + 1);
+        else
+            s += lo == 0 ? "SysEx " : lo == 7 ? "End " : lo == 0x0F ? "Value " : "System Realtime ";
+    }
+    return s;
+}
+
 void RemoteTemplates::set_midi_string(int t, int k, const std::string &text)
 {
     if (!valid(t, k))
@@ -274,6 +298,88 @@ int RemoteTemplates::load_cache(const std::vector<uint8_t> &d)
     return taken;
 }
 
+static uint32_t be32(const std::vector<uint8_t> &d, size_t at)
+{
+    return (uint32_t)d[at] << 24 | (uint32_t)d[at + 1] << 16 | (uint32_t)d[at + 2] << 8 | d[at + 3];
+}
+
+std::vector<uint8_t> RemoteTemplates::template_file(int t) const
+{
+    if (!valid(t))
+        return {};
+    std::vector<uint8_t> body;
+    auto add = [&body](const std::vector<uint8_t> &r) {
+        put_be32(body, r.size());
+        body.insert(body.end(), r.begin(), r.end());
+    };
+    add(names_[t]);
+    for (auto &k : knobs_[t])
+        add(k);
+    std::vector<uint8_t> midi = {'M', 'I', 'D', 'I'};
+    put_be32(midi, body.size());
+    midi.insert(midi.end(), body.begin(), body.end());
+    std::vector<uint8_t> out = {'R', 'M', 'O', 'T'};
+    put_be32(out, 12); // the header's size
+    put_be32(out, 1);  // version
+    out.insert(out.end(), {'R', 'S', 'E', 'T'});
+    put_be32(out, midi.size());
+    out.insert(out.end(), midi.begin(), midi.end());
+    return out;
+}
+
+int RemoteTemplates::load_template_file(const std::vector<uint8_t> &d, int t)
+{
+    if (!valid(t) || d.size() < 12 || !std::equal(d.begin(), d.begin() + 4, "RMOT") || be32(d, 8) != 1)
+        return 0;
+    int taken = 0;
+    for (size_t pos = std::max<size_t>(12, be32(d, 4)); pos + 8 <= d.size();) {
+        size_t n = be32(d, pos + 4);
+        bool rset = std::equal(d.begin() + pos, d.begin() + pos + 4, "RSET");
+        pos += 8;
+        if (n > d.size() - pos)
+            break;
+        if (rset) { // the records go to template t (0x180086bf0 rewrites their byte 7)
+            std::vector<uint8_t> c(d.begin() + pos, d.begin() + pos + n);
+            for (size_t r = 8; r + 4 <= c.size();) {
+                size_t len = be32(c, r);
+                r += 4;
+                if (len > c.size() - r)
+                    break;
+                std::vector<uint8_t> rec(c.begin() + r, c.begin() + r + len);
+                if (rec.size() > 7 && (len == kNameRec || len == kOldNameRec || len == kKnobRec))
+                    rec[7] = (uint8_t)t;
+                taken += take_record(rec);
+                r += len;
+            }
+        }
+        pos += n;
+    }
+    return taken;
+}
+
+std::vector<std::string> remote_template_files(const std::string &dir)
+{
+    namespace fs = std::filesystem;
+    std::vector<std::string> out;
+    std::error_code ec;
+    for (fs::recursive_directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
+        if (!it->is_regular_file(ec))
+            continue;
+        std::string ext = it->path().extension().string();
+        for (auto &c : ext)
+            c = (char)tolower((unsigned char)c);
+        if (ext == ".vrt")
+            out.push_back(fs::relative(it->path(), dir, ec).generic_string());
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+std::string remote_template_name(const std::string &file)
+{
+    return file.size() > 4 ? file.substr(0, file.size() - 4) : file;
+}
+
 bool RemoteTemplates::load_file(const std::string &path)
 {
     std::vector<uint8_t> d;
@@ -314,6 +420,8 @@ std::string remote_text(const std::string &param, const RemoteTemplates &t, int 
         return t.knob_name(sel, knob);
     if (param == "Remote Templates/MIDI String")
         return t.midi_string(sel, knob);
+    if (param == "Remote Templates/MIDI String Info")
+        return t.midi_info(sel, knob);
     return {};
 }
 

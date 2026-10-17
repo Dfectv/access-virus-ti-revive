@@ -352,6 +352,13 @@ public:
         ctx->setFillColor(CColor(c.r, c.g, c.b, c.a));
         ctx->drawRect(CRect(x, y, x + w, y + h), kDrawFilled);
     }
+    void label(int x, int y, int w, int h, const std::string &text, int size, Rgba c) override
+    {
+        auto font = makeOwned<CFontDesc>(kSystemFont->getName(), size);
+        ctx->setFont(font);
+        ctx->setFontColor(CColor(c.r, c.g, c.b, c.a));
+        ctx->drawString(text.c_str(), CRect(x, y, x + w, y + h), kLeftText, true);
+    }
     void line(double x0, double y0, double x1, double y1, Rgba c) override
     {
         ctx->setFrameColor(CColor(c.r, c.g, c.b, c.a));
@@ -1530,6 +1537,8 @@ private:
             category_menu(at);
         else if (param == "Remote Templates/Knob Template")
             knob_template_menu(at);
+        else if (param == "Repository Actions/Load Template File" || param == "Repository Actions/Save Template File")
+            template_file_menu(at, param == "Repository Actions/Save Template File");
         else if (param == "Remote Templates/MIDI Channel Behaviour") // code-defined in the original (E196)
             show_list({{"Disable MIDI channel"}, {"Enable MIDI Channel"}}, plugin_->ui_value(param, -1), 0, at,
                       [this, param](int i) {
@@ -1557,6 +1566,35 @@ private:
             if (it == index->end())
                 return;
             plugin_->set_remote_text("Remote Templates/MIDI String", (*list)[it->second].midi);
+            invalid();
+        });
+    }
+
+    // REMOTE page LOAD / SAVE: the template files of the Remote Templates folder (sub folders as submenus, E198);
+    // SAVE also offers a new file like the original's " Save as new Template..". Nothing is sent to the Virus.
+    void template_file_menu(const CPoint &where, bool save)
+    {
+        auto files = std::make_shared<std::vector<std::string>>(plugin_->remote_template_files());
+        std::vector<vti::PopupItem> items;
+        std::map<std::string, std::vector<int>> folders;
+        auto index = std::make_shared<std::map<std::vector<int>, int>>(); // menu path -> file, -1 = a new file
+        if (save) {
+            items.push_back({"Save as new Template.."});
+            (*index)[{0}] = -1;
+        }
+        for (int i = 0; i < (int)files->size(); i++)
+            (*index)[vti::popup_add_path(items, vti::remote_template_name((*files)[i]), {""}, folders)] = i;
+        if (items.empty())
+            items.push_back({"(none)", false});
+        show_popup(std::move(items), -1, 0, where, [this, files, index, save](const std::vector<int> &path) {
+            auto it = index->find(path);
+            if (it == index->end())
+                return;
+            const std::string file = it->second < 0 ? std::string() : (*files)[it->second];
+            if (save)
+                plugin_->save_remote_template(file);
+            else
+                plugin_->load_remote_template(file);
             invalid();
         });
     }

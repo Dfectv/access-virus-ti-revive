@@ -30,6 +30,11 @@ public:
     // `img` is a vertical strip of frames `frame_h` tall (knob filmstrips, fonts): canvases that resample images
     // (sharper copies on scaled displays) filter each frame alone. Called before the strip's blits.
     virtual void frames(void *img, int frame_h) { (void)img, (void)frame_h; }
+    // text in the system font (`size` points, left aligned, vertically centred) for fields without a bitmap font
+    virtual void label(int x, int y, int w, int h, const std::string &text, int size, Rgba c)
+    {
+        (void)x, (void)y, (void)w, (void)h, (void)text, (void)size, (void)c;
+    }
 };
 
 struct Hit {

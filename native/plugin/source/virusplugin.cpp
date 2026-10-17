@@ -1690,6 +1690,77 @@ bool VirusPlugin::set_remote_text(const std::string &param, const std::string &t
     return true;
 }
 
+static std::string remote_template_dir()
+{
+    std::string lib = library_dir(); // .../Access Music/Virus TI/Patches
+    return lib.empty() ? std::string() : (std::filesystem::path(lib).parent_path() / "Remote Templates").string();
+}
+
+std::vector<std::string> VirusPlugin::remote_template_files() const
+{
+    return vti::remote_template_files(remote_template_dir());
+}
+
+bool VirusPlugin::load_remote_template(const std::string &file)
+{
+    std::vector<uint8_t> d;
+    if (FILE *f = fopen((std::filesystem::path(remote_template_dir()) / file).string().c_str(), "rb")) {
+        uint8_t buf[4096];
+        for (size_t n; (n = fread(buf, 1, sizeof buf, f)) > 0;)
+            d.insert(d.end(), buf, buf + n);
+        fclose(f);
+    }
+    int sel = ui_value("Remote Templates/Selected Template", -1);
+    std::lock_guard<std::mutex> lk(remote_mu_);
+    if (remote_.load_template_file(d, sel < 0 ? 0 : sel) == 0)
+        return false;
+    save_remote_templates();
+    ui_dirty_ = true;
+    return true;
+}
+
+bool VirusPlugin::save_remote_template(const std::string &file)
+{
+    namespace fs = std::filesystem;
+    const fs::path dir = remote_template_dir();
+    if (dir.empty())
+        return false;
+    int sel = ui_value("Remote Templates/Selected Template", -1);
+    std::vector<uint8_t> d;
+    fs::path path = dir / file;
+    {
+        std::lock_guard<std::mutex> lk(remote_mu_);
+        d = remote_.template_file(sel < 0 ? 0 : sel);
+        if (file.empty()) { // a new file named after the template, never over an existing one
+            std::string name = remote_.name(sel < 0 ? 0 : sel);
+            for (auto &c : name)
+                if (strchr("/\\:*?\"<>|", c))
+                    c = '_';
+            if (name.empty())
+                name = "Template";
+            path = dir / (name + ".vrt");
+            std::error_code ec;
+            for (int n = 2; fs::exists(path, ec); n++)
+                path = dir / (name + " " + std::to_string(n) + ".vrt");
+        }
+    }
+    std::error_code ec;
+    fs::create_directories(path.parent_path(), ec);
+    const std::string tmp = path.string() + ".tmp";
+    FILE *f = fopen(tmp.c_str(), "wb");
+    if (!f)
+        return false;
+    bool ok = fwrite(d.data(), 1, d.size(), f) == d.size();
+    ok = fclose(f) == 0 && ok;
+    if (ok)
+        fs::rename(tmp, path, ec);
+    if (!ok || ec) {
+        fs::remove(tmp, ec);
+        return false;
+    }
+    return true;
+}
+
 std::vector<KnobTemplate> VirusPlugin::knob_templates()
 {
     std::lock_guard<std::mutex> lk(remote_mu_);

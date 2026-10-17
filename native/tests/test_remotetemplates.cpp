@@ -5,6 +5,7 @@
 #include "model/remotetemplates.h"
 #include <ctime>
 #include <filesystem>
+#include <fstream>
 using namespace vti;
 
 TEST(remote_templates_defaults)
@@ -218,4 +219,69 @@ TEST(remote_templates_midi_string)
     CHECK(t.midi_string(1, 2) == "C0 *");
     CHECK(t.knob_record(1, 2)[23] == 0x00 && t.knob_record(1, 2)[24] == 0x0C && t.knob_record(1, 2)[25] == 0x0F);
     CHECK(t.knob_record(1, 2)[63] == 0x00 && t.knob_record(1, 2)[64] == 0xF7);
+}
+
+// "MIDI String Info" like the original's (0x18008bee0): per byte a data value in decimal, a channel message's type and
+// channel, "SysEx" / "End" / "Value" / "System Realtime" for F0 / F7 / the value / other Fx, joined by ", "
+TEST(remote_templates_midi_info)
+{
+    RemoteTemplates t;
+    CHECK(t.midi_info(0, 0).empty());
+    t.set_midi_string(0, 0, "B0 05 *");
+    CHECK(t.midi_info(0, 0) == "Control Change Ch 1, 5, Value ");
+    t.set_midi_string(0, 0, "9F 3C 7F 80 E5");
+    CHECK(t.midi_info(0, 0) == "Note On Ch 16, 60, 127, Note Off Ch 1, Pitch Bend Ch 6");
+    t.set_midi_string(0, 0, "F0 7F F7 F8 A0 C1 D2");
+    CHECK(t.midi_info(0, 0) == "SysEx , 127, End , System Realtime , Poly Pressure Ch 1, Program Change Ch 2, "
+                                "Channel Pressure Ch 3");
+    CHECK(remote_text("Remote Templates/MIDI String Info", t, 0, 0) == t.midi_info(0, 0));
+}
+
+// template files (*.vrt, E198): "RMOT", header size 12, version 1 (big-endian), then chunks of (id, big-endian
+// length); "RSET" holds the template's name record and 32 knob records in a "MIDI" container. Loading puts the
+// records into the selected template whatever template they were saved from, like the original (0x180086bf0).
+TEST(remote_templates_template_file)
+{
+    RemoteTemplates a;
+    a.set_name(5, "Synth Ctl");
+    a.set_knob_name(5, 3, "Filter");
+    a.set_midi_string(5, 3, "B0 4A *");
+    auto f = a.template_file(5);
+    const uint8_t head[] = {'R', 'M', 'O', 'T', 0, 0, 0, 12, 0, 0, 0, 1, 'R', 'S', 'E', 'T'};
+    CHECK(f.size() > 20 && std::equal(head, head + sizeof head, f.begin()));
+    const size_t body = (size_t)f[16] << 24 | f[17] << 16 | f[18] << 8 | f[19];
+    CHECK(body == f.size() - 20 && f[20] == 'M' && f[23] == 'I');
+    CHECK(body == 8 + 4 + 28 + 32 * (4 + 65)); // one template
+
+    RemoteTemplates b;
+    CHECK(b.load_template_file(f, 12) == 33);
+    CHECK(b.name(12) == "Synth Ctl" && b.knob_name(12, 3) == "Filter" && b.midi_string(12, 3) == "B0 4A *");
+    CHECK(b.name_record(12)[7] == 12 && b.knob_record(12, 3)[7] == 12);
+    CHECK(b.name(5) == "Init Template"); // the template it came from is untouched
+
+    // unknown chunks before RSET are skipped; a bigger header size is honoured
+    std::vector<uint8_t> g = {'R', 'M', 'O', 'T', 0, 0, 0, 16, 0, 0, 0, 1, 9, 9, 9, 9, 'X', 'T', 'R', 'A', 0, 0, 0, 2, 7, 7};
+    g.insert(g.end(), f.begin() + 12, f.end());
+    RemoteTemplates c;
+    CHECK(c.load_template_file(g, 0) == 33 && c.name(0) == "Synth Ctl");
+    CHECK(c.load_template_file({'R', 'I', 'F', 'F'}, 0) == 0);
+    std::vector<uint8_t> v2 = f;
+    v2[11] = 2; // another version: not read, like the original
+    CHECK(c.load_template_file(v2, 1) == 0);
+    CHECK(c.load_template_file(f, 40) == 0); // no such template
+}
+
+// the template files of a folder like the original's list: *.vrt (any case), sub folders as "folder/name", sorted
+TEST(remote_templates_file_list)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = fs::temp_directory_path() / ("vtitests-vrt-" + std::to_string(::time(nullptr)));
+    fs::create_directories(dir / "Live");
+    for (auto p : {"b.vrt", "A.VRT", "Live/x.vrt", "notes.txt"})
+        std::ofstream(dir / p) << "x";
+    auto l = remote_template_files(dir.string());
+    CHECK((l == std::vector<std::string>{"A.VRT", "Live/x.vrt", "b.vrt"}));
+    CHECK(remote_template_files((dir / "missing").string()).empty());
+    CHECK(remote_template_name("Live/x.vrt") == "Live/x" && remote_template_name("A.VRT") == "A");
+    fs::remove_all(dir);
 }

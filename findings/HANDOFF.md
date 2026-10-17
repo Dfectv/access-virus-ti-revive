@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-17 (CONTINUE HERE below; round 0.8.22 in progress). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E197), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E198), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-17 late afternoon: round 0.8.22 started)
@@ -20,7 +20,9 @@ Windows cache once), Template Name / Knob Name editable, MIDI Channel Behaviour 
 checked under Xvfb with the TI2 (rename, knob name, flag, reload after restart). MIDI String editable too (the original's
 encoding, E196; Xvfb: "b0 7 x" -> "B0 07 *"). Nothing is sent to the Virus. Knob Template menu done (E197: read
 from the user's binary at runtime by shape, Windows DLL and Mac binary, 35 entries; a choice fills the MIDI String).
-Open, in order: MIDI String Info, Load/Save Template File (format: REA), then the sending question (a capture of
+MIDI String Info and Load/Save Template File
+done (E198: *.vrt "RMOT"/"RSET" format, LOAD into the selected template, SAVE / Save as new; Xvfb-checked). The
+REMOTE editor is complete except sending. Open: the sending question - TOGETHER with the user (user, 2026-10-17) (a capture of
 the original choosing/editing a template in the win10 VM with the user, then a test the user approves).
 
 ## Previous state (2026-10-17 afternoon: v0.8.21 released)

@@ -576,6 +576,12 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
         patch_browser(c, e, x, y, values(param, pt)); // "Browser N/Selected Bank" (the host side keeps it)
     }
     const std::string &font = e.get("ControlFont");
+    if (font.empty() && e.type == "SearchEdit" && atoi(e.get("FontSize").c_str()) > 0 && !param.empty() &&
+        live_text) { // no bitmap font: the system font (REMOTE page "MIDI String Info", E198)
+        std::string str = live_text(param);
+        if (!str.empty())
+            c.label(x, y, e.w, e.h, str, atoi(e.get("FontSize").c_str()), e.fore);
+    }
     if (!font.empty() && e.type != "PatchBrowser" && e.get("Align") != "No Label") { // "No Label": the bitmap has it
         std::string str;
         if (e.type == "StaticText")

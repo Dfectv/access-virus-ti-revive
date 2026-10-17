@@ -333,6 +333,12 @@ public:
     // REMOTE page: Template Name / Knob Name of the selected template and knob edited (false: no such field); the
     // templates are saved at once, nothing is sent to the Virus (E196)
     bool set_remote_text(const std::string &param, const std::string &text);
+    // REMOTE page template files (*.vrt, E198) in Documents/Access Music/Virus TI/Remote Templates like the original's
+    // "Personal Remote Templates": the list (paths below the folder), a file into the selected template, the selected
+    // template into a file ("" = a new file named after the template). Nothing is sent to the Virus.
+    std::vector<std::string> remote_template_files() const;
+    bool load_remote_template(const std::string &file);
+    bool save_remote_template(const std::string &file);
     // the Knob Template menu's entries, read from the user's plug-in binary on first use (E197); empty if not found
     std::vector<KnobTemplate> knob_templates();
     // LCD texts of the last edited parameter
