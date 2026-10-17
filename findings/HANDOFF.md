@@ -19,6 +19,18 @@ plug-in version 0.8.20 (CMake). TDD, 139 tests. CI test build: run 39003702169. 
 on each): https://claude.ai/artifact/RntLcBgj3aAifV54cNompD; installed: Mac unpacked in ~/Downloads (user runs sudo installer), Linux unpacked (user runs install.sh), win11 VM setup.exe silent (0.8.20, notices in the install folder). The user's Mac folder is left
 root-owned on purpose (M1 checks the postinstall). After the tests: merge, site rebuild, release 0.8.20.
 
+**Round 0.8.20 progress (2026-10-17 morning):** macOS M1-M4 pass; Linux L1, L2, L4 pass, L5 FAIL -> fixed (E183,
+REAPER crash at a duplicated track: VSTGUI run loop adapter replaced by a second instance/editor; user: "reaper is
+working now!"), no status page without a broker -> fixed; win11 VM W1-W4 pass, Control Center without the Access
+look (E184, setup fixed, verified in the VM), Control Center window cut off/too big at start and Linux crash on
+closing (E185, fixed; Linux verified in Xvfb). New: end-to-end GUI tests via ctest (gui_test.sh, xvfb; the duplicate
+test skips without Access files, e.g. CI), CITATION.cff + "Using our findings" (attribution request). Second build
+CI run 39007000903 (green) installed: Mac ~/Downloads/TI-Revive-0.8.20b-mac (user runs installer), Linux
+~/Downloads/TI-Revive-0.8.20b-linux (user runs install.sh), VM setup.exe silent. Checklist (same link) has redo items
+M5, L6, L7, W5, B5; bare metal B1-B5 still open. The Virus is in the VM. After merge: post the short findings update
+on Give-me-a-signal/virus-ti-rework#5 (draft approved by the user: scratchpad rework-update.md - pointer to
+findings/evidence.md, no credit request).
+
 ## Previous state (state 2026-10-16 late night: round 0.8.19 built, hardware tests 2026-10-17)
 
 **Branch `round-0.8.19` (pushed, NOT merged; main has 3 local HANDOFF/findings commits that are also on this branch):**
