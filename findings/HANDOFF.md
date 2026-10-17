@@ -6,7 +6,7 @@ Evidence: [evidence.md](evidence.md) (E001-E180), protocol: [spec.md](spec.md); 
 
 ## CONTINUE HERE (state 2026-10-17 noon: round 0.8.21, small leftovers)
 
-**Branch `round-0.8.21` (from main, local, NOT pushed, no CI build yet):** (1) E186 fixed: tirevive-bundles.ps1 (MSI
+**Branch `round-0.8.21` (pushed, NOT merged; CI test build run 39018067599 all green, Pester tests ran on Linux + Windows runners; checklist https://claude.ai/artifact/AQAVVmwAfEjjdpu6FxXW8A; installed: win11 VM setup.exe 0.8.21 after Claude's W1 checks, VM shut down; Linux unpacked in ~/Downloads/TI-Revive-0.8.21-linux (user runs install.sh); Mac asleep: ~/Downloads/TI-Revive-0.8.21-mac.zip, push with scripts/mac.sh):** (1) E186 fixed: tirevive-bundles.ps1 (MSI
 deferred CA, only without setup.exe = TIREVIVE_BUNDLE) removes stale TI Revive Burn bundle registrations; Pester tests
 in src/installer/tests, run by ctest `installer_scripts` (skipped without pwsh + Pester 5; CI windows job installs
 Pester; locally pwsh 7.4.6 from the scratchpad: cmake -DPWSH_EXECUTABLE=...). Cause read from the bare-metal
@@ -14,9 +14,8 @@ Windows registry/Burn logs (read-only mount). (2) E13: -Wall -Wextra on our sour
 system headers, -Werror in the native-linux CI job (VTI_WERROR); 2 warnings fixed. (3) osc-wavetables merged (E180);
 Mac bundle path unit test; the table is found in the real 5.1.7 Mac binary (same as Windows). 143 vtitests.
 Not done: E180 pixel comparison with the original (needs the original's editor at known OSC settings - test round,
-with the user); E187 earlier crackle and E175: nothing to do until they show up again. Next: CI test build
-(gh workflow run build.yml --ref round-0.8.21), then the checklist: VM W: install 0.8.20 setup.exe, then the 0.8.21
-.msi directly -> one entry only; bare metal: the 0.8.21 .msi removes both stale entries; Mac: OSC display waves.
+with the user); E187 earlier crackle and E175: nothing to do until they show up again. Next: the user's checklist (Linux L1-L2, VM W1-W2, Mac M1-M3, bare metal B1-B2), then merge + release 0.8.21
+(bump project VERSION in native/CMakeLists.txt). Issue #4 closed (E188).
 
 ## Previous state (state 2026-10-17 09:05: v0.8.20 released)
 
