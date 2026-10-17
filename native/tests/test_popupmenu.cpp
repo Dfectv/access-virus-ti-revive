@@ -331,3 +331,31 @@ TEST(popup_library_folders)
     CHECK(root[0].sub[0].sub[1].text == "B" && root[0].sub[1].text == "C" && !root[0].sub[1].has_sub());
     CHECK(root[2].text == "Factory" && root[2].sub.size() == 1);
 }
+
+// a submenu that fits on neither side never covers its parent (round 0.8.22 test L1: the 128 patches covered the bank
+// list, RAM B could not be reached): the parent moves left over the menus further back until both fit side by side
+TEST(popup_cascade_submenu_never_covers_parent)
+{
+    PopupCascade c(tree(), -1, width6, 0, 700, 513);
+    c.open_at(150, 50);
+    PopupMenu::Rect r0 = c.level(0).item_rect(0);
+    c.hover(c.level(0).x + r0.x + 5, c.level(0).y + r0.y + 5); // Virus TI: the banks
+    PopupMenu::Rect ra = c.level(1).item_rect(0);
+    const int bank_x = c.level(1).x;
+    auto dirty = c.hover(c.level(1).x + ra.x + 5, c.level(1).y + ra.y + 5); // RAM A: 128 patches in columns
+    CHECK(c.levels() == 3);
+    const PopupMenu &banks = c.level(1), &patches = c.level(2);
+    CHECK(patches.width() > 700 - (bank_x + banks.width()) && patches.width() > bank_x); // fits on no side as it was
+    CHECK(banks.x < bank_x);                                  // the parent moved left
+    CHECK(banks.x + banks.width() <= patches.x);              // side by side: nothing of the parent covered
+    CHECK(patches.x + patches.width() <= 700 && banks.x >= 0); // both inside the editor
+    // the parent's old and new places are repainted
+    bool old_place = false;
+    for (auto &d : dirty)
+        old_place |= d.x == bank_x;
+    CHECK(old_place);
+    // the next bank is still reachable: hovering it switches the patch list
+    PopupMenu::Rect rb = banks.item_rect(1);
+    c.hover(banks.x + rb.x + 5, banks.y + rb.y + 5);
+    CHECK(c.levels() == 3 && c.level(1).hot == 1);
+}

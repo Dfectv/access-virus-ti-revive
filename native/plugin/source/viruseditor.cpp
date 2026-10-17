@@ -24,6 +24,7 @@ extern char **environ;
 #include "cc/diag.h"
 #include "editor/helptext.h"
 #include "editor/popupmenu.h"
+#include "vstgui/lib/controls/coptionmenu.h"
 #include "editor/upscale.h"
 #include "vstgui/lib/cfont.h"
 #include "vstgui/lib/cgraphicspath.h"
@@ -1356,7 +1357,7 @@ private:
     CRect search_rect_;
 
     // LOAD / SAVE like the original: "<device> > RAM A.. (SAVE: RAM only) > 000 Name" and "Personal Libraries"
-    void patch_menu(const Hit &h, const CPoint &where, bool save)
+    void patch_menu_popup(const Hit &h, const CPoint &where, bool save)
     {
         std::vector<vti::PopupItem> dev;
         for (int b = 0; b < (save ? 4 : plugin_->bank_count()); b++) {
@@ -1418,7 +1419,7 @@ private:
     }
 
     // the browser's bank selector: "<device> > RAM A .. ROM Z" and "Personal Libraries"
-    void bank_menu(const Hit &h, const CPoint &where)
+    void bank_menu_popup(const Hit &h, const CPoint &where)
     {
         std::vector<vti::PopupItem> dev;
         for (int b = 0; b < plugin_->bank_count(); b++)
@@ -1444,6 +1445,150 @@ private:
             }
             invalid();
         });
+    }
+
+#if !SMTG_OS_LINUX
+    // Windows and macOS: the system's own menus for the patch and bank menus, like the original's - they may use the
+    // whole screen, so a 128-patch submenu never covers its parent (round 0.8.22 test L1: our popup has to stay inside
+    // the editor window). Linux has no such menus (VSTGUI's generic menu is drawn inside the window too): our popup.
+    // the submenu of a library's folder ("Virus TI2 Factory Backup/Rom/...") inside `root`, created on demand
+    static COptionMenu *folder_menu(COptionMenu *root, const std::string &name,
+                                    std::map<std::string, COptionMenu *> &folders, std::string &leaf)
+    {
+        COptionMenu *m = root;
+        std::string path;
+        size_t from = 0;
+        for (size_t slash; (slash = name.find('/', from)) != std::string::npos; from = slash + 1) {
+            path = name.substr(0, slash);
+            auto it = folders.find(path);
+            if (it == folders.end()) {
+                auto *sub = new COptionMenu();
+                m->addEntry(sub, name.substr(from, slash - from).c_str());
+                sub->forget(); // owned by the parent entry
+                it = folders.emplace(path, sub).first;
+            }
+            m = it->second;
+        }
+        leaf = name.substr(from);
+        return m;
+    }
+
+    // LOAD: RAM A..D -> patch -> into the part; SAVE: RAM A..D -> slot -> store the part's patch there
+    // LOAD / SAVE like the original: "<device> > RAM A.. (SAVE: RAM only) > 000 Name" and "Personal Libraries"
+    void patch_menu_native(const Hit &h, const CPoint &where, bool save)
+    {
+        auto *menu = new COptionMenu();
+        auto *dev = new COptionMenu();
+        auto banks = std::make_shared<std::map<COptionMenu *, int>>(); // submenu -> bank
+        for (int b = 0; b < (save ? 4 : plugin_->bank_count()); b++) {
+            auto *bm = new COptionMenu();
+            for (int p = 0; p < 128; p++) {
+                char t[40];
+                snprintf(t, sizeof t, "%03d %s", p, plugin_->bank_patch(b, p).c_str());
+                bm->addEntry(t);
+            }
+            dev->addEntry(bm, VirusPlugin::bank_name(b));
+            (*banks)[bm] = b;
+            bm->forget();
+        }
+        menu->addEntry(dev, plugin_->device_name());
+        dev->forget();
+        auto *lib = new COptionMenu(); // personal libraries (patch files); SAVE can also append
+        std::map<std::string, COptionMenu *> folders;
+        if (plugin_->library_count() == 0)
+            lib->addEntry("(none)", -1, CMenuItem::kDisabled);
+        else
+            for (int i = 0; i < plugin_->library_count(); i++) {
+                std::string leaf;
+                COptionMenu *parent = folder_menu(lib, plugin_->library_name(i), folders, leaf);
+                auto *lm = new COptionMenu();
+                for (int p = 0; p < plugin_->library_size(i); p++) {
+                    char t[40];
+                    snprintf(t, sizeof t, "%03d %s", p, plugin_->bank_patch(VirusPlugin::LIB_BASE + i, p).c_str());
+                    lm->addEntry(t);
+                }
+                if (save && plugin_->library_size(i) < 128) {
+                    char t[40];
+                    snprintf(t, sizeof t, "%03d (new)", plugin_->library_size(i));
+                    lm->addEntry(t);
+                }
+                parent->addEntry(lm, leaf.c_str());
+                (*banks)[lm] = VirusPlugin::LIB_BASE + i;
+                lm->forget();
+            }
+        menu->addEntry(lib, "Personal Libraries");
+        lib->forget();
+        int part = h.part;
+        menu->popup(getFrame(), where, [this, part, save, banks](COptionMenu *m) {
+            int32_t idx = -1;
+            COptionMenu *sub = m->getLastItemMenu(idx);
+            auto it = banks->find(sub);
+            if (it == banks->end() || idx < 0)
+                return;
+            if (save && it->second >= VirusPlugin::LIB_BASE)
+                plugin_->store_to_library(part, it->second - VirusPlugin::LIB_BASE, idx);
+            else if (save)
+                plugin_->store_patch(part, it->second, idx);
+            else
+                plugin_->load_patch(it->second, idx, part);
+            invalid();
+        });
+        menu->forget();
+    }
+
+    // the browser's bank selector: "<device> > RAM A .. ROM Z" and "Personal Libraries"
+    void bank_menu_native(const Hit &h, const CPoint &where)
+    {
+        auto *menu = new COptionMenu();
+        auto *dev = new COptionMenu();
+        for (int b = 0; b < plugin_->bank_count(); b++)
+            dev->addEntry(VirusPlugin::bank_name(b));
+        menu->addEntry(dev, plugin_->device_name());
+        auto *lib = new COptionMenu();
+        // (submenu, entry index) -> library; folders become submenus like in the original
+        auto entries = std::make_shared<std::map<std::pair<COptionMenu *, int>, int>>();
+        std::map<std::string, COptionMenu *> folders;
+        if (plugin_->library_count() == 0)
+            lib->addEntry("(none)", -1, CMenuItem::kDisabled);
+        for (int i = 0; i < plugin_->library_count(); i++) {
+            std::string leaf;
+            COptionMenu *parent = folder_menu(lib, plugin_->library_name(i), folders, leaf);
+            parent->addEntry(leaf.c_str());
+            (*entries)[{parent, parent->getNbEntries() - 1}] = i;
+        }
+        menu->addEntry(lib, "Personal Libraries");
+        std::string param = h.element->get("Parameter");
+        menu->popup(getFrame(), where, [this, param, dev, entries](COptionMenu *m) {
+            int32_t idx = -1;
+            COptionMenu *sub = m->getLastItemMenu(idx);
+            auto it = entries->find({sub, idx});
+            if (sub == dev && idx >= 0)
+                plugin_->ui_set(param, -1, idx);
+            else if (it != entries->end())
+                plugin_->ui_set(param, -1, VirusPlugin::LIB_BASE + it->second);
+            invalid();
+        });
+        lib->forget();
+        dev->forget();
+        menu->forget();
+    }
+
+#endif
+    void patch_menu(const Hit &h, const CPoint &where, bool save)
+    {
+#if SMTG_OS_LINUX
+        patch_menu_popup(h, where, save);
+#else
+        patch_menu_native(h, where, save);
+#endif
+    }
+    void bank_menu(const Hit &h, const CPoint &where)
+    {
+#if SMTG_OS_LINUX
+        bank_menu_popup(h, where);
+#else
+        bank_menu_native(h, where);
+#endif
     }
 
     void category_menu(const CPoint &where)
@@ -1522,6 +1667,11 @@ private:
         te->setBackColor(CColor(255, 255, 255, 255)); // the original: white field, system font
         te->setFontColor(CColor(0, 0, 0, 255));
         te->setFrameColor(CColor(255, 255, 255, 255));
+        if (!param.empty()) { // the REMOTE page's fields are 10-13 px high: a font that fits, the text from the left
+            te->setFont(makeOwned<CFontDesc>(kSystemFont->getName(), std::max(7.0, r.getHeight() - 1)));
+            te->setHoriAlign(kLeftText);
+            te->setTextInset(CPoint(1, 0));
+        }
         f->addView(te);
         te->takeFocus();
     }

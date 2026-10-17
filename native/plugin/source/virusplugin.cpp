@@ -1720,12 +1720,20 @@ void VirusPlugin::choose_remote_template(int t)
 {
     if (t < 0 || t >= RemoteTemplates::kTemplates)
         return;
+    const int was = ui_value("Remote Templates/Selected Template", -1);
     ui_set("Remote Templates/Selected Template", -1, t);
     std::vector<std::vector<uint8_t>> records;
+    std::string name, before;
     {
         std::lock_guard<std::mutex> lk(remote_mu_);
         records = remote_.template_records(t);
+        name = remote_.name(t), before = remote_.name(was < 0 ? 0 : was);
     }
+    // the LCD like the original's (E199 screenshot): "Remote Templates Selected Temp(late)" / the name, the one before
+    // in brackets (both as the 16-character field), the part
+    name.resize(16, ' '), before.resize(16, ' ');
+    set_lcd("Remote Templates Selected Template", name,
+            "Part " + std::to_string(ui_value(layout_.frame_parameter, -1) + 1), before);
     // "Global Patch Select/Remote Patch" = t first (Bank F global, 73 00 6C t), then the template (E199)
     if (out_)
         if (auto msg = dev_.encode("Global Patch Select/Remote Patch", t, 0); !msg.empty())

@@ -171,7 +171,7 @@ void PopupCascade::close_after(int level, std::vector<Rect> &dirty)
 
 void PopupCascade::open_sub(int level, std::vector<Rect> &dirty)
 {
-    const PopupMenu &parent = menus_[level];
+    PopupMenu &parent = menus_[level];
     if (parent.hot < 0)
         return;
     const PopupItem &it = parent.items()[parent.hot];
@@ -183,8 +183,19 @@ void PopupCascade::open_sub(int level, std::vector<Rect> &dirty)
     // room on the right
     const Rect r = parent.item_rect(parent.hot);
     int x = parent.x + parent.width();
-    if (x + m.width() > area_w_)
+    if (x + m.width() > area_w_ && parent.x - m.width() >= 0)
         x = parent.x - m.width();
+    else if (x + m.width() > area_w_) {
+        // room on neither side (the original's menus are windows and may leave the editor, ours may not): the parent
+        // moves left over the menus further back until both fit side by side - a submenu never covers its parent
+        const int shift = std::min(parent.x, x + m.width() - area_w_);
+        if (shift > 0) {
+            dirty.push_back(parent.bounds());
+            parent.x -= shift;
+            dirty.push_back(parent.bounds());
+            x -= shift;
+        }
+    }
     m.place(x, parent.y + r.y - (PopupMenu::kBorder + PopupMenu::kPad), area_w_, area_h_);
     dirty.push_back(m.bounds());
     menus_.push_back(std::move(m));
