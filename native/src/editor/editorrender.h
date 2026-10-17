@@ -90,6 +90,13 @@ public:
     int clip_x0 = -100000, clip_y0 = -100000, clip_x1 = 100000, clip_y1 = 100000;
     // include_disabled: also controls marked Enabled="false" (the help mode explains them, with the reason)
     Hit hit_test(int x, int y, bool include_disabled = false) const;
+    // the right button: only menus take it (VSTGUI's knobs, sliders and buttons react to the left button), so a right
+    // click reaches a menu under another control - the wavetable menu under the oscillator ring (original, E189)
+    Hit menu_hit_test(int x, int y) const;
+    // where a menu's popup opens: a Menu over its control (popup style), a HierarchicMenu below it (original 0x1800191d0)
+    static std::pair<int, int> menu_anchor(const Hit &h);
+    // entries per popup column (the original's menus: 25; VSTGUI breaks columns only below 160 entries), 0 = one column
+    static int menu_items_per_column(size_t entries);
     // every visible control with a parameter (absolute position, effective part), in drawing order (help mode)
     std::vector<Hit> visible_controls(bool include_disabled = false) const;
     // false for inactive controls (the parameter's own condition is false; soft knobs without destination): they are
@@ -118,7 +125,7 @@ private:
               const std::string &align, double alpha = 1.0);
     std::vector<std::string> inactive_inputs(const std::string &param, int part) const;
     bool hit(const Element &e, int ox, int oy, int inherited, int px, int py, Hit &out, bool include_disabled = false,
-             const std::string &cond = std::string()) const;
+             const std::string &cond = std::string(), bool menus_only = false) const;
     void patch_browser(Canvas &c, const Element &e, int x, int y, int bank);
     void envelope(Canvas &c, const Element &e, int x, int y, int part, double alpha);
     void filter_response(Canvas &c, const Element &e, int x, int y, int part);

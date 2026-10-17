@@ -562,8 +562,13 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
         draw(c, ch, x, y, own_part(e) >= 0 ? own_part(e) : inherited);
 }
 
+static bool is_menu(const Element &e)
+{
+    return e.type == "Menu" || e.type == "HierarchicMenu" || e.type == "PatchSaveMenu";
+}
+
 bool EditorRenderer::hit(const Element &e, int ox, int oy, int inherited, int px, int py, Hit &out,
-                         bool include_disabled, const std::string &cond) const
+                         bool include_disabled, const std::string &cond, bool menus_only) const
 {
     int pt = own_part(e) >= 0 ? own_part(e) : inherited >= 0 ? inherited : part;
     if (!cond_.eval(e.get("Condition"), values, pt))
@@ -573,7 +578,7 @@ bool EditorRenderer::hit(const Element &e, int ox, int oy, int inherited, int px
     int x = ox + e.x, y = oy + e.y;
     bool inside = px >= x && px < x + e.w && py >= y && py < y + e.h;
     bool disabled = e.get("Enabled") == "false";
-    if (inside && !e.get("Parameter").empty() && (!disabled || include_disabled)) {
+    if (inside && !e.get("Parameter").empty() && (!disabled || include_disabled) && (!menus_only || is_menu(e))) {
         out.element = &e; // later (= drawn on top) elements override
         out.x = x, out.y = y, out.part = pt;
         out.disabled = disabled;
@@ -582,7 +587,7 @@ bool EditorRenderer::hit(const Element &e, int ox, int oy, int inherited, int px
         out.inactive = disabled || !param_active(e.get("Parameter"), pt);
     }
     for (auto &ch : e.children)
-        hit(ch, x, y, own_part(e) >= 0 ? own_part(e) : inherited, px, py, out, include_disabled, c);
+        hit(ch, x, y, own_part(e) >= 0 ? own_part(e) : inherited, px, py, out, include_disabled, c, menus_only);
     return out.element != nullptr;
 }
 
@@ -639,6 +644,26 @@ Hit EditorRenderer::hit_test(int px, int py, bool include_disabled) const
     for (auto &e : layout_.elements)
         hit(e, 0, 0, -1, px, py, h, include_disabled);
     return h;
+}
+
+Hit EditorRenderer::menu_hit_test(int px, int py) const
+{
+    Hit h;
+    for (auto &e : layout_.elements)
+        hit(e, 0, 0, -1, px, py, h, false, std::string(), true);
+    return h;
+}
+
+std::pair<int, int> EditorRenderer::menu_anchor(const Hit &h)
+{
+    if (h.element && h.element->type == "HierarchicMenu")
+        return {h.x, h.y + h.element->h};
+    return {h.x, h.y};
+}
+
+int EditorRenderer::menu_items_per_column(size_t entries)
+{
+    return entries < 160 ? 25 : 0;
 }
 
 } // namespace vti

@@ -440,6 +440,48 @@ TEST(editor_hit_and_rects)
     CHECK(g.r->param_rects("Nope").empty());
 }
 
+// the oscillator display of wavetable mode: the table menu lies under the big ring knob (the original's layout order),
+// a left click turns the knob, a right click opens the menu (VSTGUI: knobs take only the left button); popups open
+// at their control - a Menu over it, a HierarchicMenu below it - with 25 entries per column (original, E189)
+static const char *RING_LAYOUT = R"(<?xml version="1.0"?>
+<Editor>
+ <Frame width="200" height="200">
+  <Container><Size left="0" top="0" width="200" height="200"/>
+   <Menu Parameter="Osc/Wave" ControlFont="font.png"><Size left="30" top="40" width="50" height="15"/></Menu>
+   <MaskedKnob Parameter="Osc/Shape" NormalBack="knob.png"><Size left="10" top="10" width="100" height="100"/></MaskedKnob>
+   <HierarchicMenu Parameter="Osc/Mode" ControlFont="font.png"><Size left="120" top="10" width="60" height="23"/></HierarchicMenu>
+   <Knob Parameter="Osc/Plain" NormalBack="knob.png"><Size left="120" top="60" width="20" height="20"/></Knob>
+  </Container>
+ </Frame>
+</Editor>)";
+
+TEST(editor_right_click_menus)
+{
+    Rig g;
+    EditorLayout ring;
+    std::string err;
+    CHECK(ring.load(Bytes(RING_LAYOUT, RING_LAYOUT + strlen(RING_LAYOUT)), err));
+    EditorRenderer r(ring, *g.cond, g.dev, g.ed);
+    r.values = g.r->values;
+    Hit left = r.hit_test(40, 45);
+    CHECK(left.element && left.element->type == "MaskedKnob");
+    Hit right = r.menu_hit_test(40, 45);
+    CHECK(right.element && right.element->get("Parameter") == "Osc/Wave" && right.x == 30 && right.y == 40);
+    CHECK(!r.menu_hit_test(50, 90).element);  // the ring outside the menu: no menu
+    CHECK(!r.menu_hit_test(125, 65).element); // a plain knob: no menu
+    CHECK(r.menu_hit_test(130, 20).element && r.menu_hit_test(130, 20).element->type == "HierarchicMenu");
+
+    auto at = EditorRenderer::menu_anchor(right);
+    CHECK(at.first == 30 && at.second == 40); // Menu: over the control
+    Hit bank = r.menu_hit_test(130, 20);
+    at = EditorRenderer::menu_anchor(bank);
+    CHECK(at.first == 120 && at.second == 33); // HierarchicMenu: below the control
+
+    CHECK(EditorRenderer::menu_items_per_column(100) == 25);
+    CHECK(EditorRenderer::menu_items_per_column(24) == 25);
+    CHECK(EditorRenderer::menu_items_per_column(160) == 0); // VSTGUI: no columns from 160 entries on
+}
+
 TEST(editor_visible_controls)
 {
     // help mode: every visible control with a parameter, at the same place and part as the hit test finds it

@@ -697,6 +697,16 @@ public:
         if (env_debug())
             fprintf(stderr, "mouse down %.0f,%.0f -> %s %s\n", event.mousePosition.x, event.mousePosition.y,
                     h.element ? h.element->type.c_str() : "-", h.element ? h.element->get("Parameter").c_str() : "");
+        // right button: a menu under the point takes it, even under another control (the wavetable menu inside the
+        // oscillator ring); knobs and buttons ignore it like in the original (VSTGUI: left button only)
+        if (event.buttonState.isRight() && !help_) {
+            Hit m = renderer_.menu_hit_test((int)event.mousePosition.x, (int)event.mousePosition.y);
+            if (m.element && renderer_.param_active(m.element->get("Parameter"), m.part)) {
+                open_menu(m);
+                event.consumed = true;
+                return;
+            }
+        }
         // right-click where there is no control: the editor's size (the original has no such setting)
         if (event.buttonState.isRight() && (!h.element || h.element->get("Parameter").empty())) {
             size_menu(event.mousePosition);
@@ -802,14 +812,7 @@ public:
             return;
         }
         if (e.type == "Menu" || e.type == "HierarchicMenu" || e.type == "PatchSaveMenu") {
-            if (param == "Repository Actions/Current Patch" || param == "Repository Actions/Current Patch Save Action")
-                patch_menu(h, event.mousePosition, param == "Repository Actions/Current Patch Save Action");
-            else if (param.rfind("Browser ", 0) == 0)
-                bank_menu(h, event.mousePosition);
-            else if (param == "Repository Actions/Category Filter")
-                category_menu(event.mousePosition);
-            else
-                popup_menu(h, event.mousePosition);
+            open_menu(h);
             event.consumed = true;
             return;
         }
@@ -1297,7 +1300,23 @@ private:
         return where;
     }
 
-    // a parameter's valuelist as a popup at the click position; the choice sets the parameter
+    // a menu control's popup, anchored at the control like the original's (not at the mouse)
+    void open_menu(const Hit &h)
+    {
+        const std::string &param = h.element->get("Parameter");
+        auto [ax, ay] = EditorRenderer::menu_anchor(h);
+        CPoint at(ax, ay);
+        if (param == "Repository Actions/Current Patch" || param == "Repository Actions/Current Patch Save Action")
+            patch_menu(h, at, param == "Repository Actions/Current Patch Save Action");
+        else if (param.rfind("Browser ", 0) == 0)
+            bank_menu(h, at);
+        else if (param == "Repository Actions/Category Filter")
+            category_menu(at);
+        else
+            popup_menu(h, at);
+    }
+
+    // a parameter's valuelist as a popup at the control; the choice sets the parameter
     void popup_menu(const Hit &h, const CPoint &where)
     {
         const std::string param = h.element->get("Parameter");
@@ -1318,6 +1337,7 @@ private:
         }
         if (index >= 0)
             menu->setCurrent(index);
+        menu->setNbItemsPerColumn(EditorRenderer::menu_items_per_column(values.size())); // 4 x 25 wavetables
         int part = h.part;
         CPoint loc(where);
         menu->popup(getFrame(), menu_at(loc), [this, param, part, values](COptionMenu *m) {
