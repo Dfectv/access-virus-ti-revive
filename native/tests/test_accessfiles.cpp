@@ -345,7 +345,6 @@ TEST(accessfiles_osc_waves_mac_bundle)
     write(bundle / "Contents" / "MacOS" / "Virus Control", Bytes(0x2000, 0x5A));
     CHECK(AccessFiles::open("", err)->osc_waves().empty());
 }
-#endif
 
 namespace {
 void put64(std::vector<uint8_t> &b, size_t at, uint64_t v)
@@ -437,3 +436,5 @@ TEST(accessfiles_knob_templates_macho)
     auto t = find_knob_templates(b);
     CHECK(t.size() == 35 && t[5].name == "Group 1/Entry 5" && t[5].midi == "B0 05 FF");
 }
+
+#endif
