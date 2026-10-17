@@ -1,5 +1,15 @@
 // viruseditor.cpp - see viruseditor.h.
 #include "viruseditor.h"
+#include "model/sysinfo.h"
+#if SMTG_OS_WINDOWS
+#include <windows.h>
+#include <shellapi.h>
+#else
+#include <spawn.h>
+#include <sys/wait.h>
+#include <thread>
+extern char **environ;
+#endif
 #include "virusplugin.h"
 #include "vstgui/lib/cbitmap.h"
 #include "vstgui/lib/cdrawcontext.h"
@@ -41,6 +51,20 @@
 #endif
 
 using namespace VSTGUI;
+
+// opens a link in the default browser, without a shell (INFO box)
+static void open_url(const char *url)
+{
+#if SMTG_OS_WINDOWS
+    ShellExecuteA(nullptr, "open", url, nullptr, nullptr, SW_SHOWNORMAL);
+#else
+    const char *tool = SMTG_OS_MACOS ? "open" : "xdg-open";
+    char *argv[] = {const_cast<char *>(tool), const_cast<char *>(url), nullptr};
+    pid_t pid;
+    if (posix_spawnp(&pid, tool, nullptr, nullptr, argv, environ) == 0)
+        std::thread([pid] { waitpid(pid, nullptr, 0); }).detach(); // reap it (open/xdg-open return quickly)
+#endif
+}
 
 namespace vti {
 
@@ -809,6 +833,11 @@ public:
         }
         if (e.type == "SearchEdit" || (e.type == "RadioButton" && param == "Repository Actions/Search")) {
             edit_search(h);
+            event.consumed = true;
+            return;
+        }
+        if (e.type == "URLButton") { // INFO box link: the TI Revive website (the original's points to access-music.de)
+            open_url(website_url());
             event.consumed = true;
             return;
         }

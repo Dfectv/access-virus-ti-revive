@@ -15,7 +15,10 @@ struct SystemInfo {
     std::string tios;   // the Virus' OS version, empty until read
 };
 
-// the text for one of the INFO box's parameters, or "" for any other parameter
+// the TI Revive website: the INFO box's link opens it (the original's link points to access-music.de)
+inline const char *website_url() { return "https://derpsn.github.io/access-virus-ti-revive/"; }
+
+// the text for one of the INFO box's parameters (versions, the website link), or "" for any other parameter
 std::string system_info_text(const std::string &param, const SystemInfo &info);
 
 // the Virus' OS name ("5.1.7.00") from its identification blocks (Broker::flash_info, flashinfo.h order); "" when the

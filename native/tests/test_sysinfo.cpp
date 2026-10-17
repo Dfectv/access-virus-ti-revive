@@ -42,6 +42,16 @@ TEST(sysinfo_tios_from_flash)
     CHECK(tios_from_flash(junk).empty());
 }
 
+// the INFO box's link (URLButton "VirusControl/Access Website"): the original points to access-music.de; ours to the
+// TI Revive website, shown without the scheme so it fits the 260 px field (43 characters at 6 px)
+TEST(sysinfo_website_link)
+{
+    SystemInfo s;
+    CHECK(system_info_text("VirusControl/Access Website", s) == "derpsn.github.io/access-virus-ti-revive");
+    CHECK(system_info_text("VirusControl/Access Website", s).size() * 6 <= 260);
+    CHECK(std::string(website_url()) == "https://derpsn.github.io/access-virus-ti-revive/");
+}
+
 TEST(sysinfo_unknown_shows_dash)
 {
     SystemInfo s;
