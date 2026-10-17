@@ -192,6 +192,7 @@ int main(int argc, char **argv)
     PngCache png{*files, {}};
     CairoCanvas canvas(cr, png);
     EditorRenderer r(layout, cond, dev, ed);
+    r.osc_waves = files->osc_waves();
     r.values = values;
     r.part = part;
     if (getenv("VTIRENDER_ALPHA"))

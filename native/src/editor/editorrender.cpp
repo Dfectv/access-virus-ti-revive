@@ -319,23 +319,34 @@ void EditorRenderer::arp_edit(Canvas &c, const Element &e, int x, int y, int par
     }
 }
 
+double EditorRenderer::osc_classic_value(int shape, int pulsewidth, int wave, const std::vector<float> &waves, int i)
+{
+    double s = std::max(0, std::min(127, shape)) / 127.0;
+    double a = s < 0.5 ? 1 - 2 * s : 0, b = s < 0.5 ? 2 * s : 2 - 2 * s, c = s > 0.5 ? 2 * s - 1 : 0;
+    int sw = (int)((std::max(0, std::min(127, pulsewidth)) / 127.0 + 1) * 0.5 * 64); // the pulse switches here
+    int row = std::max(0, std::min(63, wave));
+    double w = waves.size() == 64 * 64 ? waves[row * 64 + i] : std::sin(2 * 3.14159265358979 * i / 64);
+    double v = a * w + b * (1 - i / 32.0) + (i < sw ? c : -c);
+    return std::max(-1.0, std::min(1.0, v));
+}
+
 void EditorRenderer::osc_classic(Canvas &c, const Element &e, int x, int y, int part)
 {
     const std::string &pwp = e.get("Parameter"); // "Oscillator N/Pulsewidth"
     std::string g = pwp.substr(0, pwp.rfind('/') + 1);
-    double sh = values(g + "Shape", part), pw = 0.5 + values(pwp, part) / 127.0 * 0.5;
+    int sh = values(g + "Shape", part), pwv = values(pwp, part), ws = values(g + "WaveSelect", part);
     // measured on the original: steps of 1 / (w - 2) per column, centre y + (h - 2) / 2 and amplitude (h - 2) / 2, the fill above the centre stops one
     // row short of it
     double mid = y + (e.h - 2) / 2.0, amp = (e.h - 2) / 2.0;
     const int w = e.w - 1;
+    double sv[64];
+    for (int i = 0; i < 64; i++)
+        sv[i] = osc_classic_value(sh, pwv, ws, osc_waves, i);
+    // the original draws a polygon through its 64 samples over the period: column t of it lies between two samples
     auto wave = [&](double t) {
-        double saw = 1 - 2 * t;
-        if (sh <= 64) {
-            double a = sh / 64;
-            return (1 - a) * std::sin(2 * 3.14159265358979 * t) + a * saw;
-        }
-        double b = (sh - 64) / 63;
-        return (1 - b) * saw + b * (t < pw ? 1.0 : -1.0);
+        double k = std::max(0.0, t) * 64;
+        int k0 = std::min(63, (int)k), k1 = std::min(63, k0 + 1);
+        return sv[k0] + (sv[k1] - sv[k0]) * (k - k0 > 1 ? 1 : k - k0);
     };
     Rgba fillc{182, 200, 228, 255}, linec{91, 100, 114, 255};
     // one curve pixel per column at floor(y) (the original's 2:1 saw shows pixel pairs), fill between curve and centre

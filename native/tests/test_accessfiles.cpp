@@ -4,6 +4,7 @@
 #ifndef _WIN32
 #include "check.h"
 #include "access/accessfiles.h"
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -291,3 +292,35 @@ TEST(accessfiles_control_center)
     CHECK(b && b->source() == (common / "Virus Control Center.exe").string());
 }
 #endif
+
+// the classic oscillator's 64 waves (64 x 64 floats in the plug-in binary, row 0 = one sine period): found by
+// content, so the Windows DLL and the macOS bundle binary both work; anything implausible is rejected
+static std::vector<uint8_t> waves_blob(size_t junk_before, float row1_value)
+{
+    std::vector<uint8_t> b(junk_before, 0x5A);
+    for (int r = 0; r < 64; r++)
+        for (int i = 0; i < 64; i++) {
+            float v = r == 0 ? (float)std::sin(2 * 3.14159265358979 * i / 64) : (r == 1 ? row1_value : 0.25f * (r % 4));
+            uint8_t f[4];
+            memcpy(f, &v, 4);
+            b.insert(b.end(), f, f + 4);
+        }
+    b.insert(b.end(), 100, 0xA5);
+    return b;
+}
+
+TEST(accessfiles_osc_waves_by_content)
+{
+    auto w = vti::find_osc_waves(waves_blob(4096, 0.5f));
+    CHECK(w.size() == 64 * 64);
+    if (w.size() == 64 * 64) {
+        CHECK(w[0] == 0.0f && std::fabs(w[16] - 1.0f) < 1e-6f); // row 0: sine, peak at index 16
+        CHECK(w[64] == 0.5f && w[64 * 5] == 0.25f);
+    }
+    CHECK(vti::find_osc_waves(waves_blob(4098, 0.5f)).size() == 64 * 64); // not 4-byte aligned in the file
+    CHECK(vti::find_osc_waves(waves_blob(4096, 5.0f)).empty());            // a row out of +-1: not the table
+    CHECK(vti::find_osc_waves(std::vector<uint8_t>(20000, 0)).empty());     // zeros are no sine
+    auto cut = waves_blob(16, 0.5f);
+    cut.resize(16 + 64 * 64 * 4 - 8); // truncated
+    CHECK(vti::find_osc_waves(cut).empty());
+}

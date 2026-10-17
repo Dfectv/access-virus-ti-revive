@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -166,6 +167,52 @@ std::vector<uint8_t> AccessFiles::find_dump(uint8_t cmd, size_t size, size_t nam
                     *binary = std::move(d);
                 return out;
             }
+    }
+    return {};
+}
+
+std::vector<float> find_osc_waves(const std::vector<uint8_t> &bin)
+{
+    const size_t n = 64 * 64, bytes = n * 4;
+    auto at = [&](size_t off) {
+        float f;
+        memcpy(&f, &bin[off], 4);
+        return f;
+    };
+    const double two_pi = 2 * 3.14159265358979323846;
+    for (size_t i = 0; i + bytes <= bin.size(); i++) {
+        // row 0 starts 0, sin(2 pi / 64), ...: cheap pre-check on the first two values
+        if (bin[i] || bin[i + 1] || bin[i + 2] || bin[i + 3] || std::fabs(at(i + 4) - 0.0980171f) > 1e-4f)
+            continue;
+        bool ok = true;
+        for (int k = 0; k < 64 && ok; k++)
+            ok = std::fabs(at(i + 4 * k) - std::sin(two_pi * k / 64)) < 1e-3; // the shipped sine is rounded (~1e-4)
+        for (size_t k = 64; k < n && ok; k++) {
+            float v = at(i + 4 * k);
+            ok = std::isfinite(v) && std::fabs(v) <= 1.0001f;
+        }
+        if (!ok)
+            continue;
+        std::vector<float> t(n);
+        memcpy(t.data(), &bin[i], bytes);
+        return t;
+    }
+    return {};
+}
+
+std::vector<float> AccessFiles::osc_waves() const
+{
+    std::vector<std::string> bins = {source_};                                       // Windows: the DLL itself
+    bins.push_back((fs::path(source_) / ".." / "MacOS" / "Virus Control").string()); // Mac: bundle binary
+    for (auto &b : bins) {
+        std::error_code ec;
+        if (!fs::is_regular_file(b, ec))
+            continue;
+        std::vector<uint8_t> d;
+        read_file(b, d);
+        auto t = find_osc_waves(d);
+        if (!t.empty())
+            return t;
     }
     return {};
 }

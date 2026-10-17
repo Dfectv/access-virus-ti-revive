@@ -34,6 +34,9 @@ public:
     // the default page B the original gives old (Virus C, 267-byte) single dumps when upgrading them: 256 bytes
     // 0x400 before the embedded init patch in the plug-in binary; empty if not plausible (all bytes must be 7-bit)
     std::vector<uint8_t> default_page_b() const;
+    // the classic oscillator display's 64 waves (64 x 64 floats, the WaveSelect row first; E180), found in the plug-in
+    // binary by content; empty if not found (the display then shows a sine for every wave)
+    std::vector<float> osc_waves() const;
 
 private:
     std::vector<uint8_t> find_dump(uint8_t cmd, size_t size, size_t name_at, const char *name,
@@ -44,5 +47,8 @@ private:
     bool load_pe(const std::string &dll, std::string &error, const char *required = "remotedevice.xml");
     bool load_dir(const std::string &dir, std::string &error, const char *required = "remotedevice.xml");
 };
+
+// the 64 x 64 wave table inside a plug-in binary: row 0 is one sine period, every value within +-1; empty if absent
+std::vector<float> find_osc_waves(const std::vector<uint8_t> &bin);
 
 } // namespace vti
