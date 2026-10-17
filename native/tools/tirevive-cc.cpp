@@ -18,6 +18,7 @@
 #include "../src/cc/decode.h"
 #include "../src/cc/diag.h"
 #include "../src/model/remotedevice.h"
+#include "../src/model/sysinfo.h"
 #include "vtiproto.h"
 #include <cstdio>
 #include <algorithm>
@@ -75,6 +76,8 @@ static int info(bool raw)
     int n = broker.flash_info(fl);
     if (n <= 0)
         printf("Flash info   no answer (broker older than 0.8.21, or another program's plug-in has the Virus)\n");
+    else
+        printf("Virus OS     %s\n", vti::tios_from_flash(fl).empty() ? "(not found)" : vti::tios_from_flash(fl).c_str());
     for (int i = 0; raw && i < n; i += 16) {
         printf("  %06x ", (unsigned)(i < 96 ? 0xFF7FA0 + i : 0x800000 + i - 96));
         for (int k = 0; k < 16; k++)

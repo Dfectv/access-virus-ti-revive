@@ -4,6 +4,8 @@
 // the OS version once it is known; "-" while something is unknown.
 #include "check.h"
 #include "model/sysinfo.h"
+#include <cstring>
+#include <vector>
 using namespace vti;
 
 TEST(sysinfo_version_texts)
@@ -19,6 +21,25 @@ TEST(sysinfo_version_texts)
         CHECK(system_info_text(p, s) == "TI Revive 0.8.21");
     CHECK(system_info_text("Internal System Info/TIOS Version String", s) == "5.1.7.00");
     CHECK(system_info_text("Osc/Shape", s).empty()); // not ours: the caller falls back to the value text
+}
+
+// the OS name in the identification blocks (flashinfo.h order: FF7FA0..FF7FF0, then 800000..800050): the original
+// reads a 0x50-byte record from 9 bytes into the 0x800000 area and takes the name at its offset 0x25 up to a zero byte
+// (FUN_1800ac7c0), i.e. USB address 0x80002E - E026 found "1.7.00" at the start of block 0x800030
+TEST(sysinfo_tios_from_flash)
+{
+    std::vector<uint8_t> f(12 * 16, 0xFF);
+    const char *os = "5.1.7.00";
+    memcpy(&f[96 + 0x2E], os, strlen(os) + 1);
+    CHECK(tios_from_flash(f) == "5.1.7.00");
+    f[96 + 0x2E + 8] = 'x'; // no end within the record: like the original's "no TIOS"
+    for (size_t i = 96 + 0x2E + 8; i < f.size(); i++)
+        f[i] = 'x';
+    CHECK(tios_from_flash(f).empty());
+    CHECK(tios_from_flash(std::vector<uint8_t>(40, 0)).empty()); // too short
+    std::vector<uint8_t> junk(12 * 16, 0);
+    junk[96 + 0x2E] = 0x01; // not printable
+    CHECK(tios_from_flash(junk).empty());
 }
 
 TEST(sysinfo_unknown_shows_dash)

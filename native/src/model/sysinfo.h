@@ -3,7 +3,9 @@
 // plug-in version, the broker's version in the four driver rows (the broker replaces those drivers) and the Virus' OS
 // once read. Unknown values show "-".
 #pragma once
+#include <cstdint>
 #include <string>
+#include <vector>
 
 namespace vti {
 
@@ -15,5 +17,9 @@ struct SystemInfo {
 
 // the text for one of the INFO box's parameters, or "" for any other parameter
 std::string system_info_text(const std::string &param, const SystemInfo &info);
+
+// the Virus' OS name ("5.1.7.00") from its identification blocks (Broker::flash_info, flashinfo.h order); "" when the
+// record holds no printable, terminated name (the original's "no TIOS")
+std::string tios_from_flash(const std::vector<uint8_t> &blocks);
 
 } // namespace vti

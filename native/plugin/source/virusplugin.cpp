@@ -277,6 +277,16 @@ void DeviceOut::check_presence()
             marker_skip_ = -1;
             last_sound = -1;
             generation++;
+            // the Virus' OS version for PATCH UTILITY > INFO, read like the original at plug-in start, before the
+            // memory sync: the broker's fixed read-only flash sequence (flashinfo.h, E026/E040), ~2 s once per open
+            if (!elsewhere_seen_) {
+                std::vector<uint8_t> fl;
+                int n = broker_.flash_info(fl);
+                std::string os = n > 0 ? tios_from_flash(fl) : std::string();
+                log("Virus TI native: flash info %d bytes, OS \"%s\"\n", n, os.c_str());
+                std::lock_guard<std::mutex> g(info_mu_);
+                tios_ = os;
+            }
         }
         if (device_ && (was || present))
             device_(present != 0);
@@ -1361,6 +1371,7 @@ std::string VirusPlugin::live_text(const std::string &param)
     if (param == "VirusControl/Display Original Value")
         return lcd_orig_;
     sysinfo_.broker = out_ ? out_->broker_version() : std::string(); // the broker's INFO message ("" from older ones)
+    sysinfo_.tios = out_ ? out_->tios() : std::string();             // read from the Virus' flash at connect
     return system_info_text(param, sysinfo_);   // the INFO box's versions, "" for anything else
 }
 

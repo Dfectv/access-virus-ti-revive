@@ -123,8 +123,16 @@ public:
     void log(const char *fmt, ...);
     // the broker's release version from its INFO message ("" from older brokers): PATCH UTILITY > INFO (E189)
     std::string broker_version() const { return broker_.broker_version(); }
+    // the Virus' OS version from its flash ("" until read, or from an older broker)
+    std::string tios() const
+    {
+        std::lock_guard<std::mutex> g(info_mu_);
+        return tios_;
+    }
 
 private:
+    mutable std::mutex info_mu_;
+    std::string tios_;
     std::function<void(bool)> device_;
     std::function<void(bool)> on_waiting_;
     std::function<void(bool, bool)> status_;
