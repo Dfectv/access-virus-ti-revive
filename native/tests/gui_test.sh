@@ -18,6 +18,11 @@ duplicate)
     plugin=$(cd "$2" && pwd) # the VST3 loader names the library after the bundle folder: no "/../.."
     timeout 90 xvfb-run -a "$1" "$plugin" --editor --editor2 --duplicate 3 --seconds 6 >"$out" 2>&1
     rc=$?
+    if [ $rc -ne 0 ] && grep -q "no display or no editor" "$out" && grep -q "cannot read .*Access Music" "$out"; then
+        cat "$out"
+        echo "no Access files (the editor needs them, e.g. CI): skipped"
+        exit 77
+    fi
     [ $rc -eq 0 ] || fail "nativehost exited with $rc"
     grep -q "this one takes over the Virus" "$out" || fail "the duplicate did not take over"
     ;;
