@@ -1741,7 +1741,14 @@ static std::string remote_template_dir()
 
 std::vector<std::pair<std::string, std::string>> VirusPlugin::remote_template_folders() const
 {
-    return {{"Personal Libraries", library_dir()}, {"Personal Remote Templates", remote_template_dir()}};
+    std::vector<std::pair<std::string, std::string>> f = {{"Personal Libraries", library_dir()},
+                                                         {"Personal Remote Templates", remote_template_dir()}};
+#ifdef __APPLE__
+    // the Mac installer puts the factory templates here, not into the Patches folder (E200); the menu name is ours
+    // (how the original's Mac menu calls this place is not checked yet)
+    f.push_back({"Remote Templates", "/Library/Application Support/Access Music/Virus TI/Remote Templates"});
+#endif
+    return f;
 }
 
 bool VirusPlugin::load_remote_template(const std::string &path)
