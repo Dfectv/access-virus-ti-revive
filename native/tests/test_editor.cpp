@@ -482,6 +482,31 @@ TEST(editor_right_click_menus)
     CHECK(EditorRenderer::menu_items_per_column(160) == 0); // VSTGUI: no columns from 160 entries on
 }
 
+// a value outside the parameter's range is shown clamped: the Init patch stores Vocoder Bands = 127 (range 0..31) and
+// the original shows "32", the last entry (E189 comparison, 2026-10-17)
+TEST(editor_out_of_range_value_clamped)
+{
+    static const char *L = R"(<?xml version="1.0"?>
+<Editor><Frame width="100" height="20"><Container><Size left="0" top="0" width="100" height="20"/>
+ <TextSlider Parameter="Osc/Plain" ControlFont="font.png" Align="Top Left"><Size left="0" top="0" width="40" height="10"/></TextSlider>
+</Container></Frame></Editor>)";
+    Rig g;
+    EditorLayout lay;
+    std::string err;
+    CHECK(lay.load(Bytes(L, L + strlen(L)), err));
+    EditorRenderer r(lay, *g.cond, g.dev, g.ed);
+    g.vals[{"Osc/Plain", 0}] = 9; // range 2..4
+    r.values = g.r->values;
+    r.render(g.canvas);
+    auto drawn = [&](char ch) {
+        for (auto &b : g.canvas.blits)
+            if (b.img == "font.png" && b.sy == (ch - 32) * 7)
+                return true;
+        return false;
+    };
+    CHECK(drawn('4') && !drawn('9'));
+}
+
 TEST(editor_visible_controls)
 {
     // help mode: every visible control with a parameter, at the same place and part as the hit test finds it
