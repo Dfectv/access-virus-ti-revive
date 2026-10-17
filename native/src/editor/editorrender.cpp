@@ -250,25 +250,50 @@ void EditorRenderer::filter_response(Canvas &c, const Element &e, int x, int y, 
 // first, then alternating right/left at floor(k * w) from x + w/2, w = 2 + spread * 2.625 / 64; the number of saws
 // follows the density (0 -> 1, 32 -> 2, 64 -> 3, 96 -> 5, 112 -> 7, 127 -> 9, linear between); a fractional saw is
 // a shorter line from the bottom (height = fraction * h)
+// the original's table (constructor 0x180048b90, section ends at 0x180153da8): 2 lines up to Density 31, then one more
+// per section; inside a section the last line grows from 0 in equal steps; 127 shows every line in full
+std::pair<int, double> EditorRenderer::hypersaw_lines(int density)
+{
+    static const int ends[8] = {32, 64, 80, 96, 104, 112, 120, 128};
+    density = std::max(0, std::min(127, density));
+    if (density == 127)
+        return {9, 1.0};
+    int from = 0;
+    for (int g = 0; g < 8; g++) {
+        if (density < ends[g])
+            return {g + 2, (double)(density - from) / (ends[g] - from)};
+        from = ends[g];
+    }
+    return {9, 1.0};
+}
+
+double EditorRenderer::hypersaw_spacing(int w, double spread)
+{
+    return (w / 9.0 - 2) * spread + 2;
+}
+
+int EditorRenderer::hypersaw_x(int i, double spacing, int w, int left)
+{
+    double side = i % 2 ? spacing : -spacing; // line 1 right, 2 left, 3 right ...
+    return (int)(((i + 1) >> 1) * side + w * 0.5 + left);
+}
+
+// the original (draw 0x180048c70): the background, then vertical lines in ForeColor from the bottom edge up, full
+// height except the last one (its share from the table); dimmed to 37 % when inactive like the classic display
 void EditorRenderer::osc_hypersaw(Canvas &c, const Element &e, int x, int y, int part)
 {
     const std::string &sp = e.get("Parameter"); // "Oscillator N HyperSaw/DetuneSpread"
-    double spread = values(sp, part), dens = values(sp.substr(0, sp.rfind('/') + 1) + "Density", part);
-    static const double dx[] = {0, 32, 64, 96, 112, 127}, dn[] = {1, 2, 3, 5, 7, 9};
-    double n = 9;
-    for (int i = 1; i < 6; i++)
-        if (dens <= dx[i]) {
-            n = dn[i - 1] + (dens - dx[i - 1]) * (dn[i] - dn[i - 1]) / (dx[i] - dx[i - 1]);
-            break;
-        }
-    double w = 2 + spread * 2.625 / 64;
-    int cx = x + e.w / 2, lines = (int)std::ceil(n - 1e-9);
+    const Parameter *p = cond_.find(sp);
+    int lo = p ? p->min : 0, hi = p && p->max > lo ? p->max : 127;
+    double spread = (double)(std::max(lo, std::min(hi, values(sp, part))) - lo) / (hi - lo);
+    auto [lines, last] = hypersaw_lines(values(sp.substr(0, sp.rfind('/') + 1) + "Density", part));
+    double s = hypersaw_spacing(e.w, spread);
+    const int bottom = y + e.h;
     for (int i = 0; i < lines; i++) {
-        int k = i == 0 ? 0 : (i % 2 ? (i + 1) / 2 : -(i / 2)); // 0, +1, -1, +2, -2, ...
-        double frac = std::min(1.0, n - i);
-        int h = i + 1 <= n ? e.h : (int)std::lround(frac * e.h);
-        if (h > 0)
-            c.fill(cx + (int)std::floor(k * w), y + e.h - h, 1, h, e.fore);
+        double h = i == lines - 1 ? e.h * last : e.h;
+        int top = (int)(bottom - h);
+        if (bottom > top)
+            c.fill(hypersaw_x(i, s, e.w, x), top, 1, bottom - top, e.fore);
     }
 }
 

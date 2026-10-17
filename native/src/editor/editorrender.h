@@ -63,6 +63,11 @@ public:
     // sample i (0..63) of the classic oscillator display like the original (E180): Shape crossfades the WaveSelect
     // wave into a saw (first half) and the saw into a pulse (second half), clamped to +-1
     static double osc_classic_value(int shape, int pulsewidth, int wave, const std::vector<float> &waves, int i);
+    // HyperSaw display (original KOscHypersawShape, E192): lines and the last line's height (0..1) for Density 0..127;
+    // spacing for width w and DetuneSpread 0..1; x of line i (0 centre, then right/left alternately)
+    static std::pair<int, double> hypersaw_lines(int density);
+    static double hypersaw_spacing(int w, double spread);
+    static int hypersaw_x(int i, double spacing, int w, int left);
     int part = 0;                                    // the current (panel) part
     int layer = 0;                                   // 0 = everything, 1 = static only, 2 = controls only
     std::vector<const Element *> static_key;          // filled by a layer-1 render: visible conditional statics

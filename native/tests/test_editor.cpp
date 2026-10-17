@@ -528,6 +528,27 @@ TEST(editor_url_button_text)
     CHECK(p);
 }
 
+// HyperSaw display (KOscHypersawShape, original 0x180048c70/0x180048b90, E192): Density picks the number of lines and the
+// height of the last one from the original's table (sections end at 32, 64, 80, 96, 104, 112, 120, 128 with 2..9
+// lines; the last line grows from 0 inside a section; 127 = all lines full); spacing (w / 9 - 2) * spread + 2, lines
+// alternately right and left of the centre
+TEST(editor_hypersaw_rule)
+{
+    auto L = [](int d) { return EditorRenderer::hypersaw_lines(d); };
+    CHECK(L(0).first == 2 && L(0).second == 0.0);
+    CHECK(L(16).first == 2 && std::fabs(L(16).second - 0.5) < 1e-6);
+    CHECK(L(32).first == 3 && L(32).second == 0.0);
+    CHECK(L(72).first == 4 && std::fabs(L(72).second - 0.5) < 1e-6);
+    CHECK(L(104).first == 7 && L(119).first == 8 && L(120).first == 9);
+    CHECK(L(127).first == 9 && L(127).second == 1.0);
+    // positions: centre, right, left, 2 right, 2 left ... at spacing s, truncated like the original
+    CHECK(EditorRenderer::hypersaw_x(0, 10.0, 90, 0) == 45);
+    CHECK(EditorRenderer::hypersaw_x(1, 10.0, 90, 0) == 55 && EditorRenderer::hypersaw_x(2, 10.0, 90, 0) == 35);
+    CHECK(EditorRenderer::hypersaw_x(4, 10.0, 90, 0) == 25);
+    CHECK(std::fabs(EditorRenderer::hypersaw_spacing(90, 1.0) - 10.0) < 1e-6);
+    CHECK(std::fabs(EditorRenderer::hypersaw_spacing(90, 0.0) - 2.0) < 1e-6);
+}
+
 TEST(editor_visible_controls)
 {
     // help mode: every visible control with a parameter, at the same place and part as the hit test finds it
