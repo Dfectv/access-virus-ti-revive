@@ -182,8 +182,7 @@ Mode to Static (always on) or Dynamic (played with notes) and Select to L + R. T
 plug-in's sidechain input; the part's filters and effects process it. In REAPER, give the Virus track 4 channels and
 send the audio to channels 3/4 (check in the pin connector that they feed Sidechain 1/2). In Ableton Live, pick the
 audio track in the device's Sidechain section. In this mode the Virus does not work as a sound card for your computer.
-Tested on Linux (REAPER), macOS (Ableton Live 12) and in a Windows 11 VM (Ableton Live 11); not yet on a real Windows
-PC.
+Tested on Linux (REAPER), macOS (Ableton Live 12) and Windows 11 (Ableton Live, in a VM and on a real PC).
 
 **Help mode.** Click the ? at the bottom right of the editor: every control gets a short note on what it does. Point
 at a control to read it, click to keep the note on screen; clicks do not change values in this mode, and the page tabs
@@ -305,10 +304,10 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 | Classic plug-in 0.7.x (Linux, REAPER) | first note late, second missing | 0.06 ms | 1.31 ms | - |
 | **0.8.0, Linux** (REAPER render) | 256 / 256, first at exactly 2000.00 ms | **0.01 ms** | 0.05 ms | 0 ppm |
 | **0.8.0, macOS** (Ableton 12, M3) | 256 / 256 | **0.02 ms** | 0.28 ms | 0 ppm |
-| **0.8.0, Windows 11 PC** (Ableton 11) | 304 / 304 | ≤ 0.66 ms (upper bound of the method) | - | 0 ppm |
+| **0.8.20, Windows 11 PC** (Ableton Live) | 224 / 224 | **0.24 ms** | 2.09 ms | 2 ppm |
 
 - The plug-in finds the Virus' own clock (a sync marker the Virus puts on USB 2), stamps every event against it and
-  **reports its latency to the DAW**, so delay compensation lines recordings up with the grid (E139-E141, E143).
+  **reports its latency to the DAW**, so delay compensation lines recordings up with the grid (E139-E141, E143, E186).
 - **Any sample rate:** the Virus runs at 44.1 kHz; at other host rates a 32-tap windowed-sinc resampler converts
   with -90 dB error (1 kHz and 10 kHz test tones at 32/48/88.2/96 kHz), no clicks, same timing.
 
@@ -486,7 +485,7 @@ measurements: [`findings/design-linux.md`](findings/design-linux.md), evidence E
 | Reverse engineering of driver, protocol and plug-in interface | done (`findings/`) |
 | **0.8.0: native plug-in "TI Revive Virus Control" (all platforms)** | |
 | Plug-in (editor, browser, libraries, bank sync, automation, project state), opens projects of the classic plug-in | done: tested in REAPER (Linux), Ableton Live 12 (macOS M3), Ableton Live 11 (Windows 11 PC) |
-| Timing: sample-accurate, latency reported to the DAW, any sample rate | done: 0.01-0.02 ms jitter, 0 ppm drift (E139-E143) |
+| Timing: sample-accurate, latency reported to the DAW, any sample rate | done: 0.01-0.24 ms jitter, 0-2 ppm drift (E139-E143, E186) |
 | ASIO sound card "TI Revive Virus Audio" (Windows, 6 in / 2 out, no Access driver) | done: clean on a real PC |
 | Installers: Access software only unpacked (Windows/Linux), clean-up of earlier versions | done |
 | Virus TI Snow | works per first user reports (macOS, 0.8.3+); not tested by us |

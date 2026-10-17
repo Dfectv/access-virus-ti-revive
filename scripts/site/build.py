@@ -317,7 +317,6 @@ def page_landing(latest, releases, sums):
       </tbody>
     </table>
     <ul class="limits">
-      <li>The USB audio <em>input</em> of the Virus (&ldquo;3 Outs / 1 Input&rdquo;) is not fed by the plug-in yet.</li>
       <li>The installers are not signed, so Windows and macOS ask once before they run them.</li>
     </ul>
     <div class="testing">
@@ -362,7 +361,7 @@ def page_landing(latest, releases, sums):
       In Ableton: an audio track with <em>Audio From</em> = the Virus track, <em>Out 3</em>, <em>Monitor In</em>.</p>
       </details>
       <details><summary>Process audio through the Virus (sidechain input)</summary>
-      <p>Like the original, the plug-in can send audio from your DAW into the Virus: set &ldquo;Input and Output Configuration&rdquo; to &ldquo;3 Outs / 1 Input&rdquo;, and on the FX 1 page set a part's Input Mode to Static (always on) or Dynamic (played with notes) and Select to L + R. Then send an audio track to the plug-in's sidechain input; the part's filters and effects process it. In REAPER, give the Virus track 4 channels and send the audio to channels 3/4 (check in the pin connector that they feed Sidechain 1/2). In Ableton Live, pick the audio track in the device's Sidechain section. In this mode the Virus does not work as a sound card for your computer. Tested on Linux (REAPER), macOS (Ableton Live 12) and in a Windows 11 VM (Ableton Live 11); not yet on a real Windows PC.</p></details>
+      <p>Like the original, the plug-in can send audio from your DAW into the Virus: set &ldquo;Input and Output Configuration&rdquo; to &ldquo;3 Outs / 1 Input&rdquo;, and on the FX 1 page set a part's Input Mode to Static (always on) or Dynamic (played with notes) and Select to L + R. Then send an audio track to the plug-in's sidechain input; the part's filters and effects process it. In REAPER, give the Virus track 4 channels and send the audio to channels 3/4 (check in the pin connector that they feed Sidechain 1/2). In Ableton Live, pick the audio track in the device's Sidechain section. In this mode the Virus does not work as a sound card for your computer. Tested on Linux (REAPER), macOS (Ableton Live 12) and Windows 11 (Ableton Live, in a VM and on a real PC).</p></details>
       <details><summary>Projects bring back every patch setting</summary>
       <p>Older versions saved the parts in a format the Virus converts itself, and it reset about 20 newer settings on
       loading: Input Mode, unison, arpeggiator mode, chorus type, envelopes 3 and 4 and more. Projects now keep the
@@ -488,12 +487,12 @@ def features_section():
         <tbody>
           <tr><th>Linux, REAPER</th><td>256 / 256</td><td>0.01 ms</td><td>0 ppm</td></tr>
           <tr><th>macOS, Ableton 12 (M3)</th><td>256 / 256</td><td>0.02 ms</td><td>0 ppm</td></tr>
-          <tr><th>Windows 11, Ableton 11</th><td>304 / 304</td><td>&le; 0.66 ms*</td><td>0 ppm</td></tr>
+          <tr><th>Windows 11, Ableton Live</th><td>224 / 224</td><td>0.24 ms</td><td>2 ppm</td></tr>
           <tr class="old"><th>Classic plug-in 0.7.x</th><td>first late, second missing</td><td>0.06 ms</td><td>n/a</td></tr>
         </tbody>
       </table>
-      <p class="small">Recorded from the USB audio of the Virus and measured by onset analysis. *The upper bound of the
-      method on that machine.</p></div>
+      <p class="small">Recorded from the USB audio of the Virus and measured by onset analysis. Jitter is the
+      standard deviation.</p></div>
     </div>
 
     <div class="feature">
