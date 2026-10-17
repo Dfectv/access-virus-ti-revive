@@ -51,7 +51,12 @@ build 39030095040 = version 0.0.1, same code); Linux and VM from run 39030413663
 VM test always `VM=win11 scripts/vm.sh detach` - the Virus stayed in the VM after the last round and REAPER found nothing. RESULTS 0.8.21c (user, 2026-10-17): all pass - M4, M5 (macOS), L6, L7 (Linux), W4 (VM). Note M4: the Wavetable list
 opens with a short delay on the Mac (likely: PopupView invalidates the whole frame-sized view on open and on every
 hover, so the editor below repaints fully; plus 100 CoreText measurements) - idea for the next round: invalidate only
-the menu / the two changed rows. Virus back on Linux (detached). Next: merge + release 0.8.21 (user decision). L5 notes: the link must point to our website -> done (sysinfo website_url, click
+the menu / the two changed rows. Virus back on Linux (detached). Repaint fix done (655cf8c, popup_repaint_areas; Xvfb: a hover repaints 2 rows
+instead of 907x513), not hardware-tested (Mac delay to re-check in the next round). Release 0.8.21 (user: "fix the
+repaint first, then release"): VERSION 0.8.21, release notes in build.yml, 165 tests in README + site. Site check
+2026-10-17: TESTS 165 updated; COVERAGE 94 % (16 Oct) kept with its date (not re-measured); E175 "being worked on" still
+open (not seen since 0.8.18); Snow matrix ok (E188); no new feature lines on the site/README yet (popup columns, INFO
+box are parity fixes - ask the user). L5 notes: the link must point to our website -> done (sysinfo website_url, click
 opens the browser; not yet in a build); the REMOTE MIDI channel menu is locked on purpose (read-only page). Bare
 metal (B1, B2): postponed by the user - collect a bigger bare-metal list for one session later.
 
