@@ -236,8 +236,8 @@ same with Access' own driver.
 Start **TI Revive Control Center** (Windows: Start menu, folder "TI Revive"; macOS: Applications; Linux: the
 application menu, or `tirevive-control-center`). It looks like Access' Virus Control Center when that is in your
 Access installer (the setup step copies its images; it loads the look from there, like the plug-in). Click the Virus
-picture to choose your model (Desktop, Keyboard, Polar): USB does not tell them apart. Close the plug-in (or your DAW) first: the Virus serves one program
-at a time. The window shows the connected Virus and its RAM banks, backs them up as patch libraries and converts
+picture to choose your model (Desktop, Keyboard, Polar): USB does not tell them apart. It works next to your DAW: the
+plug-in and the Control Center share the Virus (only plug-ins of two programs do not, see below). The window shows the connected Virus and its RAM banks, backs them up as patch libraries and converts
 libraries between `.mid` and `.syx`. **Nerd mode** (button or *View > Nerd mode*) shows live what goes between
 TI Revive and the Virus (decoded: notes, parameter changes by name, dumps, bank sync), which programs use the Virus,
 the plug-in's and the broker's logs; it switches the plug-in log on and off and saves all logs for a bug report in
@@ -280,8 +280,8 @@ the Virus' flash and can brick it. Details: [native/docs/controlcenter.md](nativ
 **macOS**
 
 - **Microphone permission** for your DAW is required (see above); without it the plug-in stays silent.
-- **One program at a time** uses the Virus (as with the Access driver): a second DAW or GarageBand next to it shows
-  "no Virus TI connected" until the first one is closed. If the Virus ever stays silent although the plug-in is
+- **One DAW at a time** uses the Virus (as with the Access driver): the plug-in in a second DAW or GarageBand next
+  to it shows "Virus unavailable" until the first one is closed. The Control Center works next to the DAW. If the Virus ever stays silent although the plug-in is
   connected, switch the Virus off and on once.
 - **VST3 and Audio Unit**: VST3 hosts (Ableton Live, Cubase, Bitwig, REAPER, ...) and Logic Pro / GarageBand (*AU
   Instruments → TI Revive → TI Revive Virus Control*; in GarageBand under *Smart Controls → Plug-ins*) use the same

@@ -28,7 +28,7 @@ How it works
 last use). Audio comes from macOS' built-in USB audio driver (the "Virus TI" audio device, 44.1 kHz).
 
 Backups
-"TI Revive Control Center" in Applications (with the plug-in closed; it takes the look of Access' Control Center
+"TI Revive Control Center" in Applications (also while your DAW runs; it takes the look of Access' Control Center
 from your Access .pkg, set up in step 2) saves the Virus' RAM banks as patch libraries
 in Documents/Access Music/Virus TI/Backups and converts libraries (.mid <-> .syx). In Terminal the same:
 "/Library/Application Support/TI Revive/tirevive-cc" backup (also "info", "list", "export"). It only reads from the
