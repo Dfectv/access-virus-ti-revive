@@ -4,7 +4,22 @@ _Last updated: 2026-10-16 night (CONTINUE HERE below; 0.8.18 released, round 0.8
 Evidence: [evidence.md](evidence.md) (E001-E180), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE (state 2026-10-16 late night: round 0.8.19 built, hardware tests 2026-10-17)
+## CONTINUE HERE (state 2026-10-17 morning: round 0.8.20 built for the hardware tests)
+
+**Round 0.8.19 macOS results (user, 2026-10-17):** M1 pass; M2 FAIL (Control Center refused while Ableton ran;
+backup "permission denied"); M3 FAIL (duplicate looked usable). Causes: E181 (POSIX broker: first client of any kind
+owned the Virus; waiting instance showed the normal page since 0.8.18) and E182 (~/Documents/Access Music made by
+the Access installer as root). Round 0.8.19 is not tested further; its fixes all went into round 0.8.20.
+**Branch `round-0.8.20` (from round-0.8.19, pushed, NOT merged):** src/broker/owner.h (one owner rule for both
+brokers: first plug-in owns, plug-ins of other programs wait, every other client shares; POSIX decides at HELLO),
+StatusChange (devicestatus.h) for the waiting instance, backup error with the way out, postinstall + setup .command
+chown the root-owned Documents/Access Music entries, README/package readmes "Control Center works next to the DAW",
+THIRD-PARTY-NOTICES.txt in every package + libusb 1.0.30 source attached to releases (user decision: keep MIT),
+plug-in version 0.8.20 (CMake). TDD, 139 tests. CI test build: run 39003702169. Checklist (all 4 systems, the fixes
+on each): https://claude.ai/artifact/ (see below, published after the installs). The user's Mac folder is left
+root-owned on purpose (M1 checks the postinstall). After the tests: merge, site rebuild, release 0.8.20.
+
+## Previous state (state 2026-10-16 late night: round 0.8.19 built, hardware tests 2026-10-17)
 
 **Branch `round-0.8.19` (pushed, NOT merged; main has 3 local HANDOFF/findings commits that are also on this branch):**
 CI test build 0.8.19 = run 38962757365, all 7 jobs green (packages say 0.8.19; the plug-in itself still reports
