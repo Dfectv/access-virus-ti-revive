@@ -219,18 +219,33 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
-          **New in 0.8.18: projects bring back every patch setting.** Projects saved the parts in an older format,
+          **New in 0.8.20: the Control Center works next to your DAW** on macOS and Linux too (it did on Windows):
+          device info, backups and Nerd mode while the plug-in plays. Its window now opens at the right size, it no
+          longer crashes on closing (Linux), and Windows setups from before 0.8.2 get the Access look as well. On
+          macOS the backup works when the Access installer had made Documents/Access Music as administrator: the
+          installer gives the folder back to you.
+
+          **New in 0.8.20: duplicated tracks.** The copy shows "Virus unavailable" again while the original plays (since
+          0.8.18 it looked usable), and REAPER on Linux no longer crashes when a track with the plug-in is duplicated.
+
+          **Also in 0.8.20:** Linux finds the factory patch libraries in a localized Documents folder (e.g. Dokumente);
+          no dropouts in the first seconds with 4096-sample host blocks; the plug-in shows "No Virus TI can be found"
+          when the TI Revive service is not running; for safety, TI Revive passes only standard read requests to the
+          Virus' USB control endpoint (nothing that could reach its flash). Every package now lists the third-party
+          code it contains (THIRD-PARTY-NOTICES.txt).
+
+          **Since 0.8.18: projects bring back every patch setting.** Projects saved the parts in an older format,
           and the Virus reset about 20 newer settings when it loaded them: Input Mode, unison, arpeggiator mode,
           chorus type, envelopes 3 and 4 and more. Projects now keep the current format, and older ones are converted
           when they open. Settings that never reached the Virus in an older project open as the Virus played them.
           A new project's chorus shows "Classic": that is what the Virus makes of the original's Init patch.
 
-          **New in 0.8.18: the "No Virus TI can be found" page.** Switch the Virus off or pull its cable while the
+          **Since 0.8.18: the "No Virus TI can be found" page.** Switch the Virus off or pull its cable while the
           editor is open and it shows the original's page for a missing Virus; it goes away by itself when the Virus
           is back. Known issue on Linux: after a cable replug, or when the Virus is switched on while no DAW runs, it
           can come back without sound until it is switched off and on once (E175, next version).
 
-          **New in 0.8.18: help notes say why a control is greyed out**, for example "Inactive now: Chorus Type is
+          **Since 0.8.18: help notes say why a control is greyed out**, for example "Inactive now: Chorus Type is
           Off." or "depends on Input Mode, Input Atomizer."
 
           ![A help note on a greyed-out control](https://raw.githubusercontent.com/derpsn/access-virus-ti-revive/main/docs/images/plugin-help-inactive.png)
