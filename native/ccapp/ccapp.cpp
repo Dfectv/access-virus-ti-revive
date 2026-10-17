@@ -107,6 +107,9 @@ public:
         set(&Shared::folder, vti::cc::default_backup_dir());
         show_page(skin_ ? kSkinPage : kPlainPage); // also sets the window size (GTK does not apply config.size)
         window_->show();
+        // macOS and Windows ignore a size set before show(): the Access look started cut off on the right at the
+        // plain page's width (user, round 0.8.20)
+        window_->setSize(win_size_);
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) { tick(); }, 100, true);
     }
     // "View > Nerd mode" in the menu (macOS menu bar, the window's menu on Windows)
@@ -160,6 +163,7 @@ private:
     UiPage look_ = kPlainPage; // plain or Access look: where Nerd mode's "Back" returns to
     UiPage page_ = kPlainPage;
     double zoom_ = 1.0;
+    CPoint win_size_; // the current page's window size (zoomed)
 
     void set_zoom(double z)
     {
@@ -267,7 +271,8 @@ private:
         frame_->setZoom(1.0);
         frame_->setSize(size.x, size.y);
         frame_->setZoom(zoom_);
-        window_->setSize({size.x * zoom_, size.y * zoom_});
+        win_size_ = {size.x * zoom_, size.y * zoom_};
+        window_->setSize(win_size_);
         page_ = p;
         window_->setTitle(p == kNerdPage ? "TI Revive Control Center - Nerd mode" : "TI Revive Control Center");
         frame_->invalid();
