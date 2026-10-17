@@ -121,6 +121,8 @@ public:
         }
     }
     void log(const char *fmt, ...);
+    // the broker's release version from its INFO message ("" from older brokers): PATCH UTILITY > INFO (E189)
+    std::string broker_version() const { return broker_.broker_version(); }
 
 private:
     std::function<void(bool)> device_;
