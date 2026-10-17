@@ -507,6 +507,27 @@ TEST(editor_out_of_range_value_clamped)
     CHECK(drawn('4') && !drawn('9'));
 }
 
+// URLButton (PATCH UTILITY > INFO: "VirusControl/Access Website") shows its value list entry as text, like the original
+TEST(editor_url_button_text)
+{
+    static const char *L = R"(<?xml version="1.0"?>
+<Editor><Frame width="100" height="20"><Container><Size left="0" top="0" width="100" height="20"/>
+ <URLButton Parameter="Osc/Mode" ControlFont="font.png" Align="Top Left"><Size left="0" top="0" width="60" height="10"/></URLButton>
+</Container></Frame></Editor>)";
+    Rig g;
+    EditorLayout lay;
+    std::string err;
+    CHECK(lay.load(Bytes(L, L + strlen(L)), err));
+    EditorRenderer r(lay, *g.cond, g.dev, g.ed);
+    g.vals[{"Osc/Mode", 0}] = 2; // "Pulse"
+    r.values = g.r->values;
+    r.render(g.canvas);
+    bool p = false;
+    for (auto &b : g.canvas.blits)
+        p |= b.img == "font.png" && b.dx == 0 && b.dy == 0 && b.sy == ('P' - 32) * 7;
+    CHECK(p);
+}
+
 TEST(editor_visible_controls)
 {
     // help mode: every visible control with a parameter, at the same place and part as the hit test finds it

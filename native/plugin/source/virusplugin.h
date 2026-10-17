@@ -13,6 +13,7 @@
 #include "model/devicestatus.h"
 #include "model/panelfollow.h"
 #include "model/remotedevice.h"
+#include "model/sysinfo.h"
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
 #include "public.sdk/source/vst/vstsinglecomponenteffect.h"
 #include <array>
@@ -383,6 +384,7 @@ private:
     bool meta_cond(const Parameter &m, int part);
     void set_editor_value(const std::string &path, int part, int value, bool persist = false);
     std::string lcd_param_, lcd_value_, lcd_part_, lcd_orig_; // the last edited parameter for the LCD
+    SystemInfo sysinfo_{VTI_NATIVE_VERSION, {}, {}}; // PATCH UTILITY > INFO (values_mu_): versions, Virus OS
     void set_lcd(const std::string &param, const std::string &value, const std::string &part, const std::string &before);
     std::string search_;                                    // browser search text
     int results_return_ = 0;                                // browser 0's bank before the results

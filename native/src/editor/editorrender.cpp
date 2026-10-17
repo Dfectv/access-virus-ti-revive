@@ -540,7 +540,8 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
             str = e.get("Name");
         else if (e.type == "NameEdit" && patch_name)
             str = patch_name(pt);
-        else if ((e.type == "TextSlider" || e.type == "Menu" || e.type == "HierarchicMenu" || e.type == "SearchEdit") &&
+        else if ((e.type == "TextSlider" || e.type == "Menu" || e.type == "HierarchicMenu" || e.type == "SearchEdit" ||
+                  e.type == "URLButton") && // URLButton: the link text is its value list entry (INFO box)
                  !param.empty()) {
             str = live_text ? live_text(param) : std::string();
             if (str.empty())
