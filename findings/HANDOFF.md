@@ -4,7 +4,25 @@ _Last updated: 2026-10-17 (CONTINUE HERE below; round 0.8.22 in progress). Chron
 Evidence: [evidence.md](evidence.md) (E001-E201), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE (state 2026-10-17 evening: round 0.8.22 test build)
+## CONTINUE HERE (state 2026-10-17 evening: round 0.8.22 paused after the Linux tests)
+
+**Results 0.8.22b (user, 2026-10-17):** L5 REMOTE page PASS (LCD on a double-click, text fields fit); L3 pass (earlier
+build). L4 patch/bank menus: loading works but the menu is still not good: bound to the plug-in window; when moving
+from RAM A to its patches the pointer crosses ROM W..Z and switches the patch list; moving to ROM A shifts the whole
+cascade left over the editor. W1-W3 and M1-M4 not tested yet (paused by the user).
+**User decision: our own popup on ALL platforms, but not bound to the plug-in window** (like the original's Windows
+menus, which are windows of their own). Next round, in order:
+1. Popup menus as their own top-level windows (Windows: a WS_POPUP window, macOS: a borderless NSWindow/NSPanel,
+   Linux/X11: an override-redirect window), each hosting a VSTGUI frame with our PopupView/PopupCascade; positioned in
+   screen coordinates, clamped to the monitor's work area instead of the editor; the patch/bank menus back to our
+   popup on Windows/macOS too (this round they use the system menus, round-0.8.22 a7.. "system menus" commit).
+2. Submenu behaviour like Windows menus: a short hover delay before a submenu switches and keeping the open submenu
+   while the pointer moves towards it (no switching when crossing other entries on the way, e.g. ROM W..Z).
+3. Then redo L4 and W1-W3, M1-M4 (checklist https://claude.ai/artifact/8Qi89czHHyzB79hQa5eSAq, spec
+   scripts/checklists/round-0.8.22.json).
+Build 0.8.22b is installed: Linux (user ran install.sh), win11 VM (silent), Mac pushed (not installed).
+
+## Previous state (2026-10-17 evening: round 0.8.22 test build)
 
 **Test round 0.8.22:** first results L1/L2 FAIL, L3 pass -> fixes (system menus on Win/macOS, Linux parent shift, LCD on template choice, edit field size); test build 0.8.22b = CI run 39044254597 (installed: win11 VM silent; Mac pushed ~/Downloads/TI-Revive-0.8.22b-mac; Linux unpacked ~/Downloads/TI-Revive-0.8.22b-linux, user runs install.sh); order this time Linux, VM, Mac; checklist
 https://claude.ai/artifact/8Qi89czHHyzB79hQa5eSAq (spec scripts/checklists/round-0.8.22.json: macOS M1-M4 incl. the
