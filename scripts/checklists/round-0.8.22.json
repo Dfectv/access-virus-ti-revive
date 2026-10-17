@@ -1,6 +1,6 @@
 {
  "round": "0.8.22",
- "lead": "Test build 0.8.22b (branch round-0.8.22, CI run 39044254597, version 0.8.22): the complete REMOTE page (template and knob names, MIDI string with info, the knob template list from your Access files, LOAD/SAVE of template files, sent to the Virus like the original), the original's column rule for value lists, and after the first Linux results: the patch and bank menus use the system's own menus again on macOS and Windows (they may use the whole screen like the original's), on Linux a submenu never covers its parent; choosing a template shows it on the LCD; the REMOTE text fields fit. Already done: Linux L3 pass. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "lead": "Test build 0.8.22c (branch round-0.8.22, CI run 39048281922, version 0.8.22): every menu of the plug-in is now a window of its own on all systems, like the original's Windows menus: it may reach beyond the plug-in window and use the whole screen; the patch and bank menus are our own menus again on Windows and macOS too; a submenu opens or switches when the pointer rests on its entry for a moment (Windows' menu delay, 400 ms on macOS and Linux), so you can cross other entries into an open submenu. Plus everything from 0.8.22b (the complete REMOTE page). Already done: L3, L5 pass; the dev build passed a crash smoke test in REAPER. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
  "rules": [
   "Disposable DAW project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches (LOAD in the patch menus is fine, SAVE there is not).",
   "On the REMOTE page SAVE is fine: it writes template files only (a new file \"MY TEST.vrt\" in Documents/Access Music/Virus TI/Remote Templates; delete it afterwards if you like).",
@@ -12,31 +12,32 @@
    "title": "Linux",
    "where": "REAPER via pw-jack, Virus on this PC",
    "prep": [
-    "Claude unpacks the new build to <code>~/Downloads/TI-Revive-0.8.22b-linux</code>. In a terminal: <code>cd ~/Downloads/TI-Revive-0.8.22b-linux/TI-Revive-0.8.22-linux &amp;&amp; sudo ./install.sh</code>"
+    "Claude unpacks the CI build to <code>~/Downloads/TI-Revive-0.8.22c-linux</code>. Close REAPER, then in a terminal: <code>cd ~/Downloads/TI-Revive-0.8.22c-linux/TI-Revive-0.8.22-linux &amp;&amp; sudo ./install.sh</code> (replaces Claude's dev build in ~/.vst3)."
    ],
    "notes": [
-    "Results so far: L1 FAIL (the 128 patches covered the bank list), L2 FAIL (text fields too big, no LCD info on a double-click), L3 pass. L4 and L5 are the redos."
+    "Results so far: L1, L2 FAIL (0.8.22a), L3 pass, L5 pass, L4 FAIL (0.8.22b: menus bound to the plug-in window, RAM A's patches switched on the way). L6 and L7 test the new menus."
    ],
    "items": [
     {
-     "id": "L4",
-     "title": "Patch and bank menus (redo of L1)",
+     "id": "L6",
+     "title": "Patch and bank menus as their own windows (redo of L4)",
      "steps": [
-      "Part 1: LOAD, over the device entry, over RAM A: the 128 patches. Then move to RAM B, RAM C and ROM A.",
-      "Pick a patch from ROM A. BROWSER: the upper bank bar's arrow, pick another bank."
+      "Part 1: LOAD. Rest on the device entry, then on RAM A: its 128 patches. Move diagonally into the patches across RAM B and RAM C.",
+      "Rest on RAM B: the list switches. Then ROM A and Personal Libraries. Pick a patch from ROM A.",
+      "BROWSER: the upper bank bar's arrow, pick another bank."
      ],
-     "expect": "when RAM A opens, the bank list moves left so the patches sit next to it, never on top of it; RAM B, RAM C, ROM A stay reachable and switch the patch list; the patch loads; the browser shows the bank."
+     "expect": "the menus may go beyond the plug-in window; submenus open next to their entry (on the left when there is no room on the right) and never cover their parent; crossing RAM B on the way keeps RAM A's patches; resting on an entry switches after a short moment; the patch loads; the browser shows the bank; the DAW does not crash."
     },
     {
-     "id": "L5",
-     "title": "REMOTE page (redo of L2)",
+     "id": "L7",
+     "title": "Closing the menus, keys, value lists",
      "steps": [
-      "PATCH UTILITY &gt; REMOTE. Single-click template 3 (it is only highlighted), then double-click it.",
-      "Click the Template Name field, type <code>MY TEST</code>, Return. Click knob VALUE 2, click the KNOB NAME field, type <code>CUT</code>, Return.",
-      "Arrow at the right end of MIDI STRING: Control Change &gt; Volume (Ctrl 7) on Ch 1. Then set MIDI Channel Behaviour to Enable and back to Disable.",
-      "Close and reopen the plug-in window (or the DAW project)."
+      "Open LOAD on part 1, then click on the desktop or another window: the menu closes. Open it again, click into the editor: it closes, and nothing in the editor changes.",
+      "Open LOAD, then switch to another application with Alt-Tab: the menu closes.",
+      "Open LOAD: Down, Right (opens the submenu), Left (closes it), Esc, Esc.",
+      "OSC page, oscillator 1 in Wavetable mode: right-click the table name; size menu (right-click an empty spot) to 200 %, open LOAD again, then back to 100 %."
      ],
-     "expect": "after the double-click the LCD shows \"Remote Templates Selected Temp\" and the template name; the list shows MY TEST at 3; the text fields fit their boxes while typing; VALUE 2's name CUT; MIDI STRING <code>B0 07 *</code> with the info line <code>Control Change Ch 1, 7, Value</code> above it; the channel menu changes; after reopening everything is still there; the Virus keeps playing normally."
+     "expect": "every way of closing works and the click that closes the menu changes nothing in the editor; keys work; the Wavetable list opens at once with 4 columns of 25 and the highlight follows without lag; at 200 % the menu sits at the LOAD button and keeps its normal size."
     }
    ]
   },
@@ -48,17 +49,29 @@
     "Installed silently by Claude (0.8.22b, one entry in Apps). Claude attaches the Virus when you get there (<code>VM=win11 scripts/vm.sh attach</code>)."
    ],
    "notes": [
-    "The patch LOAD/SAVE menus and the browser bank menu are the Windows menus (like the original's)."
+    "The patch LOAD/SAVE menus and the browser bank menu are the plug-in's own menus again (0.8.22b had the Windows menus)."
    ],
    "items": [
     {
-     "id": "W1",
+     "id": "W4",
      "title": "Patch and bank menus",
      "steps": [
-      "Part 1: LOAD, over the device entry, over RAM A, over Personal Libraries; pick a patch from ROM A.",
+      "Part 1: LOAD. Rest on the device entry, then on RAM A: its 128 patches. Move diagonally into the patches across RAM B and RAM C.",
+      "Rest on RAM B: the list switches. Then ROM A and Personal Libraries. Pick a patch from ROM A.",
       "BROWSER: the upper bank bar's arrow, pick another bank."
      ],
-     "expect": "the Windows menus: submenus next to their entry and allowed outside the plug-in window; the patch loads; the browser shows the bank."
+     "expect": "the menus may go beyond the plug-in window; submenus open next to their entry (on the left when there is no room on the right) and never cover their parent; crossing RAM B on the way keeps RAM A's patches; resting on an entry switches after a short moment; the patch loads; the browser shows the bank; the DAW does not crash."
+    },
+    {
+     "id": "W5",
+     "title": "Closing the menus, keys, value lists",
+     "steps": [
+      "Open LOAD on part 1, then click on the desktop or another window: the menu closes. Open it again, click into the editor: it closes, and nothing in the editor changes.",
+      "Open LOAD, then switch to another application with Alt-Tab: the menu closes.",
+      "Open LOAD: Down, Right (opens the submenu), Left (closes it), Esc, Esc.",
+      "OSC page, oscillator 1 in Wavetable mode: right-click the table name; size menu (right-click an empty spot) to 200 %, open LOAD again, then back to 100 %."
+     ],
+     "expect": "every way of closing works and the click that closes the menu changes nothing in the editor; keys work; the Wavetable list opens at once with 4 columns of 25 and the highlight follows without lag; at 200 % the menu sits at the LOAD button and keeps its normal size."
     },
     {
      "id": "W2",
@@ -86,21 +99,32 @@
    "title": "macOS",
    "where": "MacBook Air M3, Ableton Live 12",
    "prep": [
-    "Claude pushed the package to the Mac: <code>~/Downloads/TI-Revive-0.8.22b-mac</code>. Quit Ableton, then in Terminal: <code>sudo installer -pkg ~/Downloads/TI-Revive-0.8.22b-mac/\"TI Revive.pkg\" -target /</code>"
+    "Claude pushes the package to the Mac: <code>~/Downloads/TI-Revive-0.8.22c-mac</code>. Quit Ableton, then in Terminal: <code>sudo installer -pkg ~/Downloads/TI-Revive-0.8.22c-mac/\"TI Revive.pkg\" -target /</code>"
    ],
    "notes": [
-    "The patch LOAD/SAVE menus and the browser bank menu are the macOS menus again (like the original's on the Mac). Value lists, the size menu and the REMOTE menus are drawn by the plug-in."
+    "The patch LOAD/SAVE menus and the browser bank menu are the plug-in's own menus again (0.8.22b had the macOS menus): 128 patches in columns instead of one scrolling list."
    ],
    "items": [
     {
-     "id": "M1",
+     "id": "M5",
      "title": "Patch and bank menus",
      "steps": [
-      "Part 1: click LOAD. Move over the device entry, then over RAM A: the 128 patches. Move back and over Personal Libraries.",
-      "With the keyboard: Down, Right (opens the submenu), Left (closes it), Esc.",
-      "Pick a patch from ROM A with a click. BROWSER page: click the arrow of the upper bank bar, pick another bank."
+      "Part 1: LOAD. Rest on the device entry, then on RAM A: its 128 patches. Move diagonally into the patches across RAM B and RAM C.",
+      "Rest on RAM B: the list switches. Then ROM A and Personal Libraries. Pick a patch from ROM A.",
+      "BROWSER: the upper bank bar's arrow, pick another bank."
      ],
-     "expect": "the macOS menus: submenus next to their entry, the 128 patches in one scrolling list (like the original on the Mac); keys work; the patch loads into part 1; the browser shows the chosen bank."
+     "expect": "the menus may go beyond the plug-in window; submenus open next to their entry (on the left when there is no room on the right) and never cover their parent; crossing RAM B on the way keeps RAM A's patches; resting on an entry switches after a short moment; the patch loads; the browser shows the bank; the DAW does not crash."
+    },
+    {
+     "id": "M6",
+     "title": "Closing the menus, keys, value lists",
+     "steps": [
+      "Open LOAD on part 1, then click on the desktop or another window: the menu closes. Open it again, click into the editor: it closes, and nothing in the editor changes.",
+      "Open LOAD, then switch to another application with Cmd-Tab: the menu closes.",
+      "Open LOAD: Down, Right (opens the submenu), Left (closes it), Esc, Esc.",
+      "OSC page, oscillator 1 in Wavetable mode: right-click the table name; size menu (right-click an empty spot) to 200 %, open LOAD again, then back to 100 %."
+     ],
+     "expect": "every way of closing works and the click that closes the menu changes nothing in the editor; keys work; the Wavetable list opens at once with 4 columns of 25 and the highlight follows without lag; at 200 % the menu sits at the LOAD button and keeps its normal size."
     },
     {
      "id": "M2",
