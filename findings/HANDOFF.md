@@ -16,7 +16,7 @@ StatusChange (devicestatus.h) for the waiting instance, backup error with the wa
 chown the root-owned Documents/Access Music entries, README/package readmes "Control Center works next to the DAW",
 THIRD-PARTY-NOTICES.txt in every package + libusb 1.0.30 source attached to releases (user decision: keep MIT),
 plug-in version 0.8.20 (CMake). TDD, 139 tests. CI test build: run 39003702169. Checklist (all 4 systems, the fixes
-on each): https://claude.ai/artifact/ (see below, published after the installs). The user's Mac folder is left
+on each): https://claude.ai/artifact/RntLcBgj3aAifV54cNompD; installed: Mac unpacked in ~/Downloads (user runs sudo installer), Linux unpacked (user runs install.sh), win11 VM setup.exe silent (0.8.20, notices in the install folder). The user's Mac folder is left
 root-owned on purpose (M1 checks the postinstall). After the tests: merge, site rebuild, release 0.8.20.
 
 ## Previous state (state 2026-10-16 late night: round 0.8.19 built, hardware tests 2026-10-17)
