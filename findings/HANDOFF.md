@@ -13,9 +13,14 @@ COptionMenu and the generic Linux menu theme are gone from the editor. Value lis
 (entries / 4 above 32 entries, REA 0x180040f50) instead of 25 for all. Checked under Xvfb with the TI2 (LOAD > device >
 RAM A 6 columns, Personal Libraries, browser bank menu, choice ROM A). Open: the original's "Create Empty Library"
 entry; n of the original's patch submenus. (2) The Mac Wavetable delay re-check (655cf8c): user decision - with the
-next major release test round, not now. Item 3 (REMOTE page sending/SAVE) started 2026-10-17: REA done (E196: record layout, the original's
-cache file and when it sends; nothing sent by ours yet). Waiting for the user's decision on how to go on (rule 2:
-where the Virus stores the records is open).
+next major release test round, not now. Item 3 (REMOTE page) started 2026-10-17, user decision: editor first, NO sending. REA done (E196: record
+layout, the original's cache file and when it sends). Done on round-0.8.22: full template model (records, edits,
+cache file byte-identical to the original's), our RemoteSets file next to the bank cache (import of the original's
+Windows cache once), Template Name / Knob Name editable, MIDI Channel Behaviour menu works, saved after each edit;
+checked under Xvfb with the TI2 (rename, knob name, flag, reload after restart). Nothing is sent to the Virus. Open,
+in order: MIDI String encoding + Knob Template list (REA: CMIDIStringParameter, table 0x1801c57b0 - read from the
+user's DLL at runtime, never copied), Load/Save Template File (format: REA), then the sending question (a capture of
+the original choosing/editing a template in the win10 VM with the user, then a test the user approves).
 
 ## Previous state (2026-10-17 afternoon: v0.8.21 released)
 

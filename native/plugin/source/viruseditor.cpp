@@ -1029,6 +1029,12 @@ public:
             event.consumed = true;
             return;
         }
+        if (e.type == "SearchEdit" && param.rfind("Remote Templates/", 0) == 0) { // REMOTE page fields (E196)
+            if (param == "Remote Templates/Template Name" || param == "Remote Templates/Knob Name")
+                edit_name(h, param);
+            event.consumed = true; // MIDI String (encoding open) and its info stay read-only
+            return;
+        }
         if (e.type == "SearchEdit" || (e.type == "RadioButton" && param == "Repository Actions/Search")) {
             edit_search(h);
             event.consumed = true;
@@ -1164,7 +1170,11 @@ public:
                 invalid();
                 return;
             }
-            plugin_->rename_part(edit_part_, t);
+            if (edit_param_.empty())
+                plugin_->rename_part(edit_part_, t);
+            else // a REMOTE page field: saved with the templates, nothing goes to the Virus
+                plugin_->set_remote_text(edit_param_, t);
+            edit_param_.clear();
             if (auto *f = getFrame()) // remove the edit field after the current event
                 f->doAfterEventProcessing([f, te]() { f->removeView(te); });
             invalid();
@@ -1322,6 +1332,7 @@ private:
         invalid();
     }
     int edit_part_ = 0;
+    std::string edit_param_; // edit_name: the REMOTE page field being edited, empty for a patch name
     std::vector<CRect> meter_rects_; // the part strips' meters
     EditorRenderer::Deps deps_;      // what the controls read (filled by full repaints)
     struct StaticLayer {
@@ -1486,15 +1497,18 @@ private:
         f->addView(te);
         te->takeFocus();
     }
-    void edit_name(const Hit &h)
+    // the part's patch name, or with `param` a REMOTE page text field (Template Name, Knob Name)
+    void edit_name(const Hit &h, const std::string &param = {})
     {
         auto *f = getFrame();
         if (!f)
             return;
         edit_part_ = h.part;
+        edit_param_ = param;
         editing_search_ = false;
         CRect r(h.x, h.y, h.x + h.element->w, h.y + h.element->h);
-        auto *te = new CTextEdit(r, this, 0, plugin_->patch_name(h.part).c_str());
+        std::string text = param.empty() ? plugin_->patch_name(h.part) : plugin_->live_text(param);
+        auto *te = new CTextEdit(r, this, 0, text.c_str());
         te->setBackColor(CColor(255, 255, 255, 255)); // the original: white field, system font
         te->setFontColor(CColor(0, 0, 0, 255));
         te->setFrameColor(CColor(255, 255, 255, 255));
@@ -1514,6 +1528,12 @@ private:
             bank_menu(h, at);
         else if (param == "Repository Actions/Category Filter")
             category_menu(at);
+        else if (param == "Remote Templates/MIDI Channel Behaviour") // code-defined in the original (E196)
+            show_list({{"Disable MIDI channel"}, {"Enable MIDI Channel"}}, plugin_->ui_value(param, -1), 0, at,
+                      [this, param](int i) {
+                          plugin_->ui_set(param, -1, i);
+                          invalid();
+                      });
         else
             popup_menu(h, at);
     }

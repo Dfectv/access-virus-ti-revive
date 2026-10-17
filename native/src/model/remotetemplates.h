@@ -40,14 +40,20 @@ public:
     // the cache file: every template's name record followed by its knob records, in a "MIDI" container
     std::vector<uint8_t> cache() const;
     int load_cache(const std::vector<uint8_t> &bytes); // the number of records taken (0: not a container)
+    bool load_file(const std::string &path);          // false: no file or no records in it
+    bool save_file(const std::string &path) const;    // whole: a temporary file renamed over the old one
 
 private:
     std::array<std::vector<uint8_t>, kTemplates> names_;
     std::array<std::array<std::vector<uint8_t>, kKnobs>, kTemplates> knobs_;
 };
 
-// the text of one of the page's code-defined parameters ("" for any other): the selected template's name, the
-// MIDI channel behaviour (0 = "Disable MIDI channel", 1 = "Enable MIDI Channel")
-std::string remote_text(const std::string &param, const RemoteTemplates &t, int selected, int behaviour);
+// the text of one of the page's code-defined parameters ("" for any other): the selected template's name and MIDI
+// channel behaviour ("Disable MIDI channel" / "Enable MIDI Channel"), the selected knob's name; `selected` -1 =
+// template 0, as the original shows it
+std::string remote_text(const std::string &param, const RemoteTemplates &t, int selected, int knob);
+// a text field of the page edited: Template Name or Knob Name; false for any other parameter (the MIDI string stays
+// read-only until its encoding is known, E196)
+bool remote_set_text(const std::string &param, RemoteTemplates &t, int selected, int knob, const std::string &text);
 
 } // namespace vti

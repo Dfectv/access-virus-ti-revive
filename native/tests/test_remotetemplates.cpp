@@ -3,6 +3,8 @@
 // ...", value list "Val MIDI Channel Behaviour": Disable MIDI channel / Enable MIDI Channel).
 #include "check.h"
 #include "model/remotetemplates.h"
+#include <ctime>
+#include <filesystem>
 using namespace vti;
 
 TEST(remote_templates_defaults)
@@ -13,7 +15,10 @@ TEST(remote_templates_defaults)
     CHECK(remote_text("Remote Templates/Template Name", t, 5, 0) == "Init Template");
     CHECK(remote_text("Remote Templates/Template Name", t, -1, 0) == "Init Template"); // nothing selected: template 0
     CHECK(remote_text("Remote Templates/MIDI Channel Behaviour", t, 0, 0) == "Disable MIDI channel");
-    CHECK(remote_text("Remote Templates/MIDI Channel Behaviour", t, 0, 1) == "Enable MIDI Channel");
+    t.set_channel_enabled(0, true); // the selected template's flag
+    CHECK(remote_text("Remote Templates/MIDI Channel Behaviour", t, 0, 0) == "Enable MIDI Channel");
+    CHECK(remote_text("Remote Templates/MIDI Channel Behaviour", t, -1, 0) == "Enable MIDI Channel");
+    CHECK(remote_text("Remote Templates/MIDI Channel Behaviour", t, 1, 0) == "Disable MIDI channel");
     CHECK(remote_text("Osc/Shape", t, 0, 0).empty());
 }
 
@@ -142,4 +147,37 @@ TEST(remote_templates_cache)
     cut.resize(100); // a truncated file: the complete records before the cut
     RemoteTemplates d;
     CHECK(d.load_cache(cut) == 1);
+}
+
+// the page's text fields: Template Name and Knob Name of the selected template / knob (nothing selected: template 0,
+// like the original shows it); the MIDI string stays read-only until its encoding is known (E196)
+TEST(remote_templates_text_fields)
+{
+    RemoteTemplates t;
+    CHECK(remote_set_text("Remote Templates/Template Name", t, 4, 0, "Bitwig"));
+    CHECK(t.name(4) == "Bitwig" && remote_text("Remote Templates/Template Name", t, 4, 0) == "Bitwig");
+    CHECK(remote_set_text("Remote Templates/Template Name", t, -1, 0, "Zero") && t.name(0) == "Zero");
+    CHECK(remote_set_text("Remote Templates/Knob Name", t, 4, 17, "Drive"));
+    CHECK(t.knob_name(4, 17) == "Drive" && remote_text("Remote Templates/Knob Name", t, 4, 17) == "Drive");
+    CHECK(remote_text("Remote Templates/Knob Name", t, 4, 16).empty());
+    CHECK(!remote_set_text("Remote Templates/MIDI String", t, 4, 17, "B0 05 FF"));
+    CHECK(!remote_set_text("Repository Actions/Search", t, 4, 17, "x"));
+}
+
+// the cache file on disk: written whole (a temporary file renamed over the old one), read back the same
+TEST(remote_templates_file)
+{
+    auto dir = std::filesystem::temp_directory_path() / ("vtitests-remote-" + std::to_string(::time(nullptr)));
+    std::filesystem::create_directories(dir);
+    const std::string path = (dir / "RemoteSets").string();
+    RemoteTemplates a;
+    a.set_name(9, "Saved");
+    CHECK(a.save_file(path));
+    RemoteTemplates b;
+    CHECK(b.load_file(path) && b.name(9) == "Saved");
+    CHECK(!std::filesystem::exists(path + ".tmp"));
+    RemoteTemplates c;
+    CHECK(!c.load_file((dir / "missing").string()) && c.name(9) == "Init Template");
+    CHECK(!a.save_file((dir / "no" / "such" / "dir" / "RemoteSets").string()));
+    std::filesystem::remove_all(dir);
 }

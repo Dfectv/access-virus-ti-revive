@@ -1,5 +1,7 @@
 #include "model/remotetemplates.h"
 #include <algorithm>
+#include <cstdio>
+#include <filesystem>
 
 namespace vti {
 
@@ -185,13 +187,57 @@ int RemoteTemplates::load_cache(const std::vector<uint8_t> &d)
     return taken;
 }
 
-std::string remote_text(const std::string &param, const RemoteTemplates &t, int selected, int behaviour)
+bool RemoteTemplates::load_file(const std::string &path)
 {
+    std::vector<uint8_t> d;
+    if (FILE *f = fopen(path.c_str(), "rb")) {
+        uint8_t buf[4096];
+        for (size_t n; (n = fread(buf, 1, sizeof buf, f)) > 0;)
+            d.insert(d.end(), buf, buf + n);
+        fclose(f);
+    }
+    return load_cache(d) > 0;
+}
+
+bool RemoteTemplates::save_file(const std::string &path) const
+{
+    const std::string tmp = path + ".tmp";
+    FILE *f = fopen(tmp.c_str(), "wb");
+    if (!f)
+        return false;
+    auto d = cache();
+    bool ok = fwrite(d.data(), 1, d.size(), f) == d.size();
+    ok = fclose(f) == 0 && ok;
+    std::error_code ec;
+    if (ok)
+        std::filesystem::rename(tmp, path, ec); // another instance reading meanwhile sees the old or the new file
+    if (!ok || ec)
+        std::filesystem::remove(tmp, ec);
+    return ok && !ec;
+}
+
+std::string remote_text(const std::string &param, const RemoteTemplates &t, int selected, int knob)
+{
+    const int sel = selected < 0 ? 0 : selected; // nothing selected yet: the original shows template 0
     if (param == "Remote Templates/Template Name")
-        return t.name(selected < 0 ? 0 : selected); // nothing selected yet: the original shows template 0
+        return t.name(sel);
     if (param == "Remote Templates/MIDI Channel Behaviour")
-        return behaviour ? "Enable MIDI Channel" : "Disable MIDI channel";
+        return t.channel_enabled(sel) ? "Enable MIDI Channel" : "Disable MIDI channel";
+    if (param == "Remote Templates/Knob Name")
+        return t.knob_name(sel, knob);
     return {};
+}
+
+bool remote_set_text(const std::string &param, RemoteTemplates &t, int selected, int knob, const std::string &text)
+{
+    const int sel = selected < 0 ? 0 : selected;
+    if (param == "Remote Templates/Template Name")
+        t.set_name(sel, text);
+    else if (param == "Remote Templates/Knob Name")
+        t.set_knob_name(sel, knob, text);
+    else
+        return false;
+    return true;
 }
 
 } // namespace vti

@@ -557,6 +557,7 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
     single_template_ = dev_.message("VirusTI_Singledump");
     ui_state_["VirusControl/InitialSyncProgress"] = 127; // exists before the sync thread updates it
     load_banks();
+    load_remote_templates();
     if (ed_.load(files->get("editordevice.xml"), err) && layout_.load(files->get("editor.xml"), err))
         cond_ = std::make_unique<Conditions>(dev_, ed_);
     else
@@ -1322,6 +1323,11 @@ int VirusPlugin::ui_value(const std::string &path, int part)
         return path[8] - '0';
     if (int sel; path == "Remote Templates/Selected Template" && !ui_state_get(path, sel))
         return -1; // REMOTE page: nothing selected until a click, like the original (E193)
+    if (path == "Remote Templates/MIDI Channel Behaviour") { // the selected template's flag (E196)
+        int sel = ui_value("Remote Templates/Selected Template", -1);
+        std::lock_guard<std::mutex> lk(remote_mu_);
+        return remote_.channel_enabled(sel < 0 ? 0 : sel) ? 1 : 0;
+    }
     const Parameter *param = cond_ ? cond_->find(path) : nullptr;
     if (param && param->part == "none")
         part = -1; // global parameters (Panel Part, globals) are not per part
@@ -1352,11 +1358,12 @@ int VirusPlugin::ui_value(const std::string &path, int part)
 
 std::string VirusPlugin::live_text(const std::string &param)
 {
-    if (param.rfind("Remote Templates/", 0) == 0) // REMOTE page (read-only, E193); before values_mu_ (ui_value locks it)
-        if (std::string r = remote_text(param, remote_, ui_value("Remote Templates/Selected Template", -1),
-                                        ui_value("Remote Templates/MIDI Channel Behaviour", -1));
-            !r.empty())
+    if (param.rfind("Remote Templates/", 0) == 0) { // REMOTE page (E196); before values_mu_ (ui_value locks it)
+        int sel = ui_value("Remote Templates/Selected Template", -1), knob = ui_value("Remote Templates/Selected Knob", -1);
+        std::lock_guard<std::mutex> lk(remote_mu_);
+        if (std::string r = remote_text(param, remote_, sel, knob); !r.empty())
             return r;
+    }
     if (param.rfind("Browser ", 0) == 0 && param.find("/Selected Bank") != std::string::npos) // the bank menu
         return bank_title(ui_value(param, -1));
     if (param == "Repository Actions/Category Filter") {
@@ -1393,6 +1400,14 @@ void VirusPlugin::ui_set(const std::string &path, int part, int value)
     }
     if (std::string t = softknob_target(path, part); !t.empty()) {
         ui_set(t, part, value); // turning a soft knob edits its target (original: 0x1800a2840)
+        return;
+    }
+    if (path == "Remote Templates/MIDI Channel Behaviour") { // REMOTE page: the template's flag, saved, not sent
+        int sel = ui_value("Remote Templates/Selected Template", -1);
+        std::lock_guard<std::mutex> lk(remote_mu_);
+        remote_.set_channel_enabled(sel < 0 ? 0 : sel, value != 0);
+        save_remote_templates();
+        ui_dirty_ = true;
         return;
     }
     if (!dev_.find(path) && !ed_.find(path)) { // the original's internal parameters (browser state)
@@ -1635,6 +1650,44 @@ static std::string own_cache_dir()
         return std::string(home) + "/.local/share/virus-ti-native/cache";
 #endif
     return {};
+}
+
+// REMOTE page templates: our RemoteSets file (the original's format, E196); without one, once, the original's cache
+// on Windows ({common_appdata} = ProgramData), read only. Missing both: the original's defaults.
+void VirusPlugin::load_remote_templates()
+{
+    std::string d = own_cache_dir();
+    if (d.empty())
+        return;
+    remote_path_ = d + "/RemoteSets";
+    std::lock_guard<std::mutex> lk(remote_mu_);
+    if (remote_.load_file(remote_path_))
+        return;
+#ifdef _WIN32
+    if (const char *pd = getenv("ProgramData"))
+        remote_.load_file(std::string(pd) + "/Access Music/Virus TI/Cache/RemoteSets");
+#endif
+}
+
+void VirusPlugin::save_remote_templates()
+{
+    if (remote_path_.empty())
+        return;
+    std::error_code ec;
+    std::filesystem::create_directories(std::filesystem::path(remote_path_).parent_path(), ec);
+    if (!remote_.save_file(remote_path_))
+        fprintf(stderr, "Virus TI native: cannot write %s\n", remote_path_.c_str());
+}
+
+bool VirusPlugin::set_remote_text(const std::string &param, const std::string &text)
+{
+    int sel = ui_value("Remote Templates/Selected Template", -1), knob = ui_value("Remote Templates/Selected Knob", -1);
+    std::lock_guard<std::mutex> lk(remote_mu_);
+    if (!remote_set_text(param, remote_, sel, knob, text))
+        return false;
+    save_remote_templates();
+    ui_dirty_ = true;
+    return true;
 }
 
 // The Virus' RAM banks: our cache (tools/virussync, later the plug-in's own sync), else the original's Access cache
