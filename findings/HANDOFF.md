@@ -17,6 +17,19 @@ Not done: E180 pixel comparison with the original (needs the original's editor a
 with the user); E187 earlier crackle and E175: nothing to do until they show up again. Next: the user's checklist (Linux L1-L2, VM W1-W2, Mac M1-M3, bare metal B1-B2), then merge + release 0.8.21
 (bump project VERSION in native/CMakeLists.txt). Issue #4 closed (E188).
 
+**Round 0.8.21 work after the comparison (2026-10-17 afternoon, branch round-0.8.21, pushed, 153 tests; user
+decisions: OS version read from flash = yes (A), broker version in the driver rows, REMOTE page now, keep our help
+mode, plain menus first):** DONE: menus anchored + 25/column + right click through the ring (E189); out-of-range
+values clamped (Bands "32"); INFO box: website text, "TI Revive <v>", broker version (new VTIMSG_INFO, make VERSION=,
+CI + release scripts), Virus OS read by the broker with the original's fixed read-only flash sequence
+(flashinfo.h, VTIMSG_FLASHINFO, owner only, cached; tested on the TI2: "5.1.7.00", E191); FILTER LINK: no change
+(E190, the original resets the links). NOTE: commit 1d4ec04 did not build, fixed in 5492ec7. OPEN: HyperSaw display
+(REA KOscHypersawShape), Delay Clock greyed in ours (condition semantics), page tabs greyed without a Virus in the
+original, REMOTE page (remote templates), small drawing diffs (envelopes, filter curve, saw edge, inactive text
+alpha), then CI test build + new checklist. Checks the user may still do in the original (win10 VM, Access
+driver; TI Revive removed there, snapshot before-original-driver): MATRIX list columns, left click on "Sine",
+Delay Send vs Clock. The Virus is on Linux again (installed broker 0.8.20 running).
+
 **Round 0.8.21 POSTPONED (user, 2026-10-17 noon): W2 failed (Wavetable list), then a full comparison with the
 original.** Reference: the original Virus Control 5.1.7 in the win10 VM with the Access driver (TI Revive removed
 there, snapshot before-original-driver), 21 screenshots of every page taken with virsh screenshot (scratchpad only,
