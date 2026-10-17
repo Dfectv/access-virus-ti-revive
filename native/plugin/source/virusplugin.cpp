@@ -59,6 +59,7 @@ static bool env_no_ping() // R5 test: the old stamping without sync ping / marke
 }
 
 static const char *const USB_IO_PATH = "Global USB/Virus Control USB IO Configuration";
+static const char *const SYNC_INFO_PATH = "Global USB/Sync Information Event"; // global 0x54 from the Virus (E205)
 
 // the USB IO configuration of this computer: VTI_IO_CONFIG (tests), else <plug-in folder>/usb-io, else 0
 static int load_usb_io()
@@ -634,6 +635,7 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
         drain_param_updates();
         load_reported_presets();
         report_offline();
+        tick_sync_alert();
         diag_report(); // also with the editor closed (host rate and block sizes, E187)
     });
     sync_ = std::make_unique<MemorySync>([this](const std::vector<uint8_t> &m) {
@@ -928,6 +930,8 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             }
         }
     } process_timer{this, data.numSamples};
+    host_playing_.store(data.processContext && (data.processContext->state & ProcessContext::kPlaying),
+                        std::memory_order_relaxed); // the sync error page: shown while playing, cleared by Play
     if ((data.processContext && (data.processContext->state & ProcessContext::kPlaying)) ||
         (data.inputEvents && data.inputEvents->getEventCount() > 0))
         last_play_ms_.store(now_ms(), std::memory_order_relaxed);
@@ -1250,6 +1254,33 @@ void VirusPlugin::wait_offline(ProcessData &data, double ratio, int64_t &newest)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     newest = need;
+}
+
+// worker thread: the original's sync error page (SyncAlert, E205) - the transport, Live Mode and its 50 ms tick; the
+// page is the editor state "Info Panel/Page" (the skin shows "A sync error occurred. Press Stop and Play to clear.")
+void VirusPlugin::tick_sync_alert()
+{
+    const int64_t now = now_ms();
+    std::lock_guard<std::mutex> lk(sync_alert_mu_);
+    sync_alert_.play(host_playing_.load(std::memory_order_relaxed));
+    sync_alert_.live_mode(ui_value("VirusControl/Live Mode", -1) == 1);
+    if (sync_tick_ms_ == 0 || now - sync_tick_ms_ > 1000)
+        sync_tick_ms_ = now; // first call, or the worker paused: no burst of ticks
+    for (; sync_tick_ms_ + 50 <= now; sync_tick_ms_ += 50)
+        sync_alert_.tick();
+    if (sync_alert_.take_change()) {
+        if (ui_state_set("Info Panel/Page", sync_alert_.page()))
+            ui_dirty_ = true;
+        out_->log(sync_alert_.page() ? "Virus TI native: sync error shown (%d late events since Play, %d in total)\n"
+                                     : "Virus TI native: sync error cleared by Play (%d, %d)\n",
+                  sync_alert_.since_play(), sync_alert_.total());
+    }
+    if (sync_alert_.total() != sync_logged_ && now - sync_log_ms_ >= 10000) { // field diagnostics, at most every 10 s
+        sync_logged_ = sync_alert_.total();
+        sync_log_ms_ = now;
+        out_->log("Virus TI native: %d sync reports from the Virus so far (%d since Play)\n", sync_alert_.total(),
+                  sync_alert_.since_play());
+    }
 }
 
 // worker thread: an offline render in the log and on the LCD, and waits that gave up
@@ -2595,6 +2626,13 @@ void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
         }
         if (c.path == USB_IO_PATH) { // changed on the Virus: keep it as this computer's setting
             set_usb_io(c.value, true);
+            continue;
+        }
+        if (c.path == SYNC_INFO_PATH) { // an event reached the Virus too late for its time stamp (E205)
+            if (c.value == 1) {
+                std::lock_guard<std::mutex> lk(sync_alert_mu_);
+                sync_alert_.event();
+            }
             continue;
         }
         if (c.part > 15)

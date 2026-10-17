@@ -210,9 +210,15 @@ Virus makes of the original's Init patch.
 page and the page tabs are locked, as in the original. The page goes away by itself when the Virus is back. Do not
 follow its advice to hold ARP EDIT while switching the Virus on; TI Revive does not need that.
 
-**Export and freeze at real-time speed.** The Virus plays in real time, so when your DAW renders offline (export,
-freeze, offline bounce), the plug-in holds each block until the Virus has made its sound: the render is right and
-takes as long as the song. Right after a project opens, the render first waits a few seconds for the Virus.
+**Export and freeze without a workaround.** The original refused offline rendering, so you had to find your DAW's
+real-time render setting or record the Virus live. TI Revive supports it: when your DAW renders offline (export,
+freeze, offline bounce), the plug-in holds each block until the Virus has made its sound. The render is right, but not
+faster than the song: the Virus plays in real time. Right after a project opens, the render first waits a few seconds
+for the Virus.
+
+**"A sync error occurred. Press Stop and Play to clear."** Like the original, the editor shows this when the Virus
+reports several notes in a row that arrived too late for their time stamp while your DAW plays. Stop and Play clears
+it. If it comes back, use a USB port the Virus does not share with other devices; the original gives the same advice.
 
 **Start playback slightly before the first note.** The plug-in sends notes to the Virus ahead of time to make up
 for the USB round trip; right at Play, notes in the first quarter second can come late or be skipped. This was the
@@ -239,6 +245,9 @@ same with Access' own driver.
   <sub>The LOAD menu reaching beyond the plug-in window (Linux), drawn from your own Access installer. TI Revive is not affiliated with Access Music or Kemper.</sub>
 </p>
 
+- **Export, freeze and offline bounce** work without a real-time render setting or a live recording: the plug-in
+  renders at the pace of the Virus. The original refused offline renders.
+- **The original's sync error message**, shown when the Virus reports late notes while your DAW plays.
 - **One plug-in instance per synth.** Virus Control is designed that way (it controls all 16 parts);
   a second instance shows "Virus in use by another instance" and takes over when the first one is removed.
 - **Hearing the Virus**: with a part output set to *USB*, the audio comes through the plug-in track.
@@ -393,7 +402,7 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 - **Automation rate limit** (250 messages/s, coalesced per parameter): unthrottled parameter floods hung the Virus'
   audio until a power cycle within 4 minutes; with the limit a 4-minute full-load test (16 channels of notes + 32
   automation lanes) passes.
-- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 196 unit
+- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 203 unit
   tests run with every release build on Windows and Linux, plus two end-to-end tests on Linux in a virtual display
   (two editors of a duplicated track; the Control Center's window and close button).
 

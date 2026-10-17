@@ -9,6 +9,7 @@
 #include "device/broker.h"
 #include "device/memsync.h"
 #include "device/offlinepace.h"
+#include "model/syncalert.h"
 #include "device/resampler.h"
 #include "device/sidechain.h"
 #include "model/devicestatus.h"
@@ -537,6 +538,13 @@ private:
     int offline_timeouts_reported_ = 0;      // worker
     void wait_offline(Steinberg::Vst::ProcessData &data, double ratio, int64_t &newest);
     void report_offline();
+    // the original's sync error page (E205): events from the Virus (broker rx thread), ticks and transport (worker)
+    SyncAlert sync_alert_;
+    std::mutex sync_alert_mu_;
+    std::atomic<bool> host_playing_{false}; // audio thread -> worker
+    int64_t sync_tick_ms_ = 0, sync_log_ms_ = 0; // worker
+    int sync_logged_ = 0;                        // worker
+    void tick_sync_alert();
     // host rate != 44.1 kHz: the Virus' audio through the resampler, read from a steered fractional position
     Resampler resampler_;
     std::vector<float> rs_src_[6]; // USB 1 L/R, USB 2 L/R, USB 3 L/R

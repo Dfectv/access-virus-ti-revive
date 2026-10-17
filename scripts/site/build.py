@@ -406,10 +406,15 @@ def page_landing(latest, releases, sums):
       <p>Switched off or unplugged, the editor shows the original's &ldquo;No Virus TI can be found&rdquo; page and the
       page tabs are locked, as in the original. The page goes away by itself when the Virus is back. Do not follow its
       advice to hold ARP EDIT while switching the Virus on; TI Revive does not need that.</p></details>
-      <details><summary>Export and freeze at real-time speed</summary>
-      <p>The Virus plays in real time, so when your DAW renders offline (export, freeze, offline bounce), the plug-in
-      holds each block until the Virus has made its sound: the render is right and takes as long as the song. Right
-      after a project opens, the render first waits a few seconds for the Virus.</p></details>
+      <details><summary>Export and freeze without a workaround</summary>
+      <p>The original refused offline rendering, so you had to find your DAW's real-time render setting or record the
+      Virus live. TI Revive supports it: when your DAW renders offline (export, freeze, offline bounce), the plug-in
+      holds each block until the Virus has made its sound. The render is right, but not faster than the song: the
+      Virus plays in real time. Right after a project opens, the render first waits a few seconds for the Virus.</p></details>
+      <details><summary>&ldquo;A sync error occurred. Press Stop and Play to clear.&rdquo;</summary>
+      <p>Like the original, the editor shows this when the Virus reports several notes in a row that arrived too late
+      for their time stamp while your DAW plays. Stop and Play clears it. If it comes back, use a USB port the Virus does
+      not share with other devices; the original gives the same advice.</p></details>
       <details><summary>The first notes after Play are late</summary>
       <p>The plug-in sends notes slightly ahead to make up for the USB round trip, so start playback a little before
       the first note. The original driver did the same.</p></details>
@@ -493,6 +498,9 @@ def features_section():
         <li>A help mode: the ? button explains every control, and why a greyed-out one is inactive.</li>
         <li>The REMOTE page (since 0.8.22): the Virus' remote templates with their names, knob names and MIDI strings, the original's knob template list, template files to load and save, sent to the Virus like the original.</li>
         <li>Projects bring back every patch setting of all 16 parts.</li>
+        <li>Export, freeze and offline bounce work without a real-time render setting or a live recording: the plug-in
+        renders at the pace of the Virus. The original refused offline renders.</li>
+        <li>The original's sync error message, shown when the Virus reports late notes while your DAW plays.</li>
         <li>VST3 on Windows, macOS and Linux; Audio Unit for Logic and GarageBand. Native on Apple Silicon.</li>
         <li>Editor sizes from 100 to 200 %. On larger sizes and Retina screens each image is enlarged once with a
         sharp filter, in memory only.</li>
@@ -662,7 +670,7 @@ def page_changelog_landing(releases):
 # the README's screenshots that the site shows too (copied at build time)
 SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png", "plugin-help-inactive.png",
                  "plugin-menus.png"]
-TESTS = 196 # unit tests in native/tests (vtitests), as of 2026-10-17 (offline render)
+TESTS = 203 # unit tests in native/tests (vtitests), as of 2026-10-17 (offline render, sync error page)
 # line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
 COVERAGE, COVERAGE_DATE = "94 %", "16 Oct 2026"
 

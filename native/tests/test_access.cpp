@@ -193,6 +193,43 @@ TEST(access_editor_render_deps_and_clip)
             CHECK(rc[2] > 0 && rc[3] > 0);
 }
 
+// the Virus' Sync Information Event (E072: F0 00 20 33 01 10 73 00 54 01 F7 on EP 0x86 cable 2) is the global the
+// sync error page counts (E205), and the editor's Info Panel shows another set of elements for page 1
+TEST(access_sync_information_event)
+{
+    bool found = false;
+    for (auto &c : dev().decode({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x54, 0x01, 0xF7}))
+        found |= c.path == "Global USB/Sync Information Event" && c.value == 1;
+    CHECK(found);
+    AccessFiles *a = files();
+    static RemoteDevice ed;
+    std::string err;
+    CHECK(ed.load(a->get("editordevice.xml"), err));
+    EditorLayout layout;
+    CHECK(layout.load(a->get("editor.xml"), err));
+    Conditions cond(dev(), ed);
+    EditorRenderer r(layout, cond, dev(), ed);
+    int info_page = 0;
+    r.values = [&](const std::string &p, int) {
+        if (p == "Info Panel/Page")
+            return info_page;
+        if (p == "VirusControl/InitialSyncProgress")
+            return 127;
+        const Parameter *q = cond.find(p);
+        return q ? q->def : 0;
+    };
+    EditorRenderer::Deps deps;
+    r.deps = &deps;
+    RecordCanvas c0;
+    r.render(c0);
+    CHECK(deps.cond.count("Info Panel/Page")); // a page change is a structure change (full repaint)
+    const auto normal = r.static_signature();
+    info_page = 1;
+    RecordCanvas c1;
+    r.render(c1);
+    CHECK(r.static_signature() != normal); // the alert's elements instead of the standard info panel
+}
+
 // every page of the original's editor (pages, sections, part strips), with images of a fixed size so the drawing
 // code that depends on image sizes (knob frames, sliders, fonts) runs too; hit tests over the whole frame
 struct ImageCanvas : RecordCanvas {
