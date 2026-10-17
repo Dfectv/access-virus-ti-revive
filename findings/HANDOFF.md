@@ -4,7 +4,18 @@ _Last updated: 2026-10-17 night (CONTINUE HERE below; round 0.8.22 in progress).
 Evidence: [evidence.md](evidence.md) (E001-E202), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE (state 2026-10-17 night: round 0.8.22, popup windows done on Linux, CI for Windows/macOS)
+## CONTINUE HERE (state 2026-10-17 evening: v0.8.22 released)
+
+**Released v0.8.22** (tag on main 5116102, CI run 39051260777 all green incl. release; assets: setup.exe, msi, mac zip,
+linux tarball, tirevive-usbinfo.ps1, libusb source). After the tag (user): menus framed as "reworked, modernized, the
+same on Windows, macOS and Linux" in README, site and the GitHub release text (edited with gh release edit, only the
+menu paragraph), screenshot docs/images/plugin-menus.png (LOAD > device > RAM A, Xvfb with a grey root, the installed
+0.8.22d plug-in with the TI2) in README and on the site. Website rebuilt by hand (site run 39052054849), live: 0.8.22,
+190 unit tests, "Menus, reworked" with the image. Test machines: Linux and win11 VM have 0.8.22d (same code as the
+release), the Mac 0.8.22d (user installed). Virus on Linux. Next round candidates: from the older lists below (E180
+pixel comparison, inactive text strength, bare-metal list, E175).
+
+## Previous state (state 2026-10-17 night: round 0.8.22, popup windows done on Linux, CI for Windows/macOS)
 
 **Results 0.8.22c (user, 2026-10-17):** L6 pass, L7 FAIL (Alt-Tab did not close the menu on Linux: no focus token
 there -> fixed, _NET_ACTIVE_WINDOW, not tried yet), W4 pass, W5 pass, W3 pass, W2 FAIL ("Knob Name is working but the
