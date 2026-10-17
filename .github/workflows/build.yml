@@ -49,6 +49,11 @@ jobs:
         run: |
           cmake -S native -B native-build -G "Visual Studio 17 2022" -A x64
           cmake --build native-build --config Release --target VirusTINative VirusTINative_ASIO tirevive-cc TIReviveControlCenter vtitests
+      - name: Pester 5 (installer script tests in ctest)
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable Pester | Where-Object Version -ge ([version]'5.0'))) {
+              Install-Module Pester -MinimumVersion 5.5 -Scope CurrentUser -Force -SkipPublisherCheck }
       - name: Unit tests
         run: ctest --test-dir native-build -C Release --output-on-failure
       - name: Collect

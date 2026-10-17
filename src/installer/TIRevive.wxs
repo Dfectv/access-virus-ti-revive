@@ -38,6 +38,7 @@
       <Component><File Id="driverps1" Source="$(var.Src)\installer\tirevive-driver.ps1" /></Component>
       <Component><File Id="accessps1" Source="$(var.Src)\installer\tirevive-access.ps1" /></Component>
       <Component><File Id="shortcutsps1" Source="$(var.Src)\installer\tirevive-shortcuts.ps1" /></Component>
+      <Component><File Id="bundlesps1" Source="$(var.Src)\installer\tirevive-bundles.ps1" /></Component>
       <Component><File Source="$(var.Src)\installer\notice.rtf" /></Component>
       <Component><File Id="licensetxt" Source="$(var.Src)\..\LICENSE" Name="LICENSE.txt" /></Component>
       <Component><File Source="$(var.Src)\..\THIRD-PARTY-NOTICES.txt" /></Component>
@@ -72,10 +73,21 @@
     <SetProperty Id="CA_DriverUninstall" Sequence="execute" Before="CA_DriverUninstall"
                  Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]tirevive-driver.ps1&quot; uninstall" />
     <CustomAction Id="CA_DriverUninstall" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64" Execute="deferred" Impersonate="no" Return="ignore" />
+    <!-- an .msi run directly (no setup.exe) removes the uninstall entries of earlier setup.exe installs whose MSI it
+         replaces (E186); two actions: the script exists only after InstallFiles (install) and before RemoveFiles (uninstall) -->
+    <SetProperty Id="CA_StaleBundles" Sequence="execute" Before="CA_StaleBundles"
+                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]tirevive-bundles.ps1&quot; -Run" />
+    <CustomAction Id="CA_StaleBundles" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64" Execute="deferred" Impersonate="no" Return="ignore" />
+    <SetProperty Id="CA_StaleBundlesUninstall" Sequence="execute" Before="CA_StaleBundlesUninstall"
+                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]tirevive-bundles.ps1&quot; -Run" />
+    <CustomAction Id="CA_StaleBundlesUninstall" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64" Execute="deferred" Impersonate="no" Return="ignore" />
     <InstallExecuteSequence>
       <Custom Action="CA_StopBroker" Before="InstallValidate" />
       <Custom Action="CA_DriverInstall" After="InstallFiles" Condition="NOT REMOVE" />
       <Custom Action="CA_DriverUninstall" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="CA_StaleBundles" After="InstallFiles" Condition="NOT REMOVE AND NOT TIREVIVE_BUNDLE" />
+      <Custom Action="CA_StaleBundlesUninstall" Before="RemoveFiles"
+              Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT TIREVIVE_BUNDLE" />
     </InstallExecuteSequence>
 
     <!-- exit dialog: install the user's Access software now (as the user; msiexec elevates itself) -->
@@ -85,6 +97,8 @@
                   ExeCommand="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;[INSTALLFOLDER]tirevive-access.ps1&quot; -FromMsi &quot;[OriginalDatabase]&quot; -SourceDir &quot;[TIREVIVE_SOURCEDIR]&quot;" />
     <!-- set by TI-Revive-setup.exe (TIReviveSetup.wxs): the folder of the setup.exe, where the Access .msi usually is -->
     <Property Id="TIREVIVE_SOURCEDIR" Secure="yes" />
+    <!-- set by TI-Revive-setup.exe on every action: Burn handles its own and older bundles' entries (CA_StaleBundles) -->
+    <Property Id="TIREVIVE_BUNDLE" Secure="yes" />
     <WixVariable Id="WixUILicenseRtf" Value="$(var.Src)\installer\notice.rtf" />
     <!-- own artwork (src/installer/art/make_art.py), no Access/Kemper material -->
     <WixVariable Id="WixUIBannerBmp" Value="$(var.Src)\installer\art\banner.bmp" />

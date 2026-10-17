@@ -15,6 +15,8 @@
     <Chain>
       <MsiPackage SourceFile="$(var.Msi)" bal:PrimaryPackageType="default">
         <MsiProperty Name="TIREVIVE_SOURCEDIR" Value="[WixBundleOriginalSourceFolder]" />
+        <!-- the MSI then leaves the bundle entries to Burn (tirevive-bundles.ps1, E186) -->
+        <MsiProperty Name="TIREVIVE_BUNDLE" Value="1" />
       </MsiPackage>
     </Chain>
   </Bundle>
