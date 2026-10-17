@@ -806,7 +806,7 @@ public:
             else if (param.rfind("Browser ", 0) == 0)
                 bank_menu(h, event.mousePosition);
             else if (param == "Repository Actions/Category Filter")
-                category_menu(h, event.mousePosition);
+                category_menu(event.mousePosition);
             else
                 popup_menu(h, event.mousePosition);
             event.consumed = true;
@@ -1216,7 +1216,7 @@ private:
         menu->forget();
     }
 
-    void category_menu(const Hit &h, const CPoint &where)
+    void category_menu(const CPoint &where)
     {
         auto *menu = new COptionMenu(CRect(), nullptr, -1, nullptr, nullptr, COptionMenu::kCheckStyle);
         // the original's list: "All" + the categories in alphabetical order (editordevice "Val Name Category Filter")

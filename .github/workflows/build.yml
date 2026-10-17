@@ -155,7 +155,7 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Build
         run: |
-          cmake -S native -B native-build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake -S native -B native-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DVTI_WERROR=ON # a new warning in our code fails here (E13)
           cmake --build native-build --target VirusTINative tirevive-cc TIReviveControlCenter vtitests nativehost xclose
           strip "native-build/VST3/Release/TI Revive Virus Control.vst3/Contents/x86_64-linux/TI Revive Virus Control.so"
           mkdir native-linux && cp -R "native-build/VST3/Release/TI Revive Virus Control.vst3" native-linux/

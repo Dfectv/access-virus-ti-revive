@@ -44,17 +44,17 @@ bool set_plugin_log(bool on, std::string &error)
     return true;
 }
 
+#if defined(_WIN32) || defined(__APPLE__) // Linux: the journal
 static std::string broker_log_file()
 {
 #ifdef _WIN32
     const char *t = getenv("TEMP");
     return t ? std::string(t) + "\\vtibroker.log" : std::string();
-#elif defined(__APPLE__)
-    return "/tmp/tirevive-vtibroker.log";
 #else
-    return {}; // the journal
+    return "/tmp/tirevive-vtibroker.log";
 #endif
 }
+#endif
 
 std::string broker_log_location()
 {

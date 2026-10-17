@@ -50,7 +50,7 @@ target_compile_definitions(tirevive-cc PRIVATE TIREVIVE_VERSION="${PROJECT_VERSI
 # Control Center app (ccapp/, docs/controlcenter.md): a window around src/cc, VSTGUI's standalone library
 vstgui_add_executable(TIReviveControlCenter "ccapp/ccapp.cpp;ccapp/nerdmode.cpp;ccapp/skinpage.cpp;ccapp/skinview.cpp")
 target_link_libraries(TIReviveControlCenter PRIVATE vticore)
-target_include_directories(TIReviveControlCenter PRIVATE external/vst3sdk/vstgui4)
+target_include_directories(TIReviveControlCenter SYSTEM PRIVATE external/vst3sdk/vstgui4)
 target_compile_definitions(TIReviveControlCenter PRIVATE TIREVIVE_VERSION="${PROJECT_VERSION}")
 # one place for every generator (the generator expression keeps MSVC/Xcode from adding a config folder):
 # <build>/ccapp/TIReviveControlCenter[.exe], on macOS <build>/ccapp/TI Revive Control Center.app
@@ -175,4 +175,35 @@ if(PWSH_EXECUTABLE)
              COMMAND ${PWSH_EXECUTABLE} -NoProfile -NonInteractive -Command
                      "if (-not (Get-Module -ListAvailable Pester | Where-Object Version -ge ([version]'5.0'))) { exit 77 }; Import-Module Pester -MinimumVersion 5.0; $r = Invoke-Pester '${CMAKE_CURRENT_SOURCE_DIR}/../src/installer/tests' -Output Detailed -PassThru; exit [int]($r.FailedCount + $r.FailedBlocksCount + $r.FailedContainersCount -gt 0)")
     set_tests_properties(installer_scripts PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+endif()
+
+# compiler warnings for our own sources (E13; not for the SDK, VSTGUI or pugixml): -Wall -Wextra with GCC/Clang,
+# MSVC keeps its default /W3. VTI_WERROR (CI on Linux) turns them into errors, so new ones fail the build.
+option(VTI_WERROR "treat warnings in our own sources as errors" OFF)
+if(NOT MSVC)
+    # the SDK's headers as system headers in our sources: their warnings are not ours
+    foreach(_t base pluginterfaces sdk_common sdk sdk_hosting vstgui vstgui_support vstgui_uidescription
+               vstgui_standalone pugixml-static pugixml)
+        if(TARGET ${_t})
+            get_target_property(_alias ${_t} ALIASED_TARGET)
+            if(NOT _alias)
+                set_target_properties(${_t} PROPERTIES SYSTEM ON)
+            endif()
+        endif()
+    endforeach()
+    set(_vti_warn -Wall -Wextra $<$<BOOL:${VTI_WERROR}>:-Werror>)
+    foreach(_t vticore vtimodel virusctl virusmon virussync tirevive-cc TIReviveControlCenter vtitests nativehost
+               vtirender xclose VirusTINative VirusTINative_AU VirusTINative_ASIO asiohost)
+        if(NOT TARGET ${_t})
+            continue()
+        endif()
+        get_target_property(_dir ${_t} SOURCE_DIR)
+        get_target_property(_srcs ${_t} SOURCES)
+        foreach(_s ${_srcs})
+            cmake_path(ABSOLUTE_PATH _s BASE_DIRECTORY ${_dir} OUTPUT_VARIABLE _abs)
+            if(NOT _abs MATCHES "/external/" AND _abs MATCHES "\\.(c|cpp|mm)$")
+                set_property(SOURCE ${_s} DIRECTORY ${_dir} APPEND PROPERTY COMPILE_OPTIONS ${_vti_warn})
+            endif()
+        endforeach()
+    endforeach()
 endif()
