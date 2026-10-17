@@ -5,7 +5,8 @@
 // --hold T: C4 on at T s and held to the end; --param-at T:ID=NORM: a parameter change at T s (repeatable) - e.g. to
 // hear whether the Virus applies a change to a held note.
 // --duplicate T: a second instance runs next to the first from the start (a DAW's duplicated track, issue #6) with
-// the same notes; at T s the first is removed and the second takes over the Virus.
+// the same notes; at T s the first is removed and the second takes over the Virus. --editor2 with it: the editor
+// of the duplicate instead of the first (its "Virus unavailable" page while it waits; Linux REAPER crash, E183).
 // --state loads a state (a raw component state, or vtihost's VTISTATE file: the original's state), checks that
 // getState returns it unchanged, --param applies parameter changes through process(), --save writes getState.
 #include "public.sdk/source/common/memorystream.h"
@@ -196,7 +197,7 @@ int main(int argc, char **argv)
     }
     const char *state = nullptr, *save = nullptr, *wav = nullptr;
     int wav_bus = 0; // the output bus that is measured and written (0 = Out 1)
-    bool notes = false, editor = false, stress = false, stress_notes = true, stress_params = true, scan = false;
+    bool notes = false, editor = false, editor2 = false, stress = false, stress_notes = true, stress_params = true, scan = false;
     double stress_stop = 1e9;
     double duplicate = 0; // --duplicate T: remove the first of two instances after T s
     double sc_sine = 0; // --sidechain-sine HZ: a sine (-6 dBFS) on the Sidechain bus (input bus 1)
@@ -259,6 +260,8 @@ int main(int argc, char **argv)
             rate = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--editor"))
             editor = true;
+        else if (!strcmp(argv[i], "--editor2"))
+            editor = editor2 = true;
         else if (!strcmp(argv[i], "--scan")) // what a DAW's plug-in scan does: initialize, query, terminate
             scan = true;
         else if ((!strcmp(argv[i], "--click") || !strcmp(argv[i], "--drag") || !strcmp(argv[i], "--shot") ||
@@ -358,12 +361,12 @@ int main(int argc, char **argv)
     Display *dpy = nullptr;
     Window win = 0;
     IPlugView *view = nullptr;
-    if (editor && ctl) {
+    auto open_editor = [&](IEditController *ec) -> bool {
         dpy = XOpenDisplay(nullptr);
-        view = ctl->createView(ViewType::kEditor);
+        view = ec->createView(ViewType::kEditor);
         if (!dpy || !view) {
             fprintf(stderr, "nativehost: no display or no editor\n");
-            return 1;
+            return false;
         }
         ViewRect r{};
         view->getSize(&r);
@@ -376,7 +379,10 @@ int main(int argc, char **argv)
         printf("editor %dx%d attached -> %d\n", r.getWidth(), r.getHeight(),
                (int)view->attached((void *)(uintptr_t)win, kPlatformTypeX11EmbedWindowID));
         map_children(dpy, win);
-    }
+        return true;
+    };
+    if (editor && !editor2 && ctl && !open_editor(ctl))
+        return 1;
 #endif
     ProcessSetup ps{kRealtime, kSample32, block, static_cast<SampleRate>(rate)}; // explicit: newer clang refuses narrowing
     proc->setupProcessing(ps);
@@ -408,6 +414,14 @@ int main(int argc, char **argv)
         auto *ms = new MemoryStream(st.data(), (TSize)st.size());
         printf("duplicate: setState(%zu bytes) -> %d\n", st.size(), (int)comp2->setState(ms));
         ms->release();
+#ifdef __linux__
+        if (editor2) {
+            FUnknownPtr<IEditController> ctl2(comp2);
+            if (!ctl2 || !open_editor(ctl2))
+                return 1;
+            ctl = ctl2; // a --reopen opens the duplicate's editor again
+        }
+#endif
     }
     HostProcessData *outd = &data; // the instance whose output is measured / written
     ParameterChanges pc, outpc;

@@ -75,20 +75,26 @@ if ($product) {
         "Remove it? The files TI Revive's plug-in needs (skin, ROM banks, manuals) and your patch libraries stay.")
 }
 $extracted = $null
-if (-not (HaveFiles)) {
+# set up before 0.8.2, the Control Center's look was never copied (only the needed files decide): unpack the Access
+# .msi again when one is at hand, without asking for it (E183)
+$needed_missing = -not (HaveFiles)
+$look_missing = -not ($optional | Where-Object { Test-Path (Join-Path $target "Common\$_") })
+if ($needed_missing -or $look_missing) {
     if (-not $Msi) {
         $dirs = @($SourceDir, (Join-Path $env:USERPROFILE 'Downloads'), (Join-Path $env:USERPROFILE 'Desktop')) | Where-Object { $_ }
         $Msi = $dirs | ForEach-Object { Get-ChildItem $_ -Filter '*Virus TI*.msi' -ErrorAction SilentlyContinue } |
             Where-Object Name -NotMatch 'TI Revive' | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
     }
-    if (-not $Msi -and -not $Quiet) {
+    if (-not $Msi -and -not $Quiet -and $needed_missing) {
         Add-Type -AssemblyName System.Windows.Forms
         $dlg = New-Object System.Windows.Forms.OpenFileDialog
         $dlg.Title = 'Select the Access "Virus TI Software Suite" installer (64-bit .msi)'
         $dlg.Filter = 'Windows Installer (*.msi)|*.msi'
         if ($dlg.ShowDialog() -eq 'OK') { $Msi = $dlg.FileName }
     }
-    if (-not $Msi) { Say 'No Access "Virus TI Software Suite" .msi selected: nothing was set up.' 'Warning'; exit 1 }
+    if (-not $Msi -and $needed_missing) { Say 'No Access "Virus TI Software Suite" .msi selected: nothing was set up.' 'Warning'; exit 1 }
+}
+if ($Msi -and ($needed_missing -or $look_missing)) {
     $extracted = Join-Path $env:TEMP 'tirevive-access-extract'
     Remove-Item -Recurse -Force $extracted -ErrorAction SilentlyContinue
     for ($i = 0; $i -lt 60; $i++) { # launched from the TI Revive exit dialog: that installation may still hold the mutex
