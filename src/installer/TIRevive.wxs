@@ -39,6 +39,8 @@
       <Component><File Id="accessps1" Source="$(var.Src)\installer\tirevive-access.ps1" /></Component>
       <Component><File Id="shortcutsps1" Source="$(var.Src)\installer\tirevive-shortcuts.ps1" /></Component>
       <Component><File Source="$(var.Src)\installer\notice.rtf" /></Component>
+      <Component><File Id="licensetxt" Source="$(var.Src)\..\LICENSE" Name="LICENSE.txt" /></Component>
+      <Component><File Source="$(var.Src)\..\THIRD-PARTY-NOTICES.txt" /></Component>
     </ComponentGroup>
     <ComponentGroup Id="Menu" Directory="MENUFOLDER">
       <Component Id="MenuShortcuts" Guid="7C1D3F2E-1B5A-4C8E-9A2D-3E4F5A6B7C8D">

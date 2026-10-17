@@ -579,4 +579,7 @@ with an AI coding assistant, it finds its instructions in [AGENTS.md](AGENTS.md)
 ## License
 
 [MIT](LICENSE) © 2026 derpsn. Provided as is, without warranty — on Windows this installs a driver
-package and a certificate on your computer; use at your own risk.
+package and a certificate on your computer; use at your own risk. The programs contain third-party code under its
+own licenses (VST3 SDK, VSTGUI, pugixml, AudioUnitSDK, libusb, winpthreads): see
+[THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt), which every package includes. The screenshots in `docs/images/`
+and `site/` show the Access look of the plug-in and are not covered by the MIT license.

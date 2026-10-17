@@ -322,9 +322,15 @@ jobs:
           "TI Revive Virus Control". **Virus TI Snow owners: please stay with 0.7.4 for now** - the Snow is not
           supported by 0.8.x yet (testers welcome).
 
+          Third-party code and its licenses: THIRD-PARTY-NOTICES.txt in every package; \`libusb-1.0.30.tar.bz2\` is
+          the source of the LGPL library in the macOS and Linux broker.
+
           Not affiliated with Access Music or Kemper. Contains no Access software. See the
           [README](https://github.com/$GITHUB_REPOSITORY#readme) for how it works, limitations and uninstall.
           EOF_NOTES
+          # LGPL: the source of the libusb the macOS/Linux brokers link statically goes with every release
+          curl -fsSL https://github.com/libusb/libusb/releases/download/v1.0.30/libusb-1.0.30.tar.bz2 -o out/libusb-1.0.30.tar.bz2
+          echo "fea36f34f9156400209595e300840767ab1a385ede1dc7ee893015aea9c6dbaf  out/libusb-1.0.30.tar.bz2" | sha256sum -c -
           gh release create "$GITHUB_REF_NAME" out/TI-Revive-*-setup.exe out/TI-Revive-*.msi out/TI-Revive-*-mac.zip \
-            out/TI-Revive-*-linux.tar.gz repo/scripts/tirevive-usbinfo.ps1 \
+            out/TI-Revive-*-linux.tar.gz repo/scripts/tirevive-usbinfo.ps1 out/libusb-1.0.30.tar.bz2 \
             --repo "$GITHUB_REPOSITORY" --title "TI Revive $v" --notes-file notes.md

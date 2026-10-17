@@ -75,7 +75,7 @@ mkdir -p "$STAGE"
 pkgbuild --root "$ROOT" --component-plist "$BUILD/components.plist" --identifier io.github.derpsn.tirevive \
     --version "$VERSION" --scripts "$REPO/src/installer-mac/scripts" --install-location / "$STAGE/TI Revive.pkg"
 cp "$REPO/src/installer-mac/Set up Access Virus TI files.command" "$REPO/src/installer-mac/Uninstall TI Revive.command" \
-    "$REPO/src/installer-mac/README-mac.txt" "$STAGE/"
+    "$REPO/src/installer-mac/README-mac.txt" "$REPO/LICENSE" "$REPO/THIRD-PARTY-NOTICES.txt" "$STAGE/"
 chmod +x "$STAGE"/*.command
 (cd "$BUILD" && ditto -c -k --keepParent "TI-Revive-$VERSION-mac" "$OUT/TI-Revive-$VERSION-mac.zip")
 echo "built $OUT/TI-Revive-$VERSION-mac.zip"
