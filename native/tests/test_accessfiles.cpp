@@ -324,3 +324,25 @@ TEST(accessfiles_osc_waves_by_content)
     cut.resize(16 + 64 * 64 * 4 - 8); // truncated
     CHECK(vti::find_osc_waves(cut).empty());
 }
+
+// macOS: the resources are in Contents/Resources, the table in the bundle binary Contents/MacOS/Virus Control
+TEST(accessfiles_osc_waves_mac_bundle)
+{
+    TempDir t("bundlewaves");
+    fs::path bundle = t.dir / "Virus Control.bundle";
+    write(bundle / "Contents" / "Resources" / "remotedevice.xml", REMOTE);
+    write(bundle / "Contents" / "MacOS" / "Virus Control", waves_blob(0x1234, 0.5f));
+    Env env;
+    no_installation(env, t.dir);
+    env.set("VTI_ACCESS_DIR", bundle.string());
+    std::string err;
+    auto a = AccessFiles::open("", err);
+    CHECK(a != nullptr);
+    if (!a)
+        return;
+    auto w = a->osc_waves();
+    CHECK(w.size() == 64 * 64 && w[64] == 0.5f);
+    // a bundle without the table: no waves (the display falls back to the sine)
+    write(bundle / "Contents" / "MacOS" / "Virus Control", Bytes(0x2000, 0x5A));
+    CHECK(AccessFiles::open("", err)->osc_waves().empty());
+}

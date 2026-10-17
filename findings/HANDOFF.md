@@ -1,10 +1,24 @@
 # HANDOFF
 
-_Last updated: 2026-10-17 (CONTINUE HERE below; 0.8.20 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-17 (CONTINUE HERE below; round 0.8.21 in progress). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E180), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE (state 2026-10-17 09:05: v0.8.20 released)
+## CONTINUE HERE (state 2026-10-17 noon: round 0.8.21, small leftovers)
+
+**Branch `round-0.8.21` (from main, local, NOT pushed, no CI build yet):** (1) E186 fixed: tirevive-bundles.ps1 (MSI
+deferred CA, only without setup.exe = TIREVIVE_BUNDLE) removes stale TI Revive Burn bundle registrations; Pester tests
+in src/installer/tests, run by ctest `installer_scripts` (skipped without pwsh + Pester 5; CI windows job installs
+Pester; locally pwsh 7.4.6 from the scratchpad: cmake -DPWSH_EXECUTABLE=...). Cause read from the bare-metal
+Windows registry/Burn logs (read-only mount). (2) E13: -Wall -Wextra on our sources, SDK/VSTGUI/pugixml headers as
+system headers, -Werror in the native-linux CI job (VTI_WERROR); 2 warnings fixed. (3) osc-wavetables merged (E180);
+Mac bundle path unit test; the table is found in the real 5.1.7 Mac binary (same as Windows). 143 vtitests.
+Not done: E180 pixel comparison with the original (needs the original's editor at known OSC settings - test round,
+with the user); E187 earlier crackle and E175: nothing to do until they show up again. Next: CI test build
+(gh workflow run build.yml --ref round-0.8.21), then the checklist: VM W: install 0.8.20 setup.exe, then the 0.8.21
+.msi directly -> one entry only; bare metal: the 0.8.21 .msi removes both stale entries; Mac: OSC display waves.
+
+## Previous state (state 2026-10-17 09:05: v0.8.20 released)
 
 **Released v0.8.20** (tag on main 31af3e9, CI run 39011780610 all green incl. release; assets: setup.exe, msi, mac zip,
 linux tarball, tirevive-usbinfo.ps1, libusb-1.0.30.tar.bz2 (LGPL source); website rebuilt by hand, run 39012105808,
