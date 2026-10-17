@@ -33,3 +33,17 @@ TEST(devicestatus_values_by_path)
     CHECK(device_status_value(s, "Internal System Info/Audio Communication") == 1);
     CHECK(device_status_value(s, "Filter 1/Cutoff") == -1); // not a status value
 }
+
+TEST(devicestatus_change_for_a_waiting_instance)
+{
+    // macOS user test M3 (0.8.19): a duplicated track's instance waits for the first one without a broker connection
+    // (presence unknown), and its editor showed the normal page instead of "Virus unavailable"
+    StatusChange c;
+    CHECK(!c.update(-1, false)); // not known yet: nothing to show
+    CHECK(c.update(-1, true));   // another instance or program has the Virus: "Virus unavailable" right away
+    CHECK(!c.update(-1, true));  // reported once
+    CHECK(!c.update(1, true));   // presence does not matter while another one has it
+    CHECK(c.update(1, false));   // taken over: the normal page
+    CHECK(c.update(0, false));   // switched off: "No Virus TI can be found"
+    CHECK(!c.update(0, false));
+}
