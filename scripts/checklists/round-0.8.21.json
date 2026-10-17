@@ -22,7 +22,7 @@
      "steps": [
       "Open the test project in REAPER and play the Virus track; open the editor."
      ],
-     "expect": "sound, the editor opens, the version in the editor says 0.8.21."
+     "expect": "sound, the editor opens. (The editor shows no version; the plug-in itself reports 0.8.20 until the release, L2 shows that the new build is in.)"
     },
     {
      "id": "L2",
@@ -82,7 +82,7 @@
      "steps": [
       "Start Ableton, play the Virus track, open the editor."
      ],
-     "expect": "sound, editor normal, version 0.8.21."
+     "expect": "sound, editor normal."
     },
     {
      "id": "M2",
