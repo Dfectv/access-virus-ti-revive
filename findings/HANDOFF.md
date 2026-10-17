@@ -48,7 +48,10 @@ ones. Open: Esc and the Windows/macOS look in the next build; the "modern" look 
 M5, L6, L7, W4; order macOS first, then Linux, VM; bare metal postponed). Installed: Mac pkg pushed (~/Downloads/TI-Revive-0.8.21c-mac,
 build 39030095040 = version 0.0.1, same code); Linux and VM from run 39030413663 (version 0.8.21): Linux unpacked in
 ~/Downloads/TI-Revive-0.8.21c-linux, win11 VM setup.exe silent (one entry 0.8.21), Virus attached to win11. NOTE: after a
-VM test always `VM=win11 scripts/vm.sh detach` - the Virus stayed in the VM after the last round and REAPER found nothing. L5 notes: the link must point to our website -> done (sysinfo website_url, click
+VM test always `VM=win11 scripts/vm.sh detach` - the Virus stayed in the VM after the last round and REAPER found nothing. RESULTS 0.8.21c (user, 2026-10-17): all pass - M4, M5 (macOS), L6, L7 (Linux), W4 (VM). Note M4: the Wavetable list
+opens with a short delay on the Mac (likely: PopupView invalidates the whole frame-sized view on open and on every
+hover, so the editor below repaints fully; plus 100 CoreText measurements) - idea for the next round: invalidate only
+the menu / the two changed rows. Virus back on Linux (detached). Next: merge + release 0.8.21 (user decision). L5 notes: the link must point to our website -> done (sysinfo website_url, click
 opens the browser; not yet in a build); the REMOTE MIDI channel menu is locked on purpose (read-only page). Bare
 metal (B1, B2): postponed by the user - collect a bigger bare-metal list for one session later.
 
