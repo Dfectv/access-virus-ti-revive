@@ -1,6 +1,6 @@
 {
  "round": "0.8.21",
- "lead": "Test build 0.8.21c (CI run 39030095040, branch round-0.8.21): our own popup menus - the value lists, the category filter and the size menu now look and work the same on every system, with columns like the original (the Wavetable list in 4 columns of 25 instead of one long column), and the INFO box link goes to the TI Revive website. Already passed: Linux L1, L2, L4, L5; VM W1-W3; macOS M1, M3. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "lead": "Test build 0.8.21c (branch round-0.8.21; macOS: CI run 39030095040, package version 0.0.1; Linux and VM: CI run 39030413663, version 0.8.21 - same code): our own popup menus - the value lists, the category filter and the size menu now look and work the same on every system, with columns like the original (the Wavetable list in 4 columns of 25 instead of one long column), and the INFO box link goes to the TI Revive website. Already passed: Linux L1, L2, L4, L5; VM W1-W3; macOS M1, M3. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
  "rules": [
   "Disposable DAW project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches.",
   "Order: macOS first (move the Virus to the Mac), then Linux, then the Windows 11 VM. Windows 11 on this PC is postponed to a later bare-metal session.",
