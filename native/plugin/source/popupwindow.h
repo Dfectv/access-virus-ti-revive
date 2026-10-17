@@ -26,7 +26,8 @@ public:
     static std::unique_ptr<PopupWindow> create(VSTGUI::CFrame *editor, const NativeRect &r, int w, int h, double scale,
                                                VSTGUI::CView *content, VSTGUI::IPlatformFrameConfig *config);
     virtual ~PopupWindow() = default; // closes the frame and the window
-    virtual void move(const NativeRect &r) = 0;
+    virtual VSTGUI::CFrame *frame() const = 0;
+    virtual void move(const NativeRect &r) = 0; // the window only; the frame inside is sized by the caller
     virtual void show() = 0;
     virtual void hide() = 0;
 };

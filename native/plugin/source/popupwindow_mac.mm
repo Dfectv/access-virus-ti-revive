@@ -36,6 +36,7 @@ public:
         panel_ = nil;
     }
     void move(const NativeRect &r) override { [panel_ setFrame:to_cocoa(r) display:YES]; }
+    CFrame *frame() const override { return frame_; }
     void show() override { [panel_ orderFront:nil]; }
     void hide() override { [panel_ orderOut:nil]; }
 

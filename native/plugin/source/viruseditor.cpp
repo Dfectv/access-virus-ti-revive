@@ -540,11 +540,14 @@ static long long now_ms()
 class PopupView;
 
 // one open menu (the root or a submenu) in its own window (popupwindow.h): draws it and passes the mouse to the
-// PopupView; its coordinates are the menu's own (0, 0 = its top-left corner)
+// PopupView it currently serves (none while its window is hidden in the pool); coordinates are the menu's own
 class PopupLevelView : public CView {
 public:
-    PopupLevelView(PopupView *owner, int level, int w, int h) : CView(CRect(0, 0, w, h)), owner_(owner), level_(level)
+    PopupLevelView() : CView(CRect(0, 0, 1, 1)) {}
+    void attach(PopupView *owner, int level)
     {
+        owner_ = owner;
+        level_ = level;
     }
     void draw(CDrawContext *ctx) override { drawRect(ctx, getViewSize()); }
     void drawRect(CDrawContext *ctx, const CRect &update) override;
@@ -557,8 +560,44 @@ public:
     void onKeyboardEvent(KeyboardEvent &event) override;
 
 private:
-    PopupView *owner_;
-    int level_;
+    PopupView *owner_ = nullptr;
+    int level_ = 0;
+};
+
+// the menu windows of one editor and the timer of its menus, kept from the first menu until the editor closes
+// (VirusEditor::close). Nothing of it is destroyed or stopped while the editor is open: REAPER on Linux keeps plain
+// pointers to the timers it was given and called a freed one when a menu closed and destroyed its windows or timers
+// from a timer callback (round 0.8.22, crash on choosing a preset; same host behaviour as E183). Windows of closed
+// menus are hidden and reused.
+struct PopupHost {
+    struct Slot {
+        std::unique_ptr<vti::PopupWindow> win;
+        PopupLevelView *view = nullptr; // owned by the window's frame
+        vti::PopupMenu::Rect at;        // the menu it shows now (menu pixels in the work area)
+        int from = -2;                  // that menu's entry in its parent; -2: free (hidden)
+    };
+    std::vector<Slot> slots;
+    SharedPointer<CVSTGUITimer> timer;
+    PopupView *active = nullptr;
+    ~PopupHost()
+    {
+        if (timer)
+            timer->stop();
+        slots.clear();
+    }
+    static std::map<CFrame *, std::shared_ptr<PopupHost>> &all()
+    {
+        static std::map<CFrame *, std::shared_ptr<PopupHost>> hosts;
+        return hosts;
+    }
+    static std::shared_ptr<PopupHost> of(CFrame *frame)
+    {
+        auto &h = all()[frame];
+        if (!h)
+            h = std::make_shared<PopupHost>();
+        return h;
+    }
+    static void close(CFrame *frame) { all().erase(frame); } // the editor closes: windows and timer go
 };
 
 // our popup menu (editor/popupmenu.h), drawn like the original's Windows menus with columns (E194) on every
@@ -602,7 +641,7 @@ public:
         menus.open_at(ax, ay);
         auto *v = new PopupView(area, std::move(menus), chosen, font);
         if (windowed) {
-            v->windowed_ = true;
+            v->host_ = PopupHost::of(frame);
             v->screen_ = scr;
             v->editor_rect_ = {top_left.anchor_x, top_left.anchor_y, bottom_right.anchor_x - top_left.anchor_x,
                                bottom_right.anchor_y - top_left.anchor_y};
@@ -615,38 +654,22 @@ public:
             v->forget();
             return;
         }
-        if (windowed && !v->sync_windows()) { // no window for the root menu: inside the editor after all
+        if (windowed && !v->start_windows()) { // no window for the root menu: inside the editor after all
             v->done_ = true;
             frame->endModalViewSession(v->session_);
             open(frame, area, content_scale, std::move(saved), checked, per_column, at, std::move(chosen), true);
-            return;
         }
-        if (windowed)
-            v->start_timer();
     }
-    // closes the menu windows of `frame`'s popup now (the editor closes; on X11 before the last frame goes)
-    static void close_windows(CFrame *frame)
-    {
-        for (auto *v : open_views())
-            if (v->getFrame() == frame) {
-                v->stop_timer();
-                v->wins_.clear();
-            }
-    }
+    // the editor closes: its menu windows and timer go (an open menu's view goes with the frame)
+    static void close_windows(CFrame *frame) { PopupHost::close(frame); }
 
-    ~PopupView() override
-    {
-        *alive_ = false;
-        stop_timer();
-        wins_.clear();
-        open_views().erase(this);
-    }
+    ~PopupView() override { release_windows(); }
 
     void draw(CDrawContext *ctx) override { drawRect(ctx, getViewSize()); }
     // inside the editor: only the open menus (in windows the level views draw them)
     void drawRect(CDrawContext *ctx, const CRect &update) override
     {
-        if (!windowed_)
+        if (!windowed())
             for (int l = 0; l < menus_.levels(); l++)
                 draw_popup_menu(ctx, font_, update, menus_.level(l), getViewSize().left + menus_.level(l).x,
                                 getViewSize().top + menus_.level(l).y);
@@ -655,39 +678,21 @@ public:
 
     void onMouseMoveEvent(MouseMoveEvent &event) override
     {
-        if (!windowed_)
+        if (!windowed())
             apply_dirty(menus_.hover(local_x(event.mousePosition), local_y(event.mousePosition), now_ms()));
         event.consumed = true;
     }
     void onMouseDownEvent(MouseDownEvent &event) override
     {
-        if (windowed_) // a click into the editor: outside every menu window
-            finish({});
+        if (windowed()) // a click into the editor: outside every menu window
+            finish({}, true);
         else
-            apply(menus_.click(local_x(event.mousePosition), local_y(event.mousePosition)));
+            apply(menus_.click(local_x(event.mousePosition), local_y(event.mousePosition)), true);
         event.consumed = true;
     }
     void onMouseUpEvent(MouseUpEvent &event) override { event.consumed = true; }
     void onMouseWheelEvent(MouseWheelEvent &event) override { event.consumed = true; }
-    void onKeyboardEvent(KeyboardEvent &event) override
-    {
-        if (event.type != EventType::KeyDown)
-            return;
-        using K = vti::PopupCascade::Key;
-        switch (event.virt) {
-        case VirtualKey::Escape: apply(menus_.key(K::Escape)); break;
-        case VirtualKey::Return:
-        case VirtualKey::Enter: apply(menus_.key(K::Return)); break;
-        case VirtualKey::Up: apply(menus_.key(K::Up)); break;
-        case VirtualKey::Down: apply(menus_.key(K::Down)); break;
-        case VirtualKey::Left: apply(menus_.key(K::Left)); break;
-        case VirtualKey::Right: apply(menus_.key(K::Right)); break;
-        case VirtualKey::Home: apply(menus_.key(K::Home)); break;
-        case VirtualKey::End: apply(menus_.key(K::End)); break;
-        default: break;
-        }
-        event.consumed = true; // nothing reaches the editor while the menu is open
-    }
+    void onKeyboardEvent(KeyboardEvent &event) override { key_event(event, true); }
 
     // from the level views (menu `level`'s own coordinates)
     void draw_level(CDrawContext *ctx, const CRect &update, int level)
@@ -707,13 +712,53 @@ public:
         if (done_ || level >= menus_.levels())
             return;
         const auto &m = menus_.level(level);
-        const int x = m.x + (int)std::floor(p.x), y = m.y + (int)std::floor(p.y);
-        // after the press has been handled: a choice closes the window it happened in
-        auto alive = alive_;
-        Call::later([this, alive, x, y]() {
-            if (*alive && !done_)
-                apply(menus_.click(x, y));
-        }, 1);
+        apply(menus_.click(m.x + (int)std::floor(p.x), m.y + (int)std::floor(p.y)), false);
+    }
+    void key_event(KeyboardEvent &event, bool own_event)
+    {
+        if (event.type != EventType::KeyDown || done_)
+            return;
+        using K = vti::PopupCascade::Key;
+        switch (event.virt) {
+        case VirtualKey::Escape: apply(menus_.key(K::Escape), own_event); break;
+        case VirtualKey::Return:
+        case VirtualKey::Enter: apply(menus_.key(K::Return), own_event); break;
+        case VirtualKey::Up: apply(menus_.key(K::Up), own_event); break;
+        case VirtualKey::Down: apply(menus_.key(K::Down), own_event); break;
+        case VirtualKey::Left: apply(menus_.key(K::Left), own_event); break;
+        case VirtualKey::Right: apply(menus_.key(K::Right), own_event); break;
+        case VirtualKey::Home: apply(menus_.key(K::Home), own_event); break;
+        case VirtualKey::End: apply(menus_.key(K::End), own_event); break;
+        default: break;
+        }
+        event.consumed = true; // nothing reaches the editor while the menu is open
+    }
+    // the host's timer (every 15 ms while this menu is the active one)
+    void on_timer()
+    {
+        if (done_)
+            return;
+        apply_dirty(menus_.tick(now_ms()));
+        // what a native menu notices without an event of its own: a press outside the menus and the editor (another
+        // window, the desktop) and a switch to another window
+        int x = 0, y = 0;
+        bool down = false;
+        if (vti::popup_pointer(getFrame(), x, y, down)) {
+            if (!down)
+                armed_ = true; // the press that opened the menu is over
+            else if (armed_ && !editor_rect_.contains(x, y)) {
+                bool over = false;
+                if (auto h = host_.lock())
+                    for (auto &s : h->slots)
+                        over |= s.from != -2 && native(s.at).contains(x, y);
+                if (!over) {
+                    finish({}, false);
+                    return;
+                }
+            }
+        }
+        if (focus_ && vti::popup_focus_token(getFrame()) != focus_)
+            finish({}, false);
     }
 
 private:
@@ -721,12 +766,6 @@ private:
               SharedPointer<CFontDesc> font)
         : CView(area), menus_(std::move(menus)), chosen_(std::move(chosen)), font_(std::move(font))
     {
-        open_views().insert(this);
-    }
-    static std::set<PopupView *> &open_views()
-    {
-        static std::set<PopupView *> views;
-        return views;
     }
     // the menu font: Windows' own menu font, a sans serif of the same size elsewhere
     static SharedPointer<CFontDesc> popup_font()
@@ -740,22 +779,45 @@ private:
 #endif
     }
 
-    struct LevelWindow {
-        std::unique_ptr<vti::PopupWindow> win;
-        PopupLevelView *view = nullptr;
-        vti::PopupMenu::Rect at; // the menu's place it was made for
-        int from = -1;           // its entry in the parent menu
-    };
+    bool windowed() const { return !host_.expired(); }
     vti::NativeRect native(const vti::PopupMenu::Rect &r) const
     {
         const double s = screen_.scale;
         return {screen_.work.x + (int)std::lround(r.x * s), screen_.work.y + (int)std::lround(r.y * s),
                 (int)std::lround(r.w * s), (int)std::lround(r.h * s)};
     }
-    // a window for each open menu: kept while its menu stays (moved when it moved), made anew when another submenu
-    // took its place (and then for all below it); false when the root menu has none
+    // becomes the host's active menu, starts its timer once (it runs until the editor closes) and shows the root
+    bool start_windows()
+    {
+        auto h = host_.lock();
+        if (!h)
+            return false;
+        if (h->active && h->active != this)
+            h->active->release_windows();
+        h->active = this;
+        if (!sync_windows())
+            return false;
+        if (!h->timer) {
+            CFrame *frame = getFrame();
+            h->timer = makeOwned<CVSTGUITimer>(
+                [frame](CVSTGUITimer *) {
+                    auto &all = PopupHost::all();
+                    auto it = all.find(frame);
+                    if (it != all.end() && it->second->active)
+                        it->second->active->on_timer();
+                },
+                15);
+        }
+        return true;
+    }
+    // a window for each open menu, from the host's pool: kept while its menu stays (moved when it moved), given the
+    // new menu when another submenu took its place (and then all below it); the rest hidden. false when the root
+    // menu has no window.
     bool sync_windows()
     {
+        auto h = host_.lock();
+        if (!h)
+            return false;
 #if SMTG_OS_LINUX
         keep_runloop();
         X11::FrameConfig cfg;
@@ -767,74 +829,64 @@ private:
 #endif
         bool anew = false;
         for (int l = 0; l < menus_.levels(); l++) {
-            const auto &m = menus_.level(l);
-            const auto b = m.bounds();
-            if (!anew && l < (int)wins_.size() && wins_[l].win && wins_[l].from == menus_.from(l) &&
-                wins_[l].at.w == b.w && wins_[l].at.h == b.h) {
-                if (wins_[l].at.x != b.x || wins_[l].at.y != b.y) {
-                    wins_[l].win->move(native(b));
-                    wins_[l].at = b;
+            const auto b = menus_.level(l).bounds();
+            const int from = menus_.from(l);
+            if (l >= (int)h->slots.size()) {
+                PopupHost::Slot s;
+                s.view = new PopupLevelView();
+                s.win = vti::PopupWindow::create(getFrame(), native(b), b.w, b.h, screen_.scale, s.view, config);
+                if (!s.win)
+                    return l > 0; // deeper menus without a window stay invisible; the root falls back
+                h->slots.push_back(std::move(s));
+            }
+            auto &s = h->slots[l];
+            if (!anew && s.from == from && s.at.w == b.w && s.at.h == b.h) {
+                if (s.at.x != b.x || s.at.y != b.y) {
+                    s.win->move(native(b));
+                    s.at = b;
                 }
                 continue;
             }
             anew = true;
-            LevelWindow lw;
-            lw.view = new PopupLevelView(this, l, b.w, b.h);
-            lw.win = vti::PopupWindow::create(getFrame(), native(b), b.w, b.h, screen_.scale, lw.view, config);
-            if (!lw.win) {
-                if (l == 0)
-                    return false;
-                lw.view = nullptr;
-            } else
-                lw.win->show();
-            lw.at = b;
-            lw.from = menus_.from(l);
-            if (l < (int)wins_.size())
-                wins_[l] = std::move(lw); // the old window goes after the new one is up
-            else
-                wins_.push_back(std::move(lw));
+            s.view->attach(this, l);
+            fit(s, b);
+            s.from = from;
+            s.win->show();
         }
-        wins_.resize(menus_.levels());
+        for (int l = menus_.levels(); l < (int)h->slots.size(); l++)
+            hide(h->slots[l]);
         return true;
     }
-    void start_timer()
+    // the slot's window and frame to the menu's place and size, all of it repainted
+    void fit(PopupHost::Slot &s, const vti::PopupMenu::Rect &b)
     {
-        auto alive = alive_;
-        timer_ = makeOwned<CVSTGUITimer>(
-            [this, alive](CVSTGUITimer *) {
-                if (*alive && !done_)
-                    on_timer();
-            },
-            15);
+        CFrame *f = s.win->frame();
+        s.win->move(native(b));
+        if (f->getZoom() != screen_.scale)
+            f->setZoom(screen_.scale);
+        f->setSize(std::lround(b.w * screen_.scale), std::lround(b.h * screen_.scale));
+        s.view->setViewSize(CRect(0, 0, b.w, b.h));
+        s.view->setMouseableArea(CRect(0, 0, b.w, b.h));
+        s.view->invalid();
+        s.at = b;
     }
-    void stop_timer()
+    static void hide(PopupHost::Slot &s)
     {
-        if (timer_)
-            timer_->stop();
-        timer_ = nullptr;
+        if (s.from == -2)
+            return;
+        s.win->hide();
+        s.view->attach(nullptr, 0);
+        s.from = -2;
     }
-    // the submenu wait (PopupCascade::tick) and what a native menu notices without an event of its own: a press
-    // outside the menus and the editor (another window, the desktop) and a switch to another window
-    void on_timer()
+    // hides this menu's windows and gives them back to the pool (nothing is destroyed)
+    void release_windows()
     {
-        apply_dirty(menus_.tick(now_ms()));
-        int x = 0, y = 0;
-        bool down = false;
-        if (vti::popup_pointer(getFrame(), x, y, down)) {
-            if (!down)
-                armed_ = true; // the press that opened the menu is over
-            else if (armed_ && !editor_rect_.contains(x, y)) {
-                bool over = false;
-                for (auto &w : wins_)
-                    over |= w.win && native(w.at).contains(x, y);
-                if (!over) {
-                    finish({});
-                    return;
-                }
-            }
-        }
-        if (focus_ && vti::popup_focus_token(getFrame()) != focus_)
-            finish({});
+        auto h = host_.lock();
+        if (!h || h->active != this)
+            return;
+        for (auto &s : h->slots)
+            hide(s);
+        h->active = nullptr;
     }
 
     // the view lies over the whole editor, but only the menus need repainting: adding and removing the view call
@@ -842,97 +894,102 @@ private:
     void invalid() override
     {
         setDirty(false);
-        if (!windowed_)
+        if (!windowed())
             for (int l = 0; l < menus_.levels(); l++)
                 repaint(menus_.level(l).bounds());
     }
     void repaint(const vti::PopupMenu::Rect &r)
     {
-        if (!windowed_) {
+        if (!windowed()) {
             const CRect &v = getViewSize();
             invalidRect(CRect(v.left + r.x, v.top + r.y, v.left + r.x + r.w, v.top + r.y + r.h));
             return;
         }
-        for (auto &w : wins_) { // the part inside each menu window, in its coordinates
-            if (!w.view)
+        auto h = host_.lock();
+        if (!h)
+            return;
+        for (auto &s : h->slots) { // the part inside each menu window, in its coordinates
+            if (s.from == -2)
                 continue;
-            const int x0 = std::max(r.x, w.at.x), y0 = std::max(r.y, w.at.y);
-            const int x1 = std::min(r.x + r.w, w.at.x + w.at.w), y1 = std::min(r.y + r.h, w.at.y + w.at.h);
+            const int x0 = std::max(r.x, s.at.x), y0 = std::max(r.y, s.at.y);
+            const int x1 = std::min(r.x + r.w, s.at.x + s.at.w), y1 = std::min(r.y + r.h, s.at.y + s.at.h);
             if (x0 < x1 && y0 < y1)
-                w.view->invalidRect(CRect(x0 - w.at.x, y0 - w.at.y, x1 - w.at.x, y1 - w.at.y));
+                s.view->invalidRect(CRect(x0 - s.at.x, y0 - s.at.y, x1 - s.at.x, y1 - s.at.y));
         }
     }
     void apply_dirty(const std::vector<vti::PopupMenu::Rect> &dirty)
     {
         if (dirty.empty())
             return;
-        if (windowed_)
+        if (windowed())
             sync_windows();
         for (auto &r : dirty)
             repaint(r);
     }
     int local_x(const CPoint &p) const { return (int)std::floor(p.x - getViewSize().left); }
     int local_y(const CPoint &p) const { return (int)std::floor(p.y - getViewSize().top); }
-    void apply(const vti::PopupCascade::Result &res)
+    // `own_event`: called while the editor frame handles an event addressed to this view
+    void apply(const vti::PopupCascade::Result &res, bool own_event)
     {
         apply_dirty(res.dirty);
         if (res.kind != vti::PopupCascade::Result::None)
-            finish(res.kind == vti::PopupCascade::Result::Chosen ? res.path : std::vector<int>{});
+            finish(res.kind == vti::PopupCascade::Result::Chosen ? res.path : std::vector<int>{}, own_event);
     }
-    // closes the menu (the frame removes the view when the session ends, after the current event or timer call);
-    // empty = no choice
-    void finish(const std::vector<int> &path)
+    // closes the menu: its windows go back to the pool at once, the frame removes this view when the session ends
+    // (after the current event when the view is handling one of its own); empty = no choice
+    void finish(const std::vector<int> &path, bool own_event)
     {
         if (done_)
             return;
         done_ = true;
-        for (auto &w : wins_)
-            if (w.win)
-                w.win->hide(); // gone at once; destroyed with this view
-        stop_timer();
-        if (auto *frame = getFrame(); frame && in_session_) {
+        release_windows();
+        auto chosen = chosen_; // this view may be gone below
+        CFrame *frame = getFrame();
+        if (frame && in_session_) {
             ModalViewSessionID id = session_;
-            auto alive = alive_;
-            if (windowed_) // may come from a timer: the view must outlive the call that ends it
-                Call::later([frame, id, alive]() {
-                    if (*alive)
-                        frame->endModalViewSession(id);
-                }, 1);
-            else {
+            if (own_event) {
                 SharedPointer<CFrame> f(frame);
                 after_event(frame, [f, id]() { f->endModalViewSession(id); });
-            }
+            } else
+                frame->endModalViewSession(id); // from a menu window or the timer: not inside this view
         }
-        if (!path.empty() && chosen_)
-            chosen_(path);
+        if (!path.empty() && chosen)
+            chosen(path);
     }
 
     vti::PopupCascade menus_;
     std::function<void(const std::vector<int> &)> chosen_;
     SharedPointer<CFontDesc> font_;
     ModalViewSessionID session_ = 0;
-    bool in_session_ = false, done_ = false;
-    std::shared_ptr<bool> alive_ = std::make_shared<bool>(true); // for calls that may come after the view is gone
-    bool windowed_ = false, armed_ = false;
+    bool in_session_ = false, done_ = false, armed_ = false;
+    std::weak_ptr<PopupHost> host_; // set: the menus are windows of their own
     vti::PopupScreen screen_;
     vti::NativeRect editor_rect_;
     uintptr_t focus_ = 0;
-    std::vector<LevelWindow> wins_;
-    SharedPointer<CVSTGUITimer> timer_;
 };
 
 void PopupLevelView::drawRect(CDrawContext *ctx, const CRect &update)
 {
-    owner_->draw_level(ctx, update, level_);
+    if (owner_)
+        owner_->draw_level(ctx, update, level_);
     setDirty(false);
 }
 void PopupLevelView::onMouseMoveEvent(MouseMoveEvent &event)
 {
-    owner_->level_move(level_, event.mousePosition);
+    if (owner_)
+        owner_->level_move(level_, event.mousePosition);
     event.consumed = true;
 }
-void PopupLevelView::onMouseDownEvent(MouseDownEvent &event) { owner_->level_down(level_, event.mousePosition); }
-void PopupLevelView::onKeyboardEvent(KeyboardEvent &event) { owner_->onKeyboardEvent(event); }
+void PopupLevelView::onMouseDownEvent(MouseDownEvent &event)
+{
+    if (owner_)
+        owner_->level_down(level_, event.mousePosition);
+}
+void PopupLevelView::onKeyboardEvent(KeyboardEvent &event)
+{
+    if (owner_)
+        owner_->key_event(event, false);
+}
 
 class EditorCanvasView : public CView, public IControlListener, public TextEditListenerAdapter, public IKeyboardHook,
                         public IMouseObserver {

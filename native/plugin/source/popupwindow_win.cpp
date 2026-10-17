@@ -72,6 +72,7 @@ public:
     {
         SetWindowPos(hwnd_, HWND_TOPMOST, r.x, r.y, r.w, r.h, SWP_NOACTIVATE);
     }
+    CFrame *frame() const override { return frame_; }
     void show() override
     {
         SetWindowPos(hwnd_, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);

@@ -76,8 +76,20 @@ struct RunLoop : Steinberg::Linux::IRunLoop, IPlugFrame {
         fprintf(stderr, "nativehost: fd handler %d registered\n", fd);
         return kResultOk;
     }
+    // like REAPER: it keeps plain pointers to the handlers and called a freed one when a plug-in unregistered
+    // another handler from inside a callback (round 0.8.22: a menu closed from a timer). Such a call aborts here, so
+    // the GUI tests catch it; unregistering the handler that is being called is allowed (VSTGUI's own timers do it).
+    const void *dispatching = nullptr;
+    void check_unregister(const void *h, const char *what)
+    {
+        if (dispatching && h != dispatching && !getenv("VTI_HOST_LAX")) {
+            fprintf(stderr, "nativehost: %s unregistered inside another handler's callback (REAPER crashes)\n", what);
+            abort();
+        }
+    }
     tresult PLUGIN_API unregisterEventHandler(Steinberg::Linux::IEventHandler *h) override
     {
+        check_unregister(h, "fd handler");
         fds.erase(std::remove_if(fds.begin(), fds.end(), [&](const Fd &f) { return f.h == h; }), fds.end());
         return kResultOk;
     }
@@ -89,6 +101,7 @@ struct RunLoop : Steinberg::Linux::IRunLoop, IPlugFrame {
     }
     tresult PLUGIN_API unregisterTimer(Steinberg::Linux::ITimerHandler *h) override
     {
+        check_unregister(h, "timer");
         timers.erase(std::remove_if(timers.begin(), timers.end(), [&](const Tm &t) { return t.h == h; }), timers.end());
         return kResultOk;
     }
@@ -110,14 +123,19 @@ struct RunLoop : Steinberg::Linux::IRunLoop, IPlugFrame {
     {
         for (size_t i = 0; i < fds.size(); i++) {
             pollfd p{fds[i].fd, POLLIN, 0};
-            if (poll(&p, 1, 0) > 0)
+            if (poll(&p, 1, 0) > 0) {
+                dispatching = fds[i].h;
                 fds[i].h->onFDIsSet(fds[i].fd);
+                dispatching = nullptr;
+            }
         }
         auto now = std::chrono::steady_clock::now();
         for (size_t i = 0; i < timers.size(); i++)
             if (now >= timers[i].next) {
                 timers[i].next = now + std::chrono::milliseconds(timers[i].ms);
+                dispatching = timers[i].h;
                 timers[i].h->onTimer();
+                dispatching = nullptr;
             }
     }
 };

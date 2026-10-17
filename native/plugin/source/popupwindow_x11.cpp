@@ -59,6 +59,7 @@ public:
                              v);
         xcb_flush(conn());
     }
+    CFrame *frame() const override { return frame_; }
     void show() override
     {
         const uint32_t above = XCB_STACK_MODE_ABOVE;

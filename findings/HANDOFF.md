@@ -16,9 +16,19 @@ a 15 ms timer: submenu wait, a press outside menus + editor closes, a focus swit
 window, macOS app active; Linux: none). Submenu delay in PopupCascade (Windows' SPI_GETMENUSHOWDELAY, 400 ms on
 macOS/Linux): highlight at once, submenus switch after the wait, reaching the open submenu keeps it. Patch/bank
 menus back on our popup on Windows/macOS. Fallback inside the editor: VTI_NATIVE_INLINE_POPUP=1 or no window.
-Checked on Linux only (Xvfb + nativehost with the TI2, nothing chosen/sent): LOAD menu beyond the editor, RAM A ->
+**REAPER crash fixed (dev build, user test 2026-10-17):** choosing a preset from LOAD crashed REAPER (SIGSEGV,
+REAPER's main loop called a freed handler: rip 0, gdb on the real desktop). Cause: the menu closed from a timer
+callback (Call::later / its 15 ms timer) and stopped timers / destroyed its X11 frames (their redraw timers) there;
+REAPER keeps plain pointers to handlers (as in E183). Fix: PopupHost per editor = a pool of menu windows + one timer,
+kept until VirusEditor::close; menus hide and reuse windows, a click is handled in the event (no Call::later).
+nativehost now aborts when a handler is unregistered inside another handler's callback (VTI_HOST_LAX=1 turns it
+off); the flow LOAD > choose (part 16) > reopen (pool reused, RAM B) > desktop click > editor click passes with it.
+New rule (user): dev build on Linux first, CI only after the user's OK (memory). Installed: symbol dev build
+(build-dbg, RelWithDebInfo, .so.dbg) in ~/.vst3; backup of 0.8.22b in the session scratchpad.
+Earlier check on Linux (Xvfb + nativehost with the TI2): LOAD menu beyond the editor, RAM A ->
 patches across RAM B keeps RAM A, desktop click and editor click close, Osc 2 list, 200 % editor (menus at 100 %),
-editor closed with a menu open (exit 0). 189 unit tests. CI run 39046709950 (Windows/macOS compile) - check it.
+editor closed with a menu open (exit 0). 189 unit tests. CI run 39046709950: Windows built, macOS failed (missing
+include, fixed); next CI only after the user's dev-build OK.
 Open: Linux work area is _NET_WORKAREA (spans all monitors, no RandR); ctest gui_duplicate_editors failed once in
 4 runs right after a parallel build (flake?). Next: CI green -> test build, install on Linux/VM/Mac, checklist
 items L4 redo + menu items for W and M (the Windows/macOS menus are new code: hover delay, outside click, Alt-Tab /
