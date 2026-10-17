@@ -6,7 +6,7 @@ Evidence: [evidence.md](evidence.md) (E001-E202), protocol: [spec.md](spec.md); 
 
 ## CONTINUE HERE (state 2026-10-17 late: branch round-0.8.23, offline render)
 
-**Branch `round-0.8.23` (not pushed yet; commit 8fe27ca).** Started from the user's web research on what owners
+**Branch `round-0.8.23` (not pushed yet; last commit 8574a72).** Also done: sync error page like the original (E205, SyncAlert, 203 tests; user wanted it before the release); offline render + sync error as features on README/site; REAPER offline render 0 ppm / 0.01 ms (E204). Started from the user's web research on what owners
 reported about the original plug-in (community claims C11-C18 in claims.md, with links). Done: (1) offline render
 (E203): the original refuses it (warning, canDo offline = no); the native plug-in now paces offline blocks to the
 Virus (native/src/device/offlinepace.h, VirusPlugin::wait_offline / report_offline; start wait once per render, anchor
