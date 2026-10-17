@@ -83,6 +83,12 @@ if [ -d "$DOCS" ]; then
     sudo rm -rf "/Library/Documentation/Access Music/Virus TI"
     sudo cp -R "$DOCS" "/Library/Documentation/Access Music/"
 fi
+# the Access installer creates Documents/Access Music as root: nothing could be written there (backups, libraries,
+# the copy below; E182). Only what root owns is given back to you.
+if [ -d "$HOME/Documents/Access Music" ] && [ -n "$(find "$HOME/Documents/Access Music" -user root -print -quit 2>/dev/null)" ]; then
+    echo "Documents/Access Music belongs to the administrator (made by the Access installer): giving it back to you."
+    sudo find "$HOME/Documents/Access Music" -user root -exec chown "$(id -un):$(id -gn)" {} +
+fi
 LIB="$WORK/x/Additional_items.pkg/Payload/Library/Application Support/Access Music/Virus TI/Patches"
 MINE="$HOME/Documents/Access Music/Virus TI/Patches"
 if [ -d "$LIB" ]; then # factory patch libraries; your own files stay untouched

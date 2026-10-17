@@ -79,6 +79,9 @@ bool backup_ram(Broker &broker, const std::string &banks, const std::string &out
     fs::create_directories(out_dir, ec);
     if (ec) {
         error = "cannot create " + out_dir + ": " + ec.message();
+        if (ec == std::errc::permission_denied) // e.g. Documents/Access Music made by the Access installer as root (E182)
+            error += ". Choose another folder, or give this one back to your user (macOS: run \"Set up Access Virus "
+                     "TI files.command\" again, it fixes folders the Access installer created as administrator).";
         return false;
     }
     std::string cache = cache_dir();

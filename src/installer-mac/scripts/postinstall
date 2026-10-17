@@ -14,6 +14,10 @@ if [ -n "$USER_NAME" ] && [ "$USER_NAME" != root ]; then
     rm -rf "/Users/$USER_NAME/Library/Audio/Plug-Ins/VST3/VirusTINative.vst3" \
         "/Users/$USER_NAME/Library/Audio/Plug-Ins/VST3/TI Revive Virus Control.vst3" \
         "/Users/$USER_NAME/Library/Audio/Plug-Ins/Components/TI Revive Virus Control.component"
+    # the Access installer creates Documents/Access Music as root: the Control Center could not write its backups
+    # there and the plug-in no libraries (E182). Only what root owns is given to the user.
+    DOCS="/Users/$USER_NAME/Documents/Access Music"
+    [ ! -d "$DOCS" ] || find "$DOCS" -user root -exec chown "$USER_NAME:$(id -gn "$USER_NAME")" {} + 2>/dev/null || true
 fi
 rm -f /Library/LaunchAgents/io.github.derpsn.tirevive.vtibroker.plist
 # a running broker is NOT stopped: it serves its current session to the end and exits 30 s after its last client;
