@@ -4,7 +4,23 @@ _Last updated: 2026-10-17 night (CONTINUE HERE below; round 0.8.22 in progress).
 Evidence: [evidence.md](evidence.md) (E001-E202), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE (state 2026-10-17 evening: v0.8.22 released)
+## CONTINUE HERE (state 2026-10-17 late: branch round-0.8.23, offline render)
+
+**Branch `round-0.8.23` (not pushed yet; commit 8fe27ca).** Started from the user's web research on what owners
+reported about the original plug-in (community claims C11-C18 in claims.md, with links). Done: (1) offline render
+(E203): the original refuses it (warning, canDo offline = no); the native plug-in now paces offline blocks to the
+Virus (native/src/device/offlinepace.h, VirusPlugin::wait_offline / report_offline; start wait once per render, anchor
+in that block, 1 s timeout per block), 6 new unit tests (196), nativehost --offline T; measured on Linux with the TI2
+(1.00x, onsets identical to real time). (2) README + site: section "Problems in the original Access plug-in" with
+the community reports and their links (identical texts), "Export and freeze at real-time speed", the stale Windows
+"sync error can appear once" line removed (the native plug-in never shows that page: it does not read the Virus'
+Sync Information Event 0x54 - open question for the user whether to show/log it), test count 196.
+Next: user dev smoke test on Linux (REAPER: render with "Full-speed offline" and "Online render"), then CI test build
+and a checklist with: offline render per OS/DAW (Ableton export, REAPER, Logic offline bounce via AU), (1) sleep/wake
+with the plug-in loaded (C17), (2) the plug-in on a return/aux track, delay compensation (C18), the 1 s timeout
+(Virus off during an export). The site must not go live with the offline line before the release.
+
+## Previous state (2026-10-17 evening: v0.8.22 released)
 
 **Released v0.8.22** (tag on main 5116102, CI run 39051260777 all green incl. release; assets: setup.exe, msi, mac zip,
 linux tarball, tirevive-usbinfo.ps1, libusb source). After the tag (user): menus framed as "reworked, modernized, the
