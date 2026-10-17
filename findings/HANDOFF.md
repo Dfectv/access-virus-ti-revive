@@ -17,9 +17,10 @@ next major release test round, not now. Item 3 (REMOTE page) started 2026-10-17,
 layout, the original's cache file and when it sends). Done on round-0.8.22: full template model (records, edits,
 cache file byte-identical to the original's), our RemoteSets file next to the bank cache (import of the original's
 Windows cache once), Template Name / Knob Name editable, MIDI Channel Behaviour menu works, saved after each edit;
-checked under Xvfb with the TI2 (rename, knob name, flag, reload after restart). Nothing is sent to the Virus. Open,
-in order: MIDI String encoding + Knob Template list (REA: CMIDIStringParameter, table 0x1801c57b0 - read from the
-user's DLL at runtime, never copied), Load/Save Template File (format: REA), then the sending question (a capture of
+checked under Xvfb with the TI2 (rename, knob name, flag, reload after restart). MIDI String editable too (the original's
+encoding, E196; Xvfb: "b0 7 x" -> "B0 07 *"). Nothing is sent to the Virus. Open, in order: Knob Template list
+(table 0x1801c57b0 - read from the user's DLL at runtime, never copied) and MIDI String Info, Load/Save Template
+File (format: REA), then the sending question (a capture of
 the original choosing/editing a template in the win10 VM with the user, then a test the user approves).
 
 ## Previous state (2026-10-17 afternoon: v0.8.21 released)

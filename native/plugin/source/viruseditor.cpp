@@ -1030,9 +1030,9 @@ public:
             return;
         }
         if (e.type == "SearchEdit" && param.rfind("Remote Templates/", 0) == 0) { // REMOTE page fields (E196)
-            if (param == "Remote Templates/Template Name" || param == "Remote Templates/Knob Name")
+            if (param != "Remote Templates/MIDI String Info") // the info is a display
                 edit_name(h, param);
-            event.consumed = true; // MIDI String (encoding open) and its info stay read-only
+            event.consumed = true;
             return;
         }
         if (e.type == "SearchEdit" || (e.type == "RadioButton" && param == "Repository Actions/Search")) {
@@ -1497,7 +1497,7 @@ private:
         f->addView(te);
         te->takeFocus();
     }
-    // the part's patch name, or with `param` a REMOTE page text field (Template Name, Knob Name)
+    // the part's patch name, or with `param` a REMOTE page text field (Template Name, Knob Name, MIDI String)
     void edit_name(const Hit &h, const std::string &param = {})
     {
         auto *f = getFrame();

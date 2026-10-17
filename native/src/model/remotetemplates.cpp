@@ -1,13 +1,16 @@
 #include "model/remotetemplates.h"
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 
 namespace vti {
 
 // record layout (E196): F0 00 20 33 01 10 13 <template> then a name record: 20 <name 9..24> <flags 25> 00 F7, a knob
 // record: <knob> <name 9..18> <behaviour low 19, high 20> 21..22 <MIDI string 23..62> 00 F7
-static constexpr int kNameAt = 9, kNameLen = 16, kFlagsAt = 25, kKnobNameLen = 10, kBehaviourAt = 19, kMidiAt = 23;
+static constexpr int kNameAt = 9, kNameLen = 16, kFlagsAt = 25, kKnobNameLen = 10, kBehaviourAt = 19, kMidiAt = 23,
+                     kMidiLen = 40;
 static constexpr size_t kNameRec = 28, kOldNameRec = 27, kKnobRec = 65;
 static const uint8_t kHead[] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x13};
 
@@ -59,7 +62,7 @@ RemoteTemplates::RemoteTemplates()
             r[7] = (uint8_t)t;
             r[8] = (uint8_t)k;
             put_text(r, kNameAt, kKnobNameLen, "");
-            r[kMidiAt] = 0x0E; // the original's default MIDI string (encoding open, E196)
+            r[kMidiAt] = 0x0E; // an empty MIDI string: just the end mark
             r[kMidiAt + 1] = 0x0F;
             r[kKnobRec - 1] = 0xF7;
         }
@@ -87,6 +90,90 @@ int RemoteTemplates::knob_behaviour(int t, int k) const
         return 0;
     const auto &r = knobs_[t][k];
     return (r[kBehaviourAt] & 0x0F) | (r[kBehaviourAt + 1] & 0x0F) << 4;
+}
+
+std::string RemoteTemplates::midi_string(int t, int k) const
+{
+    return valid(t, k) ? midi_text(knobs_[t][k].data() + kMidiAt) : std::string();
+}
+
+static int hex_digit(char c)
+{
+    return c >= '0' && c <= '9' ? c - '0' : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+}
+
+std::vector<uint8_t> RemoteTemplates::encode_midi(const std::string &text)
+{
+    std::string s = text.substr(0, 254);
+    for (auto &c : s)
+        c = (char)toupper((unsigned char)c);
+    std::vector<uint8_t> out(kMidiLen, 0);
+    int n = 0;
+    size_t i = 0;
+    auto put = [&](int lo, int hi) {
+        out[n] = (uint8_t)(lo & 0x0F);
+        out[n + 1] = (uint8_t)(hi & 0x0F);
+        n += 2;
+    };
+    auto value_char = [&](size_t at) { return at < s.size() && (s[at] == '*' || s[at] == 'X' || s[at] == 'V'); };
+    auto skip_separators = [&]() {
+        while (i < s.size() && s[i] != '*' && s[i] != '%' &&
+               (isspace((unsigned char)s[i]) || ispunct((unsigned char)s[i])))
+            i++;
+    };
+    while (i < s.size() && n < kMidiLen) {
+        if (value_char(i)) { // the knob's value; a run of them is one
+            put(0x0F, 0x0F);
+            while (value_char(i))
+                i++;
+        } else if (s[i] == '%') { // a decimal byte
+            i++;
+            if (i >= s.size() || !isdigit((unsigned char)s[i]))
+                continue;
+            int v = std::max(0, std::min(255, atoi(s.c_str() + i)));
+            put(v, v >> 4);
+            while (i < s.size() && isdigit((unsigned char)s[i]))
+                i++;
+        } else {
+            int hi = hex_digit(s[i]), lo = i + 1 < s.size() ? hex_digit(s[i + 1]) : -1;
+            i++;
+            if (hi >= 0 && lo >= 0) {
+                put(lo, hi);
+                i++;
+            } else if (hi >= 0) // a lone digit is the value itself
+                put(hi, 0);
+        }
+        skip_separators();
+    }
+    if (n <= kMidiLen - 2)
+        put(0x0E, 0x0F);
+    return out;
+}
+
+std::string RemoteTemplates::midi_text(const uint8_t *b)
+{
+    static const char digits[] = "0123456789ABCDEF";
+    std::string s;
+    for (int i = 0; i < kMidiLen; i += 2) {
+        if (b[i] == 0x0E && b[i + 1] == 0x0F)
+            break;
+        if (b[i] == 0x0F && b[i + 1] == 0x0F)
+            s += "* ";
+        else {
+            s += digits[b[i + 1] & 0x0F];
+            s += digits[b[i] & 0x0F];
+            s += ' ';
+        }
+    }
+    return trimmed(s);
+}
+
+void RemoteTemplates::set_midi_string(int t, int k, const std::string &text)
+{
+    if (!valid(t, k))
+        return;
+    auto b = encode_midi(text);
+    std::copy(b.begin(), b.end(), knobs_[t][k].begin() + kMidiAt);
 }
 
 void RemoteTemplates::set_name(int t, const std::string &name)
@@ -225,6 +312,8 @@ std::string remote_text(const std::string &param, const RemoteTemplates &t, int 
         return t.channel_enabled(sel) ? "Enable MIDI Channel" : "Disable MIDI channel";
     if (param == "Remote Templates/Knob Name")
         return t.knob_name(sel, knob);
+    if (param == "Remote Templates/MIDI String")
+        return t.midi_string(sel, knob);
     return {};
 }
 
@@ -235,6 +324,8 @@ bool remote_set_text(const std::string &param, RemoteTemplates &t, int selected,
         t.set_name(sel, text);
     else if (param == "Remote Templates/Knob Name")
         t.set_knob_name(sel, knob, text);
+    else if (param == "Remote Templates/MIDI String")
+        t.set_midi_string(sel, knob, text);
     else
         return false;
     return true;

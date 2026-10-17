@@ -149,8 +149,8 @@ TEST(remote_templates_cache)
     CHECK(d.load_cache(cut) == 1);
 }
 
-// the page's text fields: Template Name and Knob Name of the selected template / knob (nothing selected: template 0,
-// like the original shows it); the MIDI string stays read-only until its encoding is known (E196)
+// the page's text fields: Template Name, Knob Name and MIDI String of the selected template / knob (nothing selected:
+// template 0, like the original shows it)
 TEST(remote_templates_text_fields)
 {
     RemoteTemplates t;
@@ -160,7 +160,8 @@ TEST(remote_templates_text_fields)
     CHECK(remote_set_text("Remote Templates/Knob Name", t, 4, 17, "Drive"));
     CHECK(t.knob_name(4, 17) == "Drive" && remote_text("Remote Templates/Knob Name", t, 4, 17) == "Drive");
     CHECK(remote_text("Remote Templates/Knob Name", t, 4, 16).empty());
-    CHECK(!remote_set_text("Remote Templates/MIDI String", t, 4, 17, "B0 05 FF"));
+    CHECK(remote_set_text("Remote Templates/MIDI String", t, 4, 17, "b0 5 x"));
+    CHECK(remote_text("Remote Templates/MIDI String", t, 4, 17) == "B0 05 *");
     CHECK(!remote_set_text("Repository Actions/Search", t, 4, 17, "x"));
 }
 
@@ -180,4 +181,41 @@ TEST(remote_templates_file)
     CHECK(!c.load_file((dir / "missing").string()) && c.name(9) == "Init Template");
     CHECK(!a.save_file((dir / "no" / "such" / "dir" / "RemoteSets").string()));
     std::filesystem::remove_all(dir);
+}
+
+// the MIDI string's 40 bytes like the original's parser (0x1800893f0, E196): each MIDI byte as two bytes (low nibble,
+// high nibble), "*", "X" or "V" = the knob's value (0F 0F), "%n" = a decimal byte, spaces and punctuation skipped, a
+// lone hex digit = that value, the end marked by 0E 0F
+TEST(remote_templates_midi_string)
+{
+    auto enc = RemoteTemplates::encode_midi("B0 05 *");
+    CHECK(enc.size() == 40);
+    const uint8_t want[] = {0x00, 0x0B, 0x05, 0x00, 0x0F, 0x0F, 0x0E, 0x0F, 0x00};
+    CHECK(std::equal(want, want + sizeof want, enc.begin()));
+    CHECK(RemoteTemplates::encode_midi("b0,5;XXX") == enc);       // lower case, punctuation, a run of X = one value
+    CHECK(RemoteTemplates::encode_midi("%176 %5 v") == enc);      // decimal bytes
+    CHECK(RemoteTemplates::encode_midi("%300")[0] == 0x0F && RemoteTemplates::encode_midi("%300")[1] == 0x0F); // 255
+    CHECK(RemoteTemplates::encode_midi("ff")[0] == 0x0F && RemoteTemplates::encode_midi("ff")[1] == 0x0F); // = value
+    auto empty = RemoteTemplates::encode_midi("");
+    CHECK(empty[0] == 0x0E && empty[1] == 0x0F && empty[2] == 0); // the default record's string
+    CHECK(RemoteTemplates::encode_midi("G!") == empty);          // nothing usable
+    // 20 bytes fill all 40: no end marker
+    std::string twenty;
+    for (int i = 0; i < 20; i++)
+        twenty += "12 ";
+    auto full = RemoteTemplates::encode_midi(twenty + "34");
+    CHECK(full[38] == 0x02 && full[39] == 0x01);
+    auto nineteen = RemoteTemplates::encode_midi(twenty.substr(0, 19 * 3));
+    CHECK(nineteen[38] == 0x0E && nineteen[39] == 0x0F);
+
+    CHECK(RemoteTemplates::midi_text(enc.data()) == "B0 05 *");
+    CHECK(RemoteTemplates::midi_text(empty.data()).empty());
+    CHECK(RemoteTemplates::midi_text(full.data()).size() == 20 * 3 - 1);
+
+    RemoteTemplates t;
+    CHECK(t.midi_string(1, 2).empty()); // the default 0E 0F
+    t.set_midi_string(1, 2, "C0 *");
+    CHECK(t.midi_string(1, 2) == "C0 *");
+    CHECK(t.knob_record(1, 2)[23] == 0x00 && t.knob_record(1, 2)[24] == 0x0C && t.knob_record(1, 2)[25] == 0x0F);
+    CHECK(t.knob_record(1, 2)[63] == 0x00 && t.knob_record(1, 2)[64] == 0xF7);
 }
