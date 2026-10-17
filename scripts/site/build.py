@@ -262,6 +262,9 @@ def page_landing(latest, releases, sums):
           <li>A reopened project could play a different patch than the one it showed
           (<a href="https://gearspace.com/threads/virus-ti-patch-issue.485382/">Gearspace</a>). Since 0.8.18 TI
           Revive's projects bring back every patch setting.</li>
+          <li>Delay compensation worked with the original only on a track insert, not on an aux bus
+          (<a href="https://sagantech.com/forums/viewtopic.php?p=5647">Sagan Metro forum</a>). In our test the
+          plug-in on a track fed by a send (REAPER) puts every note on the grid.</li>
           <li>Access' software stopped working on new macOS from Sierra on
           (<a href="https://www.synthtopia.com/content/2016/09/13/access-virus-ti-owners-may-want-to-wait-to-update-their-mac-os/">Synthtopia</a>),
           and Windows 11 blocks its old USB driver. TI Revive runs natively on Windows 11, macOS (Apple Silicon and
@@ -281,9 +284,8 @@ def page_landing(latest, releases, sums):
         <h3>Being tested now</h3>
         <ul>
           <li>Sleep: on the Mac, sleep cut the original's connection until Access fixed it in 2008
-          (<a href="https://www.kvraudio.com/news-print.php?id=10515">KVR</a>).</li>
-          <li>Return tracks: delay compensation worked with the original only on a track insert, not on an aux bus
-          (<a href="https://sagantech.com/forums/viewtopic.php?p=5647">Sagan Metro forum</a>).</li>
+          (<a href="https://www.kvraudio.com/news-print.php?id=10515">KVR</a>). In our test, TI Revive 0.8.22 stayed
+          silent after a Mac woke up; 0.8.23 starts its timing with the Virus again after waking, not tested yet.</li>
         </ul>
         <h3 class="next">What to report</h3>
         <p>Hanging notes, sync errors, crashes, projects that did not open, the preset browser, automation, timing.
@@ -670,7 +672,7 @@ def page_changelog_landing(releases):
 # the README's screenshots that the site shows too (copied at build time)
 SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png", "plugin-help-inactive.png",
                  "plugin-menus.png"]
-TESTS = 203 # unit tests in native/tests (vtitests), as of 2026-10-17 (offline render, sync error page)
+TESTS = 208 # unit tests in native/tests (vtitests), as of 2026-10-17 (round 0.8.23)
 # line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
 COVERAGE, COVERAGE_DATE = "94 %", "16 Oct 2026"
 

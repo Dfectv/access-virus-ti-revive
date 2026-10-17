@@ -339,6 +339,9 @@ Revive rebuilds that plug-in, and we want to fix its problems instead of copying
 - A reopened project could play a different patch than the one it showed
   ([Gearspace](https://gearspace.com/threads/virus-ti-patch-issue.485382/)). Since 0.8.18 TI Revive's projects bring
   back every patch setting.
+- Delay compensation worked with the original only on a track insert, not on an aux bus
+  ([Sagan Metro forum](https://sagantech.com/forums/viewtopic.php?p=5647)). In our test the plug-in on a track fed by
+  a send (REAPER) puts every note on the grid.
 - Access' software stopped working on new macOS from Sierra on
   ([Synthtopia](https://www.synthtopia.com/content/2016/09/13/access-virus-ti-owners-may-want-to-wait-to-update-their-mac-os/)),
   and Windows 11 blocks its old USB driver. TI Revive runs natively on Windows 11, macOS (Apple Silicon and Intel)
@@ -354,9 +357,8 @@ Revive rebuilds that plug-in, and we want to fix its problems instead of copying
 **Being tested now**
 
 - Sleep: on the Mac, sleep cut the original's connection until Access fixed it in 2008
-  ([KVR](https://www.kvraudio.com/news-print.php?id=10515)).
-- Return tracks: delay compensation worked with the original only on a track insert, not on an aux bus
-  ([Sagan Metro forum](https://sagantech.com/forums/viewtopic.php?p=5647)).
+  ([KVR](https://www.kvraudio.com/news-print.php?id=10515)). In our test, TI Revive 0.8.22 stayed silent after a Mac
+  woke up; 0.8.23 starts its timing with the Virus again after waking, not tested yet.
 
 **What to report**
 
@@ -402,7 +404,7 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 - **Automation rate limit** (250 messages/s, coalesced per parameter): unthrottled parameter floods hung the Virus'
   audio until a power cycle within 4 minutes; with the limit a 4-minute full-load test (16 channels of notes + 32
   automation lanes) passes.
-- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 203 unit
+- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 208 unit
   tests run with every release build on Windows and Linux, plus two end-to-end tests on Linux in a virtual display
   (two editors of a duplicated track; the Control Center's window and close button).
 

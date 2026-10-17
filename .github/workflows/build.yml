@@ -224,14 +224,28 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
-          **New in 0.8.22: reworked, modernized menus, the same on Windows, macOS and Linux.** Every menu (value lists,
+          **New in 0.8.23: export and freeze without a workaround.** The original refused offline rendering, so you
+          had to find your DAW's real-time render setting or record the Virus live. TI Revive supports it: when your DAW
+          renders offline (export, freeze, offline bounce), the plug-in holds each block until the Virus has made its
+          sound. The render is right, but not faster than the song: the Virus plays in real time. Tested with REAPER,
+          Ableton Live (Windows and macOS) and GarageBand.
+
+          **New in 0.8.23: the original's sync error message.** Like the original, the editor shows "A sync error
+          occurred. Press Stop and Play to clear." when the Virus reports several notes in a row that arrived too late
+          for their time stamp while your DAW plays. Stop and Play clears it.
+
+          **Also in 0.8.23:** after a Mac wakes from sleep, the plug-in starts its timing with the Virus again (before,
+          the notes stayed silent after waking); not tested on hardware yet. README and website: what owners reported
+          about the original plug-in, with links to the reports, and where TI Revive stands.
+
+          **Since 0.8.22: reworked, modernized menus, the same on Windows, macOS and Linux.** Every menu (value lists,
           LOAD and SAVE, banks, libraries) is a window of its own, like the original's menus on Windows: it can reach
           beyond the plug-in window and use the whole screen, with the original's columns (the Wavetable list: 4 columns
           of 25). A submenu opens when the pointer rests on its entry for a moment, so you can move across other entries
           into an open submenu, for example from RAM A to its patches past RAM B. Arrow keys, Return and Esc work; a
           click elsewhere or switching to another window closes the menu.
 
-          **New in 0.8.22: the REMOTE page.** The Virus' remote templates with their names, knob names and MIDI
+          **Since 0.8.22: the REMOTE page.** The Virus' remote templates with their names, knob names and MIDI
           strings, the original's knob template list, template files to load and save, sent to the Virus like the
           original. The knob template list also works with the 32-bit Access installation on Windows.
 

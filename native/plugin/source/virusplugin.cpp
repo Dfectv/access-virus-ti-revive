@@ -437,6 +437,15 @@ void DeviceOut::run()
         if (idle_)
             idle_();
         scan_audio();
+        // the stream stood still while time went on and runs on (macOS sleep pauses Core Audio, E207): the Virus'
+        // stamp clock did not stop, so the anchor is off by the pause - a new timeline and sync ping, as after a
+        // reconnect (process() re-anchors on the generation change)
+        if (audio_ok_ && stall_.update(audio_.newest_frame(),
+                                       std::chrono::duration_cast<std::chrono::milliseconds>(
+                                           std::chrono::steady_clock::now().time_since_epoch()).count())) {
+            log("Virus TI native: the Virus' audio stood still (sleep?) - new timeline and sync ping\n");
+            generation++;
+        }
         check_presence();
         if ((env_stats() || diag_on_.load(std::memory_order_acquire)) && std::chrono::steady_clock::now() >= stats_next_) { // endurance tests
             stats_next_ = std::chrono::steady_clock::now() + std::chrono::seconds(10);

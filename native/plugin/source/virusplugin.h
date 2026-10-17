@@ -9,6 +9,7 @@
 #include "device/broker.h"
 #include "device/memsync.h"
 #include "device/offlinepace.h"
+#include "device/stallwatch.h"
 #include "model/syncalert.h"
 #include "device/resampler.h"
 #include "device/sidechain.h"
@@ -82,6 +83,7 @@ public:
     // another instance has the Virus: in this process (claim_owner) or another program's plug-in (broker state 2)
     bool waiting() const { return wait_reported_.load() || broker_.in_use_elsewhere(); }
     std::atomic<int> generation{0}; // +1 on every return of the Virus (process() re-anchors its timeline)
+    StallWatch stall_;              // worker: the stream stood still and runs on (sleep) -> generation + 1
     bool connected() const { return broker_.device_present(); }
     AudioIn &audio() { return audio_; } // read from process(); valid once audio_ready()
     bool audio_ready() const { return audio_ok_; }
