@@ -17,6 +17,34 @@ Not done: E180 pixel comparison with the original (needs the original's editor a
 with the user); E187 earlier crackle and E175: nothing to do until they show up again. Next: the user's checklist (Linux L1-L2, VM W1-W2, Mac M1-M3, bare metal B1-B2), then merge + release 0.8.21
 (bump project VERSION in native/CMakeLists.txt). Issue #4 closed (E188).
 
+**Round 0.8.21 POSTPONED (user, 2026-10-17 noon): W2 failed (Wavetable list), then a full comparison with the
+original.** Reference: the original Virus Control 5.1.7 in the win10 VM with the Access driver (TI Revive removed
+there, snapshot before-original-driver), 21 screenshots of every page taken with virsh screenshot (scratchpad only,
+never in the repo; editor at screen offset 278,207, our vtirender output matches pixel-exact where equal). Our pages
+rendered with the Init patch (scratch init.state: init_single upgraded, both checksums) differ only where listed:
+- identical (apart from patch names/LCD): LFO, MATRIX, ARP, COMMON; FX 1 only LCD.
+- popups: the original anchors them to the control - Menu at its top-left corner (Wavetable 296,146; Category
+  722,54), HierarchicMenu below it (bank list at 212,73 under the 212,50 23 px bar); ours opens at the mouse.
+  Wavetable list: opens on RIGHT click on the table name (user), 4 columns x 25; ours: the MaskedKnob ring
+  (WaveTableIndex) covers the menu in hit_test, a click never reaches it (scratch probe). Rule for columns and
+  right-click: REA open. User wants a more modern popup look as an option.
+- HyperSaw display (OscHypersawShape) not drawn: lines = Density (ring), spacing = Local Detune (0 centre, 127 full
+  width); exact rule: REA (KOscHypersawShape, strings 0x180160e20).
+- PATCH UTILITY INFO: URLButton text (valuelist "Access Website List") not drawn; version fields empty. Original:
+  Control version = its built-in string (FUN_180078060); TIOS = read from the Virus' flash (FUN_1800ac7c0: blocks at
+  0x7fffa0/0x40ffa0 + 0x400009, "no TIOS" fallback) - our broker blocks vendor flash requests on purpose (E177,
+  ctrlguard): user decision needed (narrow read-only exception or "-"); driver rows: user decision (broker version?).
+- Vocoder Bands: Init stores 127 (range 0..31); original shows the clamped "32", ours "127".
+- FILTER LINK: original on with Init, ours off (pixel-exact with Filter Link = 1); LFO1/2 Mod Link off in both. Where
+  the original sets it: REA open (7 refs to 0x180163cd0; start-up FUN_18006ed70 touches all four links per part).
+- FX 2: Delay Clock and Reverb Mode look inactive in ours, active in the original (not analysed yet).
+- FILTER page: envelope graphs (release end / sustain) and the filter response curve differ slightly; Classic saw
+  edge anti-aliased in the original (E180 pixel work).
+- REMOTE page (remote templates): not implemented in ours (empty list, "0" for MIDI Channel Behaviour).
+- Help "?": original opens a menu (Setup Guide, Documentation, Video Tutorials, Access homepage, Create timing
+  profile, Contact support); ours opens the help mode.
+Our renderer stays the measuring tool (vtirender + scratch init.state); a new checklist follows the fixes.
+
 ## Previous state (state 2026-10-17 09:05: v0.8.20 released)
 
 **Released v0.8.20** (tag on main 31af3e9, CI run 39011780610 all green incl. release; assets: setup.exe, msi, mac zip,
