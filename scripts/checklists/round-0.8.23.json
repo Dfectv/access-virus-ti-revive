@@ -1,0 +1,133 @@
+{
+ "round": "0.8.23",
+ "lead": "Test build 0.8.23a (branch round-0.8.23, CI run 39057457787): offline render (export, freeze, offline bounce) now works at the pace of the Virus (E203), and the original's sync error message is back (E205). Plus two problems owners had with the original: sleep and a plug-in fed like an aux track. The dev build already passed in REAPER on Linux (offline export 0 ppm, 0.01 ms; no false sync error). Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "rules": [
+  "Disposable DAW project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches.",
+  "Exports go to a folder Claude can read (Linux: work/timing/REAPER Media; VM and Mac: Claude fetches them). Name them after the item, e.g. L1.wav.",
+  "If the red bar \"A sync error occurred. Press Stop and Play to clear.\" appears anywhere, note the item and what you did just before.",
+  "Order: Linux first (the Virus is on this PC), then the Windows 11 VM, macOS last. Close the DAW before moving the Virus."
+ ],
+ "sections": [
+  {
+   "id": "linux",
+   "title": "Linux",
+   "where": "REAPER via pw-jack, Virus on this PC",
+   "prep": [
+    "Done: 0.8.23a installed with <code>./install.sh</code> (replaces the dev build in ~/.vst3). Restart REAPER if it was open."
+   ],
+   "notes": [
+    "Exports in REAPER: File &gt; Render, Source Master mix, Render speed <b>Full-speed offline</b>."
+   ],
+   "items": [
+    {
+     "id": "L1",
+     "title": "Offline export (CI build)",
+     "steps": [
+      "Open the timing project (16ths at 120 BPM).",
+      "Render with Full-speed offline to <code>L1.wav</code>."
+     ],
+     "expect": "the render takes about as long as the song (not faster); Claude measures the notes on the grid like the dev build (0 ppm, about 0.01 ms)."
+    },
+    {
+     "id": "L2",
+     "title": "Plug-in on a track fed by a send (like an aux bus)",
+     "steps": [
+      "Insert a new empty track \"Virus aux\" and move the plug-in there (or add it fresh). The timing MIDI item stays on its own track without the plug-in.",
+      "On the MIDI track's routing: add a send to \"Virus aux\", audio send off (None), MIDI All to All.",
+      "Play once and listen, then render Full-speed offline to <code>L2.wav</code>."
+     ],
+     "expect": "the Virus plays the pattern from the other track; Claude finds the notes on the grid like in L1 (the original lost its delay compensation on an aux bus, C18)."
+    },
+    {
+     "id": "L3",
+     "title": "Virus switched off during an export",
+     "steps": [
+      "Render Full-speed offline again (to <code>L3.wav</code>); about halfway, switch the Virus off.",
+      "Wait until REAPER finishes the render. Switch the Virus on, wait for it to start, press Play."
+     ],
+     "expect": "the render finishes (silence after the switch-off) and REAPER does not hang; afterwards the plug-in shows the Virus again and plays (if it stays silent: the known Linux issue, switch the Virus off and on once more, note it)."
+    },
+    {
+     "id": "L4",
+     "title": "Sleep with the plug-in loaded",
+     "steps": [
+      "REAPER open, plug-in loaded, stopped. Put the PC to sleep (menu, or <code>systemctl suspend</code>).",
+      "Wake it after about 30 seconds, then press Play in REAPER."
+     ],
+     "expect": "the plug-in finds the Virus again (a short \"No Virus TI can be found\" page in between is fine) and plays; on the Mac the original lost its connection here (C17)."
+    }
+   ]
+  },
+  {
+   "id": "vm",
+   "title": "Windows 11 VM",
+   "where": "win11 VM, Ableton Live 11, Virus attached by Claude",
+   "prep": [
+    "Done: 0.8.22d uninstalled, 0.8.23a installed silently (plug-in built 18:21 UTC). Claude attaches the Virus when you get to this section."
+   ],
+   "notes": [
+    "Ableton always exports offline. The VM's USB passthrough can drop notes (E141): if notes are missing in W1, note it, the real PC decides."
+   ],
+   "items": [
+    {
+     "id": "W1",
+     "title": "Export in Ableton",
+     "steps": [
+      "A MIDI clip with the timing pattern (16ths at 120 BPM) on the Virus track.",
+      "File &gt; Export Audio/Video, Rendered Track: the Virus track, to <code>W1.wav</code> on the Desktop."
+     ],
+     "expect": "the export takes about as long as the clip and has the pattern; Claude fetches and measures it."
+    },
+    {
+     "id": "W2",
+     "title": "Freeze",
+     "steps": [
+      "Freeze the Virus track (right-click &gt; Freeze Track). Wait until it is done.",
+      "Play the frozen track, then Unfreeze and play again."
+     ],
+     "expect": "freezing takes about as long as the clip; the frozen track sounds like the live one; after Unfreeze the plug-in plays normally."
+    }
+   ]
+  },
+  {
+   "id": "mac",
+   "title": "macOS",
+   "where": "MacBook Air M3, Ableton Live 12 and Logic Pro",
+   "prep": [
+    "The Mac was asleep when the build was ready: tell Claude when it is awake, Claude then pushes build 0.8.23a. Quit Ableton and Logic, then in Terminal: <code>sudo installer -pkg ~/Downloads/TI-Revive-0.8.23a-mac/TI-Revive-0.8.23-mac/\"TI Revive.pkg\" -target /</code>"
+   ],
+   "notes": [
+    "Logic uses the Audio Unit; its offline bounce reaches the plug-in as an offline render too."
+   ],
+   "items": [
+    {
+     "id": "M1",
+     "title": "Export and freeze in Ableton",
+     "steps": [
+      "The timing clip on the Virus track. File &gt; Export Audio/Video to <code>M1.wav</code> in Downloads.",
+      "Freeze the track, play it, Unfreeze."
+     ],
+     "expect": "export and freeze take about as long as the clip; the frozen track sounds like the live one; Claude measures M1.wav."
+    },
+    {
+     "id": "M2",
+     "title": "Offline bounce in Logic (Audio Unit)",
+     "steps": [
+      "Logic: a software instrument track with TI Revive Virus Control (AU) and a MIDI region with the timing pattern.",
+      "File &gt; Bounce &gt; Project or Section, Mode <b>Offline</b>, to <code>M2.wav</code> in Downloads."
+     ],
+     "expect": "the bounce takes about as long as the region (not faster) and has the pattern; Claude measures M2.wav."
+    },
+    {
+     "id": "M3",
+     "title": "Sleep with the plug-in loaded",
+     "steps": [
+      "Ableton open, plug-in loaded, stopped. Close the lid (or Apple menu &gt; Sleep), wait about a minute.",
+      "Open it, log in, press Play in Ableton."
+     ],
+     "expect": "the plug-in finds the Virus again and plays (a short \"No Virus TI can be found\" page in between is fine); the original lost its connection here until Access fixed it (C17)."
+    }
+   ]
+  }
+ ]
+}
