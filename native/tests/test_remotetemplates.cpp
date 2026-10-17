@@ -285,3 +285,15 @@ TEST(remote_templates_file_list)
     CHECK(remote_template_name("Live/x.vrt") == "Live/x" && remote_template_name("A.VRT") == "A");
     fs::remove_all(dir);
 }
+
+// the original's receiver checks only the header (F0 00 20 33 01 10 13), the template / knob and the length, not the
+// last byte: two factory templates (Steinberg "Attack") end their knob records with 00 00 instead of F7 (E198)
+TEST(remote_templates_record_without_f7)
+{
+    RemoteTemplates src;
+    src.set_knob_name(2, 4, "Attack");
+    std::vector<uint8_t> r = src.knob_record(2, 4);
+    r[64] = 0x00;
+    RemoteTemplates t;
+    CHECK(t.take_record(r) && t.knob_name(2, 4) == "Attack");
+}

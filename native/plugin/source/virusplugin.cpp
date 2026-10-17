@@ -118,8 +118,13 @@ void DeviceOut::release_owner()
 
 void DeviceOut::send(std::vector<uint8_t> msg)
 {
+    send(std::move(msg), CABLE_PLUGIN);
+}
+
+void DeviceOut::send(std::vector<uint8_t> msg, uint8_t cable)
+{
     std::lock_guard<std::mutex> lk(mu_);
-    queue_.push_back({std::move(msg), false});
+    queue_.push_back({std::move(msg), false, cable});
     queued_++;
     cv_.notify_one();
 }
@@ -392,6 +397,7 @@ void DeviceOut::run()
         }
         std::vector<uint8_t> msg;
         int64_t stamp = -1;
+        uint8_t cable = CABLE_PLUGIN; // queued remote template records: 3 (E199)
         {
             std::unique_lock<std::mutex> lk(mu_);
             // process() wakes it once per block with events (wake_rt); the timeout is only a backstop and runs the idle
@@ -422,6 +428,7 @@ void DeviceOut::run()
             } else if (!queue_.empty()) {
                 rt_run_ = 0;
                 msg = std::move(queue_.front().msg);
+                cable = queue_.front().cable;
                 queue_.pop_front();
                 pending_send_ = true; // counted down after the write, so busy() covers the transfer
             }
@@ -489,7 +496,7 @@ void DeviceOut::run()
                 auto t = usbmidi_pack({0xF5, (uint8_t)(st & 0x7F), (uint8_t)((st >> 7) & 0x7F)}, CABLE_TIME);
                 pk_.insert(pk_.end(), t.begin(), t.end());
             }
-            auto ev = usbmidi_pack(m, CABLE_PLUGIN);
+            auto ev = usbmidi_pack(m, cable);
             pk_.insert(pk_.end(), ev.begin(), ev.end());
             if (klog_ && st >= 0 && m.size() == 3 && (m[0] & 0xF0) == 0x90 && m[2] && klog_stamps_.size() < 64)
                 klog_stamps_.push_back({raw, audio_ok_ ? audio_.newest_frame() : -1, 0, 0});
@@ -1696,15 +1703,15 @@ static std::string remote_template_dir()
     return lib.empty() ? std::string() : (std::filesystem::path(lib).parent_path() / "Remote Templates").string();
 }
 
-std::vector<std::string> VirusPlugin::remote_template_files() const
+std::vector<std::pair<std::string, std::string>> VirusPlugin::remote_template_folders() const
 {
-    return vti::remote_template_files(remote_template_dir());
+    return {{"Personal Libraries", library_dir()}, {"Personal Remote Templates", remote_template_dir()}};
 }
 
-bool VirusPlugin::load_remote_template(const std::string &file)
+bool VirusPlugin::load_remote_template(const std::string &path)
 {
     std::vector<uint8_t> d;
-    if (FILE *f = fopen((std::filesystem::path(remote_template_dir()) / file).string().c_str(), "rb")) {
+    if (FILE *f = fopen(path.c_str(), "rb")) {
         uint8_t buf[4096];
         for (size_t n; (n = fread(buf, 1, sizeof buf, f)) > 0;)
             d.insert(d.end(), buf, buf + n);
@@ -1723,11 +1730,11 @@ bool VirusPlugin::save_remote_template(const std::string &file)
 {
     namespace fs = std::filesystem;
     const fs::path dir = remote_template_dir();
-    if (dir.empty())
+    if (file.empty() && dir.empty())
         return false;
     int sel = ui_value("Remote Templates/Selected Template", -1);
     std::vector<uint8_t> d;
-    fs::path path = dir / file;
+    fs::path path = file;
     {
         std::lock_guard<std::mutex> lk(remote_mu_);
         d = remote_.template_file(sel < 0 ? 0 : sel);

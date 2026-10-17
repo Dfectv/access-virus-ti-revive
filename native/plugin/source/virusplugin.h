@@ -47,6 +47,9 @@ public:
     // setActive(true). A host's plug-in scan (initialize + terminate, no activation) never reaches the Virus.
     void start() { go_ = true; }
     void send(std::vector<uint8_t> msg); // a complete MIDI message (SysEx or channel message); not from process()
+    // the same on another USB-MIDI cable of the plug-in endpoint: the original sends remote template records on
+    // cable 3 (E199), everything else on cable 2
+    void send(std::vector<uint8_t> msg, uint8_t cable);
     // a whole state upload: replaces the records of an earlier upload that are still queued (only the newest state
     // counts; a waiting instance got two before its takeover, E149). Returns how many queued records it dropped.
     int send_state(std::vector<std::vector<uint8_t>> records);
@@ -169,7 +172,8 @@ private:
     bool elsewhere_seen_ = false; // worker: broker state 2 seen (another program's plug-in has the Virus)
     struct Queued {
         std::vector<uint8_t> msg;
-        bool state; // part of a state upload (send_state)
+        bool state;        // part of a state upload (send_state)
+        uint8_t cable = 2; // USB-MIDI cable
     };
     std::deque<Queued> queue_;
     std::atomic<int> queued_{0};
@@ -333,12 +337,14 @@ public:
     // REMOTE page: Template Name / Knob Name of the selected template and knob edited (false: no such field); the
     // templates are saved at once, nothing is sent to the Virus (E196)
     bool set_remote_text(const std::string &param, const std::string &text);
-    // REMOTE page template files (*.vrt, E198) in Documents/Access Music/Virus TI/Remote Templates like the original's
-    // "Personal Remote Templates": the list (paths below the folder), a file into the selected template, the selected
-    // template into a file ("" = a new file named after the template). Nothing is sent to the Virus.
-    std::vector<std::string> remote_template_files() const;
-    bool load_remote_template(const std::string &file);
-    bool save_remote_template(const std::string &file);
+    // REMOTE page template files (*.vrt, E198) like the original's two places: "Personal Libraries" (the Patches
+    // folder; the installer's factory templates are in its "Remote Templates") and "Personal Remote Templates"
+    // (Documents/Access Music/Virus TI/Remote Templates, where new ones go): (menu name, folder). Loading puts a file
+    // into the selected template, saving writes the selected template ("" = a new file named after the template in
+    // Personal Remote Templates). Nothing is sent to the Virus.
+    std::vector<std::pair<std::string, std::string>> remote_template_folders() const;
+    bool load_remote_template(const std::string &path);
+    bool save_remote_template(const std::string &path);
     // the Knob Template menu's entries, read from the user's plug-in binary on first use (E197); empty if not found
     std::vector<KnobTemplate> knob_templates();
     // LCD texts of the last edited parameter

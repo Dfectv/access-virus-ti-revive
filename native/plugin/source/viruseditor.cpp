@@ -29,6 +29,7 @@ extern char **environ;
 #include "vstgui/lib/cgraphicspath.h"
 #include <algorithm>
 #include <chrono>
+#include <filesystem>
 #include <functional>
 #include <list>
 #include <set>
@@ -1570,31 +1571,41 @@ private:
         });
     }
 
-    // REMOTE page LOAD / SAVE: the template files of the Remote Templates folder (sub folders as submenus, E198);
-    // SAVE also offers a new file like the original's " Save as new Template..". Nothing is sent to the Virus.
+    // REMOTE page LOAD / SAVE like the original's (E198): "Personal Libraries" and "Personal Remote Templates" with
+    // their template files (sub folders as submenus, only folders with templates); SAVE also offers a new file under
+    // Personal Remote Templates (" Save as new Template.." in the original). Nothing is sent to the Virus.
     void template_file_menu(const CPoint &where, bool save)
     {
-        auto files = std::make_shared<std::vector<std::string>>(plugin_->remote_template_files());
+        auto files = std::make_shared<std::vector<std::string>>(); // full paths; "" = a new file
         std::vector<vti::PopupItem> items;
         std::map<std::string, std::vector<int>> folders;
-        auto index = std::make_shared<std::map<std::vector<int>, int>>(); // menu path -> file, -1 = a new file
-        if (save) {
-            items.push_back({"Save as new Template.."});
-            (*index)[{0}] = -1;
+        auto index = std::make_shared<std::map<std::vector<int>, int>>(); // menu path -> entry of `files`
+        for (auto &[name, dir] : plugin_->remote_template_folders()) {
+            const bool own = name == "Personal Remote Templates";
+            auto list = vti::remote_template_files(dir);
+            if (list.empty() && !(save && own))
+                continue;
+            if (save && own) {
+                files->push_back("");
+                (*index)[vti::popup_add_path(items, name + "/Save as new Template..", {""}, folders)] =
+                    (int)files->size() - 1;
+            }
+            for (auto &f : list) {
+                files->push_back((std::filesystem::path(dir) / f).string());
+                (*index)[vti::popup_add_path(items, name + "/" + vti::remote_template_name(f), {""}, folders)] =
+                    (int)files->size() - 1;
+            }
         }
-        for (int i = 0; i < (int)files->size(); i++)
-            (*index)[vti::popup_add_path(items, vti::remote_template_name((*files)[i]), {""}, folders)] = i;
         if (items.empty())
             items.push_back({"(none)", false});
         show_popup(std::move(items), -1, 0, where, [this, files, index, save](const std::vector<int> &path) {
             auto it = index->find(path);
             if (it == index->end())
                 return;
-            const std::string file = it->second < 0 ? std::string() : (*files)[it->second];
             if (save)
-                plugin_->save_remote_template(file);
+                plugin_->save_remote_template((*files)[it->second]);
             else
-                plugin_->load_remote_template(file);
+                plugin_->load_remote_template((*files)[it->second]);
             invalid();
         });
     }

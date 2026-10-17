@@ -37,9 +37,11 @@ static void put_text(std::vector<uint8_t> &r, int at, int len, const std::string
     }
 }
 
+// like the original's receiver (0x18008b8d0): the header and the length decide, not the last byte (two factory
+// templates end their knob records with 00 00, E198)
 static bool ours(const std::vector<uint8_t> &r)
 {
-    return r.size() > sizeof kHead && std::equal(kHead, kHead + sizeof kHead, r.begin()) && r.back() == 0xF7;
+    return r.size() > sizeof kHead && std::equal(kHead, kHead + sizeof kHead, r.begin());
 }
 
 static bool valid(int t, int k = 0)
