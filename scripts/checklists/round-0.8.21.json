@@ -1,9 +1,9 @@
 {
  "round": "0.8.21",
- "lead": "Test build 0.8.21 (CI run 39018067599, branch round-0.8.21): a direct .msi install removes the uninstall entries that earlier setup.exe installs left behind, the classic oscillator display shows the original's 64 waves and its Shape mix, and our code is built with full compiler warnings. A short round: two or three items per system. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "lead": "Test build 0.8.21b (CI run 39027398548, branch round-0.8.21): after the comparison with the original - popup menus open at their control with 25 entries per column, a right click opens the Wavetable list through the ring, the HyperSaw display follows the original exactly, PATCH UTILITY > INFO shows TI Revive, broker and Virus OS versions, and the REMOTE page shows the template list (read-only). Already passed with the first build: Linux L1/L2, VM W1. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
  "rules": [
-  "Disposable DAW project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches.",
-  "Order: Linux (the Virus is here), then the Windows 11 VM, then macOS, and Windows 11 on this PC last.",
+  "Disposable DAW project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches. On the REMOTE page: no SAVE, no LOAD (they are not active in TI Revive yet).",
+  "Order: Linux (Claude brings the Virus back from the Windows 10 VM), then the Windows 11 VM, macOS, and Windows 11 on this PC last.",
   "Close the DAW before moving the Virus to another machine."
  ],
  "sections": [
@@ -12,26 +12,38 @@
    "title": "Linux",
    "where": "REAPER via pw-jack, Virus on this PC",
    "prep": [
-    "Claude unpacked the test build to <code>~/Downloads/TI-Revive-0.8.21-linux</code>. In a terminal: <code>cd ~/Downloads/TI-Revive-0.8.21-linux/TI-Revive-0.8.21-linux && sudo ./install.sh</code>"
+    "Claude unpacked the test build to <code>~/Downloads/TI-Revive-0.8.21b-linux</code>. In a terminal: <code>cd ~/Downloads/TI-Revive-0.8.21b-linux/TI-Revive-0.8.21-linux && sudo ./install.sh</code>"
    ],
-   "notes": [],
+   "notes": [
+    "The first start after the install reads the Virus' OS version once (about 3 s longer before the sync starts)."
+   ],
    "items": [
     {
-     "id": "L1",
-     "title": "Smoke test",
+     "id": "L3",
+     "title": "Popup menus",
      "steps": [
-      "Open the test project in REAPER and play the Virus track; open the editor."
+      "OSC page, oscillator 1 Wavetable: right-click the table name \"Sine\".",
+      "Left-click the ring around it.",
+      "BROWSER: click the bank bar above a bank, and the category field."
      ],
-     "expect": "sound, the editor opens. (The editor shows no version; the plug-in itself reports 0.8.20 until the release, L2 shows that the new build is in.)"
+     "expect": "the right click opens the list of 100 tables in 4 columns at the name; the left click turns the ring; the bank list opens just below the bar, the category list over its field."
     },
     {
-     "id": "L2",
-     "title": "Classic oscillator display",
+     "id": "L4",
+     "title": "HyperSaw display",
      "steps": [
-      "Init patch, oscillator 1 in Classic mode. Shape fully left (Wave), then step WaveSelect through 1, 2, 3, 10, 30, 64.",
-      "WaveSelect 1, then turn Shape from left through the middle (Saw) to fully right (Pulse), and move Pulsewidth at the right end."
+      "Oscillator 1 HyperSaw: turn the ring (Density) from left to right, then set DETUNE to 0 and 127."
      ],
-     "expect": "WaveSelect 1 a sine, 2 a triangle, every other number its own shape (not always a sine); Shape fades smoothly wave -> saw -> pulse, Pulsewidth moves the pulse edge. Write down anything that looks off (clipped, shifted, wrong size)."
+     "expect": "2 to 9 vertical lines, the last one growing; DETUNE spreads them from the middle to almost the full width."
+    },
+    {
+     "id": "L5",
+     "title": "INFO box and REMOTE page",
+     "steps": [
+      "PATCH UTILITY > CONFIG: look at the INFO box.",
+      "REMOTE: click a few templates."
+     ],
+     "expect": "INFO: TI Revive 0.8.21 in the five version rows, Virus TI Version 5.1.7.00, the website link text. REMOTE: 32 x Init Template, a click highlights the template, nothing else changes."
     }
    ]
   },
@@ -40,28 +52,26 @@
    "title": "Windows 11 VM",
    "where": "Ableton Live 11, Virus passed through",
    "prep": [
-    "Prepare: close REAPER. Claude hands over the Virus with <code>VM=win11 scripts/vm.sh attach</code>. 0.8.21 is installed in the VM with setup.exe."
+    "Close REAPER. Claude installs the test build in the VM and hands over the Virus with <code>VM=win11 scripts/vm.sh attach</code>."
    ],
-   "notes": [
-    "Claude already ran the uninstall-entry checks in the VM (no Virus needed): 0.8.20 setup.exe, then the 0.8.21 .msi directly: one entry, the five leftovers removed (bundles.log); then the 0.8.21 setup.exe uninstall and install: one visible entry, the clean-up stayed out of the way. W1 is only a look."
-   ],
+   "notes": [],
    "items": [
     {
-     "id": "W1",
-     "title": "One TI Revive entry",
+     "id": "W2",
+     "title": "Smoke test and Wavetable list",
      "steps": [
-      "Settings, Apps, Installed apps: search for \"TI Revive\"."
+      "Open the test project, play, open the editor.",
+      "Oscillator 1 Wavetable: right-click \"Sine\", pick another table."
      ],
-     "expect": "exactly one entry, TI Revive 0.8.21 (before: the setup.exe's 0.8.20 entry would have stayed next to it)."
+     "expect": "sound; the list opens in 4 columns at the name; the chosen table shows in the display."
     },
     {
-     "id": "W2",
-     "title": "Smoke test and oscillator display",
+     "id": "W3",
+     "title": "INFO box",
      "steps": [
-      "Open the test project in Ableton, play, open the editor.",
-      "Oscillator 1 Classic: WaveSelect 1, 2, 30 with Shape left."
+      "PATCH UTILITY > CONFIG."
      ],
-     "expect": "sound; sine, triangle and a third distinct wave, the same pictures as on Linux."
+     "expect": "the same versions as on Linux, Virus TI Version 5.1.7.00."
     }
    ]
   },
@@ -70,35 +80,36 @@
    "title": "macOS",
    "where": "MacBook Air M3, Ableton Live 12",
    "prep": [
-    "The Mac was asleep: the package is on this PC as <code>~/Downloads/TI-Revive-0.8.21-mac.zip</code>; Claude pushes and unpacks it to <code>~/Downloads/TI-Revive-0.8.21-mac</code> when the Mac is awake. Then in Terminal: <code>sudo installer -pkg ~/Downloads/TI-Revive-0.8.21-mac/\"TI Revive.pkg\" -target /</code>"
+    "Claude pushes the package to the Mac when it is awake: <code>~/Downloads/TI-Revive-0.8.21b-mac</code>. In Terminal: <code>sudo installer -pkg ~/Downloads/TI-Revive-0.8.21b-mac/\"TI Revive.pkg\" -target /</code>"
    ],
    "notes": [
-    "The Mac reads the 64 waves from its own Access bundle binary; Claude checked that the table is found in the 5.1.7 Mac binary, but not inside the running plug-in."
+    "macOS draws its own popup menus: columns and position may look different there."
    ],
    "items": [
     {
      "id": "M1",
      "title": "Smoke test",
      "steps": [
-      "Start Ableton, play the Virus track, open the editor."
+      "Start Ableton, play, open the editor."
      ],
      "expect": "sound, editor normal."
     },
     {
      "id": "M2",
-     "title": "Classic oscillator display",
+     "title": "Oscillator displays and menus",
      "steps": [
-      "The same steps as L2 (WaveSelect 1, 2, 3, 10, 30, 64 with Shape left; then Shape from left to right and Pulsewidth)."
+      "Classic: WaveSelect 1, 2, 30 with Shape left; HyperSaw: turn Density.",
+      "Wavetable: right-click \"Sine\"."
      ],
-     "expect": "the same pictures as on Linux (WaveSelect 2 a triangle, not a sine)."
+     "expect": "sine, triangle, a third wave; 2..9 HyperSaw lines; the table list opens."
     },
     {
      "id": "M3",
-     "title": "Compare with the original (optional)",
+     "title": "INFO box",
      "steps": [
-      "Only if the original Virus Control still opens somewhere: set the same three combinations (WaveSelect 2 Shape left; WaveSelect 1 Shape middle; WaveSelect 1 Shape right, Pulsewidth middle) and take a screenshot of the oscillator display in both, original and TI Revive."
+      "PATCH UTILITY > CONFIG."
      ],
-     "expect": "the same curve, position and size; save the screenshots where Claude can read them for a pixel comparison (E180)."
+     "expect": "TI Revive 0.8.21, Virus TI Version 5.1.7.00."
     }
    ]
   },
@@ -107,28 +118,28 @@
    "title": "Windows 11 on this PC",
    "where": "boot into Windows; Claude is not available during it",
    "prep": [
-    "Prepare: in Windows, download the 0.8.21 .msi (not the setup.exe) from <code>github.com/derpsn/access-virus-ti-revive/actions/runs/39018067599</code> (artifact \"TI-Revive-msi\", GitHub login)."
+    "Download the 0.8.21 .msi (not the setup.exe) from <code>github.com/derpsn/access-virus-ti-revive/actions/runs/39027398548</code> (artifact \"TI-Revive-msi\", GitHub login)."
    ],
    "notes": [
-    "Before: Installed apps shows three TI Revive entries (0.8.0, 0.8.20 and 0.8.20). Do this block last and reboot to Linux at the end; Claude reads the install log read-only (C:\\ProgramData\\TI Revive\\bundles.log)."
+    "Before: Installed apps shows three TI Revive entries (0.8.0, 0.8.20 and 0.8.20). Reboot to Linux at the end; Claude reads C:\\ProgramData\\TI Revive\\bundles.log read-only."
    ],
    "items": [
     {
      "id": "B1",
      "title": "The .msi cleans up the old entries",
      "steps": [
-      "Settings, Apps, Installed apps: search for \"TI Revive\" and note what you see.",
-      "Install the 0.8.21 .msi (double-click), then search again (close and reopen Settings)."
+      "Installed apps: search for \"TI Revive\" and note what you see.",
+      "Install the 0.8.21 .msi, then search again (reopen Settings)."
      ],
      "expect": "afterwards exactly one entry, TI Revive 0.8.21."
     },
     {
      "id": "B2",
-     "title": "Smoke test",
+     "title": "Smoke test and INFO box",
      "steps": [
-      "Ableton: play the Virus track, open the editor, oscillator 1 Classic, WaveSelect 2."
+      "Ableton: play, open the editor, PATCH UTILITY > CONFIG."
      ],
-     "expect": "sound, a triangle in the oscillator display."
+     "expect": "sound; Virus TI Version 5.1.7.00 in the INFO box."
     }
    ]
   }
