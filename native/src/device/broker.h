@@ -57,7 +57,8 @@ public:
 
     // The Virus' identification blocks (model, OS version), read by the broker with the original driver's fixed
     // read-only flash sequence (flashinfo.h, E026/E040; owner only, cached per device open). Returns the byte count
-    // (blocks in `out`) or -1. Takes about 2 s the first time.
+    // (blocks in `out`) or -1 (also at once from a broker without the INFO message: older than 0.8.21). Takes about
+    // 2 s the first time.
     int flash_info(std::vector<uint8_t> &out, int timeout_ms = 8000);
 
 private:

@@ -219,6 +219,14 @@ TEST(broker_flash_info_request)
     std::string err;
     CHECK(b.open(err));
     std::vector<uint8_t> blocks;
+    // an older broker (no INFO message) does not know the request: nothing is sent, -1 at once (not after the timeout)
+    auto t0 = std::chrono::steady_clock::now();
+    CHECK(b.flash_info(blocks, 3000) == -1 && blocks.empty());
+    CHECK(std::chrono::steady_clock::now() - t0 < std::chrono::milliseconds(1000));
+    CHECK(fb.messages(VTIMSG_FLASHINFO).empty());
+    std::string info = "version=0.8.21";
+    fb.reply(VTIMSG_INFO, Bytes(info.begin(), info.end()));
+    CHECK(eventually([&] { return b.broker_version() == "0.8.21"; }));
     std::thread answer([&] {
         CHECK(eventually([&] { return !fb.messages(VTIMSG_FLASHINFO).empty(); }));
         Bytes r = FakeBroker::u32((uint32_t)VTI_FLASH_BLOCKS * 16);

@@ -318,6 +318,12 @@ int Broker::control(uint8_t rt, uint8_t req, uint16_t value, uint16_t index, uin
 int Broker::flash_info(std::vector<uint8_t> &out, int timeout_ms)
 {
     out.clear();
+    // only a broker that announced itself with INFO (0.8.21+) knows the request: an older one would never answer and
+    // keep the caller waiting for the whole timeout at every connect. INFO follows the first STATE: wait briefly for it
+    for (int i = 0; i < 20 && broker_version().empty(); i++)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    if (broker_version().empty())
+        return -1;
     {
         std::lock_guard<std::mutex> g(ctl_);
         flash_replied_ = false;
