@@ -27,7 +27,9 @@ closing (E185, fixed; Linux verified in Xvfb). New: end-to-end GUI tests via cte
 test skips without Access files, e.g. CI), CITATION.cff + "Using our findings" (attribution request). Second build
 CI run 39007000903 (green) installed: Mac ~/Downloads/TI-Revive-0.8.20b-mac (user runs installer), Linux
 ~/Downloads/TI-Revive-0.8.20b-linux (user runs install.sh), VM setup.exe silent. Checklist (same link) has redo items
-M5, L6, L7, W5, B5; bare metal B1-B5 still open. The Virus is in the VM. After merge: post the short findings update
+M5, L6, L7, W5, B5 - all PASS (user, 2026-10-17: macOS M1-M5, Linux L1, L2, L4-L7, VM W1-W5; L3 not needed,
+E175 did not occur). Bare metal B1-B5 still open (user boots this PC into Windows; results to tirevive-0.8.20 on an
+NTFS data disk, read it read-only from Linux afterwards). The Virus is in the VM. After merge: post the short findings update
 on Give-me-a-signal/virus-ti-rework#5 (draft approved by the user: scratchpad rework-update.md - pointer to
 findings/evidence.md, no credit request).
 
