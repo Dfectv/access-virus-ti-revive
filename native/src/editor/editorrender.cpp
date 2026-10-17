@@ -719,7 +719,9 @@ std::pair<int, int> EditorRenderer::menu_anchor(const Hit &h)
 
 int EditorRenderer::menu_items_per_column(size_t entries)
 {
-    return entries < 160 ? 25 : 0;
+    // the original's value lists (0x180040f50): a quarter per column above 32 entries; VSTGUI's Windows menu breaks
+    // columns only below 160 entries (0x180019440)
+    return entries > 32 && entries < 160 ? (int)entries / 4 : 0;
 }
 
 } // namespace vti

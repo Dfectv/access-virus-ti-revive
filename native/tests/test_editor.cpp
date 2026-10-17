@@ -477,8 +477,12 @@ TEST(editor_right_click_menus)
     at = EditorRenderer::menu_anchor(bank);
     CHECK(at.first == 120 && at.second == 33); // HierarchicMenu: below the control
 
-    CHECK(EditorRenderer::menu_items_per_column(100) == 25);
-    CHECK(EditorRenderer::menu_items_per_column(24) == 25);
+    // the original's value lists: a quarter of the entries per column above 32 entries (0x180040f50, E195)
+    CHECK(EditorRenderer::menu_items_per_column(100) == 25); // the 4 x 25 Wavetable list
+    CHECK(EditorRenderer::menu_items_per_column(64) == 16);
+    CHECK(EditorRenderer::menu_items_per_column(33) == 8);
+    CHECK(EditorRenderer::menu_items_per_column(32) == 0);  // one column
+    CHECK(EditorRenderer::menu_items_per_column(24) == 0);  // the 24 categories: one column like the original's
     CHECK(EditorRenderer::menu_items_per_column(160) == 0); // VSTGUI: no columns from 160 entries on
 }
 

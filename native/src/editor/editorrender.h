@@ -101,7 +101,8 @@ public:
     Hit menu_hit_test(int x, int y) const;
     // where a menu's popup opens: a Menu over its control (popup style), a HierarchicMenu below it (original 0x1800191d0)
     static std::pair<int, int> menu_anchor(const Hit &h);
-    // entries per popup column (the original's menus: 25; VSTGUI breaks columns only below 160 entries), 0 = one column
+    // entries per popup column (the original's value lists: a quarter above 32 entries, E195; VSTGUI breaks columns
+    // only below 160 entries), 0 = one column
     static int menu_items_per_column(size_t entries);
     // REMOTE page: the template (0..31) under a point inside a RemoteBrowser hit, or -1
     static int remote_entry(const Hit &h, int x, int y);

@@ -2,6 +2,7 @@
 // and keyboard
 #include "check.h"
 #include "editor/popupmenu.h"
+#include <map>
 using namespace vti;
 
 namespace {
@@ -166,4 +167,167 @@ TEST(popup_repaint_areas)
     // keys report their rows the same way
     dirty = m.key_dirty(PopupMenu::Key::Down);
     CHECK(m.hot == 0 && dirty.size() == 1 && dirty[0].y == m.y + m.item_rect(0).y);
+}
+
+namespace {
+// "Device > RAM A, RAM B" and "Personal Libraries > Folder > Lib" like the patch menus (E195)
+std::vector<PopupItem> tree()
+{
+    PopupItem dev{"Virus TI", true, {{"RAM A", true, numbered(128)}, {"RAM B", true, numbered(128)}}};
+    PopupItem folder{"Folder", true, {{"Lib", true, numbered(3)}}};
+    PopupItem libs{"Personal Libraries", true, {folder, {"Lone", true, numbered(2)}}};
+    return {dev, libs, {"Leaf", true, {}}};
+}
+} // namespace
+
+// submenus open next to their entry on hover; another entry switches or closes them
+TEST(popup_cascade_hover)
+{
+    PopupCascade c(tree(), -1, width6, 0, 907, 513);
+    c.open_at(100, 50);
+    CHECK(c.levels() == 1 && c.level(0).x == 100 && c.level(0).y == 50);
+    CHECK(c.level(0).items()[0].has_sub() && !c.level(0).items()[2].has_sub());
+
+    PopupMenu::Rect r0 = c.level(0).item_rect(0);
+    auto dirty = c.hover(c.level(0).x + r0.x + 5, c.level(0).y + r0.y + 5);
+    CHECK(c.levels() == 2 && c.level(0).hot == 0);
+    const PopupMenu &sub = c.level(1);
+    CHECK(sub.items().size() == 2 && sub.hot == -1);
+    // to the right of its parent, the first row level with the parent's entry
+    CHECK(sub.x == c.level(0).x + c.level(0).width());
+    CHECK(sub.y + sub.item_rect(0).y == c.level(0).y + r0.y);
+    bool sub_repainted = false;
+    for (auto &d : dirty)
+        sub_repainted |= d.x == sub.x && d.y == sub.y && d.w == sub.width() && d.h == sub.height();
+    CHECK(sub_repainted);
+
+    // into the bank list: 128 patches wrap into columns that fit the editor's height
+    PopupMenu::Rect ra = sub.item_rect(0);
+    c.hover(sub.x + ra.x + 5, sub.y + ra.y + 5);
+    CHECK(c.levels() == 3 && c.level(2).items().size() == 128);
+    CHECK(c.level(2).height() <= 513 && c.level(2).columns() > 1);
+    CHECK(c.level(2).y >= 0 && c.level(2).y + c.level(2).height() <= 513);
+
+    // back on the root's "Leaf": the submenus close
+    PopupMenu::Rect r2 = c.level(0).item_rect(2);
+    c.hover(c.level(0).x + r2.x + 5, c.level(0).y + r2.y + 5);
+    CHECK(c.levels() == 1 && c.level(0).hot == 2);
+    // the mouse beside every menu changes nothing
+    c.hover(5, 5);
+    CHECK(c.levels() == 1 && c.level(0).hot == 2);
+}
+
+// no room on the right: the submenu opens on the left of its parent
+TEST(popup_cascade_flips_left)
+{
+    PopupCascade c(tree(), -1, width6, 0, 907, 513);
+    c.open_at(880, 50); // moved left to fit
+    CHECK(c.level(0).x + c.level(0).width() <= 907);
+    PopupMenu::Rect r1 = c.level(0).item_rect(1);
+    c.hover(c.level(0).x + r1.x + 5, c.level(0).y + r1.y + 5);
+    CHECK(c.levels() == 2 && c.level(1).x + c.level(1).width() == c.level(0).x);
+}
+
+TEST(popup_cascade_click)
+{
+    PopupCascade c(tree(), -1, width6, 0, 907, 513);
+    c.open_at(100, 50);
+    PopupMenu::Rect r1 = c.level(0).item_rect(1);
+    // a click on an entry with a submenu opens it and chooses nothing
+    auto res = c.click(c.level(0).x + r1.x + 5, c.level(0).y + r1.y + 5);
+    CHECK(res.kind == PopupCascade::Result::None && c.levels() == 2);
+    PopupMenu::Rect f = c.level(1).item_rect(0); // Folder
+    c.hover(c.level(1).x + f.x + 5, c.level(1).y + f.y + 5);
+    CHECK(c.levels() == 3);
+    PopupMenu::Rect l = c.level(2).item_rect(0); // Lib
+    c.hover(c.level(2).x + l.x + 5, c.level(2).y + l.y + 5);
+    CHECK(c.levels() == 4);
+    PopupMenu::Rect p = c.level(3).item_rect(2);
+    res = c.click(c.level(3).x + p.x + 5, c.level(3).y + p.y + 5);
+    CHECK(res.kind == PopupCascade::Result::Chosen);
+    CHECK((res.path == std::vector<int>{1, 0, 0, 2}));
+
+    PopupCascade d(tree(), -1, width6, 0, 907, 513);
+    d.open_at(100, 50);
+    CHECK(d.click(2, 2).kind == PopupCascade::Result::Closed); // outside every menu
+    PopupCascade e(tree(), -1, width6, 0, 907, 513);
+    e.open_at(100, 50);
+    PopupMenu::Rect leaf = e.level(0).item_rect(2);
+    res = e.click(e.level(0).x + leaf.x + 5, e.level(0).y + leaf.y + 5);
+    CHECK(res.kind == PopupCascade::Result::Chosen && (res.path == std::vector<int>{2}));
+}
+
+// keys like a Windows menu: Right / Return open a submenu at its first entry, Left / Esc close it, Esc on the root
+// closes the menu
+TEST(popup_cascade_keys)
+{
+    using K = PopupCascade::Key;
+    PopupCascade c(tree(), -1, width6, 0, 907, 513);
+    c.open_at(100, 50);
+    c.key(K::Down);
+    CHECK(c.levels() == 1 && c.level(0).hot == 0);
+    c.key(K::Right);
+    CHECK(c.levels() == 2 && c.level(1).hot == 0);
+    c.key(K::Down);
+    CHECK(c.level(1).hot == 1);
+    c.key(K::Left);
+    CHECK(c.levels() == 1 && c.level(0).hot == 0);
+    c.key(K::Return);
+    CHECK(c.levels() == 2 && c.level(1).hot == 0);
+    c.key(K::Return);
+    CHECK(c.levels() == 3 && c.level(2).hot == 0);
+    c.key(K::Down);
+    auto res = c.key(K::Return);
+    CHECK(res.kind == PopupCascade::Result::Chosen && (res.path == std::vector<int>{0, 0, 1}));
+
+    PopupCascade d(tree(), -1, width6, 0, 907, 513);
+    d.open_at(100, 50);
+    d.key(K::Down);
+    d.key(K::Right);
+    CHECK(d.key(K::Escape).kind == PopupCascade::Result::None && d.levels() == 1);
+    CHECK(d.key(K::Left).kind == PopupCascade::Result::None && d.levels() == 1); // the root stays
+    CHECK(d.key(K::Escape).kind == PopupCascade::Result::Closed);
+
+    // inside a submenu with columns Left/Right move between columns first
+    PopupCascade e(tree(), -1, width6, 0, 907, 513);
+    e.open_at(10, 10);
+    e.key(K::Down);
+    e.key(K::Right); // Virus TI
+    e.key(K::Right); // RAM A, 128 patches in columns
+    CHECK(e.levels() == 3 && e.level(2).hot == 0 && e.level(2).columns() > 1);
+    e.key(K::Right);
+    CHECK(e.levels() == 3 && e.level(2).hot == e.level(2).rows());
+    e.key(K::Left);
+    CHECK(e.levels() == 3 && e.level(2).hot == 0);
+    e.key(K::Left);
+    CHECK(e.levels() == 2);
+}
+
+// a plain list (no submenus) behaves like PopupMenu: the root's columns and the check mark
+TEST(popup_cascade_flat)
+{
+    PopupCascade c(numbered(100), 7, width6, 25, 907, 513);
+    c.open_at(296, 146);
+    CHECK(c.levels() == 1 && c.level(0).columns() == 4 && c.level(0).checked() == 7);
+    c.key(PopupCascade::Key::Down);
+    auto res = c.key(PopupCascade::Key::Return);
+    CHECK(res.kind == PopupCascade::Result::Chosen && (res.path == std::vector<int>{0}));
+}
+
+// libraries named with folders ("Factory/Rom/A") become submenus; each library's entry path is returned, and a folder
+// and a library may share a name
+TEST(popup_library_folders)
+{
+    std::vector<PopupItem> root;
+    std::map<std::string, std::vector<int>> folders;
+    auto a = popup_add_path(root, "Factory/Rom/A", {"", true, numbered(2)}, folders);
+    auto mine = popup_add_path(root, "Mine", {"", true, numbered(1)}, folders);
+    auto b = popup_add_path(root, "Factory/Rom/B", {"", true, numbered(1)}, folders);
+    auto f = popup_add_path(root, "Factory", {"", true, numbered(1)}, folders); // a library called like the folder
+    auto c = popup_add_path(root, "Factory/C", {""}, folders);
+    CHECK((a == std::vector<int>{0, 0, 0}) && (mine == std::vector<int>{1}) && (b == std::vector<int>{0, 0, 1}));
+    CHECK((f == std::vector<int>{2}) && (c == std::vector<int>{0, 1}));
+    CHECK(root.size() == 3 && root[0].text == "Factory" && root[0].sub.size() == 2 && root[0].sub[0].text == "Rom");
+    CHECK(root[0].sub[0].sub[1].text == "B" && root[0].sub[1].text == "C" && !root[0].sub[1].has_sub());
+    CHECK(root[2].text == "Factory" && root[2].sub.size() == 1);
 }
