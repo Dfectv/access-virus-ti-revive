@@ -1,15 +1,16 @@
 # HANDOFF
 
 _Last updated: 2026-10-17 night (CONTINUE HERE below; round 0.8.22 in progress). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E201), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E202), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-17 night: round 0.8.22, popup windows done on Linux, CI for Windows/macOS)
 
 **Results 0.8.22c (user, 2026-10-17):** L6 pass, L7 FAIL (Alt-Tab did not close the menu on Linux: no focus token
 there -> fixed, _NET_ACTIVE_WINDOW, not tried yet), W4 pass, W5 pass, W3 pass, W2 FAIL ("Knob Name is working but the
-dropdown not. Dropdown acts like a textbox." - which dropdown is unclear, asked the user; knob templates are read from
-the Access DLL, no log line for an empty list). macOS postponed by the user. Virus is in the win11 VM.
+dropdown not. Dropdown acts like a textbox." -> E202: the VM's Access DLL is the 32-bit one, our knob template finder
+read only 64-bit pointers (0 templates, the arrow opened nothing); fixed (PE32, 35 of 35 identical), not re-tested).
+macOS postponed by the user. Virus is in the win11 VM. Evidence now E001-E202.
 
 **Done on round-0.8.22 (after 838544a):** items 1 + 2 of the plan below. Popup menus are top-level windows of their
 own on all platforms (native/plugin/source/popupwindow.h + _win.cpp / _mac.mm / _x11.cpp): one window per open

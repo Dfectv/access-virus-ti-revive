@@ -219,7 +219,9 @@ struct AddressRange {
     uint64_t addr, size;
     size_t file;
 };
-using AddressMap = std::vector<AddressRange>;
+struct AddressMap : std::vector<AddressRange> {
+    int ptr = 8; // the size of a pointer in this binary (4: the 32-bit Windows DLL)
+};
 
 size_t to_file(const AddressMap &m, uint64_t a)
 {
@@ -229,8 +231,8 @@ size_t to_file(const AddressMap &m, uint64_t a)
     return SIZE_MAX;
 }
 
-// a 64-bit PE: absolute addresses = image base + RVA
-bool pe64_map(const std::vector<uint8_t> &b, AddressMap &m)
+// a PE (64 or 32 bit): absolute addresses = image base + RVA
+bool pe_map(const std::vector<uint8_t> &b, AddressMap &m)
 {
     if (b.size() < 0x40 || b[0] != 'M' || b[1] != 'Z')
         return false;
@@ -238,9 +240,11 @@ bool pe64_map(const std::vector<uint8_t> &b, AddressMap &m)
     if (pe + 24 > b.size() || memcmp(&b[pe], "PE\0\0", 4) != 0)
         return false;
     size_t nsec = b[pe + 6] | b[pe + 7] << 8, optsz = b[pe + 20] | b[pe + 21] << 8, opt = pe + 24;
-    if (opt + 32 > b.size() || (b[opt] | b[opt + 1] << 8) != 0x20B)
+    const int magic = opt + 32 <= b.size() ? b[opt] | b[opt + 1] << 8 : 0;
+    if (magic != 0x20B && magic != 0x10B) // PE32+, PE32
         return false;
-    uint64_t base = le64(b, opt + 24);
+    m.ptr = magic == 0x20B ? 8 : 4;
+    uint64_t base = m.ptr == 8 ? le64(b, opt + 24) : le32(b, opt + 28);
     for (size_t i = 0, sec = opt + optsz; i < nsec && sec + 40 <= b.size(); i++, sec += 40)
         m.push_back({base + le32(b, sec + 12), le32(b, sec + 16), le32(b, sec + 20)});
     return true;
@@ -268,7 +272,7 @@ std::vector<AddressMap> address_maps(const std::vector<uint8_t> &b)
 {
     std::vector<AddressMap> maps;
     AddressMap m;
-    if (pe64_map(b, m) || macho64_map(b, 0, m))
+    if (pe_map(b, m) || macho64_map(b, 0, m))
         maps.push_back(m);
     else if (be32(b, 0) == 0xCAFEBABE) // universal: each 64-bit slice
         for (size_t i = 0, n = be32(b, 4); i < n && i < 16; i++) {
@@ -317,22 +321,24 @@ std::vector<KnobTemplate> find_knob_templates(const std::vector<uint8_t> &bin)
     // the first run of at least 8 entries; in the Windows DLL it ends right before template 0's name record, in the
     // Mac binary it lies elsewhere, so the shape alone decides (E197)
     for (auto &m : address_maps(bin)) {
+        const size_t p = m.ptr, pair = 2 * p;
+        auto ptr = [&](size_t at) -> uint64_t { return p == 8 ? le64(bin, at) : le32(bin, at); };
         auto entry = [&](size_t at, KnobTemplate &k) {
-            size_t n = to_file(m, le64(bin, at)), d = to_file(m, le64(bin, at + 8));
+            size_t n = to_file(m, ptr(at)), d = to_file(m, ptr(at + p));
             if (n == SIZE_MAX || d == SIZE_MAX)
                 return false;
             k = {c_string(bin, n, 100), c_string(bin, d, 59)};
             return menu_name(k.name) && midi_bytes_text(k.midi);
         };
-        for (size_t at = 0; at + 16 <= bin.size(); at += 8) {
+        for (size_t at = 0; at + pair <= bin.size(); at += p) {
             std::vector<KnobTemplate> run;
             KnobTemplate k;
-            for (size_t e = at; e + 16 <= bin.size() && entry(e, k); e += 16)
+            for (size_t e = at; e + pair <= bin.size() && entry(e, k); e += pair)
                 run.push_back(k);
             if (run.size() >= 8)
                 return run;
             if (!run.empty()) // a shorter run: go on after it
-                at += 16 * run.size() - 8;
+                at += pair * run.size() - p;
         }
     }
     return {};

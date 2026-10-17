@@ -359,21 +359,22 @@ void put32(std::vector<uint8_t> &b, size_t at, uint32_t v)
 }
 // a knob template table like the original's (E197): (name pointer, MIDI string pointer) pairs right before a remote
 // template name record; `base` + file offset = the address the pointers use. Made-up entries, nothing from Access.
-void put_table(std::vector<uint8_t> &b, size_t table, size_t strings, uint64_t base, int n)
+void put_table(std::vector<uint8_t> &b, size_t table, size_t strings, uint64_t base, int n, int ptr = 8)
 {
+    auto put = [&](size_t at, uint64_t v) { ptr == 8 ? put64(b, at, v) : put32(b, at, (uint32_t)v); };
     size_t s = strings;
     for (int i = 0; i < n; i++) {
         std::string name = "Group " + std::to_string(i / 4) + "/Entry " + std::to_string(i);
         std::string midi = i % 2 ? "B0 0" + std::to_string(i % 10) + " FF" : "F0 7F FF F7";
         memcpy(&b[s], name.c_str(), name.size() + 1);
-        put64(b, table + 16 * i, base + s);
+        put(table + 2 * ptr * i, base + s);
         s += name.size() + 1;
         memcpy(&b[s], midi.c_str(), midi.size() + 1);
-        put64(b, table + 16 * i + 8, base + s);
+        put(table + 2 * ptr * i + ptr, base + s);
         s += midi.size() + 1;
     }
     const uint8_t rec[] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x13, 0x00, 0x20, 'I', 'n', 'i', 't'};
-    memcpy(&b[table + 16 * n], rec, sizeof rec);
+    memcpy(&b[table + 2 * ptr * n], rec, sizeof rec);
 }
 // a minimal PE32+ file: one section mapping RVA 0x1000 to file offset 0x400, image base 0x180000000
 std::vector<uint8_t> pe_with_table(int n)
@@ -397,6 +398,27 @@ std::vector<uint8_t> pe_with_table(int n)
     put_table(b, 0x800, 0x2000, 0x180000000ull + 0x1000 - 0x400, n);
     return b;
 }
+// a minimal PE32 file (the 32-bit Virus Control.dll): the same section, image base 0x10000000, 4-byte pointers
+std::vector<uint8_t> pe32_with_table(int n)
+{
+    std::vector<uint8_t> b(0x4000, 0);
+    b[0] = 'M', b[1] = 'Z';
+    put32(b, 0x3C, 0x80);
+    memcpy(&b[0x80], "PE\0\0", 4);
+    b[0x84] = 0x4C, b[0x85] = 0x01;      // i386
+    b[0x86] = 1;                          // one section
+    b[0x94] = 0xE0;                       // size of the optional header
+    b[0x98] = 0x0B, b[0x99] = 0x01;       // PE32
+    put32(b, 0x98 + 28, 0x10000000u);     // image base
+    size_t sec = 0x98 + 0xE0;
+    memcpy(&b[sec], ".rdata\0\0", 8);
+    put32(b, sec + 8, 0x3C00);
+    put32(b, sec + 12, 0x1000);
+    put32(b, sec + 16, 0x3C00);
+    put32(b, sec + 20, 0x400);
+    put_table(b, 0x800, 0x2000, 0x10000000u + 0x1000 - 0x400, n, 4);
+    return b;
+}
 } // namespace
 
 // the REMOTE page's knob templates, found in the plug-in binary by shape (E197): a run of (name, MIDI string) pointer
@@ -415,6 +437,17 @@ TEST(accessfiles_knob_templates_pe)
     memcpy(&odd[0x2000 + 16], "b0 05 ff", 9); // not the shape of a MIDI string ("Group 0/Entry 0" is 16 bytes)
     CHECK(find_knob_templates(odd).size() == 34 && find_knob_templates(odd)[0].name == "Group 0/Entry 1");
     CHECK(find_knob_templates(std::vector<uint8_t>(100, 0)).empty());
+}
+
+// the 32-bit Windows DLL (an Access installation with the 32-bit Virus Control.dll in "Program Files/Access Music/
+// Virus TI/Common", round 0.8.22 test W2: the knob template arrow opened nothing): the same table, 4-byte pointers
+TEST(accessfiles_knob_templates_pe32)
+{
+    auto t = find_knob_templates(pe32_with_table(35));
+    CHECK(t.size() == 35);
+    CHECK(t[0].name == "Group 0/Entry 0" && t[0].midi == "F0 7F FF F7");
+    CHECK(t[34].name == "Group 8/Entry 34" && t[5].midi == "B0 05 FF");
+    CHECK(find_knob_templates(pe32_with_table(7)).empty());
 }
 
 // a thin 64-bit Mach-O (the Mac bundle's binary): addresses through its LC_SEGMENT_64 commands
