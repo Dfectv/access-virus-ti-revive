@@ -6,7 +6,7 @@ Evidence: [evidence.md](evidence.md) (E001-E201), protocol: [spec.md](spec.md); 
 
 ## CONTINUE HERE (state 2026-10-17 evening: round 0.8.22 test build)
 
-**Test round 0.8.22:** CI test build run 39042191698 (version 0.8.22; installed: Mac pushed ~/Downloads/TI-Revive-0.8.22-mac (user runs the installer), Linux unpacked ~/Downloads/TI-Revive-0.8.22-linux (user runs install.sh), win11 VM setup.exe silent, one visible entry); checklist
+**Test round 0.8.22:** first results L1/L2 FAIL, L3 pass -> fixes (system menus on Win/macOS, Linux parent shift, LCD on template choice, edit field size); test build 0.8.22b = CI run 39044254597 (installed: win11 VM silent; Mac pushed ~/Downloads/TI-Revive-0.8.22b-mac; Linux unpacked ~/Downloads/TI-Revive-0.8.22b-linux, user runs install.sh); order this time Linux, VM, Mac; checklist
 https://claude.ai/artifact/8Qi89czHHyzB79hQa5eSAq (spec scripts/checklists/round-0.8.22.json: macOS M1-M4 incl. the
 Wavetable delay re-check, Linux L1-L3, win11 VM W1-W3). Next: install on Linux (unpack, user runs install.sh), win11 VM
 (silent), Mac (push, user runs the installer), then the user's results; then merge + release.
@@ -634,6 +634,13 @@ down after use.
 native, GarageBand; SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk; release builds via CI.
 
 ## Things that bit us (keep in mind)
+
+- win10 VM (original + Access driver): Windows crashes with bug check 0xCE (a driver unloaded with pending
+  operations) when the Virus disappears or resets under the Access driver - a Virus power cycle or re-plug while it
+  is attached, or a libvirt attach right after it re-enumerated (2026-10-17, twice). Close the DAW before a detach,
+  never power-cycle the Virus while it is in the VM. Reinstalling the Access driver starts the firmware updater after
+  the reboot, which switches the Virus into update mode; the re-enumerated device is not passed to the VM, so nothing
+  is flashed - close the updater, power-cycle the Virus (E199).
 
 - The Access plug-in needs constant host blocks of 64/128/256/512 at 44.1 kHz (Mac AU block splitting reverted, E111;
   Linux PulseAudio backend E122/E123).
