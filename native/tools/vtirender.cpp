@@ -7,6 +7,7 @@
 #include "editor/editorrender.h"
 #include "device/memsync.h"
 #include "model/remotedevice.h"
+#include "model/remotetemplates.h"
 #include <cairo.h>
 #include <chrono>
 #include <cmath>
@@ -175,6 +176,8 @@ int main(int argc, char **argv)
         auto s = set.find(path);
         if (s != set.end())
             return s->second;
+        if (path == "Remote Templates/Selected Template") // nothing selected at the start, like the original
+            return -1;
         if (pt >= 0) {
             auto p = parts.find(pt);
             if (p != parts.end()) {
@@ -197,6 +200,12 @@ int main(int argc, char **argv)
     r.part = part;
     if (getenv("VTIRENDER_ALPHA"))
         r.disabled_alpha = atof(getenv("VTIRENDER_ALPHA"));
+    RemoteTemplates remote; // REMOTE page (read-only defaults, E193)
+    r.remote_name = [&](int t) { return remote.name(t); };
+    r.live_text = [&](const std::string &p) {
+        return remote_text(p, remote, values("Remote Templates/Selected Template", -1),
+                           values("Remote Templates/MIDI Channel Behaviour", -1));
+    };
     r.patch_name = [&](int pt) {
         std::string n;
         auto p = parts.find(pt);

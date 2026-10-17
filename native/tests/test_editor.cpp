@@ -549,6 +549,56 @@ TEST(editor_hypersaw_rule)
     CHECK(std::fabs(EditorRenderer::hypersaw_spacing(90, 0.0) - 2.0) < 1e-6);
 }
 
+// REMOTE page template list (RemoteBrowser, E193): 32 entries in 4 columns x 8 rows (114 x 11 px), the number right-
+// aligned before the name, both in ControlFont; the selected template ("Remote Templates/Selected Template") in
+// SelectedFont
+TEST(editor_remote_browser)
+{
+    static const char *L = R"(<?xml version="1.0"?>
+<Editor><Frame width="500" height="100"><Container><Size left="0" top="0" width="500" height="100"/>
+ <RemoteBrowser ControlFont="font.png" SelectedFont="fontsel.png" Parameter="Remote/Sel"><Size left="10" top="5" width="455" height="88"/></RemoteBrowser>
+</Container></Frame></Editor>)";
+    Rig g;
+    g.canvas.imgs["fontsel.png"] = {6, 7 * 96};
+    EditorLayout lay;
+    std::string err;
+    CHECK(lay.load(Bytes(L, L + strlen(L)), err));
+    EditorRenderer r(lay, *g.cond, g.dev, g.ed);
+    g.vals[{"Remote/Sel", -1}] = 9;
+    r.values = g.r->values;
+    r.remote_name = [](int t) { return t == 9 ? std::string("Nine") : std::string("Init Template"); };
+    r.render(g.canvas);
+    auto at = [&](const char *font, char ch, int dx, int dy) {
+        for (auto &b : g.canvas.blits)
+            if (b.img == font && b.sy == (ch - 32) * 7 && b.dx == dx && b.dy == dy)
+                return true;
+        return false;
+    };
+    // entry 0: "0" right before the name; entry 8 starts the second column; entry 9 selected, in the other font
+    CHECK(at("font.png", '0', 10 + 18 - 6 - 2, 5) && at("font.png", 'I', 10 + 18, 5)); // 2 px gap (measured)
+    CHECK(at("font.png", '8', 10 + 114 + 18 - 6 - 2, 5) && at("font.png", 'I', 10 + 114 + 18, 5));
+    CHECK(at("fontsel.png", 'N', 10 + 114 + 18, 5 + 11));
+    size_t names = 0;
+    for (auto &b : g.canvas.blits)
+        names += (b.img == "font.png" || b.img == "fontsel.png") && b.sy == ('I' - 32) * 7;
+    CHECK(names == 31); // "Init Template" in 31 entries (the selected one is "Nine")
+    // no selection yet (-1, the original's start): every name in ControlFont
+    g.vals[{"Remote/Sel", -1}] = -1;
+    g.canvas.clear();
+    r.render(g.canvas);
+    bool any_sel = false;
+    for (auto &b : g.canvas.blits)
+        any_sel |= b.img == "fontsel.png";
+    CHECK(!any_sel);
+    // a click selects the entry under the mouse: column of 114 px, row of 11 px (template t = column * 8 + row)
+    Hit h = r.hit_test(15, 10);
+    CHECK(h.element && h.element->type == "RemoteBrowser");
+    CHECK(EditorRenderer::remote_entry(h, 10 + 2, 5 + 1) == 0);
+    CHECK(EditorRenderer::remote_entry(h, 10 + 114 + 40, 5 + 11 * 3 + 5) == 11);
+    CHECK(EditorRenderer::remote_entry(h, 10 + 3 * 114 + 100, 5 + 11 * 7 + 10) == 31);
+    CHECK(EditorRenderer::remote_entry(h, 10 + 455 + 5, 5) == -1); // outside
+}
+
 TEST(editor_visible_controls)
 {
     // help mode: every visible control with a parameter, at the same place and part as the hit test finds it

@@ -149,6 +149,21 @@ void EditorRenderer::patch_browser(Canvas &c, const Element &e, int x, int y, in
     }
 }
 
+// REMOTE page template list (the original's KRemoteTemplateTable, E193): 32 templates in 4 columns x 8 rows of
+// 114 x 11 px; the number right-aligned in the darker column, the name after it; the selected one in SelectedFont
+// (none while the selection is -1, the original's start)
+void EditorRenderer::remote_browser(Canvas &c, const Element &e, int x, int y, int selected)
+{
+    const std::string &font = e.get("ControlFont"), &sel = e.get("SelectedFont");
+    for (int t = 0; t < 32; t++) {
+        int nx = x + (t / 8) * 114 + 18, ny = y + (t % 8) * 11;
+        std::string num = std::to_string(t);
+        int nw = 6 * (int)num.size();
+        text(c, font, num, nx - nw - 2, ny, nw, 9, "Top Left", 1.0); // 2 px before the name (measured)
+        text(c, t == selected && !sel.empty() ? sel : font, remote_name(t), nx, ny, 114 - 18, 9, "Top Left", 1.0);
+    }
+}
+
 // ADSTR envelope display: stage geometry measured on the original (init patch; the original builds its stages in
 // the control factory, not yet decompiled): x0 = 4, top = 3, bottom = h - 4 inside the element, 0.47 px per value
 // unit for attack/decay/release, a hold segment of 62 px at sustain 127 .. 94 px at sustain 0, a ~29 px sustain-time
@@ -555,6 +570,8 @@ void EditorRenderer::draw(Canvas &c, const Element &e, int ox, int oy, int inher
         envelope(c, e, x, y, pt, alpha);
     if (display)
         c.pop_clip();
+    if (e.type == "RemoteBrowser" && remote_name && !param.empty())
+        remote_browser(c, e, x, y, values(param, pt));
     if (e.type == "PatchBrowser" && bank_patch && !param.empty()) {
         patch_browser(c, e, x, y, values(param, pt)); // "Browser N/Selected Bank" (the host side keeps it)
     }
@@ -617,6 +634,17 @@ bool EditorRenderer::hit(const Element &e, int ox, int oy, int inherited, int px
     for (auto &ch : e.children)
         hit(ch, x, y, own_part(e) >= 0 ? own_part(e) : inherited, px, py, out, include_disabled, c, menus_only);
     return out.element != nullptr;
+}
+
+int EditorRenderer::remote_entry(const Hit &h, int x, int y)
+{
+    if (!h.element || h.element->type != "RemoteBrowser")
+        return -1;
+    int dx = x - h.x, dy = y - h.y;
+    if (dx < 0 || dy < 0 || dx >= h.element->w || dy >= h.element->h)
+        return -1;
+    int col = dx / 114, row = dy / 11;
+    return col < 4 && row < 8 ? col * 8 + row : -1;
 }
 
 int EditorRenderer::browser_entry(const Hit &h, int x, int y)

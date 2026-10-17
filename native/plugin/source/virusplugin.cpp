@@ -1320,6 +1320,8 @@ int VirusPlugin::ui_value(const std::string &path, int part)
     if (path.rfind("Browser ", 0) == 0 && path.find("/Selected Bank") != std::string::npos &&
         !ui_state_get(path, browser_bank))
         return path[8] - '0';
+    if (int sel; path == "Remote Templates/Selected Template" && !ui_state_get(path, sel))
+        return -1; // REMOTE page: nothing selected until a click, like the original (E193)
     const Parameter *param = cond_ ? cond_->find(path) : nullptr;
     if (param && param->part == "none")
         part = -1; // global parameters (Panel Part, globals) are not per part
@@ -1350,6 +1352,11 @@ int VirusPlugin::ui_value(const std::string &path, int part)
 
 std::string VirusPlugin::live_text(const std::string &param)
 {
+    if (param.rfind("Remote Templates/", 0) == 0) // REMOTE page (read-only, E193); before values_mu_ (ui_value locks it)
+        if (std::string r = remote_text(param, remote_, ui_value("Remote Templates/Selected Template", -1),
+                                        ui_value("Remote Templates/MIDI Channel Behaviour", -1));
+            !r.empty())
+            return r;
     if (param.rfind("Browser ", 0) == 0 && param.find("/Selected Bank") != std::string::npos) // the bank menu
         return bank_title(ui_value(param, -1));
     if (param == "Repository Actions/Category Filter") {

@@ -50,6 +50,7 @@ public:
 
     ValueFn values;                                 // (path, part) -> value
     std::function<std::string(int part)> patch_name; // a part's patch name
+    std::function<std::string(int t)> remote_name;  // REMOTE page: remote template t's name (0..31, E193)
     std::function<std::string(int bank, int program)> bank_patch; // a stored patch's name (bank 0..3 = RAM A..D)
     std::function<bool(int bank, int program)> browser_match;     // category filter / search (false = dimmed)
     // live texts (LCD: "VirusControl/Display Parameter" / "Display Value" / "Display Part"); empty = valuelist
@@ -102,6 +103,8 @@ public:
     static std::pair<int, int> menu_anchor(const Hit &h);
     // entries per popup column (the original's menus: 25; VSTGUI breaks columns only below 160 entries), 0 = one column
     static int menu_items_per_column(size_t entries);
+    // REMOTE page: the template (0..31) under a point inside a RemoteBrowser hit, or -1
+    static int remote_entry(const Hit &h, int x, int y);
     // every visible control with a parameter (absolute position, effective part), in drawing order (help mode)
     std::vector<Hit> visible_controls(bool include_disabled = false) const;
     // false for inactive controls (the parameter's own condition is false; soft knobs without destination): they are
@@ -132,6 +135,7 @@ private:
     bool hit(const Element &e, int ox, int oy, int inherited, int px, int py, Hit &out, bool include_disabled = false,
              const std::string &cond = std::string(), bool menus_only = false) const;
     void patch_browser(Canvas &c, const Element &e, int x, int y, int bank);
+    void remote_browser(Canvas &c, const Element &e, int x, int y, int selected);
     void envelope(Canvas &c, const Element &e, int x, int y, int part, double alpha);
     void filter_response(Canvas &c, const Element &e, int x, int y, int part);
     void osc_classic(Canvas &c, const Element &e, int x, int y, int part);

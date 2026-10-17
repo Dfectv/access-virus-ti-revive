@@ -14,6 +14,7 @@
 #include "model/panelfollow.h"
 #include "model/remotedevice.h"
 #include "model/sysinfo.h"
+#include "model/remotetemplates.h"
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
 #include "public.sdk/source/vst/vstsinglecomponenteffect.h"
 #include <array>
@@ -323,7 +324,8 @@ public:
     // "ShowMIDIActivityMeters"): tick_meters() decays them and returns the channels whose shown value changed (bits)
     int tick_meters(int step);
     int meter(int channel) const { return channel >= 0 && channel < 16 ? meter_shown_[channel] : 0; }
-    std::string live_text(const std::string &param); // LCD texts of the last edited parameter
+    std::string live_text(const std::string &param);
+    std::string remote_name(int t) const { return remote_.name(t); } // LCD texts of the last edited parameter
     // "Softknobs/Softknob N" of a part: the parameter its "Soft Knobs/Destination N" points to (SoftknobMapping),
     // "" when unassigned or for other paths. The original's soft knob is a proxy of that parameter (E150).
     std::string softknob_target(const std::string &path, int part);
@@ -395,6 +397,7 @@ private:
     void set_editor_value(const std::string &path, int part, int value, bool persist = false);
     std::string lcd_param_, lcd_value_, lcd_part_, lcd_orig_; // the last edited parameter for the LCD
     SystemInfo sysinfo_{VTI_NATIVE_VERSION, {}, {}}; // PATCH UTILITY > INFO (values_mu_): versions, Virus OS
+    RemoteTemplates remote_; // PATCH UTILITY > REMOTE, read-only (E193): nothing is sent to the Virus
     void set_lcd(const std::string &param, const std::string &value, const std::string &part, const std::string &before);
     std::string search_;                                    // browser search text
     int results_return_ = 0;                                // browser 0's bank before the results

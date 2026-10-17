@@ -438,6 +438,7 @@ public:
         renderer_.patch_name = [this](int part) { return plugin_->patch_name(part); };
         renderer_.bank_patch = [this](int bank, int prog) { return plugin_->bank_patch(bank, prog); };
         renderer_.live_text = [this](const std::string &p) { return plugin_->live_text(p); };
+        renderer_.remote_name = [this](int t) { return plugin_->remote_name(t); };
         renderer_.proxy_target = [this](const std::string &p, int part) { return plugin_->softknob_target(p, part); };
         renderer_.meter = [this](int ch) { return plugin_->meter(ch); };
         renderer_.osc_waves = plugin_->osc_waves();
@@ -808,6 +809,14 @@ public:
         }
         if (e.type == "SearchEdit" || (e.type == "RadioButton" && param == "Repository Actions/Search")) {
             edit_search(h);
+            event.consumed = true;
+            return;
+        }
+        if (e.type == "RemoteBrowser") { // REMOTE page: select a template here only, nothing goes to the Virus (E193)
+            int t = EditorRenderer::remote_entry(h, (int)event.mousePosition.x, (int)event.mousePosition.y);
+            if (t >= 0)
+                plugin_->ui_set(param, -1, t);
+            invalid();
             event.consumed = true;
             return;
         }
