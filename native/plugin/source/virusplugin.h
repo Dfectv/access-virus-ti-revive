@@ -8,6 +8,7 @@
 #include "device/automation.h"
 #include "device/broker.h"
 #include "device/memsync.h"
+#include "device/offlinepace.h"
 #include "device/resampler.h"
 #include "device/sidechain.h"
 #include "model/devicestatus.h"
@@ -526,6 +527,16 @@ private:
     double tl_acc_ = 0; // fractional Virus frames of the timeline (host rates other than 44.1 kHz)
     double stat_acc_ = 0; // the same for the host-frames statistic
     int64_t stream_start_ = -1;
+    // offline render (export, freeze): each block waits for the Virus' audio; the worker logs mode changes and timeouts
+    OfflinePacer pacer_;
+    bool offline_ = false;                   // audio thread: the last block's mode
+    bool offline_start_waited_ = false;      // audio thread: this render waited for a starting Virus once
+    std::atomic<bool> offline_now_{false};   // for the worker's report
+    bool offline_reported_ = false;          // worker
+    std::atomic<int> offline_timeouts_{0};   // waits that gave up (the Virus stopped streaming)
+    int offline_timeouts_reported_ = 0;      // worker
+    void wait_offline(Steinberg::Vst::ProcessData &data, double ratio, int64_t &newest);
+    void report_offline();
     // host rate != 44.1 kHz: the Virus' audio through the resampler, read from a steered fractional position
     Resampler resampler_;
     std::vector<float> rs_src_[6]; // USB 1 L/R, USB 2 L/R, USB 3 L/R

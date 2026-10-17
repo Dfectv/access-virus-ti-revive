@@ -2,6 +2,8 @@
 //   nativehost <plugin.vst3> [--state FILE] [--param ID=NORM]... [--save FILE] [--seconds N] [--notes] [--wav FILE] [--scan]
 // --notes plays C4 (channel 1) for the first half of every second, --wav writes Out 1 (16-bit stereo 44.1 kHz),
 // --wav-bus N the output bus N instead (1..3, e.g. 3 = Out 3 = USB 3).
+// --offline T: from T s on the blocks are offline (processMode kOffline) and sent as fast as the plug-in takes them,
+// like a DAW's export; the wall time of that part is printed (the plug-in paces it to the Virus: ~1x).
 // --hold T: C4 on at T s and held to the end; --param-at T:ID=NORM: a parameter change at T s (repeatable) - e.g. to
 // hear whether the Virus applies a change to a held note.
 // --duplicate T: a second instance runs next to the first from the start (a DAW's duplicated track, issue #6) with
@@ -232,6 +234,7 @@ int main(int argc, char **argv)
     };
     std::vector<Action> actions;
     double seconds = 1;
+    double offline_at = -1; // --offline T
     std::vector<std::pair<ParamID, double>> changes;
     double hold = -1; // --hold: note on at this time, never off
     struct TimedChange {
@@ -308,6 +311,8 @@ int main(int argc, char **argv)
             duplicate = atof(argv[++i]);
         else if (!strcmp(argv[i], "--sidechain-sine") && i + 1 < argc)
             sc_sine = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--offline") && i + 1 < argc)
+            offline_at = atof(argv[++i]);
         else if (!strcmp(argv[i], "--seconds") && i + 1 < argc)
             seconds = atof(argv[++i]);
         else if (!strcmp(argv[i], "--param") && i + 1 < argc) {
@@ -451,7 +456,12 @@ int main(int argc, char **argv)
     float peak = 0;
     int blocks = (int)(seconds * rate / block);
     auto t_next = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point t_offline{};
     for (int b = 0; b < blocks; b++) {
+        const bool offline = offline_at >= 0 && b * (double)block / (double)rate >= offline_at;
+        if (offline && t_offline == std::chrono::steady_clock::time_point{})
+            t_offline = std::chrono::steady_clock::now();
+        data.processMode = offline ? kOffline : kRealtime;
         ev.clear();
         if (notes) { // C4 on at the start of every second, off at the half
             long f0 = (long)b * block, f1 = f0 + block;
@@ -704,7 +714,15 @@ int main(int argc, char **argv)
             runloop.pump();
         }
 #endif
-        std::this_thread::sleep_until(t_next);
+        if (offline)
+            t_next = std::chrono::steady_clock::now(); // as fast as the plug-in returns
+        else
+            std::this_thread::sleep_until(t_next);
+    }
+    if (offline_at >= 0 && t_offline != std::chrono::steady_clock::time_point{}) {
+        double wall = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_offline).count();
+        double audio = seconds - offline_at;
+        printf("offline part: %.2f s of audio in %.2f s wall time (%.2fx)\n", audio, wall, wall > 0 ? audio / wall : 0.0);
     }
     if (wav) {
         if (FILE *f = fopen(wav, "wb")) {

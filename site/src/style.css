@@ -83,6 +83,7 @@ h2 { font-size: clamp(1.5rem, 2.8vw, 1.9rem); line-height: 1.2; font-weight: 600
 /* what the original did wrong: two columns, the call to action right */
 .original { display: grid; grid-template-columns: repeat(2, 1fr); gap: clamp(1.5rem, 4vw, 4rem); }
 .original h3 { margin: 0 0 0.6rem; font-size: 1.1rem; }
+.original h3.next { margin-top: 1.8rem; }
 .original ul { margin: 0; padding-left: 1.1rem; color: var(--soft); font-size: 0.94rem; }
 .original li + li { margin-top: 0.6rem; }
 .original p { margin: 0 0 1.2rem; color: var(--soft); font-size: 0.94rem; }

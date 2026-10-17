@@ -633,6 +633,7 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
     out_->on_idle([this] {
         drain_param_updates();
         load_reported_presets();
+        report_offline();
         diag_report(); // also with the editor closed (host rate and block sizes, E187)
     });
     sync_ = std::make_unique<MemorySync>([this](const std::vector<uint8_t> &m) {
@@ -939,6 +940,7 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         tl_valid_ = false;
         stream_start_ = -1;
     }
+    wait_offline(data, ratio, newest); // offline render: at the Virus' pace
     if (newest >= 0) {
         // anchor once the stream has run for ~0.5 s (the first blocks arrive in bursts), then follow drift gently:
         // one frame per block, re-anchor (new song position) only on a large jump (DAW or USB stall)
@@ -1183,6 +1185,89 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         send_sidechain(data);
     }
     return kResultOk;
+}
+
+// Offline render (export, freeze, offline bounce): the host calls process() as fast as it can, the Virus plays in real
+// time. The block waits until the Virus has made its audio (OfflinePacer), and the timeline runs on the paced frame:
+// the ring frame seen after a sleep is up to a timer tick (Windows ~15 ms) later than needed and would look like a
+// timeline jump. Real-time blocks never wait; a Virus that stops streaming ends the wait after 1 s (silence, no hang).
+void VirusPlugin::wait_offline(ProcessData &data, double ratio, int64_t &newest)
+{
+    const bool offline = data.processMode == kOffline; // per block: the Audio Unit wrapper sets it only here
+    if (offline != offline_) {
+        offline_ = offline;
+        pacer_.reset();
+        offline_start_waited_ = false;
+        offline_now_.store(offline, std::memory_order_relaxed);
+    }
+    if (!offline)
+        return;
+    // a render right after the project opened (a freeze, an export at once): wait once, at most 20 s, until the Virus
+    // has taken the start-up messages and its audio runs - else the render raced through silence and the start-up
+    // dropped the first notes. The broker connection may not be up yet in the first block: up to 3 s for the Virus to
+    // show up; a missing Virus or one held by another program renders silence, as before.
+    if (!offline_start_waited_ && out_) {
+        offline_start_waited_ = true;
+        const auto t0 = std::chrono::steady_clock::now();
+        auto waiting = [&] {
+            const auto t = std::chrono::steady_clock::now() - t0;
+            if (out_->waiting() || t > std::chrono::seconds(20))
+                return false;
+            if (!out_->connected())
+                return t < std::chrono::seconds(3);
+            return !out_->audio_ready() || !ready_.load(std::memory_order_relaxed) || out_->busy();
+        };
+        bool waited = false;
+        while (waiting()) {
+            waited = true;
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+        newest = out_->audio_ready() ? out_->audio().newest_frame() : -1;
+        if (out_->generation.load() != generation_seen_) { // the Virus connected meanwhile: its stream starts here
+            generation_seen_ = out_->generation.load();
+            tl_valid_ = false;
+            stream_start_ = -1;
+        }
+        // the stream ran steadily and the Virus stayed silent meanwhile: the timeline anchors in this block (the sync
+        // ping goes out now, the marker follows ~1 s later) instead of after 0.5 s of render - or 6 s when the
+        // render's first notes keep the Virus from being quiet
+        if (waited && !tl_valid_ && newest >= 0)
+            stream_start_ = newest - 22051;
+    }
+    if (newest < 0)
+        return;
+    const int64_t need = pacer_.wait_until(newest, data.numSamples * ratio);
+    if (need < 0)
+        return;
+    const auto give_up = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    for (int64_t f = newest; f < need; f = out_->audio().newest_frame()) {
+        if (f < 0 || std::chrono::steady_clock::now() > give_up) { // the stream stopped: no pacing until it is back
+            pacer_.reset();
+            offline_timeouts_.fetch_add(1, std::memory_order_relaxed);
+            newest = f;
+            return;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    newest = need;
+}
+
+// worker thread: an offline render in the log and on the LCD, and waits that gave up
+void VirusPlugin::report_offline()
+{
+    const bool now = offline_now_.load(std::memory_order_relaxed);
+    if (now != offline_reported_) {
+        offline_reported_ = now;
+        out_->log("Virus TI native: %s\n", now ? "offline render, paced to the Virus (real-time speed)"
+                                               : "offline render ended");
+        if (now)
+            set_lcd("Offline render", "at real-time speed", std::string(), std::string());
+    }
+    const int t = offline_timeouts_.load(std::memory_order_relaxed);
+    if (t != offline_timeouts_reported_) {
+        offline_timeouts_reported_ = t;
+        out_->log("Virus TI native: offline render: no audio from the Virus for 1 s (%d times), not paced\n", t);
+    }
 }
 
 // "3 Outs / 1 Input": the Sidechain bus (input bus 1) to the Virus' USB input, as the original does (E167: its VST3

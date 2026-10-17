@@ -250,12 +250,46 @@ def page_landing(latest, releases, sums):
           notes on the grid.</li>
           <li>While it starts up or syncs banks, the original plug-in drops the notes you play and sends &ldquo;All Notes
           Off&rdquo;. TI Revive holds the notes back at start-up and pauses its bank sync while you play.</li>
+          <li>Owners reported drifting notes, a delay through the plug-in and sync errors over USB
+          (<a href="https://gearspace.com/threads/fixing-access-virus-sync-issues.839737/">Gearspace</a>,
+          <a href="https://forum.ableton.com/viewtopic.php?p=938076">Ableton forum</a>). TI Revive stamps every note
+          on the Virus' own clock and reports its latency to the DAW: in our tests every note lands on the grid, within
+          0.01 to 0.24 ms.</li>
+          <li>The original cannot export or freeze a Virus track faster than real time and shows a warning that
+          offline rendering is not supported (<a href="https://www.kvraudio.com/forum/viewtopic.php?p=1599326">KVR</a>,
+          <a href="https://zynewave.com/topic/realtime-bounce/">Zynewave forum</a>). TI Revive notices an offline
+          render and runs it at the pace of the Virus, so the export sounds right; it takes as long as the song.</li>
+          <li>A reopened project could play a different patch than the one it showed
+          (<a href="https://gearspace.com/threads/virus-ti-patch-issue.485382/">Gearspace</a>). Since 0.8.18 TI
+          Revive's projects bring back every patch setting.</li>
+          <li>Access' software stopped working on new macOS from Sierra on
+          (<a href="https://www.synthtopia.com/content/2016/09/13/access-virus-ti-owners-may-want-to-wait-to-update-their-mac-os/">Synthtopia</a>),
+          and Windows 11 blocks its old USB driver. TI Revive runs natively on Windows 11, macOS (Apple Silicon and
+          Intel) and Linux.</li>
+        </ul>
+        <h3 class="next">The same as in the original</h3>
+        <ul>
+          <li>One plug-in instance per Virus (<a href="https://forum.ableton.com/viewtopic.php?p=823712">Ableton
+          forum</a>): it controls all 16 parts. A second instance shows &ldquo;Virus unavailable&rdquo; and takes over
+          when the first one is removed.</li>
+          <li>Owners advised a USB port directly on the computer instead of a hub
+          (<a href="https://gearspace.com/threads/fixing-access-virus-sync-issues.839737/">Gearspace</a>). We have
+          not tested hubs.</li>
         </ul>
       </div>
       <div>
-        <h3>What to report</h3>
+        <h3>Being tested now</h3>
+        <ul>
+          <li>Sleep: on the Mac, sleep cut the original's connection until Access fixed it in 2008
+          (<a href="https://www.kvraudio.com/news-print.php?id=10515">KVR</a>).</li>
+          <li>Return tracks: delay compensation worked with the original only on a track insert, not on an aux bus
+          (<a href="https://sagantech.com/forums/viewtopic.php?p=5647">Sagan Metro forum</a>).</li>
+        </ul>
+        <h3 class="next">What to report</h3>
         <p>Hanging notes, sync errors, crashes, projects that did not open, the preset browser, automation, timing.
-        If you only remember it roughly, say so.</p>
+        If you only remember it roughly, say so. One we could not test: Cubase on Windows opening a project while the
+        Virus is switched on, where the original crashed
+        (<a href="https://forums.steinberg.net/t/virus-ti-plugin-crashes-cubase/159521">Steinberg forum</a>).</p>
         <p class="actions"><a class="button" href="{GH}/issues/new?template=original_problem.yml">Report a problem in
         the original plug-in</a> <a class="second" href="{GH}/issues?q=label%3Aoriginal">Reports so far</a></p>
       </div>
@@ -372,6 +406,10 @@ def page_landing(latest, releases, sums):
       <p>Switched off or unplugged, the editor shows the original's &ldquo;No Virus TI can be found&rdquo; page and the
       page tabs are locked, as in the original. The page goes away by itself when the Virus is back. Do not follow its
       advice to hold ARP EDIT while switching the Virus on; TI Revive does not need that.</p></details>
+      <details><summary>Export and freeze at real-time speed</summary>
+      <p>The Virus plays in real time, so when your DAW renders offline (export, freeze, offline bounce), the plug-in
+      holds each block until the Virus has made its sound: the render is right and takes as long as the song. Right
+      after a project opens, the render first waits a few seconds for the Virus.</p></details>
       <details><summary>The first notes after Play are late</summary>
       <p>The plug-in sends notes slightly ahead to make up for the USB round trip, so start playback a little before
       the first note. The original driver did the same.</p></details>
@@ -624,7 +662,7 @@ def page_changelog_landing(releases):
 # the README's screenshots that the site shows too (copied at build time)
 SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png", "plugin-help-inactive.png",
                  "plugin-menus.png"]
-TESTS = 190 # unit tests in native/tests (vtitests), as of 2026-10-17 (round 0.8.22)
+TESTS = 196 # unit tests in native/tests (vtitests), as of 2026-10-17 (offline render)
 # line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
 COVERAGE, COVERAGE_DATE = "94 %", "16 Oct 2026"
 

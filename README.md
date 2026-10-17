@@ -210,6 +210,10 @@ Virus makes of the original's Init patch.
 page and the page tabs are locked, as in the original. The page goes away by itself when the Virus is back. Do not
 follow its advice to hold ARP EDIT while switching the Virus on; TI Revive does not need that.
 
+**Export and freeze at real-time speed.** The Virus plays in real time, so when your DAW renders offline (export,
+freeze, offline bounce), the plug-in holds each block until the Virus has made its sound: the render is right and
+takes as long as the song. Right after a project opens, the render first waits a few seconds for the Virus.
+
 **Start playback slightly before the first note.** The plug-in sends notes to the Virus ahead of time to make up
 for the USB round trip; right at Play, notes in the first quarter second can come late or be skipped. This was the
 same with Access' own driver.
@@ -287,8 +291,6 @@ the Virus' flash and can brick it. Details: [native/docs/controlcenter.md](nativ
   (as with the old Access driver), so "Line (Virus TI)" / "Speakers (Virus TI)" no longer appear in Windows;
   use the ASIO device in your DAW. When you update from TI Revive 0.2.x, the audio part of the Virus switches to
   WinUSB automatically; if the Virus audio does not work afterwards, unplug and replug the Virus once.
-- **"A sync error occurred. Press Stop and Play to clear."** can appear once right after the first Play;
-  Stop and Play clears it.
 - **Windows MIDI ports** ("Virus TI MIDI"/"Virus TI Synth") of the old driver are not provided.
 
 **macOS**
@@ -305,6 +307,57 @@ the Virus' flash and can brick it. Details: [native/docs/controlcenter.md](nativ
 - The Virus' audio comes from macOS' own USB audio driver (the "Virus TI" audio device, 44.1 kHz); unplugging and
   replugging the Virus is detected by the plug-in.
 - Logs for bug reports: the plug-in's `diag.log` (see above) and `/tmp/tirevive-vtibroker.log`.
+
+## Problems in the original Access plug-in
+
+Did the original Access plug-in, **Virus Control**, the one that came with the Virus TI, have problems for you? TI
+Revive rebuilds that plug-in, and we want to fix its problems instead of copying them.
+
+**Already fixed**
+
+- In our timing test the original plug-in played the first note late and dropped the second. TI Revive puts all 256
+  notes on the grid.
+- While it starts up or syncs banks, the original plug-in drops the notes you play and sends "All Notes Off". TI
+  Revive holds the notes back at start-up and pauses its bank sync while you play.
+- Owners reported drifting notes, a delay through the plug-in and sync errors over USB
+  ([Gearspace](https://gearspace.com/threads/fixing-access-virus-sync-issues.839737/),
+  [Ableton forum](https://forum.ableton.com/viewtopic.php?p=938076)). TI Revive stamps every note on the Virus' own
+  clock and reports its latency to the DAW: in our tests every note lands on the grid, within 0.01 to 0.24 ms.
+- The original cannot export or freeze a Virus track faster than real time and shows a warning that offline rendering
+  is not supported ([KVR](https://www.kvraudio.com/forum/viewtopic.php?p=1599326),
+  [Zynewave forum](https://zynewave.com/topic/realtime-bounce/)). TI Revive notices an offline render and runs it at
+  the pace of the Virus, so the export sounds right; it takes as long as the song.
+- A reopened project could play a different patch than the one it showed
+  ([Gearspace](https://gearspace.com/threads/virus-ti-patch-issue.485382/)). Since 0.8.18 TI Revive's projects bring
+  back every patch setting.
+- Access' software stopped working on new macOS from Sierra on
+  ([Synthtopia](https://www.synthtopia.com/content/2016/09/13/access-virus-ti-owners-may-want-to-wait-to-update-their-mac-os/)),
+  and Windows 11 blocks its old USB driver. TI Revive runs natively on Windows 11, macOS (Apple Silicon and Intel)
+  and Linux.
+
+**The same as in the original**
+
+- One plug-in instance per Virus ([Ableton forum](https://forum.ableton.com/viewtopic.php?p=823712)): it controls all
+  16 parts. A second instance shows "Virus unavailable" and takes over when the first one is removed.
+- Owners advised a USB port directly on the computer instead of a hub
+  ([Gearspace](https://gearspace.com/threads/fixing-access-virus-sync-issues.839737/)). We have not tested hubs.
+
+**Being tested now**
+
+- Sleep: on the Mac, sleep cut the original's connection until Access fixed it in 2008
+  ([KVR](https://www.kvraudio.com/news-print.php?id=10515)).
+- Return tracks: delay compensation worked with the original only on a track insert, not on an aux bus
+  ([Sagan Metro forum](https://sagantech.com/forums/viewtopic.php?p=5647)).
+
+**What to report**
+
+Hanging notes, sync errors, crashes, projects that did not open, the preset browser, automation, timing. If you only
+remember it roughly, say so. One we could not test: Cubase on Windows opening a project while the Virus is switched
+on, where the original crashed
+([Steinberg forum](https://forums.steinberg.net/t/virus-ti-plugin-crashes-cubase/159521)).
+[Report a problem in the original plug-in](https://github.com/derpsn/access-virus-ti-revive/issues/new?template=original_problem.yml)
+or see the [reports so far](https://github.com/derpsn/access-virus-ti-revive/issues?q=label%3Aoriginal). The
+community reports and how we checked them are in [findings/claims.md](findings/claims.md) (C11-C18).
 
 ## Performance and improvements (0.8.0)
 
@@ -340,7 +393,7 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 - **Automation rate limit** (250 messages/s, coalesced per parameter): unthrottled parameter floods hung the Virus'
   audio until a power cycle within 4 minutes; with the limit a 4-minute full-load test (16 channels of notes + 32
   automation lanes) passes.
-- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 190 unit
+- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 196 unit
   tests run with every release build on Windows and Linux, plus two end-to-end tests on Linux in a virtual display
   (two editors of a duplicated track; the Control Center's window and close button).
 
