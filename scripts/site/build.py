@@ -469,6 +469,10 @@ def features_section():
       Wavetable list: 4 columns of 25). A submenu opens when the pointer rests on its entry for a moment, so you can
       move across other entries into an open submenu, for example from RAM A to its patches past RAM B. Arrow keys,
       Return and Esc work; a click elsewhere or switching to another window closes the menu.</p></div>
+      <figure class="shot"><img src="plugin-menus.png" width="1020" height="760"
+      alt="The LOAD menu: the device entry, the bank list and RAM A's 128 patches in four columns, beyond the plug-in window">
+      <figcaption>The LOAD menu reaching beyond the plug-in window (Linux), drawn from your own Access installer. TI Revive
+      is not affiliated with Access Music or Kemper.</figcaption></figure>
     </div>
 
     <div class="feature">
@@ -618,7 +622,8 @@ def page_changelog_landing(releases):
 
 
 # the README's screenshots that the site shows too (copied at build time)
-SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png", "plugin-help-inactive.png"]
+SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png", "plugin-help-inactive.png",
+                 "plugin-menus.png"]
 TESTS = 190 # unit tests in native/tests (vtitests), as of 2026-10-17 (round 0.8.22)
 # line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
 COVERAGE, COVERAGE_DATE = "94 %", "16 Oct 2026"

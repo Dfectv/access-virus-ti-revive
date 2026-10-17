@@ -229,6 +229,12 @@ same with Access' own driver.
   columns (the Wavetable list: 4 columns of 25). A submenu opens when the pointer rests on its entry for a moment, so
   you can move across other entries into an open submenu, for example from RAM A to its patches past RAM B. Arrow
   keys, Return and Esc work; a click elsewhere or switching to another window closes the menu.
+
+<p align="center">
+  <img src="docs/images/plugin-menus.png" alt="The LOAD menu: the device entry, the bank list and RAM A's 128 patches in four columns, beyond the plug-in window" width="680"><br>
+  <sub>The LOAD menu reaching beyond the plug-in window (Linux), drawn from your own Access installer. TI Revive is not affiliated with Access Music or Kemper.</sub>
+</p>
+
 - **One plug-in instance per synth.** Virus Control is designed that way (it controls all 16 parts);
   a second instance shows "Virus in use by another instance" and takes over when the first one is removed.
 - **Hearing the Virus**: with a part output set to *USB*, the audio comes through the plug-in track.
