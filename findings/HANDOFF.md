@@ -44,7 +44,8 @@ platforms: the original's Windows look measured from the screenshots (classic st
 the control's corner, inside the editor (moved up/left; more columns if taller), keys + Return + Esc. Checked under
 Xvfb with nativehost (Wavetable 4 x 25, Osc 1 Mode, Return, size menu at 200 %; the editor needs a Virus to leave the
 status page - a temporary local hack, not committed). The patch/bank menus (submenus) are still VSTGUI's native/generic
-ones. Open: Esc and the Windows/macOS look in the next build; the "modern" look as an option (user idea) later. L5 notes: the link must point to our website -> done (sysinfo website_url, click
+ones. Open: Esc and the Windows/macOS look in the next build; the "modern" look as an option (user idea) later. Third test build (0.8.21c): CI run 39030095040; checklist version 4 on the same link (redo items with new IDs: M4,
+M5, L6, L7, W4; order macOS first, then Linux, VM; bare metal postponed). L5 notes: the link must point to our website -> done (sysinfo website_url, click
 opens the browser; not yet in a build); the REMOTE MIDI channel menu is locked on purpose (read-only page). Bare
 metal (B1, B2): postponed by the user - collect a bigger bare-metal list for one session later.
 

@@ -1,49 +1,75 @@
 {
  "round": "0.8.21",
- "lead": "Test build 0.8.21b (CI run 39027398548, branch round-0.8.21): after the comparison with the original - popup menus open at their control with 25 entries per column, a right click opens the Wavetable list through the ring, the HyperSaw display follows the original exactly, PATCH UTILITY > INFO shows TI Revive, broker and Virus OS versions, and the REMOTE page shows the template list (read-only). Already passed with the first build: Linux L1/L2, VM W1. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "lead": "Test build 0.8.21c (CI run 39030095040, branch round-0.8.21): our own popup menus - the value lists, the category filter and the size menu now look and work the same on every system, with columns like the original (the Wavetable list in 4 columns of 25 instead of one long column), and the INFO box link goes to the TI Revive website. Already passed: Linux L1, L2, L4, L5; VM W1-W3; macOS M1, M3. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
  "rules": [
-  "Disposable DAW project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches. On the REMOTE page: no SAVE, no LOAD (they are not active in TI Revive yet).",
-  "Order: Linux (Claude brings the Virus back from the Windows 10 VM), then the Windows 11 VM, macOS, and Windows 11 on this PC last.",
+  "Disposable DAW project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches.",
+  "Order: macOS first (move the Virus to the Mac), then Linux, then the Windows 11 VM. Windows 11 on this PC is postponed to a later bare-metal session.",
   "Close the DAW before moving the Virus to another machine."
  ],
  "sections": [
+  {
+   "id": "mac",
+   "title": "macOS",
+   "where": "MacBook Air M3, Ableton Live 12",
+   "prep": [
+    "Claude pushes the package to the Mac when it is awake: <code>~/Downloads/TI-Revive-0.8.21c-mac</code>. Quit Ableton, then in Terminal: <code>sudo installer -pkg ~/Downloads/TI-Revive-0.8.21c-mac/\"TI Revive.pkg\" -target /</code>"
+   ],
+   "notes": [
+    "Before, macOS drew these menus itself (one long column). Now they are drawn by the plug-in like the original's Windows menus. The bank and LOAD/SAVE menus (with submenus) are still the macOS ones."
+   ],
+   "items": [
+    {
+     "id": "M4",
+     "title": "Popup menus (redo of M2)",
+     "steps": [
+      "OSC page, oscillator 1: click the mode field (\"Classic\"), move the mouse over the list, pick Wavetable.",
+      "Right-click the table name \"Sine\", move over the columns, pick another table.",
+      "Open the list again: press the arrow keys (also left/right), then Return. Open it once more and press Esc; once more and click next to the list.",
+      "BROWSER: the category field. Right-click an empty spot of the editor: the size menu, pick another size and back."
+     ],
+     "expect": "every list opens at the corner of its control (moved up where it would not fit), light grey with a thin border, a tick at the current value, the entry under the mouse highlighted in light blue; the Wavetable list has 4 columns of 25 with lines between them; arrows move the highlight, Return picks it, Esc and a click beside the list close it without a change; the editor size changes."
+    },
+    {
+     "id": "M5",
+     "title": "Smoke test and INFO link",
+     "steps": [
+      "Play a few notes, turn a knob, switch pages.",
+      "PATCH UTILITY > CONFIG: click the link text in the INFO box."
+     ],
+     "expect": "sound, editor normal; the TI Revive website opens in the browser."
+    }
+   ]
+  },
   {
    "id": "linux",
    "title": "Linux",
    "where": "REAPER via pw-jack, Virus on this PC",
    "prep": [
-    "Claude unpacked the test build to <code>~/Downloads/TI-Revive-0.8.21b-linux</code>. In a terminal: <code>cd ~/Downloads/TI-Revive-0.8.21b-linux/TI-Revive-0.8.21-linux && sudo ./install.sh</code>"
+    "Claude unpacks the test build to <code>~/Downloads/TI-Revive-0.8.21c-linux</code>. In a terminal: <code>cd ~/Downloads/TI-Revive-0.8.21c-linux/TI-Revive-0.8.21-linux && sudo ./install.sh</code>"
    ],
    "notes": [
-    "The first start after the install reads the Virus' OS version once (about 3 s longer before the sync starts)."
+    "Before, the Linux menus were VSTGUI's generic ones (one long column)."
    ],
    "items": [
     {
-     "id": "L3",
-     "title": "Popup menus",
+     "id": "L6",
+     "title": "Popup menus (redo of L3)",
      "steps": [
-      "OSC page, oscillator 1 Wavetable: right-click the table name \"Sine\".",
-      "Left-click the ring around it.",
-      "BROWSER: click the bank bar above a bank, and the category field."
+      "OSC page, oscillator 1: click the mode field (\"Classic\"), move the mouse over the list, pick Wavetable.",
+      "Right-click the table name \"Sine\", move over the columns, pick another table.",
+      "Open the list again: press the arrow keys (also left/right), then Return. Open it once more and press Esc; once more and click next to the list.",
+      "BROWSER: the category field. Right-click an empty spot of the editor: the size menu, pick another size and back.",
+      "Set the editor to 150 % and open the Wavetable list again."
      ],
-     "expect": "the right click opens the list of 100 tables in 4 columns at the name; the left click turns the ring; the bank list opens just below the bar, the category list over its field."
+     "expect": "every list opens at the corner of its control (moved up where it would not fit), light grey with a thin border, a tick at the current value, the entry under the mouse highlighted in light blue; the Wavetable list has 4 columns of 25 with lines between them; arrows move the highlight, Return picks it, Esc and a click beside the list close it without a change; the editor size changes. At 150 % the list is larger and sharp."
     },
     {
-     "id": "L4",
-     "title": "HyperSaw display",
+     "id": "L7",
+     "title": "INFO link",
      "steps": [
-      "Oscillator 1 HyperSaw: turn the ring (Density) from left to right, then set DETUNE to 0 and 127."
+      "PATCH UTILITY > CONFIG: click the link text in the INFO box."
      ],
-     "expect": "2 to 9 vertical lines, the last one growing; DETUNE spreads them from the middle to almost the full width."
-    },
-    {
-     "id": "L5",
-     "title": "INFO box and REMOTE page",
-     "steps": [
-      "PATCH UTILITY > CONFIG: look at the INFO box.",
-      "REMOTE: click a few templates."
-     ],
-     "expect": "INFO: TI Revive 0.8.21 in the five version rows, Virus TI Version 5.1.7.00, the website link text. REMOTE: 32 x Init Template, a click highlights the template, nothing else changes."
+     "expect": "the TI Revive website opens in the browser."
     }
    ]
   },
@@ -54,92 +80,19 @@
    "prep": [
     "Close REAPER. Claude installs the test build in the VM and hands over the Virus with <code>VM=win11 scripts/vm.sh attach</code>."
    ],
-   "notes": [],
-   "items": [
-    {
-     "id": "W2",
-     "title": "Smoke test and Wavetable list",
-     "steps": [
-      "Open the test project, play, open the editor.",
-      "Oscillator 1 Wavetable: right-click \"Sine\", pick another table."
-     ],
-     "expect": "sound; the list opens in 4 columns at the name; the chosen table shows in the display."
-    },
-    {
-     "id": "W3",
-     "title": "INFO box",
-     "steps": [
-      "PATCH UTILITY > CONFIG."
-     ],
-     "expect": "the same versions as on Linux, Virus TI Version 5.1.7.00."
-    }
-   ]
-  },
-  {
-   "id": "mac",
-   "title": "macOS",
-   "where": "MacBook Air M3, Ableton Live 12",
-   "prep": [
-    "Claude pushes the package to the Mac when it is awake: <code>~/Downloads/TI-Revive-0.8.21b-mac</code>. In Terminal: <code>sudo installer -pkg ~/Downloads/TI-Revive-0.8.21b-mac/\"TI Revive.pkg\" -target /</code>"
-   ],
    "notes": [
-    "macOS draws its own popup menus: columns and position may look different there."
+    "On Windows the old menus were already the system's; the new ones should look almost the same."
    ],
    "items": [
     {
-     "id": "M1",
-     "title": "Smoke test",
+     "id": "W4",
+     "title": "Popup menus",
      "steps": [
-      "Start Ableton, play, open the editor."
+      "OSC page, oscillator 1: click the mode field (\"Classic\"), move the mouse over the list, pick Wavetable.",
+      "Right-click the table name \"Sine\", move over the columns, pick another table.",
+      "Open the list again: press the arrow keys (also left/right), then Return. Open it once more and press Esc; once more and click next to the list."
      ],
-     "expect": "sound, editor normal."
-    },
-    {
-     "id": "M2",
-     "title": "Oscillator displays and menus",
-     "steps": [
-      "Classic: WaveSelect 1, 2, 30 with Shape left; HyperSaw: turn Density.",
-      "Wavetable: right-click \"Sine\"."
-     ],
-     "expect": "sine, triangle, a third wave; 2..9 HyperSaw lines; the table list opens."
-    },
-    {
-     "id": "M3",
-     "title": "INFO box",
-     "steps": [
-      "PATCH UTILITY > CONFIG."
-     ],
-     "expect": "TI Revive 0.8.21, Virus TI Version 5.1.7.00."
-    }
-   ]
-  },
-  {
-   "id": "bare",
-   "title": "Windows 11 on this PC",
-   "where": "boot into Windows; Claude is not available during it",
-   "prep": [
-    "Download the 0.8.21 .msi (not the setup.exe) from <code>github.com/derpsn/access-virus-ti-revive/actions/runs/39027398548</code> (artifact \"TI-Revive-msi\", GitHub login)."
-   ],
-   "notes": [
-    "Before: Installed apps shows three TI Revive entries (0.8.0, 0.8.20 and 0.8.20). Reboot to Linux at the end; Claude reads C:\\ProgramData\\TI Revive\\bundles.log read-only."
-   ],
-   "items": [
-    {
-     "id": "B1",
-     "title": "The .msi cleans up the old entries",
-     "steps": [
-      "Installed apps: search for \"TI Revive\" and note what you see.",
-      "Install the 0.8.21 .msi, then search again (reopen Settings)."
-     ],
-     "expect": "afterwards exactly one entry, TI Revive 0.8.21."
-    },
-    {
-     "id": "B2",
-     "title": "Smoke test and INFO box",
-     "steps": [
-      "Ableton: play, open the editor, PATCH UTILITY > CONFIG."
-     ],
-     "expect": "sound; Virus TI Version 5.1.7.00 in the INFO box."
+     "expect": "every list opens at the corner of its control (moved up where it would not fit), light grey with a thin border, a tick at the current value, the entry under the mouse highlighted in light blue; the Wavetable list has 4 columns of 25 with lines between them; arrows move the highlight, Return picks it, Esc and a click beside the list close it without a change; the editor size changes."
     }
    ]
   }
