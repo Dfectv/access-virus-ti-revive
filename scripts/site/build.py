@@ -453,6 +453,7 @@ def features_section():
         <li>Three stereo outputs over USB, plus the analog outputs of the Virus.</li>
         <li>Audio from your DAW through the filters and effects of the Virus (sidechain input), as in the original.</li>
         <li>A help mode: the ? button explains every control, and why a greyed-out one is inactive.</li>
+        <li>The REMOTE page (since 0.8.22): the Virus' remote templates with their names, knob names and MIDI strings, the original's knob template list, template files to load and save, sent to the Virus like the original.</li>
         <li>Projects bring back every patch setting of all 16 parts.</li>
         <li>VST3 on Windows, macOS and Linux; Audio Unit for Logic and GarageBand. Native on Apple Silicon.</li>
         <li>Editor sizes from 100 to 200 %. On larger sizes and Retina screens each image is enlarged once with a
@@ -617,7 +618,7 @@ def page_changelog_landing(releases):
 
 # the README's screenshots that the site shows too (copied at build time)
 SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png", "plugin-help-inactive.png"]
-TESTS = 165 # unit tests in native/tests (vtitests), as of 2026-10-17 (round 0.8.21)
+TESTS = 190 # unit tests in native/tests (vtitests), as of 2026-10-17 (round 0.8.22)
 # line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
 COVERAGE, COVERAGE_DATE = "94 %", "16 Oct 2026"
 

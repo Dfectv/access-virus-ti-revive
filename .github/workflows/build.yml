@@ -224,17 +224,26 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
-          **New in 0.8.21: closer to the original editor.** We compared every page with the original Virus Control
+          **New in 0.8.22: menus like the original's.** Every menu of the plug-in (value lists, LOAD and SAVE, banks,
+          libraries) is a window of its own, as in the original on Windows: it can reach beyond the plug-in window and
+          use the whole screen, with the original's columns. A submenu opens when the pointer rests on its entry for a
+          moment, so you can move across other entries into an open submenu (from RAM A to its patches past RAM B).
+          Arrow keys, Return and Esc work; a click elsewhere or switching to another window closes the menu.
+
+          **New in 0.8.22: the REMOTE page.** The Virus' remote templates with their names, knob names and MIDI
+          strings, the original's knob template list, template files to load and save, sent to the Virus like the
+          original. The knob template list also works with the 32-bit Access installation on Windows.
+
+          **Since 0.8.21: closer to the original editor.** We compared every page with the original Virus Control
           side by side. Popup menus open at their control with 25 entries per column, like the original, on Windows,
           macOS and Linux (macOS and Linux showed one long column before): the Wavetable list has 4 columns. Right-click
           the table name inside the oscillator ring to open it, as in the original. The classic oscillator display
           shows the original's waves, the HyperSaw display its lines, and a stored value above its range is shown
           clamped like in the original (Vocoder Bands "32").
 
-          **New in 0.8.21: PATCH UTILITY > INFO** shows the TI Revive version, the version of the TI Revive service
+          **Since 0.8.21: PATCH UTILITY > INFO** shows the TI Revive version, the version of the TI Revive service
           and the Virus' OS version. The OS version is read once at connect, with the same read-only requests as the
-          original driver. The link opens the TI Revive website. The REMOTE page shows the remote templates
-          (read-only for now).
+          original driver. The link opens the TI Revive website.
 
           **Also in 0.8.21:** on Windows, installing the .msi directly removes the Installed apps entries of earlier
           setup.exe installs. Virus TI Snow on macOS: USB 3 and the soft knobs work (user report, issue #4).

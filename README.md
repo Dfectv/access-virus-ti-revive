@@ -221,6 +221,8 @@ same with Access' own driver.
   are made for 100 %: at larger sizes and on high-resolution screens (Retina) the plug-in enlarges each image once
   with a sharp filter, in memory only, so they stay crisp (the first visit of a page takes a moment longer). The
   Control Center's Access look still stretches them.
+- **REMOTE page** (since 0.8.22): the Virus' remote templates with their names, knob names and MIDI strings, the
+  original's knob template list, template files to load and save, sent to the Virus like the original.
 - **Menus** (since 0.8.22): every menu of the plug-in (value lists, LOAD and SAVE, banks, libraries) is a window of
   its own, as in the original on Windows: it can reach beyond the plug-in window and use the whole screen, with the
   original's columns (the Wavetable list: 4 columns of 25). A submenu opens when the pointer rests on its entry for
@@ -331,7 +333,7 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 - **Automation rate limit** (250 messages/s, coalesced per parameter): unthrottled parameter floods hung the Virus'
   audio until a power cycle within 4 minutes; with the limit a 4-minute full-load test (16 channels of notes + 32
   automation lanes) passes.
-- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 165 unit
+- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 190 unit
   tests run with every release build on Windows and Linux, plus two end-to-end tests on Linux in a virtual display
   (two editors of a duplicated track; the Control Center's window and close button).
 
