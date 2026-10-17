@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-17 (CONTINUE HERE below; round 0.8.22 in progress). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E198), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E199), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## CONTINUE HERE (state 2026-10-17 late afternoon: round 0.8.22 started)
@@ -22,7 +22,10 @@ encoding, E196; Xvfb: "b0 7 x" -> "B0 07 *"). Nothing is sent to the Virus. Knob
 from the user's binary at runtime by shape, Windows DLL and Mac binary, 35 entries; a choice fills the MIDI String).
 MIDI String Info and Load/Save Template File
 done (E198: *.vrt "RMOT"/"RSET" format, LOAD into the selected template, SAVE / Save as new; Xvfb-checked). The
-REMOTE editor is complete except sending. Open: the sending question - TOGETHER with the user (user, 2026-10-17) (a capture of
+REMOTE editor is complete except sending. Joint session 2026-10-17 (E199): capture of the original choosing/editing a
+template (double-click chooses; Remote Patch 73 00 6C + 33 records on cable 3; no answer) and the Virus' own
+Transmit MIDI Dump "Remote Patches" (16 factory-like knob records of template 0, no "TEST" from the original's
+edit). Still open: where the Virus keeps the original's records -> decide with the user before any sending (a capture of
 the original choosing/editing a template in the win10 VM with the user, then a test the user approves).
 
 ## Previous state (2026-10-17 afternoon: v0.8.21 released)
