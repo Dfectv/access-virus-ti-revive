@@ -297,3 +297,20 @@ TEST(remote_templates_record_without_f7)
     RemoteTemplates t;
     CHECK(t.take_record(r) && t.knob_name(2, 4) == "Attack");
 }
+
+// what goes to the Virus when a template is chosen or loaded (E199, E200): its name record, then knobs 0..31, in the
+// original's order; the record an edit sends: the name record for the template name and the channel flag, the
+// knob's record for its name, MIDI string and knob template
+TEST(remote_templates_records_to_send)
+{
+    RemoteTemplates t;
+    t.set_knob_name(4, 31, "Last");
+    auto all = t.template_records(4);
+    CHECK(all.size() == 33 && all[0] == t.name_record(4) && all[1] == t.knob_record(4, 0) && all[32] == t.knob_record(4, 31));
+    CHECK(t.template_records(-1).empty() && t.template_records(32).empty());
+    CHECK(remote_edit_record("Remote Templates/Template Name", t, 4, 7) == t.name_record(4));
+    CHECK(remote_edit_record("Remote Templates/MIDI Channel Behaviour", t, -1, 7) == t.name_record(0));
+    CHECK(remote_edit_record("Remote Templates/Knob Name", t, 4, 7) == t.knob_record(4, 7));
+    CHECK(remote_edit_record("Remote Templates/MIDI String", t, 4, 31) == t.knob_record(4, 31));
+    CHECK(remote_edit_record("Osc/Shape", t, 4, 7).empty());
+}

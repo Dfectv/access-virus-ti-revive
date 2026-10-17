@@ -2,7 +2,7 @@
 // as SysEx records with command 0x13: a name record (28 bytes: template, 0x20, 16-char name, flags with bit 0 = MIDI
 // Channel Behaviour) and 32 knob records (65 bytes: template, knob, 10-char name, Knob Behaviour in two nibbles, a
 // 40-byte MIDI string, encode_midi). It reads none from the Virus; it loads and saves them in a cache file (a "MIDI" container).
-// Sending templates to the Virus (the original does that on every choice and edit) is not implemented: rule 2.
+// The plug-in sends them like the original (E199, E200): a chosen or loaded template whole, an edit its record.
 #pragma once
 #include <array>
 #include <cstdint>
@@ -46,6 +46,8 @@ public:
     // the complete records (empty outside the ranges)
     const std::vector<uint8_t> &name_record(int t) const;
     const std::vector<uint8_t> &knob_record(int t, int k) const;
+    // what the original sends when template t is chosen or loaded: the name record, then knobs 0..31 (E199, E200)
+    std::vector<std::vector<uint8_t>> template_records(int t) const;
 
     // a record from a cache or template file: a knob record, a name record, or the older 27-byte name record without
     // the flags byte; false if it is none
@@ -67,6 +69,10 @@ private:
     std::array<std::vector<uint8_t>, kTemplates> names_;
     std::array<std::array<std::vector<uint8_t>, kKnobs>, kTemplates> knobs_;
 };
+
+// the record the original sends after an edit of `param` (E199): the name record for Template Name and MIDI Channel
+// Behaviour, the knob's record for Knob Name and MIDI String (a knob template sets the MIDI string); empty otherwise
+std::vector<uint8_t> remote_edit_record(const std::string &param, const RemoteTemplates &t, int selected, int knob);
 
 // the template files below `dir` like the original's list: *.vrt (any case), in sub folders as "folder/name.vrt",
 // sorted; empty if there is no such folder

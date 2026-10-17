@@ -334,15 +334,18 @@ public:
         std::lock_guard<std::mutex> lk(remote_mu_);
         return remote_.name(t);
     }
-    // REMOTE page: Template Name / Knob Name of the selected template and knob edited (false: no such field); the
-    // templates are saved at once, nothing is sent to the Virus (E196)
+    // REMOTE page: Template Name / Knob Name / MIDI String of the selected template and knob edited (false: no such
+    // field); the templates are saved at once and the changed record goes to the Virus like the original's (E199)
     bool set_remote_text(const std::string &param, const std::string &text);
     // REMOTE page template files (*.vrt, E198) like the original's two places: "Personal Libraries" (the Patches
     // folder; the installer's factory templates are in its "Remote Templates") and "Personal Remote Templates"
     // (Documents/Access Music/Virus TI/Remote Templates, where new ones go): (menu name, folder). Loading puts a file
-    // into the selected template, saving writes the selected template ("" = a new file named after the template in
-    // Personal Remote Templates). Nothing is sent to the Virus.
+    // into the selected template and sends its records like the original (E200), saving writes the selected template
+    // ("" = a new file named after the template in Personal Remote Templates) and sends nothing.
     std::vector<std::pair<std::string, std::string>> remote_template_folders() const;
+    // REMOTE page: a double-click chooses template t like the original's (E199): "Remote Patch" = t, then the
+    // template's 33 records; edits and LOAD send their records too (cable 3)
+    void choose_remote_template(int t);
     bool load_remote_template(const std::string &path);
     bool save_remote_template(const std::string &path);
     // the Knob Template menu's entries, read from the user's plug-in binary on first use (E197); empty if not found
@@ -419,8 +422,8 @@ private:
     void set_editor_value(const std::string &path, int part, int value, bool persist = false);
     std::string lcd_param_, lcd_value_, lcd_part_, lcd_orig_; // the last edited parameter for the LCD
     SystemInfo sysinfo_{VTI_NATIVE_VERSION, {}, {}}; // PATCH UTILITY > INFO (values_mu_): versions, Virus OS
-    // PATCH UTILITY > REMOTE (E193, E196): edited here and kept in our cache file like the original's; nothing is sent
-    // to the Virus
+    // PATCH UTILITY > REMOTE (E193, E196, E199): edited here, kept in our cache file and sent to the Virus like the
+    // original's
     RemoteTemplates remote_;
     mutable std::mutex remote_mu_;
     std::string remote_path_; // our RemoteSets file
@@ -428,6 +431,7 @@ private:
     bool knob_templates_read_ = false;
     void load_remote_templates();
     void save_remote_templates(); // remote_mu_ held
+    void send_remote(const std::vector<std::vector<uint8_t>> &records); // to the Virus on cable 3 (not remote_mu_)
     void set_lcd(const std::string &param, const std::string &value, const std::string &part, const std::string &before);
     std::string search_;                                    // browser search text
     int results_return_ = 0;                                // browser 0's bank before the results

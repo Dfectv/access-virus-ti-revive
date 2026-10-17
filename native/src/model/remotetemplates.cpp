@@ -240,6 +240,15 @@ const std::vector<uint8_t> &RemoteTemplates::knob_record(int t, int k) const
     return valid(t, k) ? knobs_[t][k] : none;
 }
 
+std::vector<std::vector<uint8_t>> RemoteTemplates::template_records(int t) const
+{
+    if (!valid(t))
+        return {};
+    std::vector<std::vector<uint8_t>> out = {names_[t]};
+    out.insert(out.end(), knobs_[t].begin(), knobs_[t].end());
+    return out;
+}
+
 bool RemoteTemplates::take_record(const std::vector<uint8_t> &r)
 {
     if (!ours(r) || r[7] >= kTemplates)
@@ -424,6 +433,16 @@ std::string remote_text(const std::string &param, const RemoteTemplates &t, int 
         return t.midi_string(sel, knob);
     if (param == "Remote Templates/MIDI String Info")
         return t.midi_info(sel, knob);
+    return {};
+}
+
+std::vector<uint8_t> remote_edit_record(const std::string &param, const RemoteTemplates &t, int selected, int knob)
+{
+    const int sel = selected < 0 ? 0 : selected;
+    if (param == "Remote Templates/Template Name" || param == "Remote Templates/MIDI Channel Behaviour")
+        return t.name_record(sel);
+    if (param == "Remote Templates/Knob Name" || param == "Remote Templates/MIDI String")
+        return t.knob_record(sel, knob);
     return {};
 }
 

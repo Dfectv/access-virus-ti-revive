@@ -1053,9 +1053,11 @@ public:
             event.consumed = true;
             return;
         }
-        if (e.type == "RemoteBrowser") { // REMOTE page: select a template here only, nothing goes to the Virus (E193)
+        if (e.type == "RemoteBrowser") { // REMOTE page: a click selects, a double-click chooses and sends (E199)
             int t = EditorRenderer::remote_entry(h, (int)event.mousePosition.x, (int)event.mousePosition.y);
-            if (t >= 0)
+            if (t >= 0 && event.clickCount >= 2)
+                plugin_->choose_remote_template(t);
+            else if (t >= 0)
                 plugin_->ui_set(param, -1, t);
             invalid();
             event.consumed = true;
@@ -1180,7 +1182,7 @@ public:
             }
             if (edit_param_.empty())
                 plugin_->rename_part(edit_part_, t);
-            else // a REMOTE page field: saved with the templates, nothing goes to the Virus
+            else // a REMOTE page field: saved with the templates and sent like the original's
                 plugin_->set_remote_text(edit_param_, t);
             edit_param_.clear();
             if (auto *f = getFrame()) // remove the edit field after the current event
@@ -1551,7 +1553,7 @@ private:
     }
 
     // REMOTE page: the original's knob templates ("/" = submenu, E197); a choice fills the selected knob's MIDI string
-    // like the original's (0x18008b020), nothing is sent to the Virus
+    // like the original's (0x18008b020) and sends that knob's record
     void knob_template_menu(const CPoint &where)
     {
         auto list = std::make_shared<std::vector<KnobTemplate>>(plugin_->knob_templates());
@@ -1573,7 +1575,7 @@ private:
 
     // REMOTE page LOAD / SAVE like the original's (E198): "Personal Libraries" and "Personal Remote Templates" with
     // their template files (sub folders as submenus, only folders with templates); SAVE also offers a new file under
-    // Personal Remote Templates (" Save as new Template.." in the original). Nothing is sent to the Virus.
+    // Personal Remote Templates (" Save as new Template.." in the original). LOAD sends the template (E200).
     void template_file_menu(const CPoint &where, bool save)
     {
         auto files = std::make_shared<std::vector<std::string>>(); // full paths; "" = a new file

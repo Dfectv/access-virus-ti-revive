@@ -1409,11 +1409,16 @@ void VirusPlugin::ui_set(const std::string &path, int part, int value)
         ui_set(t, part, value); // turning a soft knob edits its target (original: 0x1800a2840)
         return;
     }
-    if (path == "Remote Templates/MIDI Channel Behaviour") { // REMOTE page: the template's flag, saved, not sent
+    if (path == "Remote Templates/MIDI Channel Behaviour") { // REMOTE page: the template's flag, saved and sent
         int sel = ui_value("Remote Templates/Selected Template", -1);
-        std::lock_guard<std::mutex> lk(remote_mu_);
-        remote_.set_channel_enabled(sel < 0 ? 0 : sel, value != 0);
-        save_remote_templates();
+        std::vector<uint8_t> rec;
+        {
+            std::lock_guard<std::mutex> lk(remote_mu_);
+            remote_.set_channel_enabled(sel < 0 ? 0 : sel, value != 0);
+            save_remote_templates();
+            rec = remote_edit_record(path, remote_, sel, 0);
+        }
+        send_remote({rec});
         ui_dirty_ = true;
         return;
     }
@@ -1689,12 +1694,43 @@ void VirusPlugin::save_remote_templates()
 bool VirusPlugin::set_remote_text(const std::string &param, const std::string &text)
 {
     int sel = ui_value("Remote Templates/Selected Template", -1), knob = ui_value("Remote Templates/Selected Knob", -1);
-    std::lock_guard<std::mutex> lk(remote_mu_);
-    if (!remote_set_text(param, remote_, sel, knob, text))
-        return false;
-    save_remote_templates();
+    std::vector<uint8_t> rec;
+    {
+        std::lock_guard<std::mutex> lk(remote_mu_);
+        if (!remote_set_text(param, remote_, sel, knob, text))
+            return false;
+        save_remote_templates();
+        rec = remote_edit_record(param, remote_, sel, knob);
+    }
+    send_remote({rec});
     ui_dirty_ = true;
     return true;
+}
+
+void VirusPlugin::send_remote(const std::vector<std::vector<uint8_t>> &records)
+{
+    if (!out_)
+        return;
+    for (auto &r : records)
+        if (!r.empty())
+            out_->send(r, 3); // the original's cable for template records (E199)
+}
+
+void VirusPlugin::choose_remote_template(int t)
+{
+    if (t < 0 || t >= RemoteTemplates::kTemplates)
+        return;
+    ui_set("Remote Templates/Selected Template", -1, t);
+    std::vector<std::vector<uint8_t>> records;
+    {
+        std::lock_guard<std::mutex> lk(remote_mu_);
+        records = remote_.template_records(t);
+    }
+    // "Global Patch Select/Remote Patch" = t first (Bank F global, 73 00 6C t), then the template (E199)
+    if (out_)
+        if (auto msg = dev_.encode("Global Patch Select/Remote Patch", t, 0); !msg.empty())
+            out_->send(msg);
+    send_remote(records);
 }
 
 static std::string remote_template_dir()
@@ -1718,10 +1754,15 @@ bool VirusPlugin::load_remote_template(const std::string &path)
         fclose(f);
     }
     int sel = ui_value("Remote Templates/Selected Template", -1);
-    std::lock_guard<std::mutex> lk(remote_mu_);
-    if (remote_.load_template_file(d, sel < 0 ? 0 : sel) == 0)
-        return false;
-    save_remote_templates();
+    std::vector<std::vector<uint8_t>> records;
+    {
+        std::lock_guard<std::mutex> lk(remote_mu_);
+        if (remote_.load_template_file(d, sel < 0 ? 0 : sel) == 0)
+            return false;
+        save_remote_templates();
+        records = remote_.template_records(sel < 0 ? 0 : sel);
+    }
+    send_remote(records); // the original sends the loaded template's records (E200)
     ui_dirty_ = true;
     return true;
 }
