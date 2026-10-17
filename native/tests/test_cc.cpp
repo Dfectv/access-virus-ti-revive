@@ -2,10 +2,14 @@
 // patch names, .syx export
 #include "cc/controlcenter.h"
 #include "cc/diag.h"
+#include "device/broker.h"
 #include "check.h"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 using namespace vti::cc;
 using vti::Dump;
@@ -103,4 +107,24 @@ TEST(cc_cache_dir_like_the_plugin)
     if (c.empty())
         SKIP("no home folder in the environment");
     CHECK(c.size() > 22 && c.substr(c.size() - 22) == "/virus-ti-native/cache");
+}
+
+TEST(cc_backup_folder_without_permission)
+{
+#ifndef _WIN32
+    // macOS user test M2 (0.8.19): the Access installer had created Documents/Access Music as root, and the backup
+    // only said "permission denied". The message names the way out; nothing reaches the broker before that.
+    if (geteuid() == 0)
+        return; // root may write anywhere
+    const fs::path d = scratch() / "locked";
+    fs::create_directories(d);
+    fs::permissions(d, fs::perms::owner_read | fs::perms::owner_exec);
+    vti::Broker broker;
+    std::string err;
+    CHECK(!backup_ram(broker, "1", (d / "Backups" / "2026-10-17 0628").string(), nullptr, err));
+    CHECK(err.find("cannot create") != std::string::npos);
+    CHECK(err.find("Choose another folder") != std::string::npos);
+    fs::permissions(d, fs::perms::owner_all);
+    fs::remove_all(scratch());
+#endif
 }
