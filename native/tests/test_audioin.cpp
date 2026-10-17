@@ -152,6 +152,28 @@ TEST(audioin_read_follows_the_synth_clock)
     CHECK_EQ(a.position(), r.shm->in_frames - 1024 + 512);
 }
 
+TEST(audioin_read_large_blocks)
+{
+    // E187: with a 4096-frame host block the fallback target 2 * 4096 + 256 = 8448 already exceeded the "far behind"
+    // limit (half the ring) - every block re-anchored, audible as crackling until the timeline anchored
+    Ring r;
+    AudioIn a;
+    CHECK(r.shm && a.open(r.name.c_str()));
+    const int n = 4096, latency = 2 * n + 256;
+    static float l1[n], r1[n], l2[n], r2[n];
+    r.produce(20000);
+    for (int i = 0; i < 40; i++) { // steady playback: the synth delivers one block per callback
+        a.read(l1, r1, l2, r2, n, latency);
+        r.produce(r.shm->in_frames + n);
+    }
+    CHECK_EQ(a.drops(), 0);
+    // a real stall (the DAW stopped calling for a while) still re-anchors instead of playing old audio
+    r.produce(r.shm->in_frames + VTI_AUDIO_RING / 2);
+    a.read(l1, r1, l2, r2, n, latency);
+    CHECK_EQ(a.drops(), 1);
+    CHECK_EQ(a.position(), r.shm->in_frames - latency + n);
+}
+
 TEST(audioin_output_ring)
 {
     Ring r;
