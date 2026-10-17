@@ -322,8 +322,8 @@ void AudioIn::read(float *l1, float *r1, float *l2, float *r2, int n, int latenc
     // target and one block, or so close to the ring size that the synth would overwrite what this block reads. Half
     // the ring was the limit before: with 4096-frame blocks the target alone (2 * 4096 + 256) exceeded it and every
     // block jumped (E187)
-    const int64_t far = std::min<int64_t>((int64_t)latency + n + VTI_AUDIO_RING / 4, VTI_AUDIO_RING - n);
-    if (pos_ < 0 || fill < n || fill > far) {
+    const int64_t far_limit = std::min<int64_t>((int64_t)latency + n + VTI_AUDIO_RING / 4, VTI_AUDIO_RING - n);
+    if (pos_ < 0 || fill < n || fill > far_limit) {
         if (pos_ >= 0)
             drops_++;
         pos_ = newest - latency;
