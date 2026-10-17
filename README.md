@@ -221,6 +221,11 @@ same with Access' own driver.
   are made for 100 %: at larger sizes and on high-resolution screens (Retina) the plug-in enlarges each image once
   with a sharp filter, in memory only, so they stay crisp (the first visit of a page takes a moment longer). The
   Control Center's Access look still stretches them.
+- **Menus** (since 0.8.22): every menu of the plug-in (value lists, LOAD and SAVE, banks, libraries) is a window of
+  its own, as in the original on Windows: it can reach beyond the plug-in window and use the whole screen, with the
+  original's columns (the Wavetable list: 4 columns of 25). A submenu opens when the pointer rests on its entry for
+  a moment, so you can move across other entries into an open submenu, for example from RAM A to its patches past
+  RAM B. Arrow keys, Return and Esc work as in a Windows menu.
 - **One plug-in instance per synth.** Virus Control is designed that way (it controls all 16 parts);
   a second instance shows "Virus in use by another instance" and takes over when the first one is removed.
 - **Hearing the Virus**: with a part output set to *USB*, the audio comes through the plug-in track.
