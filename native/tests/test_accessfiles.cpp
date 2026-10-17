@@ -346,3 +346,94 @@ TEST(accessfiles_osc_waves_mac_bundle)
     CHECK(AccessFiles::open("", err)->osc_waves().empty());
 }
 #endif
+
+namespace {
+void put64(std::vector<uint8_t> &b, size_t at, uint64_t v)
+{
+    for (int i = 0; i < 8; i++)
+        b[at + i] = (uint8_t)(v >> (8 * i));
+}
+void put32(std::vector<uint8_t> &b, size_t at, uint32_t v)
+{
+    for (int i = 0; i < 4; i++)
+        b[at + i] = (uint8_t)(v >> (8 * i));
+}
+// a knob template table like the original's (E197): (name pointer, MIDI string pointer) pairs right before a remote
+// template name record; `base` + file offset = the address the pointers use. Made-up entries, nothing from Access.
+void put_table(std::vector<uint8_t> &b, size_t table, size_t strings, uint64_t base, int n)
+{
+    size_t s = strings;
+    for (int i = 0; i < n; i++) {
+        std::string name = "Group " + std::to_string(i / 4) + "/Entry " + std::to_string(i);
+        std::string midi = i % 2 ? "B0 0" + std::to_string(i % 10) + " FF" : "F0 7F FF F7";
+        memcpy(&b[s], name.c_str(), name.size() + 1);
+        put64(b, table + 16 * i, base + s);
+        s += name.size() + 1;
+        memcpy(&b[s], midi.c_str(), midi.size() + 1);
+        put64(b, table + 16 * i + 8, base + s);
+        s += midi.size() + 1;
+    }
+    const uint8_t rec[] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x13, 0x00, 0x20, 'I', 'n', 'i', 't'};
+    memcpy(&b[table + 16 * n], rec, sizeof rec);
+}
+// a minimal PE32+ file: one section mapping RVA 0x1000 to file offset 0x400, image base 0x180000000
+std::vector<uint8_t> pe_with_table(int n)
+{
+    std::vector<uint8_t> b(0x4000, 0);
+    b[0] = 'M', b[1] = 'Z';
+    put32(b, 0x3C, 0x80);
+    memcpy(&b[0x80], "PE\0\0", 4);
+    b[0x84] = 0x64, b[0x85] = 0x86;                 // x64
+    b[0x86] = 1;                                     // one section
+    b[0x94] = 0xF0;                                  // size of the optional header
+    b[0x98] = 0x0B, b[0x99] = 0x02;                  // PE32+
+    put64(b, 0x98 + 24, 0x180000000ull);             // image base
+    size_t sec = 0x98 + 0xF0;
+    memcpy(&b[sec], ".rdata\0\0", 8);
+    put32(b, sec + 8, 0x3C00);  // virtual size
+    put32(b, sec + 12, 0x1000); // RVA
+    put32(b, sec + 16, 0x3C00); // raw size
+    put32(b, sec + 20, 0x400);  // raw offset
+    // file offset f <-> address 0x180000000 + 0x1000 + (f - 0x400)
+    put_table(b, 0x800, 0x2000, 0x180000000ull + 0x1000 - 0x400, n);
+    return b;
+}
+} // namespace
+
+// the REMOTE page's knob templates, found in the plug-in binary by shape (E197): a run of (name, MIDI string) pointer
+// pairs; names may use "/" for submenus
+TEST(accessfiles_knob_templates_pe)
+{
+    auto t = find_knob_templates(pe_with_table(35));
+    CHECK(t.size() == 35);
+    CHECK(t[0].name == "Group 0/Entry 0" && t[0].midi == "F0 7F FF F7");
+    CHECK(t[34].name == "Group 8/Entry 34" && t[1].midi == "B0 01 FF");
+    CHECK(find_knob_templates(pe_with_table(7)).empty()); // too short to be the table
+    auto cut = pe_with_table(35);
+    put64(cut, 0x800 + 16 * 30 + 8, 0x170000000ull); // entry 30's MIDI pointer outside the image: the run ends there
+    CHECK(find_knob_templates(cut).size() == 30);
+    auto odd = pe_with_table(35);
+    memcpy(&odd[0x2000 + 16], "b0 05 ff", 9); // not the shape of a MIDI string ("Group 0/Entry 0" is 16 bytes)
+    CHECK(find_knob_templates(odd).size() == 34 && find_knob_templates(odd)[0].name == "Group 0/Entry 1");
+    CHECK(find_knob_templates(std::vector<uint8_t>(100, 0)).empty());
+}
+
+// a thin 64-bit Mach-O (the Mac bundle's binary): addresses through its LC_SEGMENT_64 commands
+TEST(accessfiles_knob_templates_macho)
+{
+    std::vector<uint8_t> b(0x4000, 0);
+    put32(b, 0, 0xFEEDFACF);
+    put32(b, 4, 0x01000007); // x86_64
+    put32(b, 16, 1);         // one load command
+    put32(b, 20, 72);
+    put32(b, 32, 0x19); // LC_SEGMENT_64
+    put32(b, 36, 72);
+    memcpy(&b[40], "__DATA", 6);
+    put64(b, 56, 0x100000000ull); // vmaddr
+    put64(b, 64, 0x4000);         // vmsize
+    put64(b, 72, 0);              // fileoff
+    put64(b, 80, 0x4000);         // filesize
+    put_table(b, 0x800, 0x2000, 0x100000000ull, 35);
+    auto t = find_knob_templates(b);
+    CHECK(t.size() == 35 && t[5].name == "Group 1/Entry 5" && t[5].midi == "B0 05 FF");
+}

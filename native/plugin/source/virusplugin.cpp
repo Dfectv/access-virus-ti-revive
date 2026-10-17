@@ -1690,6 +1690,16 @@ bool VirusPlugin::set_remote_text(const std::string &param, const std::string &t
     return true;
 }
 
+std::vector<KnobTemplate> VirusPlugin::knob_templates()
+{
+    std::lock_guard<std::mutex> lk(remote_mu_);
+    if (!knob_templates_read_ && files_) {
+        knob_templates_ = files_->knob_templates(); // ~30 ms: only when the menu opens the first time
+        knob_templates_read_ = true;
+    }
+    return knob_templates_;
+}
+
 // The Virus' RAM banks: our cache (tools/virussync, later the plug-in's own sync), else the original's Access cache
 // (read only) - Windows/Wine: ProgramData/Access Music/Virus TI/Cache/<device>, Mac: /Library/Application Support/...
 void VirusPlugin::load_banks()

@@ -200,6 +200,161 @@ std::vector<float> find_osc_waves(const std::vector<uint8_t> &bin)
     return {};
 }
 
+namespace {
+uint32_t le32(const std::vector<uint8_t> &b, size_t at)
+{
+    return at + 4 <= b.size() ? (uint32_t)b[at] | b[at + 1] << 8 | b[at + 2] << 16 | (uint32_t)b[at + 3] << 24 : 0;
+}
+uint64_t le64(const std::vector<uint8_t> &b, size_t at)
+{
+    return (uint64_t)le32(b, at) | (uint64_t)le32(b, at + 4) << 32;
+}
+uint32_t be32(const std::vector<uint8_t> &b, size_t at)
+{
+    return at + 4 <= b.size() ? (uint32_t)b[at] << 24 | b[at + 1] << 16 | b[at + 2] << 8 | b[at + 3] : 0;
+}
+
+// an address in the binary -> its file offset (SIZE_MAX if outside every mapped range)
+struct AddressRange {
+    uint64_t addr, size;
+    size_t file;
+};
+using AddressMap = std::vector<AddressRange>;
+
+size_t to_file(const AddressMap &m, uint64_t a)
+{
+    for (auto &r : m)
+        if (a >= r.addr && a - r.addr < r.size)
+            return r.file + (size_t)(a - r.addr);
+    return SIZE_MAX;
+}
+
+// a 64-bit PE: absolute addresses = image base + RVA
+bool pe64_map(const std::vector<uint8_t> &b, AddressMap &m)
+{
+    if (b.size() < 0x40 || b[0] != 'M' || b[1] != 'Z')
+        return false;
+    size_t pe = le32(b, 0x3C);
+    if (pe + 24 > b.size() || memcmp(&b[pe], "PE\0\0", 4) != 0)
+        return false;
+    size_t nsec = b[pe + 6] | b[pe + 7] << 8, optsz = b[pe + 20] | b[pe + 21] << 8, opt = pe + 24;
+    if (opt + 32 > b.size() || (b[opt] | b[opt + 1] << 8) != 0x20B)
+        return false;
+    uint64_t base = le64(b, opt + 24);
+    for (size_t i = 0, sec = opt + optsz; i < nsec && sec + 40 <= b.size(); i++, sec += 40)
+        m.push_back({base + le32(b, sec + 12), le32(b, sec + 16), le32(b, sec + 20)});
+    return true;
+}
+
+// a thin 64-bit Mach-O at `at` (a slice of a universal binary or the whole file): its LC_SEGMENT_64 commands
+bool macho64_map(const std::vector<uint8_t> &b, size_t at, AddressMap &m)
+{
+    if (le32(b, at) != 0xFEEDFACF)
+        return false;
+    size_t ncmds = le32(b, at + 16), cmd = at + 32;
+    for (size_t i = 0; i < ncmds && cmd + 8 <= b.size(); i++) {
+        uint32_t kind = le32(b, cmd), size = le32(b, cmd + 4);
+        if (kind == 0x19 && cmd + 72 <= b.size()) // LC_SEGMENT_64: vmaddr, vmsize, fileoff, filesize
+            m.push_back({le64(b, cmd + 24), std::min(le64(b, cmd + 32), le64(b, cmd + 48)),
+                         at + (size_t)le64(b, cmd + 40)});
+        if (size < 8)
+            break;
+        cmd += size;
+    }
+    return true;
+}
+
+std::vector<AddressMap> address_maps(const std::vector<uint8_t> &b)
+{
+    std::vector<AddressMap> maps;
+    AddressMap m;
+    if (pe64_map(b, m) || macho64_map(b, 0, m))
+        maps.push_back(m);
+    else if (be32(b, 0) == 0xCAFEBABE) // universal: each 64-bit slice
+        for (size_t i = 0, n = be32(b, 4); i < n && i < 16; i++) {
+            AddressMap s;
+            if (macho64_map(b, be32(b, 8 + 20 * i + 8), s))
+                maps.push_back(s);
+        }
+    return maps;
+}
+
+std::string c_string(const std::vector<uint8_t> &b, size_t at, size_t max)
+{
+    std::string s;
+    for (; at < b.size() && b[at] && s.size() <= max; at++)
+        s += (char)b[at];
+    return at < b.size() && !b[at] ? s : std::string();
+}
+
+bool menu_name(const std::string &s)
+{
+    if (s.size() < 3 || s.size() > 100)
+        return false;
+    bool letter = false;
+    for (char c : s) {
+        if (c < 32 || c > 126)
+            return false;
+        letter |= isalpha((unsigned char)c) != 0;
+    }
+    return letter;
+}
+
+// "B0 05 FF": 1..20 two-digit upper-case hex bytes, single spaces between them
+bool midi_bytes_text(const std::string &s)
+{
+    if (s.size() < 2 || s.size() > 59 || s.size() % 3 != 2)
+        return false;
+    for (size_t i = 0; i < s.size(); i++)
+        if (i % 3 == 2 ? s[i] != ' ' : !isxdigit((unsigned char)s[i]) || islower((unsigned char)s[i]))
+            return false;
+    return true;
+}
+} // namespace
+
+std::vector<KnobTemplate> find_knob_templates(const std::vector<uint8_t> &bin)
+{
+    // the first run of at least 8 entries; in the Windows DLL it ends right before template 0's name record, in the
+    // Mac binary it lies elsewhere, so the shape alone decides (E197)
+    for (auto &m : address_maps(bin)) {
+        auto entry = [&](size_t at, KnobTemplate &k) {
+            size_t n = to_file(m, le64(bin, at)), d = to_file(m, le64(bin, at + 8));
+            if (n == SIZE_MAX || d == SIZE_MAX)
+                return false;
+            k = {c_string(bin, n, 100), c_string(bin, d, 59)};
+            return menu_name(k.name) && midi_bytes_text(k.midi);
+        };
+        for (size_t at = 0; at + 16 <= bin.size(); at += 8) {
+            std::vector<KnobTemplate> run;
+            KnobTemplate k;
+            for (size_t e = at; e + 16 <= bin.size() && entry(e, k); e += 16)
+                run.push_back(k);
+            if (run.size() >= 8)
+                return run;
+            if (!run.empty()) // a shorter run: go on after it
+                at += 16 * run.size() - 8;
+        }
+    }
+    return {};
+}
+
+std::vector<KnobTemplate> AccessFiles::knob_templates() const
+{
+    std::vector<std::string> bins = {source_};                                       // Windows: the DLL itself
+    bins.push_back((fs::path(source_) / ".." / "MacOS" / "Virus Control").string()); // Mac: bundle binary
+    for (auto &b : bins) {
+        std::error_code ec;
+        if (!fs::is_regular_file(b, ec))
+            continue;
+        std::vector<uint8_t> d;
+        read_file(b, d);
+        auto t = find_knob_templates(d);
+        if (!t.empty())
+            return t;
+    }
+    return {};
+}
+
 std::vector<float> AccessFiles::osc_waves() const
 {
     std::vector<std::string> bins = {source_};                                       // Windows: the DLL itself

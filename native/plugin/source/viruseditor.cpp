@@ -1528,6 +1528,8 @@ private:
             bank_menu(h, at);
         else if (param == "Repository Actions/Category Filter")
             category_menu(at);
+        else if (param == "Remote Templates/Knob Template")
+            knob_template_menu(at);
         else if (param == "Remote Templates/MIDI Channel Behaviour") // code-defined in the original (E196)
             show_list({{"Disable MIDI channel"}, {"Enable MIDI Channel"}}, plugin_->ui_value(param, -1), 0, at,
                       [this, param](int i) {
@@ -1536,6 +1538,27 @@ private:
                       });
         else
             popup_menu(h, at);
+    }
+
+    // REMOTE page: the original's knob templates ("/" = submenu, E197); a choice fills the selected knob's MIDI string
+    // like the original's (0x18008b020), nothing is sent to the Virus
+    void knob_template_menu(const CPoint &where)
+    {
+        auto list = std::make_shared<std::vector<KnobTemplate>>(plugin_->knob_templates());
+        if (list->empty())
+            return;
+        std::vector<vti::PopupItem> items;
+        std::map<std::string, std::vector<int>> folders;
+        auto index = std::make_shared<std::map<std::vector<int>, int>>(); // menu path -> entry
+        for (int i = 0; i < (int)list->size(); i++)
+            (*index)[vti::popup_add_path(items, (*list)[i].name, {""}, folders)] = i;
+        show_popup(std::move(items), -1, 0, where, [this, list, index](const std::vector<int> &path) {
+            auto it = index->find(path);
+            if (it == index->end())
+                return;
+            plugin_->set_remote_text("Remote Templates/MIDI String", (*list)[it->second].midi);
+            invalid();
+        });
     }
 
     // a parameter's valuelist as a popup at the control; the choice sets the parameter

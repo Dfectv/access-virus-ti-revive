@@ -333,6 +333,8 @@ public:
     // REMOTE page: Template Name / Knob Name of the selected template and knob edited (false: no such field); the
     // templates are saved at once, nothing is sent to the Virus (E196)
     bool set_remote_text(const std::string &param, const std::string &text);
+    // the Knob Template menu's entries, read from the user's plug-in binary on first use (E197); empty if not found
+    std::vector<KnobTemplate> knob_templates();
     // LCD texts of the last edited parameter
     // "Softknobs/Softknob N" of a part: the parameter its "Soft Knobs/Destination N" points to (SoftknobMapping),
     // "" when unassigned or for other paths. The original's soft knob is a proxy of that parameter (E150).
@@ -410,6 +412,8 @@ private:
     RemoteTemplates remote_;
     mutable std::mutex remote_mu_;
     std::string remote_path_; // our RemoteSets file
+    std::vector<KnobTemplate> knob_templates_;
+    bool knob_templates_read_ = false;
     void load_remote_templates();
     void save_remote_templates(); // remote_mu_ held
     void set_lcd(const std::string &param, const std::string &value, const std::string &part, const std::string &before);

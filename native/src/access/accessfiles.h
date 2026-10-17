@@ -12,6 +12,11 @@
 
 namespace vti {
 
+// one entry of the REMOTE page's knob template list: its menu path ("/" = submenu) and MIDI string ("B0 05 FF")
+struct KnobTemplate {
+    std::string name, midi;
+};
+
 class AccessFiles {
 public:
     // Locate and open the Access installation. `hint` may name Virus Control.dll / .bundle or its folder; empty =
@@ -37,6 +42,8 @@ public:
     // the classic oscillator display's 64 waves (64 x 64 floats, the WaveSelect row first; E180), found in the plug-in
     // binary by content; empty if not found (the display then shows a sine for every wave)
     std::vector<float> osc_waves() const;
+    // the REMOTE page's knob templates (find_knob_templates); empty if not found (the menu stays empty)
+    std::vector<KnobTemplate> knob_templates() const;
 
 private:
     std::vector<uint8_t> find_dump(uint8_t cmd, size_t size, size_t name_at, const char *name,
@@ -50,5 +57,10 @@ private:
 
 // the 64 x 64 wave table inside a plug-in binary: row 0 is one sine period, every value within +-1; empty if absent
 std::vector<float> find_osc_waves(const std::vector<uint8_t> &bin);
+
+// the knob template list inside a plug-in binary (E197), found by shape: the first run of at least 8 (name, MIDI
+// string) pointer pairs, 8-byte aligned; pointers resolved through a 64-bit PE's sections or a 64-bit Mach-O's
+// segments (also inside a universal binary). Empty if not found.
+std::vector<KnobTemplate> find_knob_templates(const std::vector<uint8_t> &bin);
 
 } // namespace vti
