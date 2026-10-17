@@ -60,6 +60,18 @@ struct Shared {
     bool dirty = true;
 };
 
+// The window's close button: canClose runs right away, while GTK ends the main loop with the last window before the
+// asynchronous onClosed (and never calls onQuit) - the app was destroyed at exit with its timer still running.
+struct CloseHook : WindowControllerAdapter {
+    std::function<void()> closing;
+    bool canClose(const IWindow &) override
+    {
+        if (closing)
+            closing();
+        return true;
+    }
+};
+
 class App : public Application::DelegateAdapter,
             public WindowListenerAdapter,
             public IControlListener,
@@ -80,7 +92,9 @@ public:
             IApplication::instance().registerCommand(c, 0);
         if (auto z = IApplication::instance().getPreferences().get("Zoom"))
             zoom_ = std::clamp(atof(z->data()), 1.0, 2.0);
-        window_ = IApplication::instance().createWindow(config, std::make_shared<WindowControllerAdapter>());
+        auto ctl = std::make_shared<CloseHook>();
+        ctl->closing = [this] { release_ui(); };
+        window_ = IApplication::instance().createWindow(config, ctl);
         // (a controller, not nullptr: VSTGUI builds the window menu through it without a null check)
         if (!window_)
             return IApplication::instance().quit();
@@ -107,9 +121,6 @@ public:
         set(&Shared::folder, vti::cc::default_backup_dir());
         show_page(skin_ ? kSkinPage : kPlainPage); // also sets the window size (GTK does not apply config.size)
         window_->show();
-        // macOS and Windows ignore a size set before show(): the Access look started cut off on the right at the
-        // plain page's width (user, round 0.8.20)
-        window_->setSize(win_size_);
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) { tick(); }, 100, true);
     }
     // "View > Nerd mode" in the menu (macOS menu bar, the window's menu on Windows)
@@ -137,7 +148,7 @@ public:
     {
         if (&w != window_.get()) // another window (Nerd mode)
             return;
-        stop_ = true;
+        release_ui();
         IApplication::instance().quit();
     }
 
@@ -156,7 +167,17 @@ public:
         }
     }
 
+    void onQuit() override { release_ui(); } // Windows, macOS (menu Quit)
+
 private:
+    // VSTGUI's platform layer is gone at exit before this app object: a timer stopped then crashed (user, Linux,
+    // round 0.8.20: segmentation fault on closing the Control Center)
+    void release_ui()
+    {
+        stop_ = true;
+        timer_ = nullptr;
+    }
+
     WindowPtr window_;
     SharedPointer<CFrame> frame_;
     CViewContainer *main_ = nullptr, *nerd_ = nullptr, *skin_ = nullptr; // the pages, owned by the frame
@@ -164,6 +185,7 @@ private:
     UiPage page_ = kPlainPage;
     double zoom_ = 1.0;
     CPoint win_size_; // the current page's window size (zoomed)
+    bool sized_ = false;
 
     void set_zoom(double z)
     {
@@ -242,8 +264,8 @@ private:
         buttons_[5] = button(W - M - 110, 14, 110, kNerd, "Nerd mode");
         buttons_[6] = button(W - M - 230, 14, 110, kSkin, "Access look");
         auto *note = new CMultiLineTextLabel(CRect(M, 372, W - M, H - 10));
-        note->setText("Read-only: nothing is written to the Virus. Close the TI Revive plug-in (or your DAW) first: "
-                      "the Virus serves one program at a time. Firmware/OS updates, Burn To Flash and factory reset "
+        note->setText("Read-only: nothing is written to the Virus. It works next to your DAW (the plug-in and the "
+                      "Control Center share the Virus). Firmware/OS updates, Burn To Flash and factory reset "
                       "are not supported, on purpose (they write the Virus' flash). Backups open in the plug-in once "
                       "their .mid files are copied into the Patches folder.");
         note->setFontColor(kDim);
@@ -284,6 +306,10 @@ private:
 
     void tick()
     {
+        if (!sized_) { // the window only takes a size once it is on screen (macOS, Windows and GTK ignored the one set
+            sized_ = true; // before show(): the Access look started cut off or with an empty margin, user round 0.8.20)
+            window_->setSize(win_size_);
+        }
         bool busy = busy_;
         for (int i = 0; i < 5; i++) { // while an action runs only Cancel; otherwise everything but Cancel
             bool on = (i == 2) == busy;
@@ -337,7 +363,7 @@ private:
         broker.set_name("TI Revive Control Center");
         if (broker.open(err) && broker.device_present())
             return true;
-        set(&Shared::device, err.empty() ? "No Virus: not connected, or the plug-in (another program) is using it."
+        set(&Shared::device, err.empty() ? "No Virus: not connected or switched off."
                                          : "No connection to the TI Revive broker: " + err);
         for (int i = 0; i < 4; i++)
             set_bank(i, "");
@@ -350,7 +376,7 @@ private:
             set(&Shared::status, "Looking for the Virus...");
             vti::Broker broker;
             if (!connect(broker))
-                return set(&Shared::status, "Close the plug-in (or your DAW), connect the Virus and press Refresh.");
+                return set(&Shared::status, "Connect the Virus, switch it on and press Refresh.");
             std::string err;
             vti::cc::DeviceInfo di;
             if (!vti::cc::read_device_info(broker, di, err))
@@ -393,7 +419,7 @@ private:
         run([this, out] {
             vti::Broker broker;
             if (!connect(broker))
-                return set(&Shared::status, "Close the plug-in (or your DAW), connect the Virus and try again.");
+                return set(&Shared::status, "Connect the Virus, switch it on and try again.");
             std::string err;
             int fetched = 0;
             bool ok = vti::cc::backup_ram(broker, "1234", out, [&](int bank, int p, bool f, const vti::Dump &d) {

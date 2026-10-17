@@ -311,7 +311,7 @@ private:
             std::lock_guard<std::mutex> l(mu_);
             found_ = ok;
             if (!ok) {
-                status_ = "No Virus (or the plug-in has it)"; // 36 characters fit in the footer
+                status_ = "No Virus found"; // 36 characters fit in the footer
                 page_ = kSelector;
                 return;
             }
@@ -375,7 +375,7 @@ private:
             std::string err;
             if (!broker.open(err) || !broker.device_present()) {
                 std::lock_guard<std::mutex> l(mu_);
-                status_ = "No Virus: close the plug-in";
+                status_ = "No Virus found";
                 return;
             }
             int fetched = 0;
