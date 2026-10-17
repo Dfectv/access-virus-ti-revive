@@ -1,6 +1,7 @@
 // popupwindow_mac.mm - popup menu windows on macOS: a borderless non-activating NSPanel at the menu window level,
 // so the host's window stays key and keeps the keyboard. Compiled with ARC. See popupwindow.h.
 #include "popupwindow.h"
+#include "vstgui/lib/platform/iplatformframe.h"
 #import <Cocoa/Cocoa.h>
 #include <cmath>
 
