@@ -10,7 +10,7 @@ Evidence: [evidence.md](evidence.md) (E001-E202), protocol: [spec.md](spec.md); 
 there -> fixed, _NET_ACTIVE_WINDOW, not tried yet), W4 pass, W5 pass, W3 pass, W2 FAIL ("Knob Name is working but the
 dropdown not. Dropdown acts like a textbox." -> E202: the VM's Access DLL is the 32-bit one, our knob template finder
 read only 64-bit pointers (0 templates, the arrow opened nothing); fixed (PE32, 35 of 35 identical), not re-tested).
-macOS postponed by the user. Virus is in the win11 VM. Evidence now E001-E202.
+macOS postponed by the user. Evidence now E001-E202. Dev smoke test of both fixes on Linux (Alt-Tab closes, no crash): user "working" -> CI test build 0.8.22d.
 
 **Done on round-0.8.22 (after 838544a):** items 1 + 2 of the plan below. Popup menus are top-level windows of their
 own on all platforms (native/plugin/source/popupwindow.h + _win.cpp / _mac.mm / _x11.cpp): one window per open
