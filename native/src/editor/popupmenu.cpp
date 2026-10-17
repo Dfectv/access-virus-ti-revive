@@ -47,6 +47,29 @@ PopupMenu::Rect PopupMenu::item_rect(int i) const
     return {col_x_[c], kBorder + kPad + (i % rows_) * kRow, col_w_[c], kRow};
 }
 
+std::vector<PopupMenu::Rect> PopupMenu::set_hot(int i)
+{
+    std::vector<Rect> dirty;
+    if (i == hot)
+        return dirty;
+    for (int k : {hot, i})
+        if (k >= 0 && k < (int)items_.size()) {
+            Rect r = item_rect(k);
+            dirty.push_back({x + r.x, y + r.y, r.w, r.h});
+        }
+    hot = i;
+    return dirty;
+}
+
+std::vector<PopupMenu::Rect> PopupMenu::key_dirty(Key k)
+{
+    const int before = hot;
+    key(k);
+    const int after = hot;
+    hot = before;
+    return set_hot(after);
+}
+
 bool PopupMenu::contains(int px, int py) const
 {
     return px >= x && px < x + width_ && py >= y && py < y + height_;

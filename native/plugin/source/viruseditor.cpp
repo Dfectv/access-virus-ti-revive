@@ -487,7 +487,9 @@ public:
             v->forget();
     }
 
-    void draw(CDrawContext *ctx) override
+    void draw(CDrawContext *ctx) override { drawRect(ctx, getViewSize()); }
+    // only the menu and, of its rows, those inside `update` (a hover repaints two rows, not 100 texts)
+    void drawRect(CDrawContext *ctx, const CRect &update) override
     {
         const CColor back(240, 240, 240, 255), border(160, 160, 160, 255), light(255, 255, 255, 255),
             hot(145, 201, 247, 255), text(0, 0, 0, 255), grey(109, 109, 109, 255);
@@ -511,6 +513,8 @@ public:
         for (int i = 0; i < (int)items.size(); i++) {
             auto r = menu_.item_rect(i);
             const CRect row(x0 + r.x, y0 + r.y, x0 + r.x + r.w, y0 + r.y + r.h);
+            if (!row.rectOverlap(update))
+                continue;
             if (i == menu_.hot) {
                 ctx->setFillColor(hot);
                 ctx->drawRect(row, kDrawFilled);
@@ -585,19 +589,29 @@ private:
         return makeOwned<CFontDesc>(kSystemFont->getName(), 12);
 #endif
     }
+    // the view lies over the whole editor, but only the menu needs repainting: adding and removing the view call
+    // invalid(), and a full-size area would repaint the whole editor below (slow on the Mac, E194)
+    void invalid() override
+    {
+        setDirty(false);
+        repaint(menu_.bounds());
+    }
+    void repaint(const vti::PopupMenu::Rect &r)
+    {
+        const CRect &v = getViewSize();
+        invalidRect(CRect(v.left + r.x, v.top + r.y, v.left + r.x + r.w, v.top + r.y + r.h));
+    }
     int local_x(const CPoint &p) const { return (int)std::floor(p.x - getViewSize().left); }
     int local_y(const CPoint &p) const { return (int)std::floor(p.y - getViewSize().top); }
     void set_hot(int i)
     {
-        if (i != menu_.hot) {
-            menu_.hot = i;
-            invalid();
-        }
+        for (auto &r : menu_.set_hot(i))
+            repaint(r);
     }
     void move(vti::PopupMenu::Key k)
     {
-        menu_.key(k);
-        invalid();
+        for (auto &r : menu_.key_dirty(k))
+            repaint(r);
     }
     // closes the menu after the current event (the frame removes the view when the session ends); -1 = no choice
     void finish(int i)

@@ -142,3 +142,28 @@ TEST(popup_keys)
     none2.key(PopupMenu::Key::Up);
     CHECK(none2.hot == 4);
 }
+
+// a hover repaints only the two rows that change, not the editor below the menu (E194: the Wavetable list was slow
+// on the Mac because every mouse move repainted the whole editor)
+TEST(popup_repaint_areas)
+{
+    PopupMenu m(numbered(30), -1, width6);
+    m.layout(25, 513);
+    m.place(100, 20, 907, 513);
+    PopupMenu::Rect b = m.bounds();
+    CHECK(b.x == 100 && b.y == 20 && b.w == m.width() && b.h == m.height());
+
+    auto dirty = m.set_hot(2);
+    CHECK(dirty.size() == 1); // nothing was highlighted: the new row only
+    PopupMenu::Rect r2 = m.item_rect(2);
+    CHECK(dirty[0].x == m.x + r2.x && dirty[0].y == m.y + r2.y && dirty[0].w == r2.w && dirty[0].h == r2.h);
+    CHECK(m.hot == 2);
+    CHECK(m.set_hot(2).empty()); // no change, no repaint
+    dirty = m.set_hot(27);
+    CHECK(dirty.size() == 2 && dirty[0].y == m.y + r2.y && dirty[1].x == m.x + m.item_rect(27).x);
+    dirty = m.set_hot(-1);
+    CHECK(dirty.size() == 1 && m.hot == -1);
+    // keys report their rows the same way
+    dirty = m.key_dirty(PopupMenu::Key::Down);
+    CHECK(m.hot == 0 && dirty.size() == 1 && dirty[0].y == m.y + m.item_rect(0).y);
+}

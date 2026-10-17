@@ -21,6 +21,8 @@ public:
     // one, columns 2 px apart (a dark and a light line)
     static constexpr int kBorder = 1, kPad = 2, kRow = 19, kTextLeft = 20, kTextRight = 26, kSeparator = 2;
 
+    enum class Key { Up, Down, Left, Right, Home, End };
+
     struct Rect {
         int x = 0, y = 0, w = 0, h = 0;
     };
@@ -44,11 +46,15 @@ public:
     const std::vector<PopupItem> &items() const { return items_; }
     int checked() const { return checked_; }
 
+    Rect bounds() const { return {x, y, width_, height_}; } // the menu in area coordinates
+    // highlights entry i (-1: none) and returns the area rectangles to repaint: the rows that changed, nothing else
+    std::vector<Rect> set_hot(int i);
+    std::vector<Rect> key_dirty(Key k); // key() + the rows to repaint
+
     bool contains(int px, int py) const;    // area coordinates
     int item_at(int px, int py) const;      // the enabled entry under an area point, or -1
     int hot = -1;                           // the highlighted entry (mouse or keys), -1 for none
 
-    enum class Key { Up, Down, Left, Right, Home, End };
     // moves `hot` like a Windows menu: up/down within the list (wrapping, over disabled entries), left/right to the
     // same row of the neighbouring column
     void key(Key k);
