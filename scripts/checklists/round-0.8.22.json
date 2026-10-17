@@ -1,0 +1,141 @@
+{
+ "round": "0.8.22",
+ "lead": "Test build 0.8.22 (branch round-0.8.22, CI run 39041545356): patch and bank menus with submenus in our own popup on every system, the original's column rule for value lists, and the complete REMOTE page (template and knob names, MIDI string with info, the knob template list from your Access files, LOAD/SAVE of template files, sent to the Virus like the original - tested on Linux on 2026-10-17). Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "rules": [
+  "Disposable DAW project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches (LOAD in the patch menus is fine, SAVE there is not).",
+  "On the REMOTE page SAVE is fine: it writes template files only (a new file \"MY TEST.vrt\" in Documents/Access Music/Virus TI/Remote Templates; delete it afterwards if you like).",
+  "Order: macOS first (move the Virus to the Mac), then Linux, then the Windows 11 VM. Close the DAW before moving the Virus."
+ ],
+ "sections": [
+  {
+   "id": "mac",
+   "title": "macOS",
+   "where": "MacBook Air M3, Ableton Live 12",
+   "prep": [
+    "Claude pushes the package to the Mac when it is awake: <code>~/Downloads/TI-Revive-0.8.22-mac</code>. Quit Ableton, then in Terminal: <code>sudo installer -pkg ~/Downloads/TI-Revive-0.8.22-mac/\"TI Revive.pkg\" -target /</code>"
+   ],
+   "notes": [
+    "New: the patch LOAD/SAVE menus and the browser bank menu are our own popup with submenus (before: the macOS menus)."
+   ],
+   "items": [
+    {
+     "id": "M1",
+     "title": "Patch and bank menus with submenus",
+     "steps": [
+      "Part 1: click LOAD. Move over the device entry, then over RAM A: the 128 patches. Move back and over Personal Libraries.",
+      "With the keyboard: Down, Right (opens the submenu), Left (closes it), Esc.",
+      "Pick a patch from ROM A with a click. BROWSER page: click the arrow of the upper bank bar, pick another bank."
+     ],
+     "expect": "submenus open next to their entry (on the left when there is no room), the 128 patches in several columns; keys work; the patch loads into part 1; the browser shows the chosen bank."
+    },
+    {
+     "id": "M2",
+     "title": "Wavetable list opens without delay",
+     "steps": [
+      "OSC page, oscillator 1 in Wavetable mode: right-click the table name a few times, move the mouse over the columns."
+     ],
+     "expect": "the list appears at once and the highlight follows the mouse without lag (last round: a short delay)."
+    },
+    {
+     "id": "M3",
+     "title": "REMOTE page",
+     "steps": [
+      "PATCH UTILITY &gt; REMOTE. Single-click template 3 (it is only highlighted), then double-click it.",
+      "Click the Template Name field, type <code>MY TEST</code>, Return. Click knob VALUE 2, click the KNOB NAME field, type <code>CUT</code>, Return.",
+      "Arrow at the right end of MIDI STRING: Control Change &gt; Volume (Ctrl 7) on Ch 1. Then set MIDI Channel Behaviour to Enable and back to Disable.",
+      "Close and reopen the plug-in window (or the DAW project)."
+     ],
+     "expect": "the list shows MY TEST at 3; VALUE 2's name CUT; MIDI STRING <code>B0 07 *</code> with the info line <code>Control Change Ch 1, 7, Value</code> above it; the channel menu changes; after reopening everything is still there; the Virus keeps playing normally."
+    },
+    {
+     "id": "M4",
+     "title": "REMOTE LOAD and SAVE",
+     "steps": [
+      "Double-click template 5. LOAD: look through the places; pick a factory template (e.g. under Remote Templates &gt; Ableton) if one is listed.",
+      "SAVE &gt; Personal Remote Templates &gt; Save as new Template..",
+      "Double-click template 6, LOAD &gt; Personal Remote Templates &gt; the file you just saved."
+     ],
+     "expect": "LOAD lists the places that have templates (note which ones and whether the factory templates appear); the loaded template's name shows at 5; a new file named after template 5 appears; template 6 gets the same name."
+    }
+   ]
+  },
+  {
+   "id": "linux",
+   "title": "Linux",
+   "where": "REAPER via pw-jack, Virus on this PC",
+   "prep": [
+    "Claude unpacks the test build to <code>~/Downloads/TI-Revive-0.8.22-linux</code>. In a terminal: <code>cd ~/Downloads/TI-Revive-0.8.22-linux/TI-Revive-*-linux &amp;&amp; sudo ./install.sh</code>"
+   ],
+   "notes": [],
+   "items": [
+    {
+     "id": "L1",
+     "title": "Patch and bank menus with submenus",
+     "steps": [
+      "Part 1: LOAD, over the device entry, over RAM A; back, over Personal Libraries; Esc.",
+      "Pick a patch from ROM A. BROWSER: the upper bank bar's arrow, pick another bank."
+     ],
+     "expect": "as on macOS: submenus next to their entry, the 128 patches in columns, the patch loads, the browser shows the bank."
+    },
+    {
+     "id": "L2",
+     "title": "REMOTE page",
+     "steps": [
+      "PATCH UTILITY &gt; REMOTE. Single-click template 3 (it is only highlighted), then double-click it.",
+      "Click the Template Name field, type <code>MY TEST</code>, Return. Click knob VALUE 2, click the KNOB NAME field, type <code>CUT</code>, Return.",
+      "Arrow at the right end of MIDI STRING: Control Change &gt; Volume (Ctrl 7) on Ch 1. Then set MIDI Channel Behaviour to Enable and back to Disable.",
+      "Close and reopen the plug-in window (or the DAW project)."
+     ],
+     "expect": "the list shows MY TEST at 3; VALUE 2's name CUT; MIDI STRING <code>B0 07 *</code> with the info line <code>Control Change Ch 1, 7, Value</code> above it; the channel menu changes; after reopening everything is still there; the Virus keeps playing normally."
+    },
+    {
+     "id": "L3",
+     "title": "REMOTE LOAD of a factory template",
+     "steps": [
+      "Double-click template 7. LOAD &gt; Personal Libraries &gt; Remote Templates &gt; Ableton &gt; the template there."
+     ],
+     "expect": "template 7 gets that template's name and knob names; the Virus keeps playing."
+    }
+   ]
+  },
+  {
+   "id": "vm",
+   "title": "Windows 11 VM",
+   "where": "win11 VM, Ableton Live 11, Virus attached by Claude",
+   "prep": [
+    "Claude installs the test build silently in the VM and attaches the Virus (<code>VM=win11 scripts/vm.sh attach</code>)."
+   ],
+   "notes": [],
+   "items": [
+    {
+     "id": "W1",
+     "title": "Patch and bank menus with submenus",
+     "steps": [
+      "Part 1: LOAD, over the device entry, over RAM A, over Personal Libraries; pick a patch from ROM A.",
+      "BROWSER: the upper bank bar's arrow, pick another bank."
+     ],
+     "expect": "submenus next to their entry, the 128 patches in columns, the patch loads, the browser shows the bank."
+    },
+    {
+     "id": "W2",
+     "title": "REMOTE page",
+     "steps": [
+      "PATCH UTILITY &gt; REMOTE. Single-click template 3 (it is only highlighted), then double-click it.",
+      "Click the Template Name field, type <code>MY TEST</code>, Return. Click knob VALUE 2, click the KNOB NAME field, type <code>CUT</code>, Return.",
+      "Arrow at the right end of MIDI STRING: Control Change &gt; Volume (Ctrl 7) on Ch 1. Then set MIDI Channel Behaviour to Enable and back to Disable.",
+      "Close and reopen the plug-in window (or the DAW project)."
+     ],
+     "expect": "the list shows MY TEST at 3; VALUE 2's name CUT; MIDI STRING <code>B0 07 *</code> with the info line <code>Control Change Ch 1, 7, Value</code> above it; the channel menu changes; after reopening everything is still there; the Virus keeps playing normally."
+    },
+    {
+     "id": "W3",
+     "title": "REMOTE LOAD of a factory template",
+     "steps": [
+      "Double-click template 7. LOAD &gt; Personal Libraries &gt; Remote Templates &gt; Ableton &gt; the template there (only if the Access software's templates are installed in the VM)."
+     ],
+     "expect": "template 7 gets that template's name and knob names; the Virus keeps playing."
+    }
+   ]
+  }
+ ]
+}

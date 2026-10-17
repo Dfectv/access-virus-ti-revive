@@ -4,7 +4,14 @@ _Last updated: 2026-10-17 (CONTINUE HERE below; round 0.8.22 in progress). Chron
 Evidence: [evidence.md](evidence.md) (E001-E201), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE (state 2026-10-17 late afternoon: round 0.8.22 started)
+## CONTINUE HERE (state 2026-10-17 evening: round 0.8.22 test build)
+
+**Test round 0.8.22:** CI test build run 39041545356 (branch round-0.8.22); checklist
+https://claude.ai/artifact/8Qi89czHHyzB79hQa5eSAq (spec scripts/checklists/round-0.8.22.json: macOS M1-M4 incl. the
+Wavetable delay re-check, Linux L1-L3, win11 VM W1-W3). Next: install on Linux (unpack, user runs install.sh), win11 VM
+(silent), Mac (push, user runs the installer), then the user's results; then merge + release.
+
+## Previous state (2026-10-17 late afternoon: round 0.8.22 started)
 
 **Branch `round-0.8.22` (not merged, no build yet, 171 tests):** (1) patch/bank menus in our own popup (E195):
 PopupCascade (native/src/editor/popupmenu.*) with submenus - hover/click/Right/Return open, Left/Esc close the
