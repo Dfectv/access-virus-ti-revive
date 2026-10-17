@@ -1,6 +1,6 @@
 {
  "round": "0.8.22",
- "lead": "Test build 0.8.22c (branch round-0.8.22, CI run 39048281922, version 0.8.22): every menu of the plug-in is now a window of its own on all systems, like the original's Windows menus: it may reach beyond the plug-in window and use the whole screen; the patch and bank menus are our own menus again on Windows and macOS too; a submenu opens or switches when the pointer rests on its entry for a moment (Windows' menu delay, 400 ms on macOS and Linux), so you can cross other entries into an open submenu. Plus everything from 0.8.22b (the complete REMOTE page). Already done: L3, L5 pass; the dev build passed a crash smoke test in REAPER. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "lead": "Test build 0.8.22d (branch round-0.8.22, CI run 39050163917, version 0.8.22): the fixes after the 0.8.22c results: on Linux Alt-Tab closes an open menu (L7), and the REMOTE page's knob template arrow works with the 32-bit Access DLL (W2, E202). 0.8.22c brought every menu as a window of its own with the submenu delay. Already done: L3, L5, L6, W3, W4, W5 pass; the dev build passed a crash smoke test. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
  "rules": [
   "Disposable DAW project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches (LOAD in the patch menus is fine, SAVE there is not).",
   "On the REMOTE page SAVE is fine: it writes template files only (a new file \"MY TEST.vrt\" in Documents/Access Music/Virus TI/Remote Templates; delete it afterwards if you like).",
@@ -12,32 +12,21 @@
    "title": "Linux",
    "where": "REAPER via pw-jack, Virus on this PC",
    "prep": [
-    "Claude unpacks the CI build to <code>~/Downloads/TI-Revive-0.8.22c-linux</code>. Close REAPER, then in a terminal: <code>cd ~/Downloads/TI-Revive-0.8.22c-linux/TI-Revive-0.0.1-linux &amp;&amp; ./install.sh</code> as your normal user, not with sudo (it asks for the password itself only when the udev rule is missing; replaces Claude's dev build in ~/.vst3)."
+    "Claude installs the CI build with <code>./install.sh</code> as your normal user (never sudo) while REAPER is closed; it replaces the dev build in ~/.vst3."
    ],
    "notes": [
-    "Results so far: L1, L2 FAIL (0.8.22a), L3 pass, L5 pass, L4 FAIL (0.8.22b: menus bound to the plug-in window, RAM A's patches switched on the way). L6 and L7 test the new menus."
+    "Results so far: L3, L5, L6 pass; L7 FAIL in 0.8.22c (Alt-Tab did not close the menu). L8 is the redo."
    ],
    "items": [
     {
-     "id": "L6",
-     "title": "Patch and bank menus as their own windows (redo of L4)",
+     "id": "L8",
+     "title": "Alt-Tab closes the menu (redo of L7)",
      "steps": [
-      "Part 1: LOAD. Rest on the device entry, then on RAM A: its 128 patches. Move diagonally into the patches across RAM B and RAM C.",
-      "Rest on RAM B: the list switches. Then ROM A and Personal Libraries. Pick a patch from ROM A.",
-      "BROWSER: the upper bank bar's arrow, pick another bank."
+      "Part 1: LOAD, rest on the device entry so the bank list opens.",
+      "Alt-Tab to another window, then back to REAPER.",
+      "Open LOAD again, click on the desktop: it closes. Open it again, Esc, Esc."
      ],
-     "expect": "the menus may go beyond the plug-in window; submenus open next to their entry (on the left when there is no room on the right) and never cover their parent; crossing RAM B on the way keeps RAM A's patches; resting on an entry switches after a short moment; the patch loads; the browser shows the bank; the DAW does not crash."
-    },
-    {
-     "id": "L7",
-     "title": "Closing the menus, keys, value lists",
-     "steps": [
-      "Open LOAD on part 1, then click on the desktop or another window: the menu closes. Open it again, click into the editor: it closes, and nothing in the editor changes.",
-      "Open LOAD, then switch to another application with Alt-Tab: the menu closes.",
-      "Open LOAD: Down, Right (opens the submenu), Left (closes it), Esc, Esc.",
-      "OSC page, oscillator 1 in Wavetable mode: right-click the table name; size menu (right-click an empty spot) to 200 %, open LOAD again, then back to 100 %."
-     ],
-     "expect": "every way of closing works and the click that closes the menu changes nothing in the editor; keys work; the Wavetable list opens at once with 4 columns of 25 and the highlight follows without lag; at 200 % the menu sits at the LOAD button and keeps its normal size."
+     "expect": "the menu closes at Alt-Tab and does not come back; the other ways of closing still work; nothing crashes."
     }
    ]
   },
@@ -46,51 +35,22 @@
    "title": "Windows 11 VM",
    "where": "win11 VM, Ableton Live 11, Virus attached by Claude",
    "prep": [
-    "Installed silently by Claude (0.8.22b, one entry in Apps). Claude attaches the Virus when you get there (<code>VM=win11 scripts/vm.sh attach</code>)."
+    "Claude uninstalls 0.8.22c and installs 0.8.22d silently (same version number: no reinstall over it, E166), then attaches the Virus."
    ],
    "notes": [
-    "The patch LOAD/SAVE menus and the browser bank menu are the plug-in's own menus again (0.8.22b had the Windows menus)."
+    "Results so far: W3, W4, W5 pass; W2 FAIL in 0.8.22c (the knob template arrow opened nothing: the VM has the 32-bit Access DLL, E202). W6 is the redo."
    ],
    "items": [
     {
-     "id": "W4",
-     "title": "Patch and bank menus",
+     "id": "W6",
+     "title": "REMOTE page (redo of W2)",
      "steps": [
-      "Part 1: LOAD. Rest on the device entry, then on RAM A: its 128 patches. Move diagonally into the patches across RAM B and RAM C.",
-      "Rest on RAM B: the list switches. Then ROM A and Personal Libraries. Pick a patch from ROM A.",
-      "BROWSER: the upper bank bar's arrow, pick another bank."
+      "PATCH UTILITY &gt; REMOTE. Double-click template 3.",
+      "Click knob VALUE 2. Click the arrow at the right end of MIDI STRING: Control Change &gt; Volume (Ctrl 7) on Ch 1.",
+      "Template Name field: type <code>MY TEST</code>, Return. KNOB NAME: <code>CUT</code>, Return. MIDI Channel Behaviour to Enable and back to Disable.",
+      "Close and reopen the plug-in window."
      ],
-     "expect": "the menus may go beyond the plug-in window; submenus open next to their entry (on the left when there is no room on the right) and never cover their parent; crossing RAM B on the way keeps RAM A's patches; resting on an entry switches after a short moment; the patch loads; the browser shows the bank; the DAW does not crash."
-    },
-    {
-     "id": "W5",
-     "title": "Closing the menus, keys, value lists",
-     "steps": [
-      "Open LOAD on part 1, then click on the desktop or another window: the menu closes. Open it again, click into the editor: it closes, and nothing in the editor changes.",
-      "Open LOAD, then switch to another application with Alt-Tab: the menu closes.",
-      "Open LOAD: Down, Right (opens the submenu), Left (closes it), Esc, Esc.",
-      "OSC page, oscillator 1 in Wavetable mode: right-click the table name; size menu (right-click an empty spot) to 200 %, open LOAD again, then back to 100 %."
-     ],
-     "expect": "every way of closing works and the click that closes the menu changes nothing in the editor; keys work; the Wavetable list opens at once with 4 columns of 25 and the highlight follows without lag; at 200 % the menu sits at the LOAD button and keeps its normal size."
-    },
-    {
-     "id": "W2",
-     "title": "REMOTE page",
-     "steps": [
-      "PATCH UTILITY &gt; REMOTE. Single-click template 3 (it is only highlighted), then double-click it.",
-      "Click the Template Name field, type <code>MY TEST</code>, Return. Click knob VALUE 2, click the KNOB NAME field, type <code>CUT</code>, Return.",
-      "Arrow at the right end of MIDI STRING: Control Change &gt; Volume (Ctrl 7) on Ch 1. Then set MIDI Channel Behaviour to Enable and back to Disable.",
-      "Close and reopen the plug-in window (or the DAW project)."
-     ],
-     "expect": "after the double-click the LCD shows \"Remote Templates Selected Temp\" and the template name; the list shows MY TEST at 3; the text fields fit their boxes while typing; VALUE 2's name CUT; MIDI STRING <code>B0 07 *</code> with the info line <code>Control Change Ch 1, 7, Value</code> above it; the channel menu changes; after reopening everything is still there; the Virus keeps playing normally."
-    },
-    {
-     "id": "W3",
-     "title": "REMOTE LOAD of a factory template",
-     "steps": [
-      "Double-click template 7. LOAD &gt; Personal Libraries &gt; Remote Templates &gt; Ableton &gt; the template there (only if the Access software's templates are installed in the VM)."
-     ],
-     "expect": "template 7 gets that template's name and knob names; the Virus keeps playing."
+     "expect": "the arrow opens the knob template list (4 groups with submenus, like on Linux); MIDI STRING <code>B0 07 *</code> with the info line <code>Control Change Ch 1, 7, Value</code>; names and channel menu as set; everything still there after reopening; the Virus keeps playing."
     }
    ]
   },
