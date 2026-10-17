@@ -615,6 +615,7 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
     out_->on_idle([this] {
         drain_param_updates();
         load_reported_presets();
+        diag_report(); // also with the editor closed (host rate and block sizes, E187)
     });
     sync_ = std::make_unique<MemorySync>([this](const std::vector<uint8_t> &m) {
         out_->send(m);
@@ -871,18 +872,19 @@ bool VirusPlugin::diag_enabled()
 
 void VirusPlugin::diag_report()
 {
-    static auto next = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-    if (!diag_enabled() || std::chrono::steady_clock::now() < next)
+    // called by the editor's timer and the device worker: one of them writes every 10 s
+    const int64_t now = now_ms();
+    int64_t due = diag_next_ms_.load();
+    if (!diag_enabled() || now < due || !diag_next_ms_.compare_exchange_strong(due, now + 10000))
         return;
-    next += std::chrono::seconds(10);
     if (FILE *f = fopen((own_cache_dir() + "/../diag.log").c_str(), "a")) {
         fprintf(f, "%ld s: draws full %ld partial %ld, draw time %ld ms, dirty ticks %ld, process calls %ld max %ld us,"
-                   " over block time %ld, audio %d drops %lld, queued %d\n",
+                   " over block time %ld, audio %d drops %lld, queued %d, host %.0f Hz block %d (largest %ld)\n",
                 (long)std::time(nullptr), diag.full_draws.exchange(0), diag.part_draws.exchange(0),
                 diag.draw_us.exchange(0) / 1000, diag.dirty_ticks.exchange(0), diag.process_calls.exchange(0),
                 diag.process_max_us.exchange(0), diag.process_over.exchange(0),
                 out_ ? (int)out_->audio_ready() : -1, (long long)(out_ && out_->audio_ready() ? out_->audio().drops() : -1),
-                out_ ? (int)out_->busy() : -1);
+                out_ ? (int)out_->busy() : -1, rate_, block_, diag.block_max.exchange(0));
         fclose(f);
     }
 }
@@ -902,6 +904,9 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             }
             if (us > (long)(samples * 1000000.0 / (p->rate_ > 0 ? p->rate_ : 44100)))
                 p->diag.process_over++;
+            long b = p->diag.block_max.load();
+            while (samples > b && !p->diag.block_max.compare_exchange_weak(b, samples)) {
+            }
         }
     } process_timer{this, data.numSamples};
     if ((data.processContext && (data.processContext->state & ProcessContext::kPlaying)) ||

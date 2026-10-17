@@ -293,9 +293,11 @@ public:
     struct Diag {
         std::atomic<long> full_draws{0}, part_draws{0}, draw_us{0}, dirty_ticks{0}, process_calls{0};
         std::atomic<long> process_max_us{0}, process_over{0}; // over = longer than the block's real time
+        std::atomic<long> block_max{0}; // largest block the host passed (E187: crackling at large buffers)
     } diag;
+    std::atomic<int64_t> diag_next_ms_{0}; // diag_report: when the next line is due
     bool diag_enabled();
-    void diag_report(); // editor timer thread
+    void diag_report(); // editor timer and device worker
     // MIDI activity meters of the part strips (note-on velocity per MIDI channel, like the original's
     // "ShowMIDIActivityMeters"): tick_meters() decays them and returns the channels whose shown value changed (bits)
     int tick_meters(int step);
