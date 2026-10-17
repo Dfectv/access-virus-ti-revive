@@ -1,10 +1,24 @@
 # HANDOFF
 
-_Last updated: 2026-10-16 night (CONTINUE HERE below; 0.8.18 released, round 0.8.19 built). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-17 (CONTINUE HERE below; 0.8.20 released). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E180), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE (state 2026-10-17 morning: round 0.8.20 built for the hardware tests)
+## CONTINUE HERE (state 2026-10-17 09:05: v0.8.20 released)
+
+**Released v0.8.20** (tag on main 31af3e9, CI run 39011780610 all green incl. release; assets: setup.exe, msi, mac zip,
+linux tarball, tirevive-usbinfo.ps1, libusb-1.0.30.tar.bz2 (LGPL source); website rebuilt by hand, run 39012105808,
+live with 0.8.20). main = round-0.8.20 (fast-forward). Round 0.8.20 passed on all four systems (macOS, Linux, win11
+VM, bare-metal Windows 11; B6/B7 large buffers fine, E187). Posted the short findings update on
+Give-me-a-signal/virus-ti-rework#5 (comment 6230987764). Installed: win11 VM (release setup.exe, silent; VM shut
+down); Linux: release unpacked in ~/Downloads/TI-Revive-0.8.20-linux (user runs install.sh; test builds renamed
+*-testbuild); Mac was asleep: ~/Downloads/TI-Revive-0.8.20-mac.zip on this PC, push with scripts/mac.sh when awake.
+Checklists: scripts/checklist.py + scripts/checklists/round-X.json (user wants one before every release).
+**Next round (0.8.21) candidates:** the stale "TI Revive 0.8.0" uninstall entry on bare-metal Windows (E186); the
+earlier crackle at large buffers not reproduced (E187 open part); osc-wavetables branch (pixel comparison, macOS
+bundle check); E175 not seen this round (capture lines in place); E13 warning flags.
+
+## Previous state (state 2026-10-17 morning: round 0.8.20 built for the hardware tests)
 
 **Round 0.8.19 macOS results (user, 2026-10-17):** M1 pass; M2 FAIL (Control Center refused while Ableton ran;
 backup "permission denied"); M3 FAIL (duplicate looked usable). Causes: E181 (POSIX broker: first client of any kind
