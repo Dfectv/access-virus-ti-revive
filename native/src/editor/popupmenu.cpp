@@ -147,6 +147,8 @@ PopupCascade::PopupCascade(std::vector<PopupItem> items, int checked,
 void PopupCascade::open_at(int ax, int ay)
 {
     menus_.clear();
+    from_.assign(1, -1);
+    pending_ = false;
     PopupMenu m(root_, checked_, text_width_);
     m.layout(per_column_, area_h_);
     m.place(ax, ay, area_w_, area_h_);
@@ -166,6 +168,7 @@ void PopupCascade::close_after(int level, std::vector<Rect> &dirty)
     while (levels() > level + 1) {
         dirty.push_back(menus_.back().bounds());
         menus_.pop_back();
+        from_.pop_back();
     }
 }
 
@@ -198,6 +201,7 @@ void PopupCascade::open_sub(int level, std::vector<Rect> &dirty)
     }
     m.place(x, parent.y + r.y - (PopupMenu::kBorder + PopupMenu::kPad), area_w_, area_h_);
     dirty.push_back(m.bounds());
+    from_.push_back(parent.hot);
     menus_.push_back(std::move(m));
 }
 
@@ -205,27 +209,73 @@ PopupCascade::Result PopupCascade::choose(int level, int i)
 {
     Result res;
     res.kind = Result::Chosen;
-    for (int l = 0; l < level; l++)
-        res.path.push_back(menus_[l].hot);
+    for (int l = 1; l <= level; l++) // the submenus shown, not what the pointer crossed on its way (hover)
+        res.path.push_back(from_[l]);
     res.path.push_back(i);
     for (auto &m : menus_)
         res.dirty.push_back(m.bounds());
     return res;
 }
 
-std::vector<PopupCascade::Rect> PopupCascade::hover(int px, int py)
+void PopupCascade::settle(int level, std::vector<Rect> &dirty)
+{
+    // the pointer reached a menu below the waiting change (the submenu it was heading for): the change is dropped
+    // and the parent's entry of the open submenu is highlighted again
+    if (!pending_ || level <= pending_level_)
+        return;
+    pending_ = false;
+    if (pending_level_ + 1 < levels())
+        for (auto &r : menus_[pending_level_].set_hot(from_[pending_level_ + 1]))
+            dirty.push_back(r);
+}
+
+std::vector<PopupCascade::Rect> PopupCascade::hover(int px, int py, long long now)
 {
     std::vector<Rect> dirty;
     const int l = level_at(px, py);
     if (l < 0)
         return dirty;
     const int i = menus_[l].item_at(px, py);
-    if (i < 0 || (i == menus_[l].hot && levels() > l + 1)) // a border, a greyed entry, or its submenu is open
+    if (i < 0) // a border or a greyed entry
         return dirty;
-    close_after(l, dirty);
+    settle(l, dirty);
+    const bool open_here = levels() > l + 1 && from_[l + 1] == i; // its submenu is the one open
+    if (delay_ <= 0) {
+        if (open_here)
+            return dirty;
+        close_after(l, dirty);
+        for (auto &r : menus_[l].set_hot(i))
+            dirty.push_back(r);
+        open_sub(l, dirty);
+        return dirty;
+    }
     for (auto &r : menus_[l].set_hot(i))
         dirty.push_back(r);
-    open_sub(l, dirty);
+    const bool change = !open_here && (levels() > l + 1 || menus_[l].items()[i].has_sub());
+    if (!change) {
+        if (pending_ && pending_level_ == l)
+            pending_ = false; // back on the entry whose submenu is open
+        return dirty;
+    }
+    if (!pending_ || pending_level_ != l || pending_item_ != i) { // a new entry starts the wait, moves on it do not
+        pending_ = true;
+        pending_level_ = l;
+        pending_item_ = i;
+        deadline_ = now + delay_;
+    }
+    return dirty;
+}
+
+std::vector<PopupCascade::Rect> PopupCascade::tick(long long now)
+{
+    std::vector<Rect> dirty;
+    if (!pending_ || now < deadline_)
+        return dirty;
+    pending_ = false;
+    if (pending_level_ >= levels() || menus_[pending_level_].hot != pending_item_)
+        return dirty;
+    close_after(pending_level_, dirty);
+    open_sub(pending_level_, dirty);
     return dirty;
 }
 
@@ -242,8 +292,15 @@ PopupCascade::Result PopupCascade::click(int px, int py)
     const int i = menus_[l].item_at(px, py);
     if (i < 0)
         return res;
-    if (menus_[l].items()[i].has_sub()) { // opens the submenu (if the mouse has not yet), chooses nothing
-        res.dirty = hover(px, py);
+    settle(l, res.dirty);
+    if (menus_[l].items()[i].has_sub()) { // opens the submenu at once (if it is not open yet), chooses nothing
+        pending_ = false;
+        if (levels() > l + 1 && from_[l + 1] == i)
+            return res;
+        close_after(l, res.dirty);
+        for (auto &r : menus_[l].set_hot(i))
+            res.dirty.push_back(r);
+        open_sub(l, res.dirty);
         return res;
     }
     return choose(l, i);
@@ -254,6 +311,7 @@ PopupCascade::Result PopupCascade::key(Key k)
     Result res;
     if (menus_.empty())
         return res;
+    settle(levels(), res.dirty); // keys act on the menus shown, at once
     const int top = levels() - 1;
     PopupMenu &m = menus_[top];
     const bool sub = m.hot >= 0 && m.items()[m.hot].has_sub() && m.items()[m.hot].enabled;

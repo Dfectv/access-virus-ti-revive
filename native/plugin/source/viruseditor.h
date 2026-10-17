@@ -30,6 +30,7 @@ public:
 
     double user_zoom() const { return user_zoom_; }
     void set_user_zoom(double z); // from the editor's menu; saved for the next editor
+    double content_scale() const { return content_scale_; } // the host's display scale
 
     DELEGATE_REFCOUNT(Steinberg::Vst::VSTGUIEditor)
     Steinberg::tresult PLUGIN_API queryInterface(const Steinberg::TUID iid, void **obj) override;

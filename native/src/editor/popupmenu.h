@@ -76,7 +76,9 @@ private:
 };
 
 // a menu with submenus: the open menus from the root to the deepest submenu. A submenu opens when the mouse rests on
-// its entry (at once; Windows waits a moment), by a click on it, or by Right / Return; Left / Esc close the deepest.
+// its entry (after the submenu delay, like Windows' menu show delay; at once with delay 0), by a click on it, or by
+// Right / Return; Left / Esc close the deepest. With a delay the highlight follows the mouse at once, but submenus
+// open, switch and close only when the wait is over (tick); reaching the open submenu before that keeps it.
 // Submenus have one column, wrapped into more when taller than the area (the original's submenus get no column
 // count, E195).
 class PopupCascade {
@@ -96,8 +98,13 @@ public:
     void open_at(int ax, int ay); // the root's top-left corner (moved to fit, PopupMenu::place)
     int levels() const { return (int)menus_.size(); }
     const PopupMenu &level(int i) const { return menus_[i]; }
+    int from(int i) const { return from_[i]; } // the parent's entry of menu i (-1 for the root)
 
-    std::vector<Rect> hover(int px, int py);
+    void set_submenu_delay(int ms) { delay_ = ms; }
+    // `now`: a clock in ms (only differences count)
+    std::vector<Rect> hover(int px, int py, long long now = 0);
+    std::vector<Rect> tick(long long now); // a waiting submenu change once its time has come
+    bool pending() const { return pending_; }
     Result click(int px, int py);
     Result key(Key k);
 
@@ -105,11 +112,17 @@ private:
     std::vector<PopupItem> root_;
     std::function<int(const std::string &)> text_width_;
     std::vector<PopupMenu> menus_;
+    std::vector<int> from_; // from_[l]: the entry of menus_[l - 1] that menus_[l] belongs to (from_[0] unused)
     int checked_, per_column_, area_w_, area_h_;
+    int delay_ = 0;
+    bool pending_ = false;     // a submenu change waits: level pending_level_'s highlighted entry gets its submenu
+    int pending_level_ = 0, pending_item_ = -1;
+    long long deadline_ = 0;
 
     int level_at(int px, int py) const; // the deepest open menu containing the point, or -1
     void close_after(int level, std::vector<Rect> &dirty);
     void open_sub(int level, std::vector<Rect> &dirty); // the submenu of level's highlighted entry, if it has one
+    void settle(int level, std::vector<Rect> &dirty);   // the pointer in `level`: a wait above it ends, see hover
     Result choose(int level, int i);
 };
 

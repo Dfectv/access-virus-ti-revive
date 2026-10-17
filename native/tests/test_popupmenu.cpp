@@ -359,3 +359,80 @@ TEST(popup_cascade_submenu_never_covers_parent)
     c.hover(banks.x + rb.x + 5, banks.y + rb.y + 5);
     CHECK(c.levels() == 3 && c.level(1).hot == 1);
 }
+
+namespace {
+// banks of different sizes, so a test can tell which submenu is open
+std::vector<PopupItem> banks()
+{
+    PopupItem dev{"Virus TI", true, {{"RAM A", true, numbered(128)}, {"RAM B", true, numbered(64)},
+                                     {"RAM C", true, numbered(32)}}};
+    return {dev, {"Leaf", true, {}}, {"Other", true, numbered(5)}};
+}
+int at_x(const PopupMenu &m, int i) { return m.x + m.item_rect(i).x + 5; }
+int at_y(const PopupMenu &m, int i) { return m.y + m.item_rect(i).y + 5; }
+} // namespace
+
+// like a Windows menu (round 0.8.22 test L4): the highlight follows the mouse at once, but a submenu opens, switches
+// or closes only after the pointer has rested a moment; reaching the open submenu in that time keeps it, so crossing
+// other entries on the way (RAM B on the way from RAM A to its patches) switches nothing
+TEST(popup_cascade_submenu_delay)
+{
+    PopupCascade c(banks(), -1, width6, 0, 1920, 1040);
+    c.set_submenu_delay(400);
+    c.open_at(100, 50);
+    c.hover(at_x(c.level(0), 0), at_y(c.level(0), 0), 1000); // Virus TI
+    CHECK(c.levels() == 1 && c.level(0).hot == 0 && c.pending());
+    CHECK(c.tick(1399).empty() && c.levels() == 1);
+    CHECK(!c.tick(1400).empty() && c.levels() == 2 && !c.pending());
+
+    c.hover(at_x(c.level(1), 0), at_y(c.level(1), 0), 1500); // RAM A
+    c.tick(1900);
+    CHECK(c.levels() == 3 && c.level(2).items().size() == 128);
+
+    // on the way to the patches the pointer crosses RAM B: highlighted, but RAM A's patches stay open
+    c.hover(at_x(c.level(1), 1), at_y(c.level(1), 1), 2000);
+    CHECK(c.level(1).hot == 1 && c.levels() == 3 && c.level(2).items().size() == 128);
+    // the patches reached in time: RAM A highlighted again, nothing switches later
+    auto dirty = c.hover(at_x(c.level(2), 3), at_y(c.level(2), 3), 2200);
+    CHECK(c.level(1).hot == 0 && c.level(2).hot == 3 && !c.pending() && !dirty.empty());
+    c.tick(3000);
+    CHECK(c.levels() == 3 && c.level(2).items().size() == 128);
+
+    // resting on RAM B switches the patch list
+    c.hover(at_x(c.level(1), 1), at_y(c.level(1), 1), 4000);
+    c.hover(at_x(c.level(1), 1), at_y(c.level(1), 1) + 2, 4300); // small moves on the entry do not restart the wait
+    c.tick(4400);
+    CHECK(c.levels() == 3 && c.level(1).hot == 1 && c.level(2).items().size() == 64);
+    // back onto the entry whose submenu is open: nothing pending
+    c.hover(at_x(c.level(1), 2), at_y(c.level(1), 2), 5000);
+    c.hover(at_x(c.level(1), 1), at_y(c.level(1), 1), 5100);
+    CHECK(!c.pending() && c.level(1).hot == 1);
+    c.tick(6000);
+    CHECK(c.levels() == 3 && c.level(2).items().size() == 64);
+
+    // an entry without a submenu closes the open ones after the wait
+    c.hover(at_x(c.level(0), 1), at_y(c.level(0), 1), 7000); // Leaf
+    CHECK(c.levels() == 3 && c.level(0).hot == 1);
+    c.tick(7400);
+    CHECK(c.levels() == 1);
+
+    // a click on an entry with a submenu opens it at once
+    c.hover(at_x(c.level(0), 2), at_y(c.level(0), 2), 8000);
+    auto res = c.click(at_x(c.level(0), 2), at_y(c.level(0), 2));
+    CHECK(res.kind == PopupCascade::Result::None && c.levels() == 2 && c.level(1).items().size() == 5);
+    CHECK(!c.pending());
+}
+
+// a click in an open submenu while another entry of its parent is highlighted (the pointer crossed it) chooses from
+// the open submenu: the path follows the menus actually shown
+TEST(popup_cascade_delay_click_path)
+{
+    PopupCascade c(banks(), -1, width6, 0, 1920, 1040);
+    c.set_submenu_delay(400);
+    c.open_at(100, 50);
+    c.click(at_x(c.level(0), 0), at_y(c.level(0), 0));     // Virus TI, at once
+    c.click(at_x(c.level(1), 2), at_y(c.level(1), 2));     // RAM C, at once
+    c.hover(at_x(c.level(1), 0), at_y(c.level(1), 0), 100); // crossing RAM A
+    auto res = c.click(at_x(c.level(2), 4), at_y(c.level(2), 4));
+    CHECK(res.kind == PopupCascade::Result::Chosen && (res.path == std::vector<int>{0, 2, 4}));
+}

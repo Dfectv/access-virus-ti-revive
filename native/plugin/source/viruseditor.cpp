@@ -24,7 +24,7 @@ extern char **environ;
 #include "cc/diag.h"
 #include "editor/helptext.h"
 #include "editor/popupmenu.h"
-#include "vstgui/lib/controls/coptionmenu.h"
+#include "popupwindow.h"
 #include "editor/upscale.h"
 #include "vstgui/lib/cfont.h"
 #include "vstgui/lib/cgraphicspath.h"
@@ -467,13 +467,112 @@ static void after_event(CFrame *frame, std::function<void()> fn)
         fn();
 }
 
-// our popup menu (editor/popupmenu.h) as a modal view over the whole editor, drawn like the original's Windows menus
-// with columns (E194) on every platform, submenus included (E195). A click on an entry or Return calls `chosen` with
-// the entry's path (its index in each menu from the root); a click outside or Esc on the root closes it without one.
+// draws one menu of a cascade with its top-left corner at (x0, y0), like the original's Windows menus with columns
+// (E194); of its rows only those inside `update` (a hover repaints two rows, not 100 texts)
+static void draw_popup_menu(CDrawContext *ctx, CFontDesc *font, const CRect &update, const vti::PopupMenu &menu,
+                            double x0, double y0)
+{
+    const CColor back(240, 240, 240, 255), border(160, 160, 160, 255), light(255, 255, 255, 255),
+        hot(145, 201, 247, 255), text(0, 0, 0, 255), grey(109, 109, 109, 255);
+    if (!CRect(x0, y0, x0 + menu.width(), y0 + menu.height()).rectOverlap(update))
+        return;
+    ctx->setDrawMode(kAliasing);
+    ctx->setLineWidth(1);
+    ctx->setFillColor(border);
+    ctx->drawRect(CRect(x0, y0, x0 + menu.width(), y0 + menu.height()), kDrawFilled);
+    ctx->setFillColor(back);
+    ctx->drawRect(CRect(x0 + 1, y0 + 1, x0 + menu.width() - 1, y0 + menu.height() - 1), kDrawFilled);
+    // between the columns a dark and a light line, the full height inside the border
+    for (int c = 1; c < menu.columns(); c++) {
+        const double sx = x0 + menu.column_x()[c] - vti::PopupMenu::kSeparator;
+        ctx->setFillColor(border);
+        ctx->drawRect(CRect(sx, y0 + 1, sx + 1, y0 + menu.height() - 1), kDrawFilled);
+        ctx->setFillColor(light);
+        ctx->drawRect(CRect(sx + 1, y0 + 1, sx + 2, y0 + menu.height() - 1), kDrawFilled);
+    }
+    ctx->setFont(font);
+    const auto &items = menu.items();
+    for (int i = 0; i < (int)items.size(); i++) {
+        auto r = menu.item_rect(i);
+        const CRect row(x0 + r.x, y0 + r.y, x0 + r.x + r.w, y0 + r.y + r.h);
+        if (!row.rectOverlap(update))
+            continue;
+        if (i == menu.hot) {
+            ctx->setFillColor(hot);
+            ctx->drawRect(row, kDrawFilled);
+        }
+        const CColor ink = items[i].enabled ? text : grey;
+        if (i == menu.checked()) { // a tick in the space before the text
+            ctx->setDrawMode(kAntiAliasing);
+            ctx->setLineWidth(1.6);
+            ctx->setFrameColor(text);
+            ctx->drawLine(CPoint(row.left + 6, row.top + 9.5), CPoint(row.left + 8.5, row.top + 12));
+            ctx->drawLine(CPoint(row.left + 8.5, row.top + 12), CPoint(row.left + 13, row.top + 6));
+            ctx->setDrawMode(kAliasing);
+            ctx->setLineWidth(1);
+        }
+        if (items[i].has_sub()) { // the submenu arrow in the space after the text
+            if (auto arrow = owned(ctx->createGraphicsPath())) {
+                const double ax = row.right - 13, ay = row.top + 6;
+                arrow->beginSubpath(CPoint(ax, ay));
+                arrow->addLine(CPoint(ax + 4, ay + 3.5));
+                arrow->addLine(CPoint(ax, ay + 7));
+                arrow->closeSubpath();
+                ctx->setDrawMode(kAntiAliasing);
+                ctx->setFillColor(ink);
+                ctx->drawGraphicsPath(arrow, CDrawContext::kPathFilled);
+                ctx->setDrawMode(kAliasing);
+            }
+        }
+        ctx->setFontColor(ink);
+        CRect tr(row);
+        tr.left += vti::PopupMenu::kTextLeft;
+        ctx->drawString(items[i].text.c_str(), tr, kLeftText, true);
+    }
+}
+
+static long long now_ms()
+{
+    using namespace std::chrono;
+    return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
+}
+
+class PopupView;
+
+// one open menu (the root or a submenu) in its own window (popupwindow.h): draws it and passes the mouse to the
+// PopupView; its coordinates are the menu's own (0, 0 = its top-left corner)
+class PopupLevelView : public CView {
+public:
+    PopupLevelView(PopupView *owner, int level, int w, int h) : CView(CRect(0, 0, w, h)), owner_(owner), level_(level)
+    {
+    }
+    void draw(CDrawContext *ctx) override { drawRect(ctx, getViewSize()); }
+    void drawRect(CDrawContext *ctx, const CRect &update) override;
+    void onMouseMoveEvent(MouseMoveEvent &event) override;
+    // not consumed: VSTGUI on X11 moves the keyboard focus to a frame whose view consumed the press (Windows: see
+    // popupwindow_win.cpp)
+    void onMouseDownEvent(MouseDownEvent &event) override;
+    void onMouseUpEvent(MouseUpEvent &event) override { event.consumed = true; }
+    void onMouseWheelEvent(MouseWheelEvent &event) override { event.consumed = true; }
+    void onKeyboardEvent(KeyboardEvent &event) override;
+
+private:
+    PopupView *owner_;
+    int level_;
+};
+
+// our popup menu (editor/popupmenu.h), drawn like the original's Windows menus with columns (E194) on every
+// platform, submenus included (E195). Each open menu is a window of its own (popupwindow.h) placed on the screen like
+// the original's (round 0.8.22 L4); this view is a modal, invisible view over the whole editor that takes the keys
+// and a click into the editor (closes the menu). Without such windows (VTI_NATIVE_INLINE_POPUP, or the platform
+// cannot make one) the menus are drawn inside the editor by this view, as before. A click on an entry or Return calls
+// `chosen` with the entry's path (its index in each menu from the root); a click elsewhere or Esc on the root closes
+// the menu without one.
 class PopupView : public CView {
 public:
-    static void open(CFrame *frame, const CRect &area, std::vector<vti::PopupItem> items, int checked, int per_column,
-                     CPoint at, std::function<void(const std::vector<int> &)> chosen)
+    static void open(CFrame *frame, const CRect &area, double content_scale, std::vector<vti::PopupItem> items,
+                     int checked, int per_column, CPoint at, std::function<void(const std::vector<int> &)> chosen,
+                     bool inline_only = false)
     {
         if (!frame || items.empty())
             return;
@@ -483,35 +582,89 @@ public:
             auto *painter = font->getPlatformFont() ? font->getPlatformFont()->getPainter() : nullptr;
             return painter ? (int)std::ceil(painter->getStringWidth(nullptr, str, true)) : 7 * (int)s.size();
         };
-        vti::PopupCascade menus(std::move(items), checked, width, per_column, (int)area.getWidth(),
-                                (int)area.getHeight());
-        menus.open_at((int)at.x, (int)at.y);
-        auto *v = new PopupView(area, std::move(menus), std::move(chosen), font);
+        static const bool env_inline = getenv("VTI_NATIVE_INLINE_POPUP") != nullptr;
+        vti::PopupScreen scr, top_left, bottom_right;
+        const bool windowed = !inline_only && !env_inline && popup_screen(frame, at, content_scale, scr) &&
+                              popup_screen(frame, area.getTopLeft(), content_scale, top_left) &&
+                              popup_screen(frame, area.getBottomRight(), content_scale, bottom_right);
+        // the menus' area in menu pixels: the monitor's work area, or the editor
+        int aw = (int)area.getWidth(), ah = (int)area.getHeight(), ax = (int)at.x, ay = (int)at.y;
+        if (windowed) {
+            aw = (int)std::floor(scr.work.w / scr.scale);
+            ah = (int)std::floor(scr.work.h / scr.scale);
+            ax = (int)std::lround((scr.anchor_x - scr.work.x) / scr.scale);
+            ay = (int)std::lround((scr.anchor_y - scr.work.y) / scr.scale);
+        }
+        auto saved = windowed ? items : std::vector<vti::PopupItem>{}; // for the fallback below
+        vti::PopupCascade menus(std::move(items), checked, width, per_column, aw, ah);
+        if (windowed)
+            menus.set_submenu_delay(vti::popup_submenu_delay());
+        menus.open_at(ax, ay);
+        auto *v = new PopupView(area, std::move(menus), chosen, font);
+        if (windowed) {
+            v->windowed_ = true;
+            v->screen_ = scr;
+            v->editor_rect_ = {top_left.anchor_x, top_left.anchor_y, bottom_right.anchor_x - top_left.anchor_x,
+                               bottom_right.anchor_y - top_left.anchor_y};
+            v->focus_ = vti::popup_focus_token(frame);
+        }
         if (auto id = frame->beginModalViewSession(v)) { // the frame owns the view until the session ends
             v->session_ = *id;
             v->in_session_ = true;
-        } else
+        } else {
             v->forget();
+            return;
+        }
+        if (windowed && !v->sync_windows()) { // no window for the root menu: inside the editor after all
+            v->done_ = true;
+            frame->endModalViewSession(v->session_);
+            open(frame, area, content_scale, std::move(saved), checked, per_column, at, std::move(chosen), true);
+            return;
+        }
+        if (windowed)
+            v->start_timer();
+    }
+    // closes the menu windows of `frame`'s popup now (the editor closes; on X11 before the last frame goes)
+    static void close_windows(CFrame *frame)
+    {
+        for (auto *v : open_views())
+            if (v->getFrame() == frame) {
+                v->stop_timer();
+                v->wins_.clear();
+            }
+    }
+
+    ~PopupView() override
+    {
+        *alive_ = false;
+        stop_timer();
+        wins_.clear();
+        open_views().erase(this);
     }
 
     void draw(CDrawContext *ctx) override { drawRect(ctx, getViewSize()); }
-    // only the open menus and, of their rows, those inside `update` (a hover repaints two rows, not 100 texts)
+    // inside the editor: only the open menus (in windows the level views draw them)
     void drawRect(CDrawContext *ctx, const CRect &update) override
     {
-        for (int l = 0; l < menus_.levels(); l++)
-            draw_menu(ctx, update, menus_.level(l));
+        if (!windowed_)
+            for (int l = 0; l < menus_.levels(); l++)
+                draw_popup_menu(ctx, font_, update, menus_.level(l), getViewSize().left + menus_.level(l).x,
+                                getViewSize().top + menus_.level(l).y);
         setDirty(false);
     }
 
     void onMouseMoveEvent(MouseMoveEvent &event) override
     {
-        for (auto &r : menus_.hover(local_x(event.mousePosition), local_y(event.mousePosition)))
-            repaint(r);
+        if (!windowed_)
+            apply_dirty(menus_.hover(local_x(event.mousePosition), local_y(event.mousePosition), now_ms()));
         event.consumed = true;
     }
     void onMouseDownEvent(MouseDownEvent &event) override
     {
-        apply(menus_.click(local_x(event.mousePosition), local_y(event.mousePosition)));
+        if (windowed_) // a click into the editor: outside every menu window
+            finish({});
+        else
+            apply(menus_.click(local_x(event.mousePosition), local_y(event.mousePosition)));
         event.consumed = true;
     }
     void onMouseUpEvent(MouseUpEvent &event) override { event.consumed = true; }
@@ -536,11 +689,44 @@ public:
         event.consumed = true; // nothing reaches the editor while the menu is open
     }
 
+    // from the level views (menu `level`'s own coordinates)
+    void draw_level(CDrawContext *ctx, const CRect &update, int level)
+    {
+        if (level < menus_.levels())
+            draw_popup_menu(ctx, font_, update, menus_.level(level), 0, 0);
+    }
+    void level_move(int level, const CPoint &p)
+    {
+        if (done_ || level >= menus_.levels())
+            return;
+        const auto &m = menus_.level(level);
+        apply_dirty(menus_.hover(m.x + (int)std::floor(p.x), m.y + (int)std::floor(p.y), now_ms()));
+    }
+    void level_down(int level, const CPoint &p)
+    {
+        if (done_ || level >= menus_.levels())
+            return;
+        const auto &m = menus_.level(level);
+        const int x = m.x + (int)std::floor(p.x), y = m.y + (int)std::floor(p.y);
+        // after the press has been handled: a choice closes the window it happened in
+        auto alive = alive_;
+        Call::later([this, alive, x, y]() {
+            if (*alive && !done_)
+                apply(menus_.click(x, y));
+        }, 1);
+    }
+
 private:
     PopupView(const CRect &area, vti::PopupCascade menus, std::function<void(const std::vector<int> &)> chosen,
               SharedPointer<CFontDesc> font)
         : CView(area), menus_(std::move(menus)), chosen_(std::move(chosen)), font_(std::move(font))
     {
+        open_views().insert(this);
+    }
+    static std::set<PopupView *> &open_views()
+    {
+        static std::set<PopupView *> views;
+        return views;
     }
     // the menu font: Windows' own menu font, a sans serif of the same size elsewhere
     static SharedPointer<CFontDesc> popup_font()
@@ -553,99 +739,169 @@ private:
         return makeOwned<CFontDesc>(kSystemFont->getName(), 12);
 #endif
     }
-    void draw_menu(CDrawContext *ctx, const CRect &update, const vti::PopupMenu &menu)
+
+    struct LevelWindow {
+        std::unique_ptr<vti::PopupWindow> win;
+        PopupLevelView *view = nullptr;
+        vti::PopupMenu::Rect at; // the menu's place it was made for
+        int from = -1;           // its entry in the parent menu
+    };
+    vti::NativeRect native(const vti::PopupMenu::Rect &r) const
     {
-        const CColor back(240, 240, 240, 255), border(160, 160, 160, 255), light(255, 255, 255, 255),
-            hot(145, 201, 247, 255), text(0, 0, 0, 255), grey(109, 109, 109, 255);
-        const double x0 = getViewSize().left + menu.x, y0 = getViewSize().top + menu.y;
-        if (!CRect(x0, y0, x0 + menu.width(), y0 + menu.height()).rectOverlap(update))
-            return;
-        ctx->setDrawMode(kAliasing);
-        ctx->setLineWidth(1);
-        ctx->setFillColor(border);
-        ctx->drawRect(CRect(x0, y0, x0 + menu.width(), y0 + menu.height()), kDrawFilled);
-        ctx->setFillColor(back);
-        ctx->drawRect(CRect(x0 + 1, y0 + 1, x0 + menu.width() - 1, y0 + menu.height() - 1), kDrawFilled);
-        // between the columns a dark and a light line, the full height inside the border
-        for (int c = 1; c < menu.columns(); c++) {
-            const double sx = x0 + menu.column_x()[c] - vti::PopupMenu::kSeparator;
-            ctx->setFillColor(border);
-            ctx->drawRect(CRect(sx, y0 + 1, sx + 1, y0 + menu.height() - 1), kDrawFilled);
-            ctx->setFillColor(light);
-            ctx->drawRect(CRect(sx + 1, y0 + 1, sx + 2, y0 + menu.height() - 1), kDrawFilled);
-        }
-        ctx->setFont(font_);
-        const auto &items = menu.items();
-        for (int i = 0; i < (int)items.size(); i++) {
-            auto r = menu.item_rect(i);
-            const CRect row(x0 + r.x, y0 + r.y, x0 + r.x + r.w, y0 + r.y + r.h);
-            if (!row.rectOverlap(update))
+        const double s = screen_.scale;
+        return {screen_.work.x + (int)std::lround(r.x * s), screen_.work.y + (int)std::lround(r.y * s),
+                (int)std::lround(r.w * s), (int)std::lround(r.h * s)};
+    }
+    // a window for each open menu: kept while its menu stays (moved when it moved), made anew when another submenu
+    // took its place (and then for all below it); false when the root menu has none
+    bool sync_windows()
+    {
+#if SMTG_OS_LINUX
+        keep_runloop();
+        X11::FrameConfig cfg;
+        if (auto lf = getPlatformFactory().asLinuxFactory())
+            cfg.runLoop = lf->getRunLoop();
+        IPlatformFrameConfig *config = &cfg;
+#else
+        IPlatformFrameConfig *config = nullptr;
+#endif
+        bool anew = false;
+        for (int l = 0; l < menus_.levels(); l++) {
+            const auto &m = menus_.level(l);
+            const auto b = m.bounds();
+            if (!anew && l < (int)wins_.size() && wins_[l].win && wins_[l].from == menus_.from(l) &&
+                wins_[l].at.w == b.w && wins_[l].at.h == b.h) {
+                if (wins_[l].at.x != b.x || wins_[l].at.y != b.y) {
+                    wins_[l].win->move(native(b));
+                    wins_[l].at = b;
+                }
                 continue;
-            if (i == menu.hot) {
-                ctx->setFillColor(hot);
-                ctx->drawRect(row, kDrawFilled);
             }
-            const CColor ink = items[i].enabled ? text : grey;
-            if (i == menu.checked()) { // a tick in the space before the text
-                ctx->setDrawMode(kAntiAliasing);
-                ctx->setLineWidth(1.6);
-                ctx->setFrameColor(text);
-                ctx->drawLine(CPoint(row.left + 6, row.top + 9.5), CPoint(row.left + 8.5, row.top + 12));
-                ctx->drawLine(CPoint(row.left + 8.5, row.top + 12), CPoint(row.left + 13, row.top + 6));
-                ctx->setDrawMode(kAliasing);
-                ctx->setLineWidth(1);
-            }
-            if (items[i].has_sub()) { // the submenu arrow in the space after the text
-                if (auto arrow = owned(ctx->createGraphicsPath())) {
-                    const double ax = row.right - 13, ay = row.top + 6;
-                    arrow->beginSubpath(CPoint(ax, ay));
-                    arrow->addLine(CPoint(ax + 4, ay + 3.5));
-                    arrow->addLine(CPoint(ax, ay + 7));
-                    arrow->closeSubpath();
-                    ctx->setDrawMode(kAntiAliasing);
-                    ctx->setFillColor(ink);
-                    ctx->drawGraphicsPath(arrow, CDrawContext::kPathFilled);
-                    ctx->setDrawMode(kAliasing);
+            anew = true;
+            LevelWindow lw;
+            lw.view = new PopupLevelView(this, l, b.w, b.h);
+            lw.win = vti::PopupWindow::create(getFrame(), native(b), b.w, b.h, screen_.scale, lw.view, config);
+            if (!lw.win) {
+                if (l == 0)
+                    return false;
+                lw.view = nullptr;
+            } else
+                lw.win->show();
+            lw.at = b;
+            lw.from = menus_.from(l);
+            if (l < (int)wins_.size())
+                wins_[l] = std::move(lw); // the old window goes after the new one is up
+            else
+                wins_.push_back(std::move(lw));
+        }
+        wins_.resize(menus_.levels());
+        return true;
+    }
+    void start_timer()
+    {
+        auto alive = alive_;
+        timer_ = makeOwned<CVSTGUITimer>(
+            [this, alive](CVSTGUITimer *) {
+                if (*alive && !done_)
+                    on_timer();
+            },
+            15);
+    }
+    void stop_timer()
+    {
+        if (timer_)
+            timer_->stop();
+        timer_ = nullptr;
+    }
+    // the submenu wait (PopupCascade::tick) and what a native menu notices without an event of its own: a press
+    // outside the menus and the editor (another window, the desktop) and a switch to another window
+    void on_timer()
+    {
+        apply_dirty(menus_.tick(now_ms()));
+        int x = 0, y = 0;
+        bool down = false;
+        if (vti::popup_pointer(getFrame(), x, y, down)) {
+            if (!down)
+                armed_ = true; // the press that opened the menu is over
+            else if (armed_ && !editor_rect_.contains(x, y)) {
+                bool over = false;
+                for (auto &w : wins_)
+                    over |= w.win && native(w.at).contains(x, y);
+                if (!over) {
+                    finish({});
+                    return;
                 }
             }
-            ctx->setFontColor(ink);
-            CRect tr(row);
-            tr.left += vti::PopupMenu::kTextLeft;
-            ctx->drawString(items[i].text.c_str(), tr, kLeftText, true);
         }
+        if (focus_ && vti::popup_focus_token(getFrame()) != focus_)
+            finish({});
     }
+
     // the view lies over the whole editor, but only the menus need repainting: adding and removing the view call
     // invalid(), and a full-size area would repaint the whole editor below (slow on the Mac, E194)
     void invalid() override
     {
         setDirty(false);
-        for (int l = 0; l < menus_.levels(); l++)
-            repaint(menus_.level(l).bounds());
+        if (!windowed_)
+            for (int l = 0; l < menus_.levels(); l++)
+                repaint(menus_.level(l).bounds());
     }
     void repaint(const vti::PopupMenu::Rect &r)
     {
-        const CRect &v = getViewSize();
-        invalidRect(CRect(v.left + r.x, v.top + r.y, v.left + r.x + r.w, v.top + r.y + r.h));
+        if (!windowed_) {
+            const CRect &v = getViewSize();
+            invalidRect(CRect(v.left + r.x, v.top + r.y, v.left + r.x + r.w, v.top + r.y + r.h));
+            return;
+        }
+        for (auto &w : wins_) { // the part inside each menu window, in its coordinates
+            if (!w.view)
+                continue;
+            const int x0 = std::max(r.x, w.at.x), y0 = std::max(r.y, w.at.y);
+            const int x1 = std::min(r.x + r.w, w.at.x + w.at.w), y1 = std::min(r.y + r.h, w.at.y + w.at.h);
+            if (x0 < x1 && y0 < y1)
+                w.view->invalidRect(CRect(x0 - w.at.x, y0 - w.at.y, x1 - w.at.x, y1 - w.at.y));
+        }
+    }
+    void apply_dirty(const std::vector<vti::PopupMenu::Rect> &dirty)
+    {
+        if (dirty.empty())
+            return;
+        if (windowed_)
+            sync_windows();
+        for (auto &r : dirty)
+            repaint(r);
     }
     int local_x(const CPoint &p) const { return (int)std::floor(p.x - getViewSize().left); }
     int local_y(const CPoint &p) const { return (int)std::floor(p.y - getViewSize().top); }
     void apply(const vti::PopupCascade::Result &res)
     {
-        for (auto &r : res.dirty)
-            repaint(r);
+        apply_dirty(res.dirty);
         if (res.kind != vti::PopupCascade::Result::None)
             finish(res.kind == vti::PopupCascade::Result::Chosen ? res.path : std::vector<int>{});
     }
-    // closes the menu after the current event (the frame removes the view when the session ends); empty = no choice
+    // closes the menu (the frame removes the view when the session ends, after the current event or timer call);
+    // empty = no choice
     void finish(const std::vector<int> &path)
     {
         if (done_)
             return;
         done_ = true;
+        for (auto &w : wins_)
+            if (w.win)
+                w.win->hide(); // gone at once; destroyed with this view
+        stop_timer();
         if (auto *frame = getFrame(); frame && in_session_) {
             ModalViewSessionID id = session_;
-            SharedPointer<CFrame> f(frame);
-            after_event(frame, [f, id]() { f->endModalViewSession(id); });
+            auto alive = alive_;
+            if (windowed_) // may come from a timer: the view must outlive the call that ends it
+                Call::later([frame, id, alive]() {
+                    if (*alive)
+                        frame->endModalViewSession(id);
+                }, 1);
+            else {
+                SharedPointer<CFrame> f(frame);
+                after_event(frame, [f, id]() { f->endModalViewSession(id); });
+            }
         }
         if (!path.empty() && chosen_)
             chosen_(path);
@@ -656,7 +912,27 @@ private:
     SharedPointer<CFontDesc> font_;
     ModalViewSessionID session_ = 0;
     bool in_session_ = false, done_ = false;
+    std::shared_ptr<bool> alive_ = std::make_shared<bool>(true); // for calls that may come after the view is gone
+    bool windowed_ = false, armed_ = false;
+    vti::PopupScreen screen_;
+    vti::NativeRect editor_rect_;
+    uintptr_t focus_ = 0;
+    std::vector<LevelWindow> wins_;
+    SharedPointer<CVSTGUITimer> timer_;
 };
+
+void PopupLevelView::drawRect(CDrawContext *ctx, const CRect &update)
+{
+    owner_->draw_level(ctx, update, level_);
+    setDirty(false);
+}
+void PopupLevelView::onMouseMoveEvent(MouseMoveEvent &event)
+{
+    owner_->level_move(level_, event.mousePosition);
+    event.consumed = true;
+}
+void PopupLevelView::onMouseDownEvent(MouseDownEvent &event) { owner_->level_down(level_, event.mousePosition); }
+void PopupLevelView::onKeyboardEvent(KeyboardEvent &event) { owner_->onKeyboardEvent(event); }
 
 class EditorCanvasView : public CView, public IControlListener, public TextEditListenerAdapter, public IKeyboardHook,
                         public IMouseObserver {
@@ -1447,149 +1723,8 @@ private:
         });
     }
 
-#if !SMTG_OS_LINUX
-    // Windows and macOS: the system's own menus for the patch and bank menus, like the original's - they may use the
-    // whole screen, so a 128-patch submenu never covers its parent (round 0.8.22 test L1: our popup has to stay inside
-    // the editor window). Linux has no such menus (VSTGUI's generic menu is drawn inside the window too): our popup.
-    // the submenu of a library's folder ("Virus TI2 Factory Backup/Rom/...") inside `root`, created on demand
-    static COptionMenu *folder_menu(COptionMenu *root, const std::string &name,
-                                    std::map<std::string, COptionMenu *> &folders, std::string &leaf)
-    {
-        COptionMenu *m = root;
-        std::string path;
-        size_t from = 0;
-        for (size_t slash; (slash = name.find('/', from)) != std::string::npos; from = slash + 1) {
-            path = name.substr(0, slash);
-            auto it = folders.find(path);
-            if (it == folders.end()) {
-                auto *sub = new COptionMenu();
-                m->addEntry(sub, name.substr(from, slash - from).c_str());
-                sub->forget(); // owned by the parent entry
-                it = folders.emplace(path, sub).first;
-            }
-            m = it->second;
-        }
-        leaf = name.substr(from);
-        return m;
-    }
-
-    // LOAD: RAM A..D -> patch -> into the part; SAVE: RAM A..D -> slot -> store the part's patch there
-    // LOAD / SAVE like the original: "<device> > RAM A.. (SAVE: RAM only) > 000 Name" and "Personal Libraries"
-    void patch_menu_native(const Hit &h, const CPoint &where, bool save)
-    {
-        auto *menu = new COptionMenu();
-        auto *dev = new COptionMenu();
-        auto banks = std::make_shared<std::map<COptionMenu *, int>>(); // submenu -> bank
-        for (int b = 0; b < (save ? 4 : plugin_->bank_count()); b++) {
-            auto *bm = new COptionMenu();
-            for (int p = 0; p < 128; p++) {
-                char t[40];
-                snprintf(t, sizeof t, "%03d %s", p, plugin_->bank_patch(b, p).c_str());
-                bm->addEntry(t);
-            }
-            dev->addEntry(bm, VirusPlugin::bank_name(b));
-            (*banks)[bm] = b;
-            bm->forget();
-        }
-        menu->addEntry(dev, plugin_->device_name());
-        dev->forget();
-        auto *lib = new COptionMenu(); // personal libraries (patch files); SAVE can also append
-        std::map<std::string, COptionMenu *> folders;
-        if (plugin_->library_count() == 0)
-            lib->addEntry("(none)", -1, CMenuItem::kDisabled);
-        else
-            for (int i = 0; i < plugin_->library_count(); i++) {
-                std::string leaf;
-                COptionMenu *parent = folder_menu(lib, plugin_->library_name(i), folders, leaf);
-                auto *lm = new COptionMenu();
-                for (int p = 0; p < plugin_->library_size(i); p++) {
-                    char t[40];
-                    snprintf(t, sizeof t, "%03d %s", p, plugin_->bank_patch(VirusPlugin::LIB_BASE + i, p).c_str());
-                    lm->addEntry(t);
-                }
-                if (save && plugin_->library_size(i) < 128) {
-                    char t[40];
-                    snprintf(t, sizeof t, "%03d (new)", plugin_->library_size(i));
-                    lm->addEntry(t);
-                }
-                parent->addEntry(lm, leaf.c_str());
-                (*banks)[lm] = VirusPlugin::LIB_BASE + i;
-                lm->forget();
-            }
-        menu->addEntry(lib, "Personal Libraries");
-        lib->forget();
-        int part = h.part;
-        menu->popup(getFrame(), where, [this, part, save, banks](COptionMenu *m) {
-            int32_t idx = -1;
-            COptionMenu *sub = m->getLastItemMenu(idx);
-            auto it = banks->find(sub);
-            if (it == banks->end() || idx < 0)
-                return;
-            if (save && it->second >= VirusPlugin::LIB_BASE)
-                plugin_->store_to_library(part, it->second - VirusPlugin::LIB_BASE, idx);
-            else if (save)
-                plugin_->store_patch(part, it->second, idx);
-            else
-                plugin_->load_patch(it->second, idx, part);
-            invalid();
-        });
-        menu->forget();
-    }
-
-    // the browser's bank selector: "<device> > RAM A .. ROM Z" and "Personal Libraries"
-    void bank_menu_native(const Hit &h, const CPoint &where)
-    {
-        auto *menu = new COptionMenu();
-        auto *dev = new COptionMenu();
-        for (int b = 0; b < plugin_->bank_count(); b++)
-            dev->addEntry(VirusPlugin::bank_name(b));
-        menu->addEntry(dev, plugin_->device_name());
-        auto *lib = new COptionMenu();
-        // (submenu, entry index) -> library; folders become submenus like in the original
-        auto entries = std::make_shared<std::map<std::pair<COptionMenu *, int>, int>>();
-        std::map<std::string, COptionMenu *> folders;
-        if (plugin_->library_count() == 0)
-            lib->addEntry("(none)", -1, CMenuItem::kDisabled);
-        for (int i = 0; i < plugin_->library_count(); i++) {
-            std::string leaf;
-            COptionMenu *parent = folder_menu(lib, plugin_->library_name(i), folders, leaf);
-            parent->addEntry(leaf.c_str());
-            (*entries)[{parent, parent->getNbEntries() - 1}] = i;
-        }
-        menu->addEntry(lib, "Personal Libraries");
-        std::string param = h.element->get("Parameter");
-        menu->popup(getFrame(), where, [this, param, dev, entries](COptionMenu *m) {
-            int32_t idx = -1;
-            COptionMenu *sub = m->getLastItemMenu(idx);
-            auto it = entries->find({sub, idx});
-            if (sub == dev && idx >= 0)
-                plugin_->ui_set(param, -1, idx);
-            else if (it != entries->end())
-                plugin_->ui_set(param, -1, VirusPlugin::LIB_BASE + it->second);
-            invalid();
-        });
-        lib->forget();
-        dev->forget();
-        menu->forget();
-    }
-
-#endif
-    void patch_menu(const Hit &h, const CPoint &where, bool save)
-    {
-#if SMTG_OS_LINUX
-        patch_menu_popup(h, where, save);
-#else
-        patch_menu_native(h, where, save);
-#endif
-    }
-    void bank_menu(const Hit &h, const CPoint &where)
-    {
-#if SMTG_OS_LINUX
-        bank_menu_popup(h, where);
-#else
-        bank_menu_native(h, where);
-#endif
-    }
+    void patch_menu(const Hit &h, const CPoint &where, bool save) { patch_menu_popup(h, where, save); }
+    void bank_menu(const Hit &h, const CPoint &where) { bank_menu_popup(h, where); }
 
     void category_menu(const CPoint &where)
     {
@@ -1609,13 +1744,14 @@ private:
         });
     }
 
-    // our popup (PopupView) over the editor; `where` in editor coordinates; `chosen` gets the entry's path (one index
+    // our popup (PopupView) at the editor point `where`; `chosen` gets the entry's path (one index
     // for a list without submenus)
     void show_popup(std::vector<vti::PopupItem> items, int checked, int per_column, const CPoint &where,
                     std::function<void(const std::vector<int> &)> chosen)
     {
         CRect area = getViewSize();
-        PopupView::open(getFrame(), area, std::move(items), checked, per_column, where, std::move(chosen));
+        PopupView::open(getFrame(), area, editor_->content_scale(), std::move(items), checked, per_column, where,
+                        std::move(chosen));
     }
     void show_list(std::vector<vti::PopupItem> items, int checked, int per_column, const CPoint &where,
                    std::function<void(int)> chosen)
@@ -1940,6 +2076,7 @@ bool PLUGIN_API VirusEditor::open(void *parent, const PlatformType &platformType
 void PLUGIN_API VirusEditor::close()
 {
     if (frame) {
+        PopupView::close_windows(frame); // an open menu's own frames go first
 #if SMTG_OS_LINUX
         keep_runloop(); // the frame unregisters its handlers through the adapter that registered them
         if (--open_frames == 0)
