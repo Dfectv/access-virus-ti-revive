@@ -29,7 +29,11 @@ records while browsing - not done, needs analysis + hardware test); FILTER LINK 
 and template files ("Personal Remote Templates"), sending/SAVE; inactive text strength (original Delay Clock text
 105 vs ours 149, Reverb 186-205 vs 161), envelope graph ends, filter curve, saw edge anti-aliasing; then the
 checklist. Tools: scratchpad probes (init.state with both checksums, diff.py/regions.py for orig vs vtirender),
-captures/remote-page.pcapng (untracked). The Virus is in the win10 VM (original + Access driver).
+captures/remote-page.pcapng (untracked). Second test build: CI run 39027398548 (all green); checklist (same link,
+version 3) https://claude.ai/artifact/AQAVVmwAfEjjdpu6FxXW8A; installed: win11 VM setup.exe silent (one entry);
+Linux unpacked ~/Downloads/TI-Revive-0.8.21b-linux (user runs install.sh); Mac unpacked ~/Downloads/
+TI-Revive-0.8.21b-mac (user runs sudo installer). The Virus is on Linux; the win10 VM still has the original +
+Access driver (snapshot before-original-driver = with TI Revive 0.8.17).
 
 **Round 0.8.21 POSTPONED (user, 2026-10-17 noon): W2 failed (Wavetable list), then a full comparison with the
 original.** Reference: the original Virus Control 5.1.7 in the win10 VM with the Access driver (TI Revive removed
