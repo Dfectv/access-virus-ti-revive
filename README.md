@@ -327,7 +327,8 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
   audio until a power cycle within 4 minutes; with the limit a 4-minute full-load test (16 channels of notes + 32
   automation lanes) passes.
 - Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 139 unit
-  tests run with every release build on Windows and Linux.
+  tests run with every release build on Windows and Linux, plus two end-to-end tests on Linux in a virtual display
+  (two editors of a duplicated track; the Control Center's window and close button).
 
 **Editor**
 

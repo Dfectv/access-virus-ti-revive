@@ -309,6 +309,8 @@ private:
         if (!sized_) { // the window only takes a size once it is on screen (macOS, Windows and GTK ignored the one set
             sized_ = true; // before show(): the Access look started cut off or with an empty margin, user round 0.8.20)
             window_->setSize(win_size_);
+            printf("TI Revive Control Center: window %dx%d\n", (int)win_size_.x, (int)win_size_.y); // gui_test.sh
+            fflush(stdout);
         }
         bool busy = busy_;
         for (int i = 0; i < 5; i++) { // while an action runs only Cancel; otherwise everything but Cancel

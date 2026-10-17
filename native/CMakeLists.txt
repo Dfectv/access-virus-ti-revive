@@ -153,3 +153,17 @@ if(CAIRO_FOUND)
     add_executable(vtirender tools/vtirender.cpp)
     target_link_libraries(vtirender PRIVATE vticore PkgConfig::CAIRO)
 endif()
+
+# end-to-end checks in a virtual X display (Linux; skipped without xvfb-run): two editors of a duplicated track (E183),
+# the Control Center's window size and close button (E185)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(xclose tools/xclose.c)
+    target_link_libraries(xclose PRIVATE X11)
+    add_test(NAME gui_duplicate_editors
+             COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/gui_test.sh duplicate $<TARGET_FILE:nativehost>
+                     $<TARGET_FILE_DIR:VirusTINative>/../..)
+    add_test(NAME gui_controlcenter_close
+             COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/gui_test.sh ccclose $<TARGET_FILE:TIReviveControlCenter>
+                     $<TARGET_FILE:xclose>)
+    set_tests_properties(gui_duplicate_editors gui_controlcenter_close PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+endif()
