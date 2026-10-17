@@ -1,6 +1,6 @@
 {
  "round": "0.8.22",
- "lead": "Test build 0.8.22 (branch round-0.8.22, CI run 39041545356): patch and bank menus with submenus in our own popup on every system, the original's column rule for value lists, and the complete REMOTE page (template and knob names, MIDI string with info, the knob template list from your Access files, LOAD/SAVE of template files, sent to the Virus like the original - tested on Linux on 2026-10-17). Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "lead": "Test build 0.8.22 (branch round-0.8.22, CI run 39042191698, version 0.8.22): patch and bank menus with submenus in our own popup on every system, the original's column rule for value lists, and the complete REMOTE page (template and knob names, MIDI string with info, the knob template list from your Access files, LOAD/SAVE of template files, sent to the Virus like the original - tested on Linux on 2026-10-17). Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
  "rules": [
   "Disposable DAW project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches (LOAD in the patch menus is fine, SAVE there is not).",
   "On the REMOTE page SAVE is fine: it writes template files only (a new file \"MY TEST.vrt\" in Documents/Access Music/Virus TI/Remote Templates; delete it afterwards if you like).",
@@ -103,7 +103,7 @@
    "title": "Windows 11 VM",
    "where": "win11 VM, Ableton Live 11, Virus attached by Claude",
    "prep": [
-    "Claude installs the test build silently in the VM and attaches the Virus (<code>VM=win11 scripts/vm.sh attach</code>)."
+    "Installed silently by Claude (0.8.22, one entry in Apps). Claude attaches the Virus when you get there (<code>VM=win11 scripts/vm.sh attach</code>)."
    ],
    "notes": [],
    "items": [

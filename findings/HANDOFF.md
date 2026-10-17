@@ -6,7 +6,7 @@ Evidence: [evidence.md](evidence.md) (E001-E201), protocol: [spec.md](spec.md); 
 
 ## CONTINUE HERE (state 2026-10-17 evening: round 0.8.22 test build)
 
-**Test round 0.8.22:** CI test build run 39041545356 (branch round-0.8.22); checklist
+**Test round 0.8.22:** CI test build run 39042191698 (version 0.8.22; installed: Mac pushed ~/Downloads/TI-Revive-0.8.22-mac (user runs the installer), Linux unpacked ~/Downloads/TI-Revive-0.8.22-linux (user runs install.sh), win11 VM setup.exe silent, one visible entry); checklist
 https://claude.ai/artifact/8Qi89czHHyzB79hQa5eSAq (spec scripts/checklists/round-0.8.22.json: macOS M1-M4 incl. the
 Wavetable delay re-check, Linux L1-L3, win11 VM W1-W3). Next: install on Linux (unpack, user runs install.sh), win11 VM
 (silent), Mac (push, user runs the installer), then the user's results; then merge + release.
