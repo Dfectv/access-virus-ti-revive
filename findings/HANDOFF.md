@@ -10,7 +10,8 @@ Evidence: [evidence.md](evidence.md) (E001-E202), protocol: [spec.md](spec.md); 
 there -> fixed, _NET_ACTIVE_WINDOW, not tried yet), W4 pass, W5 pass, W3 pass, W2 FAIL ("Knob Name is working but the
 dropdown not. Dropdown acts like a textbox." -> E202: the VM's Access DLL is the 32-bit one, our knob template finder
 read only 64-bit pointers (0 templates, the arrow opened nothing); fixed (PE32, 35 of 35 identical), not re-tested).
-macOS postponed by the user. Evidence now E001-E202. Dev smoke test of both fixes on Linux (Alt-Tab closes, no crash): user "working" -> CI test build 0.8.22d. CI run 39050163917 green: Linux installed (./install.sh as user, ~/Downloads/TI-Revive-0.8.22d-linux), win11 VM 0.8.22c uninstalled + 0.8.22d silent (plug-in 16:40 UTC build), Mac package downloaded to the scratchpad (macOS postponed). Checklist v8: L8, W6. Virus on Linux.
+macOS postponed by the user. Evidence now E001-E202. Dev smoke test of both fixes on Linux (Alt-Tab closes, no crash): user "working" -> CI test build 0.8.22d. CI run 39050163917 green: Linux installed (./install.sh as user, ~/Downloads/TI-Revive-0.8.22d-linux), win11 VM 0.8.22c uninstalled + 0.8.22d silent (plug-in 16:40 UTC build), Mac package downloaded to the scratchpad (macOS postponed). Checklist v8: L8, W6.
+**Round 0.8.22 COMPLETE (user, 2026-10-17):** L8 pass (Alt-Tab), W6 pass (REMOTE knob templates with the 32-bit DLL), M5, M6, M2, M3, M4 pass on the Mac (0.8.22d). With L3, L5, L6, W3, W4, W5 every item passes. The Virus is on the Mac (VM entry detached, Linux broker socket started). Next: merge round-0.8.22 into main, release 0.8.22 (site check, release notes, website screenshot of a menu beyond the editor).
 
 **Done on round-0.8.22 (after 838544a):** items 1 + 2 of the plan below. Popup menus are top-level windows of their
 own on all platforms (native/plugin/source/popupwindow.h + _win.cpp / _mac.mm / _x11.cpp): one window per open
