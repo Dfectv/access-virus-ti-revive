@@ -11,6 +11,7 @@
 #include "vticore.h"
 #include "vtiproto.h"
 #include "ctrlguard.h"
+#include "owner.h"
 #include <errno.h>
 #include <pthread.h>
 #include <signal.h>
@@ -54,7 +55,8 @@ typedef struct {
     int notes;          // has sent note-ons: silence the Virus when it goes away (hanging-note protection)
     int observer;       // protocol 4: read-only observer (never the owner; gets everything through `q`)
     struct obsq *q;
-    char name[48];      // from HELLO (protocol 4), for the status
+    char name[48];      // from HELLO (protocol 4), for the status and the owner rule (owner.h)
+    int ready;          // has been told its state (after HELLO: a waiting plug-in never sees the Virus briefly)
 } client;
 
 static client *g_clients[MAX_CLIENTS];
@@ -133,27 +135,51 @@ static int send_msg(client *c, uint16_t type, const void *a, int alen, const voi
     return r;
 }
 
-// One program at a time owns the Virus, as with the Access driver: the first connected client; the others are told
-// "no device" until the owner disconnects, then the next client takes over. A second program (another DAW, auval,
-// a test host) would otherwise initialise the Virus and restart its audio stream in the middle of the first one's
-// session, which left the Virus without USB audio until it was power-cycled (E112).
-static client *g_owner; // g_cs_clients
+// The owner rule of owner.h, as on Windows: the first "TI Revive Virus Control" owns the Virus, plug-ins of other
+// programs (another DAW, auval, a test host) wait until it leaves - they would initialise the Virus and restart its
+// audio stream in the middle of the first one's session, which left it without USB audio until a power cycle (E112).
+// Every other client (Control Center, tirevive-cc) shares the Virus with the owner (until 0.8.19 the first client
+// of any kind owned it, so the Control Center waited while a DAW ran, E181).
+static client *g_owner; // g_cs_clients: the owning plug-in
 
-static int is_owner(client *c)
+static int waits(const client *c) // g_cs_clients held
+{
+    return vti_client_waits(vti_is_plugin(c->name), c == g_owner);
+}
+
+static int may_use(client *c) // not an observer, not a waiting plug-in
 {
     pthread_mutex_lock(&g_cs_clients);
-    int r = c == g_owner;
+    int r = !c->observer && !waits(c);
     pthread_mutex_unlock(&g_cs_clients);
     return r;
+}
+
+static uint32_t state_of(const client *c, int dev_open) // g_cs_clients held
+{
+    return vti_client_state(dev_open, vti_is_plugin(c->name), c == g_owner);
 }
 
 static void send_states(int dev_open) // g_cs_clients held
 {
     for (int i = 0; i < MAX_CLIENTS; i++)
-        if (g_clients[i] && !g_clients[i]->observer) {
-            uint32_t st = !dev_open ? 0 : g_clients[i] == g_owner ? 1 : 2; // 2: another program has it (wait)
+        if (g_clients[i] && !g_clients[i]->observer && g_clients[i]->ready) {
+            uint32_t st = state_of(g_clients[i], dev_open);
             send_msg(g_clients[i], VTIMSG_STATE, &st, 4, NULL, 0);
         }
+}
+
+static void next_owner(void) // g_cs_dev and g_cs_clients held: the next waiting plug-in takes over
+{
+    for (int i = 0; i < MAX_CLIENTS && !g_owner; i++)
+        if (g_clients[i] && !g_clients[i]->observer && vti_is_plugin(g_clients[i]->name))
+            g_owner = g_clients[i];
+    if (g_owner) {
+        uint32_t st = g_dev != NULL;
+        blog("the next program's plug-in owns the Virus now");
+        if (g_owner->ready)
+            send_msg(g_owner, VTIMSG_STATE, &st, 4, NULL, 0);
+    }
 }
 
 // ---- observers (protocol 4, the Control Center's Nerd mode) ----
@@ -288,7 +314,7 @@ static void obs_status(int dev_open)
             owner = nm;
         size_t l = strlen(clients);
         snprintf(clients + l, sizeof clients - l, "%s%s%s", l ? ", " : "", nm,
-                 c->observer ? " (observer)" : c == g_owner ? " (owner)" : " (waiting)");
+                 c->observer ? " (observer)" : c == g_owner ? " (owner)" : waits(c) ? " (waiting)" : "");
     }
     char own[48];
     snprintf(own, sizeof own, "%s", owner);
@@ -404,9 +430,10 @@ static void on_rx(void *user, uint8_t ep, const uint8_t *data, int len)
     if (ep == VTI_EP_MI04_IN)
         vtimidi_rx(data, len);
 #endif
-    pthread_mutex_lock(&g_cs_clients);
-    if (g_owner)
-        send_msg(g_owner, VTIMSG_RX, &ep, 1, data, len);
+    pthread_mutex_lock(&g_cs_clients); // the owner and every sharing client
+    for (int i = 0; i < MAX_CLIENTS; i++)
+        if (g_clients[i] && !g_clients[i]->observer && g_clients[i]->ready && !waits(g_clients[i]))
+            send_msg(g_clients[i], VTIMSG_RX, &ep, 1, data, len);
     pthread_mutex_unlock(&g_cs_clients);
     if (g_verbose) { // RX packets per endpoint, once per second
         static unsigned n[2], bytes[2];
@@ -860,32 +887,38 @@ static void *client_thread(void *arg)
         free(c);
         return NULL;
     }
-    pthread_mutex_lock(&g_cs_dev);
-    pthread_mutex_lock(&g_cs_clients);
-    if (!g_owner)
-        g_owner = c;
-    uint32_t st = g_dev == NULL ? 0 : c == g_owner ? 1 : 2;
-    blog("client connected%s", c == g_owner ? " (owner)" : " (waiting: another program uses the Virus)");
-    pthread_mutex_unlock(&g_cs_clients);
-    pthread_mutex_unlock(&g_cs_dev);
-    send_msg(c, VTIMSG_STATE, &st, 4, NULL, 0);
+    blog("client connected");
     for (;;) {
         vtimsg h;
         if (read_all(c->fd, &h, sizeof h) || h.len > VTIMSG_MAX || read_all(c->fd, buf, h.len))
             break;
-        switch (h.type) {
-        case VTIMSG_HELLO:
-            if (h.len > 4) { // protocol 4: the client's name
+        if (!c->ready) { // the state goes out after HELLO (the name decides), or before an older client's first message
+            pthread_mutex_lock(&g_cs_dev);
+            pthread_mutex_lock(&g_cs_clients);
+            if (h.type == VTIMSG_HELLO && h.len > 4) {
                 size_t n = h.len - 4u < sizeof c->name - 1 ? h.len - 4u : sizeof c->name - 1;
-                pthread_mutex_lock(&g_cs_clients);
                 memcpy(c->name, buf + 4, n);
                 c->name[n] = 0;
                 for (char *p = c->name; *p; p++)
                     if ((unsigned char)*p < 32 || *p == '\t')
                         *p = ' ';
-                pthread_mutex_unlock(&g_cs_clients);
+                if (vti_is_plugin(c->name) && !g_owner)
+                    g_owner = c;
             }
-            blog("client hello, protocol %u%s%s", h.len >= 4 ? *(uint32_t *)buf : 0, c->name[0] ? ": " : "", c->name);
+            uint32_t st = state_of(c, g_dev != NULL);
+            c->ready = 1;
+            if (vti_is_plugin(c->name))
+                blog(c == g_owner ? "the plug-in owns the Virus" : "plug-in waiting: another program's plug-in uses the Virus");
+            pthread_mutex_unlock(&g_cs_clients);
+            pthread_mutex_unlock(&g_cs_dev);
+            if (h.type == VTIMSG_HELLO)
+                blog("client hello, protocol %u%s%s", h.len >= 4 ? *(uint32_t *)buf : 0, c->name[0] ? ": " : "", c->name);
+            send_msg(c, VTIMSG_STATE, &st, 4, NULL, 0);
+            if (h.type == VTIMSG_HELLO)
+                continue;
+        }
+        switch (h.type) {
+        case VTIMSG_HELLO: // a second HELLO changes nothing: the name and the owner were decided with the first
             break;
         case VTIMSG_OBSERVE: { // read-only observer: give the Virus to the next program if we got it
             pthread_mutex_lock(&g_cs_dev);
@@ -893,13 +926,7 @@ static void *client_thread(void *arg)
             c->observer = 1;
             if (g_owner == c) {
                 g_owner = NULL;
-                for (int i = 0; i < MAX_CLIENTS && !g_owner; i++)
-                    if (g_clients[i] && !g_clients[i]->observer)
-                        g_owner = g_clients[i];
-                if (g_owner) {
-                    uint32_t st1 = g_dev != NULL;
-                    send_msg(g_owner, VTIMSG_STATE, &st1, 4, NULL, 0);
-                }
+                next_owner();
             }
             pthread_mutex_unlock(&g_cs_clients);
             pthread_mutex_unlock(&g_cs_dev);
@@ -911,7 +938,7 @@ static void *client_thread(void *arg)
             break;
         }
         case VTIMSG_WRITE:
-            if (h.len >= 1 && is_owner(c)) {
+            if (h.len >= 1 && may_use(c)) {
                 if (buf[0] == VTI_EP_MI04_OUT && !c->notes && vti_has_note_on(buf + 1, h.len - 1))
                     c->notes = 1;
                 pthread_mutex_lock(&g_cs_dev);
@@ -946,7 +973,7 @@ static void *client_thread(void *arg)
                     wl = VTIMSG_MAX - 16;
                 if (!(s[0] & 0x80))
                     memcpy(data, buf + 12, h.len - 12 < wl ? h.len - 12 : wl);
-                int owner = is_owner(c), ok = vti_control_allowed(s);
+                int owner = may_use(c), ok = vti_control_allowed(s);
                 if (!ok)
                     blog("refused control request %02x %02x (only standard reads pass, rule 2)", s[0], s[1]);
                 pthread_mutex_lock(&g_cs_dev);
@@ -972,11 +999,13 @@ static void *client_thread(void *arg)
             int32_t r = 0;
 #ifdef __linux__
             uint32_t on = h.len >= 4 ? *(uint32_t *)buf : 0;
-            int owner = is_owner(c);
             pthread_mutex_lock(&g_cs_dev);
+            pthread_mutex_lock(&g_cs_clients);
+            int use = !waits(c), stop = vti_may_stop_audio(vti_is_plugin(c->name), c == g_owner, g_owner != NULL);
+            pthread_mutex_unlock(&g_cs_clients);
             if (on)
-                r = g_dev && owner ? audio_start() : -1;
-            else if (owner)
+                r = g_dev && use ? audio_start() : -1;
+            else if (stop)
                 audio_stop();
             pthread_mutex_unlock(&g_cs_dev);
             pthread_mutex_lock(&g_cs_clients);
@@ -1004,17 +1033,16 @@ static void *client_thread(void *arg)
     for (int i = 0; i < MAX_CLIENTS; i++)
         if (g_clients[i] == c)
             g_clients[i] = NULL;
-    if (g_owner == c) { // hand the Virus to the next waiting program
+    if (g_owner == c) { // hand the Virus to the next waiting program's plug-in
         g_owner = NULL;
         audio_stop();
-        for (int i = 0; i < MAX_CLIENTS && !g_owner; i++)
-            if (g_clients[i] && !g_clients[i]->observer)
-                g_owner = g_clients[i];
-        if (g_owner) {
-            uint32_t st = g_dev != NULL;
-            blog("next client becomes the owner");
-            send_msg(g_owner, VTIMSG_STATE, &st, 4, NULL, 0);
-        }
+        next_owner();
+    } else if (c->audio && !g_owner) { // a sharing client that started the stream while no plug-in was there
+        int others = 0;
+        for (int i = 0; i < MAX_CLIENTS; i++)
+            others |= g_clients[i] && g_clients[i]->audio;
+        if (!others)
+            audio_stop();
     }
     pthread_mutex_unlock(&g_cs_clients);
     pthread_mutex_unlock(&g_cs_dev);

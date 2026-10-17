@@ -281,11 +281,16 @@ void DeviceOut::check_presence()
         if (device_ && (was || present))
             device_(present != 0);
     }
-    if (int st = present_seen_ * 2 + (elsewhere_seen_ ? 1 : 0); st != status_seen_ && present_seen_ >= 0) {
-        status_seen_ = st;
-        if (status_)
-            status_(present_seen_ == 1, elsewhere_seen_);
-    }
+    report_status();
+}
+
+void DeviceOut::report_status()
+{
+    // "Virus unavailable" also for an instance waiting for another one of this process: it has no broker connection
+    // yet, so its presence is unknown (E181; since 0.8.18 the page came only from the broker and stayed normal)
+    const bool elsewhere = elsewhere_seen_ || wait_reported_;
+    if (status_change_.update(present_seen_, elsewhere) && status_)
+        status_(present_seen_ == 1, elsewhere);
 }
 
 void DeviceOut::run()
@@ -318,6 +323,7 @@ void DeviceOut::run()
                     log("Virus TI native: another instance of the plug-in uses the Virus - waiting\n");
                     if (on_waiting_)
                         on_waiting_(true);
+                    report_status();
                 }
                 for (int i = 0; i < 200 && !stop_; i++) { // keep the state current, try again in 2 s
                     // notes played meanwhile are dropped: sent at a takeover they would sound late, a full ring would

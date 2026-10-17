@@ -10,6 +10,7 @@
 #include "device/memsync.h"
 #include "device/resampler.h"
 #include "device/sidechain.h"
+#include "model/devicestatus.h"
 #include "model/panelfollow.h"
 #include "model/remotedevice.h"
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
@@ -124,7 +125,7 @@ private:
     std::function<void(bool)> device_;
     std::function<void(bool)> on_waiting_;
     std::function<void(bool, bool)> status_;
-    int status_seen_ = -1; // worker: last reported present * 2 + elsewhere
+    StatusChange status_change_; // worker: the editor's status page, reported on change
     // One instance per process talks to the Virus (README "One plug-in instance per synth"; issue #6). The Virus has
     // one stamp clock and every sync ping resets it, so a second instance (Ableton: duplicated track) shifted the
     // first one's time stamps for good. The Windows broker shares the Virus between all clients (the ASIO driver
@@ -182,6 +183,7 @@ private:
     std::thread worker_;
     void run();
     void check_presence(); // worker: the Virus went away / came back
+    void report_status();  // worker: the status page from presence, the other program and the other instance
 };
 
 class VirusPlugin : public Steinberg::Vst::SingleComponentEffect, public Steinberg::Vst::IMidiMapping {

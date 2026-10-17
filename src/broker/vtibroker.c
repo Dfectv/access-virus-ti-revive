@@ -13,6 +13,7 @@
 #include "vticore.h"
 #include "vtiproto.h"
 #include "ctrlguard.h"
+#include "owner.h"
 #include "vtipipe_io.h"
 #include "vtiaudioshm.h"
 #include "../wrapper/vtiusbaudio.h"
@@ -51,13 +52,13 @@ typedef struct {
 static client *g_clients[MAX_CLIENTS];
 
 // Plug-in instances of different programs (two DAWs) must not share the Virus: each sends its own sync ping and resets
-// the Virus' only stamp clock (E148). Like the POSIX broker, the first "TI Revive Virus Control" owns it, the others
-// are told "another program has it" (state 2, no RX, no writes) until it leaves. The ASIO driver and the Control Center share it as before.
-#define PLUGIN_NAME_TEXT "TI Revive Virus Control"
-static const char *const PLUGIN_NAME = PLUGIN_NAME_TEXT;
+// the Virus' only stamp clock (E148). The owner rule of owner.h, the same in the POSIX broker: the first
+// "TI Revive Virus Control" owns it, the others are told "another program has it" (state 2, no RX, no writes) until it
+// leaves. The ASIO driver and the Control Center share it.
+#define PLUGIN_NAME_TEXT VTI_PLUGIN_NAME
 static client *g_plugin_owner; // g_cs_clients
-static int is_plugin(const client *c) { return !strcmp(c->name, PLUGIN_NAME); }
-static int plugin_waits(const client *c) { return is_plugin(c) && c != g_plugin_owner; } // g_cs_clients held
+static int is_plugin(const client *c) { return vti_is_plugin(c->name); }
+static int plugin_waits(const client *c) { return vti_client_waits(is_plugin(c), c == g_plugin_owner); } // g_cs_clients held
 
 // ------------------------------------------------------------------------------------------------- audio
 static vti_audio_shm *g_shm;

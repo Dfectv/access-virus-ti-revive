@@ -27,6 +27,25 @@ inline DeviceStatus device_status(bool present, bool elsewhere)
     return s;
 }
 
+// Reports each change of the page once. `present` is -1 while unknown: an instance that waits for another instance
+// of its own process has no broker connection, but must show "Virus unavailable" all the same (E181).
+class StatusChange {
+public:
+    bool update(int present, bool elsewhere)
+    {
+        if (present < 0 && !elsewhere)
+            return false;
+        const int st = elsewhere ? 2 : present; // presence does not change the page while another one has the Virus
+        if (st == seen_)
+            return false;
+        seen_ = st;
+        return true;
+    }
+
+private:
+    int seen_ = -1;
+};
+
 // the value of one status parameter by its path, -1 if `path` is none of them
 inline int device_status_value(const DeviceStatus &s, const std::string &path)
 {
