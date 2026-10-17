@@ -11,6 +11,7 @@
 #include "vticore.h"
 #include "vtiproto.h"
 #include "brokerinfo.h"
+#include "flashinfo.h"
 #include "ctrlguard.h"
 #include "owner.h"
 #include <errno.h>
@@ -146,6 +147,50 @@ static client *g_owner; // g_cs_clients: the owning plug-in
 static int waits(const client *c) // g_cs_clients held
 {
     return vti_client_waits(vti_is_plugin(c->name), c == g_owner);
+}
+
+// the Virus' identification blocks (VTIMSG_FLASHINFO, flashinfo.h): read once per device open with the original
+// driver's fixed read-only sequence, then cached; the device lock is held per request only (MIDI keeps flowing)
+static unsigned g_dev_gen; // counts device opens: the cache belongs to one
+static uint8_t g_flash[VTI_FLASH_BLOCKS * 16];
+static int g_flash_len, g_flash_busy;
+static unsigned g_flash_gen;
+
+static int flash_ctl(void *u, uint8_t rt, uint8_t req, uint16_t val, uint16_t idx, uint8_t *d, uint16_t len)
+{
+    unsigned gen = *(unsigned *)u;
+    pthread_mutex_lock(&g_cs_dev);
+    int r = g_dev && g_dev_gen == gen ? vti_control(g_dev, rt, req, val, idx, d, len) : -1;
+    pthread_mutex_unlock(&g_cs_dev);
+    return r;
+}
+
+static void flash_nap(int ms) { usleep((useconds_t)ms * 1000); }
+
+static int flash_info(uint8_t *out)
+{
+    pthread_mutex_lock(&g_cs_dev);
+    unsigned gen = g_dev_gen;
+    int cached = g_dev && g_flash_len > 0 && g_flash_gen == gen, start = g_dev && !cached && !g_flash_busy;
+    if (cached)
+        memcpy(out, g_flash, (size_t)g_flash_len);
+    if (start)
+        g_flash_busy = 1;
+    int n = cached ? g_flash_len : -1;
+    pthread_mutex_unlock(&g_cs_dev);
+    if (!start)
+        return n;
+    n = vti_flash_info(flash_ctl, flash_nap, &gen, out);
+    blog("flash info read (read-only, E026): %d bytes", n);
+    pthread_mutex_lock(&g_cs_dev);
+    g_flash_busy = 0;
+    if (n > 0 && g_dev_gen == gen) {
+        memcpy(g_flash, out, (size_t)n);
+        g_flash_len = n;
+        g_flash_gen = gen;
+    }
+    pthread_mutex_unlock(&g_cs_dev);
+    return n;
 }
 
 static int may_use(client *c) // not an observer, not a waiting plug-in
@@ -761,6 +806,7 @@ static void *device_thread(void *unused)
             pthread_mutex_unlock(&g_cs_clients);
         }
         if (!g_dev && (g_dev = vti_open(on_rx, NULL))) {
+            g_dev_gen++;
             blog("device open, handshake sent");
             pthread_mutex_lock(&g_cs_clients);
             send_states(1);
@@ -965,6 +1011,15 @@ static void *client_thread(void *arg)
                 }
             }
             break;
+        case VTIMSG_FLASHINFO: { // the owner only (never an observer or a waiting plug-in)
+            if (c->observer)
+                break;
+            uint8_t fl[4 + VTI_FLASH_BLOCKS * 16];
+            int32_t n = may_use(c) ? flash_info(fl + 4) : -1;
+            memcpy(fl, &n, 4);
+            send_msg(c, VTIMSG_FLASHINFO_REPLY, fl, 4 + (n > 0 ? n : 0), NULL, 0);
+            break;
+        }
         case VTIMSG_CONTROL:
             if (c->observer) // read-only; and nothing may be written to an observer outside its queue
                 break;

@@ -55,10 +55,18 @@ public:
     // (vtiaudioshm.h, VTI_AUDIO_SHM_LINUX), 0 = no audio function, -1 = error / not the owner.
     int audio(bool on, int timeout_ms = 3000);
 
+    // The Virus' identification blocks (model, OS version), read by the broker with the original driver's fixed
+    // read-only flash sequence (flashinfo.h, E026/E040; owner only, cached per device open). Returns the byte count
+    // (blocks in `out`) or -1. Takes about 2 s the first time.
+    int flash_info(std::vector<uint8_t> &out, int timeout_ms = 8000);
+
 private:
     intptr_t fd_ = -1; // POSIX socket / Windows pipe HANDLE (overlapped)
     int audio_reply_ = 0;
     bool audio_replied_ = false;
+    int flash_reply_ = 0;
+    bool flash_replied_ = false;
+    std::vector<uint8_t> flash_;
     uint32_t observe_reply_ = 0;
     std::string name_, endpoint_, broker_version_;
     mutable std::mutex info_mu_;

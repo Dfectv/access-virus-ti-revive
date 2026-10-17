@@ -1,5 +1,6 @@
 // tirevive-cc - TI Revive Control Center, command line (phase 1: read-only, src/cc/controlcenter.h).
-//   tirevive-cc info                          USB identity of the Virus, RAM banks compared with the plug-in's cache
+//   tirevive-cc info [--raw]                  USB identity of the Virus, its identification blocks (OS version; --raw:
+//                                             the bytes), RAM banks compared with the plug-in's cache
 //   tirevive-cc backup [--out DIR] [--banks 1234]
 //                                             RAM banks -> "RAM A.mid".. (library format; default <Documents>/
 //                                             Access Music/Virus TI/Backups/<date time>)
@@ -55,7 +56,7 @@ static bool connect(vti::Broker &broker)
     return true;
 }
 
-static int info()
+static int info(bool raw)
 {
     vti::Broker broker;
     if (!connect(broker))
@@ -68,6 +69,21 @@ static int info()
     }
     printf("USB device   %04x:%04x, bcdDevice %x.%02x\n", di.vendor, di.product, di.bcd >> 8, di.bcd & 0xFF);
     printf("Manufacturer %s\nProduct      %s\n", di.manufacturer.c_str(), di.product_name.c_str());
+    // the identification blocks from the Virus' flash, read by the broker with the original driver's fixed read-only
+    // sequence (flashinfo.h, E026/E040)
+    std::vector<uint8_t> fl;
+    int n = broker.flash_info(fl);
+    if (n <= 0)
+        printf("Flash info   no answer (broker older than 0.8.21, or another program's plug-in has the Virus)\n");
+    for (int i = 0; raw && i < n; i += 16) {
+        printf("  %06x ", (unsigned)(i < 96 ? 0xFF7FA0 + i : 0x800000 + i - 96));
+        for (int k = 0; k < 16; k++)
+            printf(" %02x", fl[i + k]);
+        printf("  |");
+        for (int k = 0; k < 16; k++)
+            putchar(fl[i + k] >= 32 && fl[i + k] < 127 ? fl[i + k] : '.');
+        printf("|\n");
+    }
     vti::MemorySync sync(broker);
     std::string cache = vti::cc::cache_dir();
     for (int bank = 1; bank <= 4; bank++) {
@@ -270,8 +286,8 @@ int main(int argc, char **argv)
     if (argc < 2)
         return usage();
     std::string cmd = argv[1];
-    if (cmd == "info" && argc == 2)
-        return info();
+    if (cmd == "info" && (argc == 2 || (argc == 3 && !strcmp(argv[2], "--raw"))))
+        return info(argc == 3);
     if (cmd == "backup")
         return backup(argc, argv);
     if (cmd == "list" && argc == 3)

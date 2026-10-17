@@ -13,6 +13,7 @@
 #include "vticore.h"
 #include "vtiproto.h"
 #include "brokerinfo.h"
+#include "flashinfo.h"
 #include "ctrlguard.h"
 #include "owner.h"
 #include "vtipipe_io.h"
@@ -271,6 +272,50 @@ static int32_t audio_request(client *c, uint32_t on, const char *name)
     return r;
 }
 
+// the Virus' identification blocks (VTIMSG_FLASHINFO, flashinfo.h): read once per device open with the original
+// driver's fixed read-only sequence, then cached; the device lock is held per request only (MIDI keeps flowing)
+static unsigned g_dev_gen; // counts device opens: the cache belongs to one
+static uint8_t g_flash[VTI_FLASH_BLOCKS * 16];
+static int g_flash_len, g_flash_busy;
+static unsigned g_flash_gen;
+
+static int flash_ctl(void *u, uint8_t rt, uint8_t req, uint16_t val, uint16_t idx, uint8_t *d, uint16_t len)
+{
+    unsigned gen = *(unsigned *)u;
+    EnterCriticalSection(&g_cs_dev);
+    int r = g_dev && g_dev_gen == gen ? vti_control(g_dev, rt, req, val, idx, d, len) : -1;
+    LeaveCriticalSection(&g_cs_dev);
+    return r;
+}
+
+static void flash_nap(int ms) { Sleep((DWORD)ms); }
+
+static int flash_info(uint8_t *out)
+{
+    EnterCriticalSection(&g_cs_dev);
+    unsigned gen = g_dev_gen;
+    int cached = g_dev && g_flash_len > 0 && g_flash_gen == gen, start = g_dev && !cached && !g_flash_busy;
+    if (cached)
+        memcpy(out, g_flash, (size_t)g_flash_len);
+    if (start)
+        g_flash_busy = 1;
+    int n = cached ? g_flash_len : -1;
+    LeaveCriticalSection(&g_cs_dev);
+    if (!start)
+        return n;
+    n = vti_flash_info(flash_ctl, flash_nap, &gen, out);
+    blog("flash info read (read-only, E026): %d bytes", n);
+    EnterCriticalSection(&g_cs_dev);
+    g_flash_busy = 0;
+    if (n > 0 && g_dev_gen == gen) {
+        memcpy(g_flash, out, (size_t)n);
+        g_flash_len = n;
+        g_flash_gen = gen;
+    }
+    LeaveCriticalSection(&g_cs_dev);
+    return n;
+}
+
 static int send_msg(client *c, uint16_t type, const void *a, int alen, const void *b, int blen)
 {
     if (!c->alive || alen + blen > VTIMSG_MAX)
@@ -481,6 +526,7 @@ static DWORD WINAPI device_thread(LPVOID unused)
             g_dev_failed = 0;
             g_dev = vti_open(on_rx, NULL); // starts the IN readers, then sends the handshake
             if (g_dev) {
+                g_dev_gen++;
                 blog("device open, handshake sent");
                 uint32_t st = 1;
                 broadcast(VTIMSG_STATE, &st, 4, NULL, 0);
@@ -591,6 +637,14 @@ static DWORD WINAPI client_thread(LPVOID arg)
                 obs_traffic(0, buf[0], buf + 1, h.len - 1, NULL, 0);
                 if (g_verbose || r)
                     blog("write ep%02x %d bytes -> %d", buf[0], h.len - 1, r);
+            }
+            break;
+        case VTIMSG_FLASHINFO: // the owner only (never an observer or a waiting plug-in)
+            if (!c->observer) {
+                uint8_t fl[4 + VTI_FLASH_BLOCKS * 16];
+                int32_t n = !waits ? flash_info(fl + 4) : -1;
+                memcpy(fl, &n, 4);
+                send_msg(c, VTIMSG_FLASHINFO_REPLY, fl, 4 + (n > 0 ? n : 0), NULL, 0);
             }
             break;
         case VTIMSG_CONTROL:

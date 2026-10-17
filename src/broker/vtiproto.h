@@ -29,6 +29,8 @@ enum {
     VTIMSG_AUDIO = 4,         // client -> broker: u32 on (1 = start, 0 = stop), char event_name[] (on = 1)
     VTIMSG_AUTH = 5,          // client -> broker, first message on the Linux TCP listener: char token[64] (hex)
     VTIMSG_OBSERVE = 6,       // client -> broker: become a read-only observer (protocol 4)
+    VTIMSG_FLASHINFO = 7,     // client -> broker: the Virus' identification blocks (flashinfo.h; owner only, read once
+                              // per device open, then cached)
     VTIMSG_RX = 0x81,         // broker -> client: u8 ep, data...
     VTIMSG_CONTROL_REPLY = 0x83, // broker -> client: u32 seq, i32 result (bytes or -1), IN data...
     VTIMSG_STATE = 0x84,      // broker -> client: u32 connected (1 = device open; 2 = open, but another program's
@@ -41,6 +43,7 @@ enum {
                                // u8 ep, u32 ms since the broker started, payload (kind 2: setup[8], i32 result, data)
     VTIMSG_OBS_LOG = 0x89,     // broker -> observer: one log line (text, no newline)
     VTIMSG_OBS_STATUS = 0x8A,  // broker -> observer, once a second: "key=value" fields separated by tabs
+    VTIMSG_FLASHINFO_REPLY = 0x8C, // broker -> client: i32 result (bytes or -1), the blocks (flashinfo.h)
     VTIMSG_INFO = 0x8B,        // broker -> client after its HELLO: "key=value" fields separated by tabs ("version=0.8.21",
                                // brokerinfo.h); older clients ignore it
 };

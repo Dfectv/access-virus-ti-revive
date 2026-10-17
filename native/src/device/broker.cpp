@@ -315,6 +315,23 @@ int Broker::control(uint8_t rt, uint8_t req, uint16_t value, uint16_t index, uin
     return r;
 }
 
+int Broker::flash_info(std::vector<uint8_t> &out, int timeout_ms)
+{
+    out.clear();
+    {
+        std::lock_guard<std::mutex> g(ctl_);
+        flash_replied_ = false;
+    }
+    if (!send(VTIMSG_FLASHINFO, nullptr, 0))
+        return -1;
+    std::unique_lock<std::mutex> l(ctl_);
+    if (!ctl_cv_.wait_for(l, std::chrono::milliseconds(timeout_ms), [&] { return flash_replied_; }))
+        return -1;
+    if (flash_reply_ > 0)
+        out = flash_;
+    return flash_reply_;
+}
+
 int Broker::audio(bool on, int timeout_ms)
 {
     {
@@ -411,6 +428,17 @@ void Broker::read_loop()
             }
             break;
         }
+        case VTIMSG_FLASHINFO_REPLY:
+            if (h.len >= 4) {
+                std::lock_guard<std::mutex> g(ctl_);
+                memcpy(&flash_reply_, buf.data(), 4);
+                flash_.assign(buf.begin() + 4, buf.begin() + h.len);
+                if (flash_reply_ > 0 && (size_t)flash_reply_ != flash_.size())
+                    flash_reply_ = -1; // incomplete
+                flash_replied_ = true;
+                ctl_cv_.notify_all();
+            }
+            break;
         case VTIMSG_AUDIO_REPLY:
             if (h.len >= 4) {
                 std::lock_guard<std::mutex> g(ctl_);

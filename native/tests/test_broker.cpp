@@ -12,6 +12,7 @@
 #include <functional>
 #include "../../src/broker/vtiproto.h"
 #include "../../src/broker/brokerinfo.h"
+#include "../../src/broker/flashinfo.h"
 #include <atomic>
 #include <chrono>
 #include <cstring>
@@ -206,6 +207,35 @@ TEST(broker_info_version)
     b.close();
     char buf[64];
     CHECK(vti_info_text(buf, sizeof buf) > 0 && std::string(buf).rfind("version=", 0) == 0);
+}
+
+// the Virus' identification blocks through the broker (VTIMSG_FLASHINFO, flashinfo.h): the client asks, the broker
+// answers with i32 result + the blocks; an error (-1, not the owner) gives no data
+TEST(broker_flash_info_request)
+{
+    FakeBroker fb;
+    Broker b;
+    b.set_endpoint(fb.path);
+    std::string err;
+    CHECK(b.open(err));
+    std::vector<uint8_t> blocks;
+    std::thread answer([&] {
+        CHECK(eventually([&] { return !fb.messages(VTIMSG_FLASHINFO).empty(); }));
+        Bytes r = FakeBroker::u32((uint32_t)VTI_FLASH_BLOCKS * 16);
+        for (int i = 0; i < VTI_FLASH_BLOCKS * 16; i++)
+            r.push_back((uint8_t)i);
+        fb.reply(VTIMSG_FLASHINFO_REPLY, r);
+    });
+    CHECK(b.flash_info(blocks, 3000) == VTI_FLASH_BLOCKS * 16);
+    answer.join();
+    CHECK(blocks.size() == VTI_FLASH_BLOCKS * 16 && blocks[5] == 5 && blocks.back() == (uint8_t)(VTI_FLASH_BLOCKS * 16 - 1));
+    std::thread refuse([&] {
+        CHECK(eventually([&] { return fb.messages(VTIMSG_FLASHINFO).size() == 2; }));
+        fb.reply(VTIMSG_FLASHINFO_REPLY, FakeBroker::u32((uint32_t)-1));
+    });
+    CHECK(b.flash_info(blocks, 3000) == -1 && blocks.empty());
+    refuse.join();
+    b.close();
 }
 
 TEST(broker_hello_state_write_rx)
