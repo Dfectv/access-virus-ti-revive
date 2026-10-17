@@ -1,0 +1,265 @@
+{
+ "round": "0.8.20",
+ "lead": "Test build 0.8.20 (CI run 39003702169, branch round-0.8.20), the fixes for the macOS results of 0.8.19: the Control Center works next to the DAW on every system, a duplicated track shows \"Virus unavailable\" again, and the backup folder that the Access installer created as administrator is given back to you. One block per system, about 30 to 45 minutes each. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "rules": [
+  "Second build (CI run 39006712326): fixes for L5 (REAPER crash), the Control Center's window and closing, and the missing Access look on Windows. Items you already passed stay passed; the new items M5, L6, L7, W5 and B5 check the fixes.",
+  "Disposable DAW project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches.",
+  "Order: macOS (the Virus is there), then Linux, then the Windows 11 VM, and Windows 11 on this PC last.",
+  "Close the DAW before moving the Virus to another machine."
+ ],
+ "sections": [
+  {
+   "id": "mac",
+   "title": "macOS",
+   "where": "MacBook Air M3, Ableton Live 12",
+   "prep": [
+    "Second build: Claude unpacked it to <code>~/Downloads/TI-Revive-0.8.20b-mac</code>; install with <code>sudo installer -pkg ~/Downloads/TI-Revive-0.8.20b-mac/\"TI Revive.pkg\" -target /</code>. First build: Claude unpacked the package to <code>~/Downloads/TI-Revive-0.8.20-mac</code>. In Terminal: <code>sudo installer -pkg ~/Downloads/TI-Revive-0.8.20-mac/\"TI Revive.pkg\" -target /</code>"
+   ],
+   "notes": [
+    "Your Documents/Access Music folder still belongs to the administrator on purpose: M1 checks that the installer fixes it."
+   ],
+   "items": [
+    {
+     "id": "M1",
+     "title": "Backup folder given back, smoke test",
+     "steps": [
+      "In Terminal: <code>ls -l ~/Documents/\"Access Music\"</code>. If it still shows <code>root</code>: run \"Set up Access Virus TI files.command\" from the package folder and look again.",
+      "Start Ableton: the Virus track plays, the editor opens."
+     ],
+     "expect": "your user name instead of root (note whether the installer or the setup command fixed it). Sound, editor normal."
+    },
+    {
+     "id": "M2",
+     "title": "Control Center next to Ableton",
+     "steps": [
+      "Let Ableton play the Virus track in a loop.",
+      "Start TI Revive Control Center: device info, then back up one bank (default folder in Documents/Access Music).",
+      "Export a library through its file dialog; open Nerd mode, Live view."
+     ],
+     "expect": "the Control Center connects (no waiting message), the backup and the export files appear, traffic scrolls, and Ableton keeps playing in time without dropouts."
+    },
+    {
+     "id": "M3",
+     "title": "Duplicate track",
+     "steps": [
+      "Duplicate the Virus track in Ableton and open the duplicate's editor.",
+      "Play the original track.",
+      "Delete the original track, play the copy."
+     ],
+     "expect": "the duplicate's editor shows the \"Virus unavailable\" page (the LCD says \"Virus in use\"), the original plays in time. After deleting the original, the copy takes over within a few seconds and plays."
+    },
+    {
+     "id": "M4",
+     "title": "Greyed controls stay locked",
+     "steps": [
+      "Set part 1's Input Mode to Off.",
+      "Click the greyed Input select in the INPUT box (not the ENV FOLLOWER's Input menu).",
+      "Turn on help mode (?) and hover over it."
+     ],
+     "expect": "no menu opens, the value stays. Help shows \"Inactive now: depends on Input Mode ...\"."
+    },
+    {
+     "id": "M5",
+     "title": "Second build: Control Center window",
+     "steps": [
+      "Install the second build (see the note above).",
+      "Start TI Revive Control Center.",
+      "Look at the whole window, then close it with the window's close button."
+     ],
+     "expect": "the Access look fills the window, nothing cut off on the right, no empty margin. It closes normally."
+    }
+   ]
+  },
+  {
+   "id": "linux",
+   "title": "Linux",
+   "where": "REAPER via pw-jack, Virus on this PC",
+   "prep": [
+    "Second build: <code>cd ~/Downloads/TI-Revive-0.8.20b-linux &amp;&amp; ./install.sh</code>. First build: close Ableton on the Mac, move the Virus to this PC, then install the package that Claude unpacked to <code>~/Downloads/TI-Revive-0.8.20-linux</code> with <code>./install.sh</code> (asks for your password once)."
+   ],
+   "notes": [],
+   "items": [
+    {
+     "id": "L1",
+     "title": "Smoke test and patch libraries",
+     "steps": [
+      "Start REAPER, open the test project, play a few notes.",
+      "Open the patch browser and look at the personal libraries."
+     ],
+     "expect": "sound, editor normal. The factory libraries appear (they are in ~/Dokumente/Access Music, which builds before 0.8.19 never looked at)."
+    },
+    {
+     "id": "L2",
+     "title": "E175: cable replug and power-on without a DAW",
+     "steps": [
+      "Close REAPER. Pull the USB cable for 10 s, plug it back in, start REAPER, play.",
+      "Close REAPER. Switch the Virus off, wait 15 s, switch it on, start REAPER, play.",
+      "If it stays silent in either case: do not power-cycle yet, go to L3."
+     ],
+     "expect": "sound in both cases. Either way the broker log records the packet sizes; Claude reads it afterwards."
+    },
+    {
+     "id": "L3",
+     "title": "Only if L2 was silent: one USB reset as a cure",
+     "steps": [
+      "Close REAPER and wait 40 s (the broker exits and resets the port once).",
+      "Start REAPER again and play."
+     ],
+     "expect": "unknown, this is the question. Sound back means a reset is enough and no power cycle is needed. Power-cycle the Virus afterwards anyway."
+    },
+    {
+     "id": "L4",
+     "title": "Control Center next to REAPER",
+     "steps": [
+      "Let REAPER play the Virus track in a loop.",
+      "Start TI Revive Control Center: device info, then back up one bank (default folder, ~/Dokumente/Access Music).",
+      "Export a library through its file dialog; open Nerd mode, Live view."
+     ],
+     "expect": "the Control Center connects (no waiting message), the backup and the export files appear, traffic scrolls, and REAPER keeps playing in time without dropouts."
+    },
+    {
+     "id": "L5",
+     "title": "Duplicate track and greyed controls",
+     "steps": [
+      "Duplicate the Virus track in REAPER and open the duplicate's editor.",
+      "Play the original track.",
+      "Delete the original track, play the copy.",
+      "Then the greyed Input select as in M4."
+     ],
+     "expect": "the duplicate's editor shows the \"Virus unavailable\" page (the LCD says \"Virus in use\"), the original plays in time. After deleting the original, the copy takes over within a few seconds and plays. No menu opens, the value stays. Help shows \"Inactive now: depends on Input Mode ...\"."
+    },
+    {
+     "id": "L6",
+     "title": "Second build: duplicate track again",
+     "steps": [
+      "Install the second build (see the note above).",
+      "Repeat L5 with the installed package (you tested a build from Claude's machine before)."
+     ],
+     "expect": "no crash; the duplicate shows \"Virus unavailable\" and takes over after the original is deleted."
+    },
+    {
+     "id": "L7",
+     "title": "Second build: Control Center window and closing",
+     "steps": [
+      "Start <code>tirevive-control-center</code> from a terminal.",
+      "Look at the whole window, then close it with the window's close button."
+     ],
+     "expect": "the Access look fills the window without an empty margin. No \"Speicherzugriffsfehler\" in the terminal after closing (the GTK warnings at the start are harmless)."
+    }
+   ]
+  },
+  {
+   "id": "vm",
+   "title": "Windows 11 VM",
+   "where": "Ableton Live 11, Virus passed through",
+   "prep": [
+    "Prepare: close REAPER. Claude hands over the Virus with <code>VM=win11 scripts/vm.sh attach</code> (stops the Linux broker first). 0.8.20 is installed in the VM with setup.exe."
+   ],
+   "notes": [],
+   "items": [
+    {
+     "id": "W1",
+     "title": "Handover from Linux and smoke test",
+     "steps": [
+      "Open the test project in Ableton, play."
+     ],
+     "expect": "sound right away, no error 31 in the broker log, no power cycle needed (E179)."
+    },
+    {
+     "id": "W2",
+     "title": "Control Center next to Ableton, file dialogs",
+     "steps": [
+      "Let Ableton play the Virus track in a loop.",
+      "Start TI Revive Control Center. Backup: choose a target folder in the dialog, back up one bank.",
+      "Export a library through its file dialog; open Nerd mode, Live view."
+     ],
+     "expect": "the dialogs accept a folder or file and the files appear there, traffic scrolls, Ableton keeps playing in time."
+    },
+    {
+     "id": "W3",
+     "title": "Duplicate track",
+     "steps": [
+      "Duplicate the Virus track in Ableton and open the duplicate's editor.",
+      "Play the original track.",
+      "Delete the original track, play the copy."
+     ],
+     "expect": "the duplicate's editor shows the \"Virus unavailable\" page (the LCD says \"Virus in use\"), the original plays in time. After deleting the original, the copy takes over within a few seconds and plays."
+    },
+    {
+     "id": "W4",
+     "title": "Greyed controls stay locked",
+     "steps": [
+      "Same as M4, in Ableton."
+     ],
+     "expect": "no menu opens on the greyed Input select."
+    },
+    {
+     "id": "W5",
+     "title": "Second build: Control Center look and window",
+     "steps": [
+      "Start TI Revive Control Center (Claude installed the second build in the VM).",
+      "Look at the whole window, then close it."
+     ],
+     "expect": "the Access look now (the setup fetched it from the Access installer), nothing cut off on the right."
+    }
+   ]
+  },
+  {
+   "id": "bare",
+   "title": "Windows 11 on this PC",
+   "where": "boot into Windows; Claude is not available during it",
+   "prep": [
+    "Prepare: in Windows, download the 0.8.20 setup.exe from <code>github.com/derpsn/access-virus-ti-revive/actions/runs/39006712326</code> (artifact \"TI-Revive-msi\", GitHub login) and install it. On one of the NTFS data disks (\"Volume\") create a folder <code>tirevive-0.8.20</code> for the results. Take the second build (run 39006712326), not the first."
+   ],
+   "notes": [
+    "Do this block last. Reboot to Linux at the end; Claude then reads the folder read-only."
+   ],
+   "items": [
+    {
+     "id": "B1",
+     "title": "Smoke test and sidechain",
+     "steps": [
+      "Ableton: the Virus track plays.",
+      "Preferences: 3 Outs / 1 Input. Route an audio track into the plug-in's sidechain input, set part 1 Input Mode to Static, play the audio track."
+     ],
+     "expect": "sound, and the sidechain audio is heard through the Virus."
+    },
+    {
+     "id": "B2",
+     "title": "Timing render",
+     "steps": [
+      "A MIDI clip with 16ths at 120 BPM for 30 s into the Virus, 44.1 kHz, buffer 256.",
+      "Export audio as WAV into <code>tirevive-0.8.20</code> as <code>render-16ths.wav</code>."
+     ],
+     "expect": "a clean render. Claude compares it with the VM's gap pattern (E141) afterwards."
+    },
+    {
+     "id": "B3",
+     "title": "Reconnect without the VM",
+     "steps": [
+      "Ableton open and playing: pull the USB cable for 10 s, plug it back in.",
+      "Close Ableton, switch the Virus off and on, start Ableton, play."
+     ],
+     "expect": "sound comes back in both cases. Silent means E175 exists on Windows too."
+    },
+    {
+     "id": "B4",
+     "title": "ASIO latency and logs",
+     "steps": [
+      "Optional: choose the ASIO device \"TI Revive Virus Audio\" (needs 3 Outs / No Input), buffer 256, note the input and output latency Ableton shows.",
+      "Run <code>tirevive-usbinfo.ps1</code> and copy its output into <code>tirevive-0.8.20</code>."
+     ],
+     "expect": "latency values noted; the log contains the broker log with the packet lines."
+    },
+    {
+     "id": "B5",
+     "title": "Control Center look and window",
+     "steps": [
+      "Start TI Revive Control Center."
+     ],
+     "expect": "the Access look, nothing cut off on the right. If it shows the plain page: run \"Set up Access Virus TI files\" from the Start menu once with the Access .msi in Downloads, then start it again."
+    }
+   ]
+  }
+ ]
+}
