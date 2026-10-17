@@ -161,13 +161,18 @@ Access is installed or registered. These are the files it loads:
 
 ## 3. Platforms
 
-**Popup menus (all platforms, E194):** the value lists (oscillator modes, wavetables, ...), the category filter and
-the size menu open our own popup (`src/editor/popupmenu.*` = layout, mouse and keys, unit-tested; `PopupView` in
-`plugin/source/viruseditor.cpp` = drawing, a modal view over the editor). It looks like the original's Windows menu:
-columns of 25 with a separator line (the Wavetable list: 4 x 25), at the control's corner (E189), a tick at the current
-value, greyed entries ("-G"), Up/Down/Left/Right/Home/End, Return, Esc. VSTGUI's native menus could not do this:
-columns exist only in its Windows menu. Unlike a native menu it stays inside the editor window: it is moved up/left
-where it would stick out, and a list taller than the editor gets more columns.
+**Popup menus (all platforms, E194, E195):** the value lists (oscillator modes, wavetables, ...), the category filter,
+the size menu and the patch/bank menus with their submenus open our own popup (`src/editor/popupmenu.*` = layout,
+mouse, keys and the submenu wait, unit-tested; `PopupView` in `plugin/source/viruseditor.cpp` = drawing and control;
+`plugin/source/popupwindow*` = the windows). It looks like the original's Windows menu: columns of 25 with a
+separator line (the Wavetable list: 4 x 25), at the control's corner (E189), a tick at the current value, greyed
+entries ("-G"), Up/Down/Left/Right/Home/End, Return, Esc. VSTGUI's native menus could not do this: columns exist only
+in its Windows menu. Like the original's menus each open menu is a window of its own (since round 0.8.22), so it
+may leave the editor and use the monitor's work area; submenus open on the right of their entry, on the left when
+there is no room, and a list taller than the screen gets more columns. The windows never take the focus: the keys
+stay with the editor, where an invisible modal view receives them; a click outside the menus, a click into the
+editor or a switch to another window closes the menu. Submenus open, switch and close after Windows' menu show delay
+(400 ms on macOS/Linux), so the pointer can cross other entries on its way into an open submenu.
 
 
 ### Linux (tested in REAPER 7.82 at 44.1 and 48 kHz)
@@ -175,7 +180,7 @@ where it would stick out, and a list taller than the editor gets more columns.
 |---|---|
 | plug-in format | VST3 bundle `~/.vst3/TI Revive Virus Control.vst3` (`x86_64-linux`) |
 | UI | VSTGUI on X11; uses the host's `IRunLoop` (from the plug frame or host context) and `X11::FrameConfig`; the host maps the XEmbed window |
-| menus | value lists, the category filter and the size menu: our own popup (below); the patch/bank menus with submenus: VSTGUI's generic (in-window) menu with a compact light theme and no fade-in, because X11 has no native menus |
+| menus | our own popup (above) in override-redirect X11 windows (`popupwindow_x11.cpp`); the work area is `_NET_WORKAREA` (all monitors together) |
 | drawing speed | VSTGUI keeps bitmaps as CPU (cairo image) surfaces and uploads their pixels on every draw into the X back buffer - ~70 ms per full repaint on a real X server/XWayland. The editor keeps X pixmap copies of all bitmaps (`cairo_surface_create_similar` on the frame window) and caches the static layer (backgrounds, panels, labels) as a pixmap; repaints become server-side composites (GPU with glamor): full repaint ~1-7 ms, knob step < 1 ms. `VTI_NATIVE_NO_PIXMAPS=1` disables the copies |
 | broker | systemd user socket `/tmp/vtibroker-<uid>.sock` (starts on demand, exits after 30 s idle) |
 | audio ring | `/dev/shm/tirevive-audio-<uid>` |
@@ -189,7 +194,7 @@ where it would stick out, and a list taller than the editor gets more columns.
 | topic | how |
 |---|---|
 | plug-in format | VST3 bundle in `C:\Program Files\Common Files\VST3\TI Revive Virus Control.vst3` (`x86_64-win`), built with MSVC in CI (`.github/workflows/build.yml`, artifacts `VirusTINative-windows` + `tools-windows`) |
-| UI | VSTGUI with Direct2D; our own popup for value lists (below), native Win32 menus for the patch/bank menus; images taller than 16384 px (Direct2D's limit; the cutoff knob filmstrips are 16512 px) are split into tiles when loaded |
+| UI | VSTGUI with Direct2D; our own popup (above) in WS_POPUP windows that never activate (`popupwindow_win.cpp`); images taller than 16384 px (Direct2D's limit; the cutoff knob filmstrips are 16512 px) are split into tiles when loaded |
 | broker | named pipe `\\.\pipe\vtibroker`; like TI Revive's own clients the plug-in starts `vtibroker.exe` on demand (path from `HKLM\SOFTWARE\TI Revive\InstallDir`, else `%ProgramW6432%\TI Revive`), detached from the DAW's job object; the broker exits by itself when idle |
 | USB | TI Revive's WinUSB binding (MSI); no Access driver |
 | audio ring | file mapping `Local\vtibroker_audio`, plus a named event per plug-in process |
@@ -222,7 +227,7 @@ output crackles because QEMU's USB passthrough corrupts isochronous OUT data (TI
 | topic | how |
 |---|---|
 | plug-in format | VST3 bundle `~/Library/Audio/Plug-Ins/VST3/TI Revive Virus Control.vst3`, universal (runs natively on Apple Silicon, no Rosetta), built with Xcode in CI (artifacts `VirusTINative-macos`, `tools-macos`) |
-| UI | VSTGUI with Cocoa / CoreGraphics; our own popup for value lists (below), native menus for the patch/bank menus |
+| UI | VSTGUI with Cocoa / CoreGraphics; our own popup (above) in non-activating NSPanels (`popupwindow_mac.mm`) |
 | permissions | the DAW needs microphone access (System Settings > Privacy > Microphone): without it Core Audio delivers silent input buffers |
 | broker | same program and protocol as on Linux (`/tmp/vtibroker-<uid>.sock`); no socket activation on macOS, so the plug-in starts `/Library/Application Support/TI Revive/vtibroker` itself when nobody answers (like TI Revive's libVirusUSB; `$TIREVIVE_BROKER` overrides) |
 | audio | **not** through the broker: the Virus' USB audio function is class compliant, so Core Audio offers it as an input device. The plug-in finds it (name contains "Virus", 6 inputs), sets 44.1 kHz and fills the same ring structure (`vti_audio_shm`) from an IOProc in its own memory; drift handling and latency are shared with the other platforms |

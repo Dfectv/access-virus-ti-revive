@@ -1,10 +1,30 @@
 # HANDOFF
 
-_Last updated: 2026-10-17 (CONTINUE HERE below; round 0.8.22 in progress). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-17 night (CONTINUE HERE below; round 0.8.22 in progress). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E201), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## CONTINUE HERE (state 2026-10-17 evening: round 0.8.22 paused after the Linux tests)
+## CONTINUE HERE (state 2026-10-17 night: round 0.8.22, popup windows done on Linux, CI for Windows/macOS)
+
+**Done on round-0.8.22 (after 838544a):** items 1 + 2 of the plan below. Popup menus are top-level windows of their
+own on all platforms (native/plugin/source/popupwindow.h + _win.cpp / _mac.mm / _x11.cpp): one window per open
+menu, never activated (Windows: WS_POPUP tool window, the VSTGUI child's button press bypasses its SetFocus;
+macOS: non-activating NSPanel at NSPopUpMenuWindowLevel; X11: override-redirect, _NET_WM_WINDOW_TYPE_POPUP_MENU),
+placed in the monitor's work area at the display scale (Windows: GetDpiForWindow, Linux: the host's content scale,
+macOS: points). PopupView is now an invisible modal view over the editor (keys; a click into the editor closes) with
+a 15 ms timer: submenu wait, a press outside menus + editor closes, a focus switch closes (Windows foreground
+window, macOS app active; Linux: none). Submenu delay in PopupCascade (Windows' SPI_GETMENUSHOWDELAY, 400 ms on
+macOS/Linux): highlight at once, submenus switch after the wait, reaching the open submenu keeps it. Patch/bank
+menus back on our popup on Windows/macOS. Fallback inside the editor: VTI_NATIVE_INLINE_POPUP=1 or no window.
+Checked on Linux only (Xvfb + nativehost with the TI2, nothing chosen/sent): LOAD menu beyond the editor, RAM A ->
+patches across RAM B keeps RAM A, desktop click and editor click close, Osc 2 list, 200 % editor (menus at 100 %),
+editor closed with a menu open (exit 0). 189 unit tests. CI run 39046709950 (Windows/macOS compile) - check it.
+Open: Linux work area is _NET_WORKAREA (spans all monitors, no RandR); ctest gui_duplicate_editors failed once in
+4 runs right after a parallel build (flake?). Next: CI green -> test build, install on Linux/VM/Mac, checklist
+items L4 redo + menu items for W and M (the Windows/macOS menus are new code: hover delay, outside click, Alt-Tab /
+Cmd-Tab closes, HiDPI placement, a menu near the screen's right edge opens submenus on the left).
+
+## Previous state (2026-10-17 evening: round 0.8.22 paused after the Linux tests)
 
 **Results 0.8.22b (user, 2026-10-17):** L5 REMOTE page PASS (LCD on a double-click, text fields fit); L3 pass (earlier
 build). L4 patch/bank menus: loading works but the menu is still not good: bound to the plug-in window; when moving
