@@ -25,6 +25,12 @@ public:
     bool open(std::string &error);
     void close();
     bool device_present() const { return present_; }
+    // the broker's release version from its INFO message ("" from older brokers): PATCH UTILITY > INFO (E189)
+    std::string broker_version() const
+    {
+        std::lock_guard<std::mutex> g(info_mu_);
+        return broker_version_;
+    }
     // the Virus is there, but another program's plug-in has it (state 2): wait, like a second instance (E166)
     bool in_use_elsewhere() const { return elsewhere_; }
     // shown in the broker's status for observers ("TI Revive Virus Control", "tirevive-cc", ...); before open()
@@ -54,7 +60,8 @@ private:
     int audio_reply_ = 0;
     bool audio_replied_ = false;
     uint32_t observe_reply_ = 0;
-    std::string name_, endpoint_;
+    std::string name_, endpoint_, broker_version_;
+    mutable std::mutex info_mu_;
     ObserveHandler observe_;
     std::thread reader_;
     std::mutex wr_, ctl_;

@@ -10,6 +10,7 @@
 // usage: vtibroker [-v] [-stay]     socket: /tmp/vtibroker-<uid>.sock (VTI_SOCK_FMT)
 #include "vticore.h"
 #include "vtiproto.h"
+#include "brokerinfo.h"
 #include "ctrlguard.h"
 #include "owner.h"
 #include <errno.h>
@@ -914,8 +915,11 @@ static void *client_thread(void *arg)
             if (h.type == VTIMSG_HELLO)
                 blog("client hello, protocol %u%s%s", h.len >= 4 ? *(uint32_t *)buf : 0, c->name[0] ? ": " : "", c->name);
             send_msg(c, VTIMSG_STATE, &st, 4, NULL, 0);
-            if (h.type == VTIMSG_HELLO)
+            if (h.type == VTIMSG_HELLO) {
+                char info[96];
+                send_msg(c, VTIMSG_INFO, info, vti_info_text(info, sizeof info), NULL, 0); // our version (INFO box)
                 continue;
+            }
         }
         switch (h.type) {
         case VTIMSG_HELLO: // a second HELLO changes nothing: the name and the owner were decided with the first

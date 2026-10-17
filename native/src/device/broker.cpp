@@ -396,6 +396,21 @@ void Broker::read_loop()
             if (observe_)
                 observe_(h.type, buf.data(), h.len);
             break;
+        case VTIMSG_INFO: { // "key=value" fields separated by tabs: keep the version
+            std::string t((const char *)buf.data(), h.len), key = "version=";
+            for (size_t at = 0; at <= t.size();) {
+                size_t end = t.find('\t', at);
+                std::string f = t.substr(at, end == std::string::npos ? std::string::npos : end - at);
+                if (f.compare(0, key.size(), key) == 0) {
+                    std::lock_guard<std::mutex> g(info_mu_);
+                    broker_version_ = f.substr(key.size());
+                }
+                if (end == std::string::npos)
+                    break;
+                at = end + 1;
+            }
+            break;
+        }
         case VTIMSG_AUDIO_REPLY:
             if (h.len >= 4) {
                 std::lock_guard<std::mutex> g(ctl_);

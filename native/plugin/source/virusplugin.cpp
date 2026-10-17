@@ -1360,7 +1360,8 @@ std::string VirusPlugin::live_text(const std::string &param)
         return lcd_part_;
     if (param == "VirusControl/Display Original Value")
         return lcd_orig_;
-    return system_info_text(param, sysinfo_); // the INFO box's versions, "" for anything else
+    sysinfo_.broker = broker_.broker_version(); // from the broker's INFO message ("" from older brokers)
+    return system_info_text(param, sysinfo_);   // the INFO box's versions, "" for anything else
 }
 
 void VirusPlugin::ui_set(const std::string &path, int part, int value)

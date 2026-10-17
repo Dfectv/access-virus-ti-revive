@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <functional>
 #include "../../src/broker/vtiproto.h"
+#include "../../src/broker/brokerinfo.h"
 #include <atomic>
 #include <chrono>
 #include <cstring>
@@ -187,6 +188,24 @@ TEST(broker_connect_errors)
     b.set_endpoint("/tmp/" + std::string(200, 'x'));
     CHECK(!b.open(err) && err.find("too long") != std::string::npos);
     CHECK(!b.write(0x06, (const uint8_t *)"x", 1)); // not connected
+}
+
+// the broker's INFO message after HELLO carries its release version (PATCH UTILITY > INFO, E189); older brokers do
+// not send it - the version stays empty; unknown fields are ignored
+TEST(broker_info_version)
+{
+    FakeBroker fb;
+    Broker b;
+    b.set_endpoint(fb.path);
+    std::string err;
+    CHECK(b.open(err));
+    CHECK(b.broker_version().empty());
+    std::string t = "future=1\tversion=0.8.21\tother=x";
+    fb.reply(VTIMSG_INFO, Bytes(t.begin(), t.end()));
+    CHECK(eventually([&] { return b.broker_version() == "0.8.21"; }));
+    b.close();
+    char buf[64];
+    CHECK(vti_info_text(buf, sizeof buf) > 0 && std::string(buf).rfind("version=", 0) == 0);
 }
 
 TEST(broker_hello_state_write_rx)

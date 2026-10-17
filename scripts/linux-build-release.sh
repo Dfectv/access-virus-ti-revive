@@ -26,7 +26,7 @@ if [ ! -f "$LIBUSB/lib/libusb-1.0.a" ]; then
 fi
 echo "== broker"
 B="$REPO/src/broker"
-gcc -O2 -Wall -Wextra -I"$LIBUSB/include/libusb-1.0" -o "$BUILD/vtibroker" "$B/vtibroker_posix.c" "$B/vticore.c" \
+gcc -O2 -Wall -Wextra -DTIREVIVE_VERSION="\"$VERSION\"" -I"$LIBUSB/include/libusb-1.0" -o "$BUILD/vtibroker" "$B/vtibroker_posix.c" "$B/vticore.c" \
     "$B/vtiusbaudio_libusb.c" "$B/vticore_midi.c" "$LIBUSB/lib/libusb-1.0.a" -lpthread
 ! ldd "$BUILD/vtibroker" | grep -q libusb || { echo "broker still links libusb dynamically"; exit 1; }
 NATIVE=""

@@ -12,6 +12,7 @@
 // usage: vtibroker.exe [-v]      (-v: log every message; log file %TEMP%\vtibroker.log)
 #include "vticore.h"
 #include "vtiproto.h"
+#include "brokerinfo.h"
 #include "ctrlguard.h"
 #include "owner.h"
 #include "vtipipe_io.h"
@@ -563,6 +564,10 @@ static DWORD WINAPI client_thread(LPVOID arg)
             if (!state_sent) {
                 send_state(c);
                 state_sent = 1;
+            }
+            {
+                char info[96];
+                send_msg(c, VTIMSG_INFO, info, vti_info_text(info, sizeof info), NULL, 0); // our version (INFO box)
             }
             break;
         case VTIMSG_OBSERVE: { // read-only observer: no RX, no writes; traffic copy, log and status instead

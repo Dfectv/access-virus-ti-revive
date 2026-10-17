@@ -8,6 +8,7 @@
 //   AUDIO    {on, event name}                 AUDIO_REPLY {result}         (protocol 2, vtiaudioshm.h)
 //                                             AUDIO_TICK {in_frames}       (protocol 3, Linux: per received block)
 //   OBSERVE  {}                               OBSERVE_REPLY {version}      (protocol 4: read-only observer)
+//                                             INFO {"version=..."}         (after HELLO, brokerinfo.h)
 //                                             OBS_TRAFFIC / OBS_LOG / OBS_STATUS (to observers only)
 //
 // Observers (protocol 4, the Control Center's Nerd mode) never own the Virus: their WRITE, CONTROL and AUDIO are
@@ -40,6 +41,8 @@ enum {
                                // u8 ep, u32 ms since the broker started, payload (kind 2: setup[8], i32 result, data)
     VTIMSG_OBS_LOG = 0x89,     // broker -> observer: one log line (text, no newline)
     VTIMSG_OBS_STATUS = 0x8A,  // broker -> observer, once a second: "key=value" fields separated by tabs
+    VTIMSG_INFO = 0x8B,        // broker -> client after its HELLO: "key=value" fields separated by tabs ("version=0.8.21",
+                               // brokerinfo.h); older clients ignore it
 };
 
 #pragma pack(push, 1)
