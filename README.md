@@ -223,11 +223,12 @@ same with Access' own driver.
   Control Center's Access look still stretches them.
 - **REMOTE page** (since 0.8.22): the Virus' remote templates with their names, knob names and MIDI strings, the
   original's knob template list, template files to load and save, sent to the Virus like the original.
-- **Menus** (since 0.8.22): every menu of the plug-in (value lists, LOAD and SAVE, banks, libraries) is a window of
-  its own, as in the original on Windows: it can reach beyond the plug-in window and use the whole screen, with the
-  original's columns (the Wavetable list: 4 columns of 25). A submenu opens when the pointer rests on its entry for
-  a moment, so you can move across other entries into an open submenu, for example from RAM A to its patches past
-  RAM B. Arrow keys, Return and Esc work as in a Windows menu.
+- **Menus, reworked:** since 0.8.22 the plug-in's menus are reworked and modernized, and they work the same on
+  Windows, macOS and Linux. Every menu (value lists, LOAD and SAVE, banks, libraries) is a window of its own, like the
+  original's menus on Windows: it can reach beyond the plug-in window and use the whole screen, with the original's
+  columns (the Wavetable list: 4 columns of 25). A submenu opens when the pointer rests on its entry for a moment, so
+  you can move across other entries into an open submenu, for example from RAM A to its patches past RAM B. Arrow
+  keys, Return and Esc work; a click elsewhere or switching to another window closes the menu.
 - **One plug-in instance per synth.** Virus Control is designed that way (it controls all 16 parts);
   a second instance shows "Virus in use by another instance" and takes over when the first one is removed.
 - **Hearing the Virus**: with a part output set to *USB*, the audio comes through the plug-in track.

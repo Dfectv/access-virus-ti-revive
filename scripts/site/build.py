@@ -462,12 +462,13 @@ def features_section():
     </div>
 
     <div class="feature">
-      <div><h3>Menus</h3>
-      <p>Since 0.8.22 every menu of the plug-in (value lists, LOAD and SAVE, banks, libraries) is a window of its own,
-      as in the original on Windows: it can reach beyond the plug-in window and use the whole screen, with the
-      original's columns (the Wavetable list: 4 columns of 25). A submenu opens when the pointer rests on its entry for
-      a moment, so you can move across other entries into an open submenu, for example from RAM A to its patches past
-      RAM B. Arrow keys, Return and Esc work as in a Windows menu.</p></div>
+      <div><h3>Menus, reworked</h3>
+      <p>Since 0.8.22 the plug-in's menus are reworked and modernized, and they work the same on Windows, macOS and Linux.
+      Every menu (value lists, LOAD and SAVE, banks, libraries) is a window of its own, like the original's menus on
+      Windows: it can reach beyond the plug-in window and use the whole screen, with the original's columns (the
+      Wavetable list: 4 columns of 25). A submenu opens when the pointer rests on its entry for a moment, so you can
+      move across other entries into an open submenu, for example from RAM A to its patches past RAM B. Arrow keys,
+      Return and Esc work; a click elsewhere or switching to another window closes the menu.</p></div>
     </div>
 
     <div class="feature">
