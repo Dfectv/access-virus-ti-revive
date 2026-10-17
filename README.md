@@ -357,7 +357,7 @@ Revive rebuilds that plug-in, and we want to fix its problems instead of copying
 **Being tested now**
 
 - Sleep: on the Mac, sleep cut the original's connection until Access fixed it in 2008
-  ([KVR](https://www.kvraudio.com/news-print.php?id=10515)). In our test, TI Revive 0.8.22 stayed silent after a Mac
+  ([KVR](https://www.kvraudio.com/news-print.php?id=10515)). In our test the plug-in stayed silent after a Mac
   woke up; 0.8.23 starts its timing with the Virus again after waking, not tested yet.
 
 **What to report**

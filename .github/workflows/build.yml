@@ -227,8 +227,8 @@ jobs:
           **New in 0.8.23: export and freeze without a workaround.** The original refused offline rendering, so you
           had to find your DAW's real-time render setting or record the Virus live. TI Revive supports it: when your DAW
           renders offline (export, freeze, offline bounce), the plug-in holds each block until the Virus has made its
-          sound. The render is right, but not faster than the song: the Virus plays in real time. Tested with REAPER,
-          Ableton Live (Windows and macOS) and GarageBand.
+          sound. The render is right, but not faster than the song: the Virus plays in real time. Tested with REAPER on
+          Linux, Ableton Live on macOS and in a Windows 11 VM, and GarageBand.
 
           **New in 0.8.23: the original's sync error message.** Like the original, the editor shows "A sync error
           occurred. Press Stop and Play to clear." when the Virus reports several notes in a row that arrived too late

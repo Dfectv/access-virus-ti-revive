@@ -284,7 +284,7 @@ def page_landing(latest, releases, sums):
         <h3>Being tested now</h3>
         <ul>
           <li>Sleep: on the Mac, sleep cut the original's connection until Access fixed it in 2008
-          (<a href="https://www.kvraudio.com/news-print.php?id=10515">KVR</a>). In our test, TI Revive 0.8.22 stayed
+          (<a href="https://www.kvraudio.com/news-print.php?id=10515">KVR</a>). In our test the plug-in stayed
           silent after a Mac woke up; 0.8.23 starts its timing with the Virus again after waking, not tested yet.</li>
         </ul>
         <h3 class="next">What to report</h3>
