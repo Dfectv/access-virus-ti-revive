@@ -17,7 +17,7 @@ Checklists: scripts/checklist.py + scripts/checklists/round-X.json (user wants o
 **Site/README check (2026-10-17, skill tirevive-site-check):** Windows timing row was E143 (0.8.0 test1, real PC,
 304/304, <= 0.66 ms upper bound) -> now E186 (0.8.20 bare metal: 224/224, sd 0.24 ms, max 2.09 ms, 2 ppm); sidechain
 "not yet on a real Windows PC" removed (B1 passed on bare metal); site limit "USB input not fed by the plug-in"
-removed (sidechain since 0.8.14). Committed, site NOT rebuilt yet.
+removed (sidechain since 0.8.14). Pushed (ac7fa87), site rebuilt (run 39014607805), live checked.
 **Next round (0.8.21) candidates:** the stale "TI Revive 0.8.0" uninstall entry on bare-metal Windows (E186); the
 earlier crackle at large buffers not reproduced (E187 open part); osc-wavetables branch (pixel comparison, macOS
 bundle check); E175 not seen this round (capture lines in place); E13 warning flags.
