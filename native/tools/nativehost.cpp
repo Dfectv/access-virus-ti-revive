@@ -5,8 +5,9 @@
 // --hold T: C4 on at T s and held to the end; --param-at T:ID=NORM: a parameter change at T s (repeatable) - e.g. to
 // hear whether the Virus applies a change to a held note.
 // --duplicate T: a second instance runs next to the first from the start (a DAW's duplicated track, issue #6) with
-// the same notes; at T s the first is removed and the second takes over the Virus. --editor2 with it: the editor
-// of the duplicate instead of the first (its "Virus unavailable" page while it waits; Linux REAPER crash, E183).
+// the same notes; at T s the first is removed and the second takes over the Virus. --editor2 with it: the
+// duplicate's editor too (its "Virus unavailable" page while it waits); with --editor both editors are open at once,
+// as in REAPER at a duplicated track (E183: the second one replaced the process-wide VSTGUI run loop).
 // --state loads a state (a raw component state, or vtihost's VTISTATE file: the original's state), checks that
 // getState returns it unchanged, --param applies parameter changes through process(), --save writes getState.
 #include "public.sdk/source/common/memorystream.h"
@@ -261,7 +262,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--editor"))
             editor = true;
         else if (!strcmp(argv[i], "--editor2"))
-            editor = editor2 = true;
+            editor2 = true;
         else if (!strcmp(argv[i], "--scan")) // what a DAW's plug-in scan does: initialize, query, terminate
             scan = true;
         else if ((!strcmp(argv[i], "--click") || !strcmp(argv[i], "--drag") || !strcmp(argv[i], "--shot") ||
@@ -359,10 +360,11 @@ int main(int argc, char **argv)
         XFlush(d);
     };
     Display *dpy = nullptr;
-    Window win = 0;
-    IPlugView *view = nullptr;
-    auto open_editor = [&](IEditController *ec) -> bool {
-        dpy = XOpenDisplay(nullptr);
+    Window win = 0, win2 = 0;
+    IPlugView *view = nullptr, *view2 = nullptr; // view2: the duplicate's, when both editors are open
+    auto open_editor = [&](IEditController *ec, IPlugView *&view, Window &win) -> bool {
+        if (!dpy)
+            dpy = XOpenDisplay(nullptr);
         view = ec->createView(ViewType::kEditor);
         if (!dpy || !view) {
             fprintf(stderr, "nativehost: no display or no editor\n");
@@ -381,7 +383,7 @@ int main(int argc, char **argv)
         map_children(dpy, win);
         return true;
     };
-    if (editor && !editor2 && ctl && !open_editor(ctl))
+    if (editor && ctl && !open_editor(ctl, view, win))
         return 1;
 #endif
     ProcessSetup ps{kRealtime, kSample32, block, static_cast<SampleRate>(rate)}; // explicit: newer clang refuses narrowing
@@ -417,9 +419,10 @@ int main(int argc, char **argv)
 #ifdef __linux__
         if (editor2) {
             FUnknownPtr<IEditController> ctl2(comp2);
-            if (!ctl2 || !open_editor(ctl2))
+            if (!ctl2 || !(view ? open_editor(ctl2, view2, win2) : open_editor(ctl2, view, win)))
                 return 1;
-            ctl = ctl2; // a --reopen opens the duplicate's editor again
+            if (!view2)
+                ctl = ctl2; // a --reopen opens the duplicate's editor again
         }
 #endif
     }
@@ -535,6 +538,17 @@ int main(int argc, char **argv)
             fflush(stdout);
             proc->setProcessing(false);
             comp->setActive(false);
+#ifdef __linux__
+            if (view2) { // the first instance's editor goes with it; the duplicate's stays
+                view->removed();
+                view->release();
+                XDestroyWindow(dpy, win);
+                view = view2, win = win2, view2 = nullptr;
+                runloop.win = win;
+                FUnknownPtr<IEditController> ctl2(comp2);
+                ctl = ctl2;
+            }
+#endif
             comp->terminate();
             proc = nullptr;
             outd = &data2;

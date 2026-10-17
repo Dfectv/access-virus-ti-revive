@@ -355,6 +355,10 @@ void DeviceOut::run()
             }
             if (!open_) {
                 fprintf(stderr, "Virus TI native: %s\n", err.c_str());
+                if (present_seen_ < 0) { // no broker at all (its socket stopped, E179 handover): the "No Virus TI can
+                    present_seen_ = 0;   // be found" page instead of none (user, REAPER, round 0.8.20)
+                    report_status();
+                }
                 for (int i = 0; i < 200 && !stop_; i++) { // keep the state current while there is no broker
                     if (idle_)
                         idle_();

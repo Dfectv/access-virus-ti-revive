@@ -75,6 +75,21 @@ static bool env_drawtime()
 static cairo_surface_t *ref = nullptr; // a 1x1 surface on a frame's window: create_similar makes pixmaps
 static int open_frames = 0;            // editors with an X11 frame in this process
 
+// VSTGUI's X11 code reaches the host's run loop through the platform factory's current adapter on every call and keeps
+// no reference of its own; the adapter owns the handler wrappers it registered with the host. The SDK installs a new
+// adapter at every factory setHostContext, and open() did at every editor: with a second instance or editor the
+// first one's adapter was freed with its wrappers, and hosts that keep plain pointers (REAPER) called a freed handler
+// (crash at a duplicated track, E183). The adapter of the first open editor stays installed while editors are open.
+static SharedPointer<IRunLoop> pinned_runloop;
+
+static void keep_runloop() // UI thread: undo a replacement since the last call
+{
+    if (!pinned_runloop)
+        return;
+    if (auto lf = getPlatformFactory().asLinuxFactory(); lf && lf->getRunLoop() != pinned_runloop)
+        lf->setRunLoop(pinned_runloop);
+}
+
 // VSTGUI closes its X connection when the last frame goes (X11::RunLoop::exit) without cairo_device_finish: cairo
 // keeps that connection's data under its address, and the next editor's new connection often gets the same address
 // - an assertion in cairo-xcb-screen.c (_get_screen_index) aborted the host on reopening the editor (REAPER,
@@ -427,6 +442,9 @@ public:
         renderer_.meter = [this](int ch) { return plugin_->meter(ch); };
         // device changes (knobs on the Virus, automation) repaint the view
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) {
+#if SMTG_OS_LINUX
+            keep_runloop(); // a new instance's setHostContext may have replaced it (E183)
+#endif
             plugin_->diag_report();
             if (plugin_->ui_changed() && !partial_) { // during a drag the drag repaints its own area
                 plugin_->diag.dirty_ticks++;
@@ -1432,8 +1450,13 @@ bool PLUGIN_API VirusEditor::open(void *parent, const PlatformType &platformType
     frame = new CFrame(size, this);
 #if SMTG_OS_LINUX
     // VSTGUI on X11 needs the host's run loop (IRunLoop from the plug frame or the host context)
-    if (plugFrame)
-        Steinberg::Linux::setupVSTGUIRunloop(plugFrame); // hosts offer IRunLoop on the frame or the host context
+    if (open_frames == 0) {
+        if (plugFrame)
+            Steinberg::Linux::setupVSTGUIRunloop(plugFrame); // hosts offer IRunLoop on the frame or the host context
+        if (auto lf = getPlatformFactory().asLinuxFactory())
+            pinned_runloop = lf->getRunLoop();
+    }
+    keep_runloop();
     X11::FrameConfig cfg;
     if (auto lf = getPlatformFactory().asLinuxFactory())
         cfg.runLoop = lf->getRunLoop();
@@ -1470,11 +1493,16 @@ void PLUGIN_API VirusEditor::close()
 {
     if (frame) {
 #if SMTG_OS_LINUX
+        keep_runloop(); // the frame unregisters its handlers through the adapter that registered them
         if (--open_frames == 0)
             x11_last_frame_closing();
 #endif
         frame->forget();
         frame = nullptr;
+#if SMTG_OS_LINUX
+        if (open_frames == 0)
+            pinned_runloop = nullptr; // nothing registered any more: the next editor sets up a fresh one
+#endif
     }
 }
 
