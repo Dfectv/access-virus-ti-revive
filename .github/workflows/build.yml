@@ -224,6 +224,11 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
+          **New in 0.8.24: the Virus plays again after the computer slept.** After waking, the plug-in sets the Virus
+          up again like after a reconnect (start-up messages, your project's sound, new timing), also when the Virus
+          dropped off USB for a moment at wake. Tested on a Windows 11 PC, macOS and Linux. The plug-in's log no longer
+          reports a false "audio stood still" at every start.
+
           **New in 0.8.23: export and freeze without a workaround.** The original refused offline rendering, so you
           had to find your DAW's real-time render setting or record the Virus live. TI Revive supports it: when your DAW
           renders offline (export, freeze, offline bounce), the plug-in holds each block until the Virus has made its
@@ -235,7 +240,7 @@ jobs:
           for their time stamp while your DAW plays. Stop and Play clears it.
 
           **Also in 0.8.23:** after a Mac wakes from sleep, the plug-in starts its timing with the Virus again (before,
-          the notes stayed silent after waking); not tested on hardware yet. README and website: what owners reported
+          the notes stayed silent after waking); completed and tested in 0.8.24. README and website: what owners reported
           about the original plug-in, with links to the reports, and where TI Revive stands.
 
           **Since 0.8.22: reworked, modernized menus, the same on Windows, macOS and Linux.** Every menu (value lists,

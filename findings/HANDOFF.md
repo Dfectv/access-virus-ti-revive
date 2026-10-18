@@ -32,6 +32,10 @@ green): Linux installed (= CI), real PC setup in C:\tirevive-test\0.8.24b (old 0
 0.8.24a (WC1-WC4 passed, path untouched). E215: MC1-MC5 PASS on 0.8.24b (Mac sleep fix confirmed). Real PC ran
 0.8.23 (setup never run) -> BC1-BC5 cleared, new item B0 (installed version check). ONLY OPEN before the release:
 B0 + BC1-BC5 on the real PC with 0.8.24b (setup in C:\tirevive-test\0.8.24b). Then: site check, merge, tag v0.8.24.**
+**Round complete (E216): all 21 items pass. Site check before the release (2026-10-18): tests 208 -> 214; sleep moved
+from "Being tested now" (section removed) to the solved list (site + README); release notes "New in 0.8.24"; timing
+summaries 0.01-0.04 -> 0.01-0.33 ms std. dev. (user: honest range; this round's exports 0.16-0.33 ms) + 0.8.24 Windows
+PC row in both tables. Unchanged: Linux replug known issue (not retested), coverage 94 % (16 Oct).**
 **Baseline results (E212, 2026-10-18): NOT releasable yet.** Linux LC1-LC4 pass (false alarm gone), LC5 sleep FAIL:
 the stall path (no USB reset this time) sends set-up + state, Virus ready, but no sync marker afterwards -> timeline
 never re-anchored, silent. Next: trace in code why no ping/marker follows the stall path (reconnect path E211 gets
