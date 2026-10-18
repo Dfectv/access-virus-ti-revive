@@ -12,10 +12,14 @@ Spec (JSON): {"round": "0.8.20", "lead": "...", "rules": ["..."],
               "sections": [{"id": "mac", "title": "macOS", "where": "MacBook Air M3, Ableton Live 12",
                             "prep": ["... (HTML allowed)"], "notes": ["..."],
                             "items": [{"id": "M1", "title": "...", "steps": ["..."], "expect": "..."}]}]}
-Texts may contain HTML (<code>, <b>); keep them short: 3-5 items, about 30-45 minutes per system.
+Texts may contain HTML (<code>, <b>); keep them short.
+"core": "core.json" in a round spec puts the core items (same every round: cold start, reopen, export, Virus off/on,
+sleep) in front of the round's own items in each section with the same id, and the core rules before its rules;
+about 60-90 minutes per system in all.
 """
 import html
 import json
+import os
 import sys
 
 CSS = r"""
@@ -163,10 +167,23 @@ def page(spec):
                              .replace("__RESULTS__", json.dumps("Round " + rnd + " results")) + "</script>\n")
 
 
+def with_core(spec, spec_path):
+    """the round spec with the core checklist (spec["core"], relative to the spec file) merged in"""
+    if not spec.get("core"):
+        return spec
+    with open(os.path.join(os.path.dirname(spec_path), spec["core"]), encoding="utf-8") as f:
+        core = json.load(f)
+    items = {s["id"]: s["items"] for s in core["sections"]}
+    spec["rules"] = core.get("rules", []) + spec.get("rules", [])
+    for s in spec["sections"]:
+        s["items"] = items.get(s["id"], []) + s.get("items", [])
+    return spec
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         sys.exit(__doc__)
     with open(sys.argv[1], encoding="utf-8") as f:
-        spec = json.load(f)
+        spec = with_core(json.load(f), sys.argv[1])
     with open(sys.argv[2], "w", encoding="utf-8") as f:
         f.write(page(spec))

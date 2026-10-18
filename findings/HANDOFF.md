@@ -4,14 +4,24 @@ _Last updated: 2026-10-18 (issue #7 open checks below; then CONTINUE HERE). Chro
 Evidence: [evidence.md](evidence.md) (E001-E211), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## Branch sleep-reconnect (2026-10-18): fixes for E210 (1) and E209 (5), dev build on Linux
+## Round 0.8.24 (branch round-0.8.24, collecting; new test process 2026-10-18)
 
-StallWatch reports only a stream that was running (new test stallwatch_starting_stream_is_no_stall, 209 tests);
-a reported stall now calls DeviceOut::on_resume -> VirusPlugin::resend_to_virus() (start-up messages + state +
-readiness probe, the same as on a reconnect). Built on Linux, ctest green (installer_scripts not run: no pwsh). Site
-updated with the Windows timing (E209; run 39104430486, live checked). Dev build installed in ~/.vst3 (old log kept as
-diag.log.baseline). Not tested on hardware yet: next the user's smoke test on Linux (cold start without the false
-alarm, systemctl suspend with the plug-in loaded), then CI test build and sleep on Windows + Mac.
+Process (agreed with the user 2026-10-18): fixes collect on this branch; I check on Linux only (tests, build, own
+TI2 runs, user's short crash smoke test of a dev build); the round's test build + ONE checklist come when ~5-10
+changes are in, something users wait for is ready, or the user asks. Checklist = core items from
+scripts/checklists/core.json (checklist.py merges them with `"core": "core.json"`: cold start, reopen after broker
+idle exit, export, Virus off/on, sleep; ~15-20 min per system) + one item per change on the systems it affects.
+Failures go back into the batch; hotfixes only for crash / data loss / broken install.
+
+In this round so far:
+1. Sleep: a stall re-sends start-up messages + state like a reconnect (E210); Linux sleep works (E211, via the
+   kernel's USB reset). Needs: Windows real PC + Mac sleep (core item C5).
+2. StallWatch false alarm on every first connect fixed (E209 (5), test stallwatch_starting_stream_is_no_stall;
+   Linux checked E211). Needs: core C1 on all systems (no "audio stood still" line).
+CI run 39105250660 (version 0.8.24, from sleep-reconnect = same code, green) was started before the process change:
+not for testing, the round gets its own build when it is full.
+Candidates for the round: Mac double notes after a reopen (E209 (7), watch); issue #7 PR review + `72 00 03` safety
+rule when it comes; E180 pixel comparison, E175 (old list).
 
 ## Baseline round results (2026-10-18): E209, E210
 
