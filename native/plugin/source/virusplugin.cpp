@@ -2386,18 +2386,24 @@ bool VirusPlugin::store_patch(int part, int bank, int program)
     return true;
 }
 
-bool VirusPlugin::create_library()
+bool VirusPlugin::create_library(const std::string &chosen)
 {
-    std::string path, err;
-    if (!create_empty_library(library_dir(), path, err)) {
+    const std::string path = library_file_name(chosen);
+    std::string err;
+    if (!write_empty_library(path, err)) {
         fprintf(stderr, "Virus TI native: %s\n", err.c_str());
         return false;
     }
     {
         std::lock_guard<std::mutex> lk(banks_mu_);
-        banks_[LIB_BASE + (int)lib_names_.size()].clear();
-        lib_names_.push_back(std::filesystem::path(path).stem().string()); // in the folder itself: no subfolder part
-        lib_paths_.push_back(path);
+        auto it = std::find(lib_paths_.begin(), lib_paths_.end(), path);
+        if (it != lib_paths_.end()) { // replaced a listed library: now empty
+            banks_[LIB_BASE + (int)(it - lib_paths_.begin())].clear();
+        } else { // listed by its file name, as the original adds it (wherever the file was saved)
+            banks_[LIB_BASE + (int)lib_names_.size()].clear();
+            lib_names_.push_back(std::filesystem::path(path).stem().string());
+            lib_paths_.push_back(path);
+        }
     }
     ui_dirty_ = true;
     return true;

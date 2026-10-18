@@ -259,8 +259,9 @@ public:
     bool store_patch(int part, int bank, int program);   // the part's patch into a RAM slot of the Virus (+ cache)
     // the part's patch into a personal library (slot = position, == size: append) - writes the library file
     bool store_to_library(int part, int library, int slot);
-    // the original's "Create Empty Library" (E217): a new empty library file in the library folder, listed at once
-    bool create_library();
+    // the original's "Create Empty Library" (E217): an empty library file at the path chosen in the save dialog
+    // (".mid" added like the original), listed at once
+    bool create_library(const std::string &chosen);
     // does a stored patch have category `cat` (filter menu index, 0 = any) and contain `q` in its name?
     bool patch_matches(int bank, int program, int cat, const std::string &q);
     static constexpr int SEARCH_BANK = 1000;             // "Search Results" (search://): the current page

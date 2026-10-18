@@ -13,6 +13,7 @@ extern char **environ;
 #include "virusplugin.h"
 #include "vstgui/lib/cbitmap.h"
 #include "vstgui/lib/cdrawcontext.h"
+#include "vstgui/lib/cfileselector.h"
 #include "vstgui/lib/coffscreencontext.h"
 #include "vstgui/lib/cframe.h"
 #include "vstgui/lib/controls/ctextedit.h"
@@ -21,6 +22,7 @@ extern char **environ;
 #include "vstgui/lib/events.h"
 #include "vstgui/lib/platform/iplatformfont.h"
 #include "vstgui/lib/platform/platformfactory.h"
+#include "access/library.h"
 #include "cc/diag.h"
 #include "editor/helptext.h"
 #include "editor/popupmenu.h"
@@ -1689,9 +1691,34 @@ private:
     bool editing_search_ = false;
     CRect search_rect_;
 
-    // the last entry under "Personal Libraries" in the patch and bank menus, as in the original (E217); it makes
-    // "New Library.mid" at once (the original asks for the name in a save dialog; the editor has no file dialogs)
+    // the last entry under "Personal Libraries" in the patch and bank menus, as in the original (E217)
     static constexpr const char *kCreateLibrary = "Create Empty Library";
+
+    // the original's save dialog for it: title, filter, the library folder and "New Library.mid"; the file is written
+    // when the dialog ends with a name
+    void create_library_dialog()
+    {
+        auto *fs = CNewFileSelector::create(getFrame(), CNewFileSelector::kSelectSaveFile);
+        if (!fs)
+            return;
+        fs->setTitle("Save empty library as...");
+        fs->addFileExtension(CFileExtension("Virus TI Patch Libraries", "mid"));
+        const std::string dir = vti::library_dir(), name = "New Library.mid";
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+#if defined(_WIN32) || defined(__APPLE__)
+        fs->setInitialDirectory(dir.c_str());
+        fs->setDefaultSaveName(name.c_str());
+#else
+        fs->setInitialDirectory((std::filesystem::path(dir) / name).string().c_str()); // zenity/kdialog: a full path
+#endif
+        auto *plugin = plugin_;
+        fs->run([plugin](CNewFileSelector *sel) {
+            if (sel->getNumSelectedFiles() == 1)
+                plugin->create_library(sel->getSelectedFile(0));
+        });
+        fs->forget();
+    }
 
     // LOAD / SAVE like the original: "<device> > RAM A.. (SAVE: RAM only) > 000 Name" and "Personal Libraries"
     void patch_menu_popup(const Hit &h, const CPoint &where, bool save)
@@ -1734,7 +1761,7 @@ private:
         int part = h.part;
         show_popup(std::move(items), -1, 0, where, [this, part, save, libs, create](const std::vector<int> &path) {
             if (path == std::vector<int>{1, create}) {
-                plugin_->create_library();
+                create_library_dialog();
                 return;
             }
             if (path.size() < 3)
@@ -1778,7 +1805,7 @@ private:
         std::string param = h.element->get("Parameter");
         show_popup(std::move(items), -1, 0, where, [this, param, libs, create](const std::vector<int> &path) {
             if (path == std::vector<int>{1, create})
-                plugin_->create_library();
+                create_library_dialog();
             else if (path.size() == 2 && path[0] == 0)
                 plugin_->ui_set(param, -1, path[1]);
             else if (path.size() >= 2 && path[0] == 1) {

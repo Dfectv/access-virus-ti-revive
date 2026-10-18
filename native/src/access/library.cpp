@@ -66,28 +66,28 @@ std::vector<PatchLibrary> load_libraries(const std::string &dir, const std::vect
     return out;
 }
 
-bool create_empty_library(const std::string &dir, std::string &path, std::string &error)
+std::string library_file_name(const std::string &chosen)
 {
-    if (dir.empty()) {
-        error = "no library folder";
-        return false;
-    }
-    std::error_code ec;
-    fs::create_directories(dir, ec);
-    fs::path p = fs::path(dir) / "New Library.mid";
-    for (int n = 2; fs::exists(p, ec); n++)
-        p = fs::path(dir) / ("New Library " + std::to_string(n) + ".mid");
+    auto ends = [&](const std::string &e) {
+        return chosen.size() >= e.size() && chosen.compare(chosen.size() - e.size(), e.size(), e) == 0;
+    };
+    if (ends(".midi"))
+        return chosen.substr(0, chosen.size() - 1);
+    return ends(".mid") ? chosen : chosen + ".mid";
+}
+
+bool write_empty_library(const std::string &path, std::string &error)
+{
     // byte for byte the original's empty file (Virus Control 0x180065900 writes it): the end of track at delta 120
     static const uint8_t empty[] = {'M', 'T', 'h', 'd', 0, 0, 0, 6, 0, 0, 0, 1, 0x01, 0xE0,
                                     'M', 'T', 'r', 'k', 0, 0, 0, 4, 0x78, 0xFF, 0x2F, 0x00};
-    std::ofstream o(p, std::ios::binary);
+    std::ofstream o(path, std::ios::binary | std::ios::trunc);
     o.write((const char *)empty, sizeof empty);
     o.close();
     if (!o) {
-        error = "cannot write " + p.string();
+        error = "cannot write " + path;
         return false;
     }
-    path = p.string();
     return true;
 }
 
