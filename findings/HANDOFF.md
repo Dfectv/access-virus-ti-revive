@@ -10,7 +10,7 @@ unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo install
 in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
 third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E232), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E233), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
@@ -84,6 +84,15 @@ Evidence: [evidence.md](evidence.md) (E001-E232), protocol: [spec.md](spec.md); 
    compiles with one fix and is installed as a user extension (DSP56K:LE:24:default, byte-swapped image). Next:
    the DSP's host-port receive handler (what happens to MIDI bytes when the host writes faster than the DSP
    drains) - the missing half of the rule-2 hang.
+
+10. **DSP host-port receive handler found (E233).** Image offset 0xa823: appends each received word to one of two
+    X-memory rings by bit 7 (128 and 512 words, modulo pointers X:$25/X:$27), no fill check; the main loop
+    drains ring B word by word into a MIDI byte parser (0xa74e, state handlers 0x52305/0x52310, system table
+    X:$482d1) and routes complete channel messages per part (0xa7c3..). A flood of more than ~512 bytes ahead of
+    the main loop corrupts the stream silently. The channel path has a DEBUGNE trap (0xa7c8) - a 56300 DEBUGcc
+    halts the core until a reset, the first concrete candidate for the rule-2 hang (56 conditional
+    DEBUGcc in the listing, to be checked; the 677 plain DEBUG words are mostly data). Next: the image's P-memory base (vector table), the state handlers, which trap can fire. HI08 pins /
+    host-side ready check: E229/E230.
 
 ## Round 0.8.25 (released as v0.8.25 2026-10-18)
 
