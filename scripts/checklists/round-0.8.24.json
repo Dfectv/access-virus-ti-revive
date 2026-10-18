@@ -1,0 +1,60 @@
+{
+ "round": "0.8.24",
+ "core": "core.json",
+ "lead": "Test build 0.8.24a (branch round-0.8.24, CI run 39105250660, same code as the branch today): after sleep the plug-in now restarts the Virus like after a reconnect (E210), and the false \"audio stood still\" alarm at every start is gone (E209). Both are checked by the core items: C1 (no \"audio stood still\" line) and C5 (sleep), so this round has no extra items. The dev build already passed on Linux (E211). Mark each item, add a note where something looks different, then copy the results at the bottom into the chat. When all pass, 0.8.24 is released.",
+ "rules": [
+  "Order: Linux first (the Virus is on this PC), then the Windows 11 VM, then macOS, the real Windows PC last (Claude is not available while this PC runs Windows). Close the DAW before moving the Virus."
+ ],
+ "sections": [
+  {
+   "id": "linux",
+   "title": "Linux",
+   "where": "REAPER via pw-jack, Virus on this PC",
+   "prep": [
+    "Done: 0.8.24a installed with <code>./install.sh</code> (replaces the dev build in ~/.vst3; same plug-in file as CI). Logging is on. Restart REAPER if it was open."
+   ],
+   "notes": [
+    "Exports in REAPER: File &gt; Render, Source Master mix, Render speed <b>Full-speed offline</b>."
+   ]
+  },
+  {
+   "id": "vm",
+   "title": "Windows 11 VM",
+   "where": "win11 VM, Ableton Live 11, Virus attached by Claude",
+   "prep": [
+    "Done: the VM is running, 0.8.24a installed silently (Installed apps: TI Revive 0.8.24). Tell Claude when you get here: Claude attaches the Virus.",
+    "Claude fetches the WC3 export from the VM's Desktop."
+   ],
+   "notes": [
+    "No sleep item in the VM: sleep is tested on the real PC (BC5).",
+    "The VM's USB passthrough can drop notes (E141): if notes are missing in WC3, note it, the real PC decides."
+   ]
+  },
+  {
+   "id": "mac",
+   "title": "macOS",
+   "where": "MacBook Air M3, Ableton Live 12",
+   "prep": [
+    "Claude copied 0.8.24a to the Mac. Quit Ableton and Logic, then in Terminal: <code>sudo installer -pkg ~/Downloads/TI-Revive-0.8.24a-mac/TI-Revive-0.8.24-mac/\"TI Revive.pkg\" -target /</code>",
+    "Logging: <code>touch ~/Library/Application\\ Support/virus-ti-native/diag.on</code> (if it is not there yet)."
+   ],
+   "notes": [
+    "MC2: watch for doubled notes after the reopen (seen once in the baseline round, E209 (7)); if you hear them, note which reopen."
+   ]
+  },
+  {
+   "id": "win",
+   "title": "Windows 11 (real PC)",
+   "where": "this PC booted into Windows, Ableton Live 11, Virus on USB",
+   "prep": [
+    "Install the test build: run <code>C:\\tirevive-test\\TI-Revive-0.8.24-setup.exe</code> (Claude put it there). Apps &gt; Installed apps must show one TI Revive entry, 0.8.24.",
+    "Logging: the empty file <code>%LOCALAPPDATA%\\virus-ti-native\\diag.on</code> from the baseline round should still be there. Delete the old <code>diag.log</code> next to it first.",
+    "Logs and exports go to <code>C:\\tirevive-test</code>: Claude reads them from Linux after the reboot."
+   ],
+   "notes": [
+    "The broker (<code>vtibroker.exe</code>) exits 30 s after the last plug-in closed; Task Manager &gt; Details shows whether it still runs.",
+    "BC5 is the item that failed in the baseline round (E210): the Virus stayed silent after wake."
+   ]
+  }
+ ]
+}

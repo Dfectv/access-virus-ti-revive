@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-18 evening. CONTINUE HERE = "Round 0.8.24" below (work on branch round-0.8.24; main has the
+_Last updated: 2026-10-18. CONTINUE HERE = "Round 0.8.24" below (test running, checklist link there) (work on branch round-0.8.24; main has the
 older HANDOFF). Test machines: Linux = dev build of round-0.8.24 in ~/.vst3; Mac, win11 VM and the real PC = release
 0.8.23. Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E211), protocol: [spec.md](spec.md); the native plug-in:
@@ -24,8 +24,14 @@ In this round so far:
    instead of 0.8.0, Driver Extensions fix, replug and sleep rows, 0.7.x buffer row re-sourced to E111/E123);
    tirevive-pr (native first, real evidence.md columns, PR template, maintainer rules); tirevive-site-check
    (core.json / baseline-*.json, full style rules); Snow wording in AGENTS.md and CONTRIBUTING.md. No test needed.
-CI run 39105250660 (version 0.8.24, from sleep-reconnect = same code, green) was started before the process change:
-not for testing, the round gets its own build when it is full.
+**Round closed early on the user's request (2026-10-18): test, merge to main, release 0.8.24, then the next round.**
+Test build 0.8.24a = CI run 39105250660 (version 0.8.24, from sleep-reconnect fe7b196; the branch has no code
+change since, only docs/checklist tooling, so no new CI run). Installed: Linux (install.sh, plug-in hash = CI), win11
+VM (setup.exe /quiet, entry 0.8.24, VM left running, Virus not attached yet), Mac (zip pushed + unzipped in
+~/Downloads/TI-Revive-0.8.24a-mac, user runs the sudo installer), real PC (setup.exe in C:\tirevive-test).
+Checklist https://claude.ai/artifact/CPe7iSh2gaTduJHBxaXeeG (spec scripts/checklists/round-0.8.24.json = core only:
+LC1-5, WC1-4, MC1-5, BC1-5). After all pass: merge round-0.8.24 into main, tag v0.8.24, release CI, site check +
+site rebuild by hand, install the release on the machines.
 Candidates for the round: Mac double notes after a reopen (E209 (7), watch); issue #7 PR review + `72 00 03` safety
 rule when it comes; E180 pixel comparison, E175 (old list).
 
