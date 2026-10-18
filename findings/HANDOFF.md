@@ -19,7 +19,13 @@ Evidence: [evidence.md](evidence.md) (E001-E240), protocol: [spec.md](spec.md); 
 native/CMakeLists.txt. Round test build 0.8.26b = CI run 39148618705 (version input must be numeric for the MSI: 0.8.26; run 39148161706 with "0.8.26b" failed in the msi job) (0.8.26a run 39147901750 failed on macOS: writeretry.h was included only on Linux, fixed). Checklist
 https://claude.ai/artifact/W8EcFqru6zvxirJGJY2c36 (spec scripts/checklists/round-0.8.26.json: core on Linux, VM,
 Mac; L1/W1/M1 long notes (FE), L2/W2/M2 bank sync with panel changes (write retry), L3 per-monitor menus; real PC
-optional, B1 + core). After the checklist passes: full site check (README + site: firmware findings, Active
+optional, B1 + core). CI run 39148618705 all green; Linux build installed 19:18 (install.sh, version 0.8.26).
+**OPEN, blocks the release: REAPER crashed after the LC3 render** (user, dev build of 18:51, editor open, host at
+48 kHz block 256): plug-in log ends cleanly with "offline render ended" at 19:15:34, broker sees the client go at
+19:15:35, no kernel segfault line, no core (ulimit -c 0, apport). Not reproduced by a command-line render
+(REAPER -renderproject under gdb, editor closed, exits after the render: normal exit, WAV ok). Next: user runs REAPER
+under gdb (command in the chat, output work/timing/LC3-crash-gdb.txt) and repeats LC3 with the editor open.
+After the checklist passes: full site check (README + site: firmware findings, Active
 Sensing, budget, retry are user-visible stability changes - worth a line), release notes in build.yml, merge
 round-0.8.26 -> main, tag v0.8.26, release CI, site rebuild by hand, install the release on Linux, VM (silent), Mac.
 
