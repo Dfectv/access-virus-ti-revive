@@ -40,7 +40,7 @@ Search `findings/evidence.md` and `findings/HANDOFF.md` for the exact error text
 | plug-in sounds pitched up / garbled at 48 kHz | (fixed in 0.8.0) no sample-rate conversion in the test builds | native/docs/architecture.md | update to the latest release |
 | notes late or missing right after loading / during the first sync | the Virus delays notes while it processes SysEx; since 0.8.0 the plug-in holds notes ~4 s and pauses the sync for notes | E144 | wait a few seconds after loading; update to the latest release |
 | no sound after a USB cable replug, or after switching the Virus on while no DAW runs | known issue, being worked on | README "Known issue" (Linux section) | switch the Virus off and on once while the DAW runs |
-| silent or out of sync after the computer slept (broker "stalled ... ms") | the USB stream stalls during sleep; round 0.8.24 re-sends the start-up messages and state after a stall | E210, E211 | until the fix is released: reload the project or switch the Virus off and on; Linux with PipeWire: REAPER may need its audio relinked (E211); ask for a diag.log that covers the sleep |
+| silent or out of sync after the computer slept (broker "stalled ... ms") | the USB stream stalls during sleep; round 0.8.24 re-sends the start-up messages and state after a stall | E210, E211 | ask for a diag.log that covers the sleep; fixed in 0.8.24 |
 | Virus audio suddenly silent, MIDI still answers | parameter flood hung the Virus' audio | HANDOFF / automation limit | power-cycle the Virus; reduce dense automation |
 
 ## 3. If nothing matches
