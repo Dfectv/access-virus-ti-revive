@@ -249,7 +249,7 @@ same with Access' own driver.
   Used" (the last 10 patches of each part); Personal Libraries has "Create Empty Library" (since 0.8.25).
 
 <p align="center">
-  <img src="docs/images/plugin-menus.png" alt="The LOAD menu: the device entry, the bank list and RAM A's 128 patches in four columns, beyond the plug-in window" width="680"><br>
+  <img src="docs/images/plugin-menus.png" alt="The LOAD menu: the device entry, the bank list and RAM A's 128 patches in columns, beyond the plug-in window" width="680"><br>
   <sub>The LOAD menu reaching beyond the plug-in window (Linux), drawn from your own Access installer. TI Revive is not affiliated with Access Music or Kemper.</sub>
 </p>
 

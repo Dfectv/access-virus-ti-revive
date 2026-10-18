@@ -522,7 +522,7 @@ def features_section():
       Return and Esc work; a click elsewhere or switching to another window closes the menu. Since 0.8.25 they also look
       like the original's on Windows 10: menus with one column in Windows' modern look, menus with columns in the older one.</p></div>
       <figure class="shot"><img src="plugin-menus.png" width="1020" height="760"
-      alt="The LOAD menu: the device entry, the bank list and RAM A's 128 patches in four columns, beyond the plug-in window">
+      alt="The LOAD menu: the device entry, the bank list and RAM A's 128 patches in columns, beyond the plug-in window">
       <figcaption>The LOAD menu reaching beyond the plug-in window (Linux), drawn from your own Access installer. TI Revive
       is not affiliated with Access Music or Kemper.</figcaption></figure>
     </div>
