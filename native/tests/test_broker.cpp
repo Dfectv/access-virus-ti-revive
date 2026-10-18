@@ -295,6 +295,26 @@ TEST(broker_hello_state_write_rx)
     b.close();
 }
 
+TEST(broker_counts_device_arrivals)
+{
+    // gone and back faster than the plug-in polls (E212: reopened 0.27 s after a wake): the count still shows it
+    FakeBroker fb;
+    Broker b;
+    b.set_endpoint(fb.path);
+    std::string err;
+    CHECK(b.open(err));
+    CHECK(b.device_present() && b.device_arrivals() == 1);
+    fb.reply(VTIMSG_STATE, FakeBroker::u32(1)); // a repeated "present" is no new arrival
+    fb.reply(VTIMSG_STATE, FakeBroker::u32(0));
+    fb.reply(VTIMSG_STATE, FakeBroker::u32(1));
+    CHECK(eventually([&] { return b.device_arrivals() == 2; }));
+    CHECK(b.device_present());
+    fb.reply(VTIMSG_STATE, FakeBroker::u32(2)); // another program's plug-in has it: not ours, no arrival
+    fb.reply(VTIMSG_STATE, FakeBroker::u32(1));
+    CHECK(eventually([&] { return b.device_arrivals() == 3; }));
+    b.close();
+}
+
 TEST(broker_control_audio_observe)
 {
     FakeBroker fb;

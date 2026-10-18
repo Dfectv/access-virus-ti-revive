@@ -9,6 +9,7 @@
 #include "device/broker.h"
 #include "device/memsync.h"
 #include "device/offlinepace.h"
+#include "device/presencewatch.h"
 #include "device/stallwatch.h"
 #include "model/syncalert.h"
 #include "device/resampler.h"
@@ -156,6 +157,7 @@ private:
     bool owner_ = false;         // worker: this instance holds the process-wide claim
     std::atomic<bool> wait_reported_{false}; // waiting for the other instance (set by the worker)
     int present_seen_ = -1; // worker: last device presence handled (-1 = unknown)
+    vti::PresenceWatch presence_; // worker: gone / back / gone and back between two looks (E212)
     Broker broker_;
     std::mutex mu_;
     std::condition_variable cv_;

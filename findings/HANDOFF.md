@@ -3,7 +3,7 @@
 _Last updated: 2026-10-18. CONTINUE HERE = "Round 0.8.24" below (test running, checklist link there) (work on branch round-0.8.24; main has the
 older HANDOFF). Test machines: Linux = dev build of round-0.8.24 in ~/.vst3; Mac, win11 VM and the real PC = release
 0.8.23. Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E212), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E213), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.24 (branch round-0.8.24, collecting; new test process 2026-10-18)
@@ -24,6 +24,10 @@ In this round so far:
    instead of 0.8.0, Driver Extensions fix, replug and sleep rows, 0.7.x buffer row re-sourced to E111/E123);
    tirevive-pr (native first, real evidence.md columns, PR template, maintainer rules); tirevive-site-check
    (core.json / baseline-*.json, full style rules); Snow wording in AGENTS.md and CONTRIBUTING.md. No test needed.
+**Fix for LC5 (E213, 2026-10-18): the Virus gone-and-back in 0.27 s at wake, unseen by the worker -> broker client
+counts arrivals, PresenceWatch reconnects on a changed count. 214 tests. Dev build in ~/.vst3 (backup of 0.8.24a in
+~/.vst3-backup/0.8.24a). Next: user smoke test + LC5 on Linux with the dev build, then CI test build 0.8.24b for Mac
+(MC1-MC5, check pkgutil first), real PC (BC1-BC5), VM.**
 **Baseline results (E212, 2026-10-18): NOT releasable yet.** Linux LC1-LC4 pass (false alarm gone), LC5 sleep FAIL:
 the stall path (no USB reset this time) sends set-up + state, Virus ready, but no sync marker afterwards -> timeline
 never re-anchored, silent. Next: trace in code why no ping/marker follows the stall path (reconnect path E211 gets

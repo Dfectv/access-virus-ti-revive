@@ -270,32 +270,57 @@ void DeviceOut::check_presence()
         if (on_waiting_ && !wait_reported_)
             on_waiting_(elsewhere);
     }
-    if (int present = broker_.device_present() ? 1 : 0; present != present_seen_) {
-        bool was = present_seen_ == 1;
-        present_seen_ = present;
-        if (!present) {
-            audio_ok_ = false;
-            audio_.close();
-        } else {
-            // a new audio stream counts its frames from 0 again: the scan positions of the old one would keep
-            // scan_audio idle (and the sync marker unfound) until the new stream passed them - ~19 s (user test)
-            scanned_ = -1;
-            marker_skip_ = -1;
-            last_sound = -1;
-            generation++;
-            // the Virus' OS version for PATCH UTILITY > INFO, read like the original at plug-in start, before the
-            // memory sync: the broker's fixed read-only flash sequence (flashinfo.h, E026/E040), ~2 s once per open
-            if (!elsewhere_seen_) {
-                std::vector<uint8_t> fl;
-                int n = broker_.flash_info(fl);
-                std::string os = n > 0 ? tios_from_flash(fl) : std::string();
-                log("Virus TI native: flash info %d bytes, OS \"%s\"\n", n, os.c_str());
-                std::lock_guard<std::mutex> g(info_mu_);
-                tios_ = os;
-            }
+    auto lost = [this] {
+        audio_ok_ = false;
+        audio_.close();
+    };
+    auto arrived = [this] {
+        // a new audio stream counts its frames from 0 again: the scan positions of the old one would keep
+        // scan_audio idle (and the sync marker unfound) until the new stream passed them - ~19 s (user test)
+        scanned_ = -1;
+        marker_skip_ = -1;
+        last_sound = -1;
+        generation++;
+        // the Virus' OS version for PATCH UTILITY > INFO, read like the original at plug-in start, before the
+        // memory sync: the broker's fixed read-only flash sequence (flashinfo.h, E026/E040), ~2 s once per open
+        if (!elsewhere_seen_) {
+            std::vector<uint8_t> fl;
+            int n = broker_.flash_info(fl);
+            std::string os = n > 0 ? tios_from_flash(fl) : std::string();
+            log("Virus TI native: flash info %d bytes, OS \"%s\"\n", n, os.c_str());
+            std::lock_guard<std::mutex> g(info_mu_);
+            tios_ = os;
         }
-        if (device_ && (was || present))
-            device_(present != 0);
+    };
+    const bool present = broker_.device_present(); // the flag before the count (the reader counts first)
+    switch (presence_.update(present, broker_.device_arrivals())) {
+    case vti::Presence::same:
+        break;
+    case vti::Presence::gone: {
+        bool was = present_seen_ == 1;
+        present_seen_ = 0;
+        lost();
+        if (device_ && was)
+            device_(false);
+        break;
+    }
+    case vti::Presence::back:
+        present_seen_ = 1;
+        arrived();
+        if (device_)
+            device_(true);
+        break;
+    case vti::Presence::bounced:
+        // gone and back while this thread was not looking (E212: a Linux wake, the broker reopened the Virus 0.27 s
+        // later): its audio stream is a new one that nobody started - a reconnect like a replug
+        log("Virus TI native: the Virus was gone for a moment - reconnecting\n");
+        lost();
+        if (device_)
+            device_(false);
+        arrived();
+        if (device_)
+            device_(true);
+        break;
     }
     report_status();
 }

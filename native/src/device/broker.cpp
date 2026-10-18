@@ -392,6 +392,8 @@ void Broker::read_loop()
                 rx_(buf[0], buf.data() + 1, h.len - 1u);
             break;
         case VTIMSG_STATE:
+            if (h.len >= 4 && buf[0] == 1 && !present_)
+                arrivals_++; // counted before present_ turns true: a caller that sees it present sees the count
             present_ = h.len >= 4 && buf[0] == 1;
             elsewhere_ = h.len >= 4 && buf[0] == 2;
             if (state_)
