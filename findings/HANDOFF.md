@@ -32,6 +32,19 @@ Same process as 0.8.24 (Linux checks only during the round; test build + one che
    rows; Create Empty Library gets its separator. 217 tests; Xvfb check of LOAD > Personal Libraries (+ greyed
    "(empty)"). Not seen on screen: a checked entry in the themed look. Checklist items later (W especially: compare
    with the original's menus side by side if the user wants).
+4. **Project compatibility test** (2026-10-18, with the user): two Ableton Live 11 projects saved with the ORIGINAL
+   on the win10 VM (restore-test-vst3.als = original VST3, class id = VTI_CID_ORIGINAL; restore-test-vst2.als =
+   original VST2 'VCP ' 0x56435020): parts 1-3 Fimplex HS / Acidia AV / Alead BC, MIDI clip, automation Cutoff part 1
+   and Reso part 2 (Easy page). Copies: work/projcompat/ (not in git: contain the original's state), real PC
+   C:\tirevive-test\projcompat, win11 VM same, Mac ~/Downloads/projcompat. Linux (nativehost, release 0.8.24): the
+   state loads (244 records, part 1 Fimplex HS, getState identical). Checklist
+   https://claude.ai/artifact/5qa9fHxYrLiPG1CnMBViVV (spec scripts/checklists/projcompat-1.json: PW1-3, PM1-3,
+   PB1-3). Expectation for the VST2 project: "missing" (we declare no VST2 id) - untested.
+5. **Next to build: Revert to / Recently Used** (E220, observed in the original + REA) and the 3 px bottom strip of
+   themed menus (E220/E219). TDD, round-0.8.25.
+win10 VM: 5 crash dumps since 2026-10-10 (bugcheck 0x139 at 13:06 today while Live + the Access driver ran with the
+Virus passed through) - the VM is a reference machine only.
+
 Not possible alone (need the user): PresenceWatch "bounced" branch on hardware (a sub-second USB drop: needs sudo
 for /sys/bus/usb/devices/1-8/authorized, or a cable pull + replug within ~0.3 s); Linux replug known issue (E175,
 needs a physical replug); per-monitor work area on Linux (xcb-randr: libxcb-randr0-dev not installed, needs sudo +

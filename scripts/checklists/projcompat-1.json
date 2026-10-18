@@ -1,0 +1,122 @@
+{
+ "round": "projcompat-1",
+ "lead": "Do projects made with the original Access plug-in open with TI Revive? Two Ableton Live 11 projects were saved with the original on Windows 10 (one with the VST3, one with the VST2): parts 1-3 Fimplex HS, Acidia AV, Alead BC, a MIDI clip, Cutoff automation on part 1 and Reso on part 2 (Easy page). Every machine has release 0.8.24 and no Access software. On Linux the same state already loaded into TI Revive (244 records, part 1 Fimplex HS, getState identical); Ableton cannot run there. Mark each item, note anything different, then copy the results at the bottom into the chat.",
+ "rules": [
+  "Order: Windows 11 VM first (Claude moves the Virus there), then the Mac, the real Windows PC last. Close Live before the Virus moves.",
+  "Disposable copies only: the projects are copies; do not store patches into the Virus.",
+  "Logging on as usual (diag.on); Claude reads diag.log afterwards."
+ ],
+ "sections": [
+  {
+   "id": "vm",
+   "title": "Windows 11 VM",
+   "where": "win11 VM, Ableton Live 11, TI Revive 0.8.24",
+   "prep": [
+    "Claude attaches the Virus to the VM before you start (ask in the chat). The projects are in <code>C:\\tirevive-test\\projcompat\\</code>."
+   ],
+   "items": [
+    {
+     "id": "PW1",
+     "title": "Project with the original as VST3 opens with TI Revive",
+     "steps": [
+      "Open <code>C:\\tirevive-test\\projcompat\\restore-test-vst3.als</code> (made with the original Access plug-in, VST3, on Windows 10).",
+      "Open the plug-in window of track 1. Look at the part names, then play the clip (8 s is enough), first with the Easy page of part 1, then of part 2."
+     ],
+     "expect": "no \"plug-in missing\" message; track 1 is TI Revive Virus Control; part 1 Fimplex HS, part 2 Acidia AV, part 3 Alead BC, parts 4-16 -Init-; the clip plays part 1; the Cutoff knob of part 1 follows its automation, the Reso knob of part 2 follows its own."
+    },
+    {
+     "id": "PW2",
+     "title": "Save with TI Revive and reopen",
+     "steps": [
+      "After PW1: File &gt; Save Live Set As, name it <code>restore-test-vst3-tirevive.als</code> in the same folder, close Live.",
+      "Open that file again, check the part names and play the clip."
+     ],
+     "expect": "the same patches on parts 1-3 and the same automation as in PW1."
+    },
+    {
+     "id": "PW3",
+     "title": "Project with the original as VST2",
+     "steps": [
+      "Open <code>C:\\tirevive-test\\projcompat\\restore-test-vst2.als</code> (the same set-up, the original as VST2).",
+      "Write down exactly what Live shows for track 1 (message text, device name)."
+     ],
+     "expect": "probably \"plug-in missing\" for the VST2 \"Virus TI\": TI Revive is VST3 only and does not claim the VST2 id (not tested yet). Pass = you wrote down what happened; if Live replaces it with TI Revive, say so."
+    }
+   ]
+  },
+  {
+   "id": "mac",
+   "title": "macOS",
+   "where": "MacBook Air M3, Ableton Live 12, TI Revive 0.8.24 (pkg)",
+   "prep": [
+    "Virus on the Mac. The projects are in <code>~/Downloads/projcompat/</code>. Live 12 may ask to update the set: allow it."
+   ],
+   "items": [
+    {
+     "id": "PM1",
+     "title": "Project with the original as VST3 opens with TI Revive",
+     "steps": [
+      "Open <code>~/Downloads/projcompat/restore-test-vst3.als</code> (made with the original Access plug-in, VST3, on Windows 10).",
+      "Open the plug-in window of track 1. Look at the part names, then play the clip (8 s is enough), first with the Easy page of part 1, then of part 2."
+     ],
+     "expect": "no \"plug-in missing\" message; track 1 is TI Revive Virus Control; part 1 Fimplex HS, part 2 Acidia AV, part 3 Alead BC, parts 4-16 -Init-; the clip plays part 1; the Cutoff knob of part 1 follows its automation, the Reso knob of part 2 follows its own."
+    },
+    {
+     "id": "PM2",
+     "title": "Save with TI Revive and reopen",
+     "steps": [
+      "After PM1: File &gt; Save Live Set As, name it <code>restore-test-vst3-tirevive.als</code> in the same folder, close Live.",
+      "Open that file again, check the part names and play the clip."
+     ],
+     "expect": "the same patches on parts 1-3 and the same automation as in PM1."
+    },
+    {
+     "id": "PM3",
+     "title": "Project with the original as VST2",
+     "steps": [
+      "Open <code>~/Downloads/projcompat/restore-test-vst2.als</code> (the same set-up, the original as VST2).",
+      "Write down exactly what Live shows for track 1 (message text, device name)."
+     ],
+     "expect": "probably \"plug-in missing\" for the VST2 \"Virus TI\": TI Revive is VST3 only and does not claim the VST2 id (not tested yet). Pass = you wrote down what happened; if Live replaces it with TI Revive, say so."
+    }
+   ]
+  },
+  {
+   "id": "win",
+   "title": "Windows PC (bare metal)",
+   "where": "this PC booted into Windows 11, Ableton Live 11, TI Revive 0.8.24",
+   "prep": [
+    "The projects are in <code>C:\\tirevive-test\\projcompat\\</code>. Claude is not available while this PC runs Windows: note everything here."
+   ],
+   "items": [
+    {
+     "id": "PB1",
+     "title": "Project with the original as VST3 opens with TI Revive",
+     "steps": [
+      "Open <code>C:\\tirevive-test\\projcompat\\restore-test-vst3.als</code> (made with the original Access plug-in, VST3, on Windows 10).",
+      "Open the plug-in window of track 1. Look at the part names, then play the clip (8 s is enough), first with the Easy page of part 1, then of part 2."
+     ],
+     "expect": "no \"plug-in missing\" message; track 1 is TI Revive Virus Control; part 1 Fimplex HS, part 2 Acidia AV, part 3 Alead BC, parts 4-16 -Init-; the clip plays part 1; the Cutoff knob of part 1 follows its automation, the Reso knob of part 2 follows its own."
+    },
+    {
+     "id": "PB2",
+     "title": "Save with TI Revive and reopen",
+     "steps": [
+      "After PB1: File &gt; Save Live Set As, name it <code>restore-test-vst3-tirevive.als</code> in the same folder, close Live.",
+      "Open that file again, check the part names and play the clip."
+     ],
+     "expect": "the same patches on parts 1-3 and the same automation as in PB1."
+    },
+    {
+     "id": "PB3",
+     "title": "Project with the original as VST2",
+     "steps": [
+      "Open <code>C:\\tirevive-test\\projcompat\\restore-test-vst2.als</code> (the same set-up, the original as VST2).",
+      "Write down exactly what Live shows for track 1 (message text, device name)."
+     ],
+     "expect": "probably \"plug-in missing\" for the VST2 \"Virus TI\": TI Revive is VST3 only and does not claim the VST2 id (not tested yet). Pass = you wrote down what happened; if Live replaces it with TI Revive, say so."
+    }
+   ]
+  }
+ ]
+}
