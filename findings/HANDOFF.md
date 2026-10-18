@@ -40,8 +40,14 @@ Same process as 0.8.24 (Linux checks only during the round; test build + one che
    state loads (244 records, part 1 Fimplex HS, getState identical). Checklist
    https://claude.ai/artifact/5qa9fHxYrLiPG1CnMBViVV (spec scripts/checklists/projcompat-1.json: PW1-3, PM1-3,
    PB1-3). Expectation for the VST2 project: "missing" (we declare no VST2 id) - untested.
-5. **Next to build: Revert to / Recently Used** (E220, observed in the original + REA) and the 3 px bottom strip of
-   themed menus (E220/E219). TDD, round-0.8.25.
+5. **Revert to / Recently Used DONE** (E220, commit 9dcd74f) + themed menus' 3 px bottom strip. 220 tests.
+6. **Live 11 does not open the original's projects** (E221): fix = second VST3 class under the original's id
+   "TI Revive Virus Control (original projects)" (commit d58e175, test factory_classes; user: keep two entries for
+   now, decide before the release whether to take over the id - after the Live 11 redo and the Live 12 data).
+   CI run 39124266237 failed on Windows: my library_create_empty test kept a file open while deleting its folder
+   (Windows throws -> abort 0xc0000409); fixed + test runner names each test first (9dcd74f). CI run 39124817970 =
+   test build 0.8.25a for the VM (PW1 redo) and the other machines. Linux ~/.vst3 = dev build 9dcd74f (backup of
+   0.8.24 in ~/.vst3-backup/0.8.24). User smoke test of the earlier dev build (menus, Create Empty Library): ok.
 win10 VM: 5 crash dumps since 2026-10-10 (bugcheck 0x139 at 13:06 today while Live + the Access driver ran with the
 Virus passed through) - the VM is a reference machine only.
 
