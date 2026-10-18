@@ -15,6 +15,14 @@ Evidence: [evidence.md](evidence.md) (E001-E240), protocol: [spec.md](spec.md); 
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
 
+**Round closed 2026-10-18 (user: "we close this round ... we prepare for the release").** Version 0.8.26 in
+native/CMakeLists.txt. Round test build 0.8.26a = CI run 39147901750 (b081caa). Checklist
+https://claude.ai/artifact/W8EcFqru6zvxirJGJY2c36 (spec scripts/checklists/round-0.8.26.json: core on Linux, VM,
+Mac; L1/W1/M1 long notes (FE), L2/W2/M2 bank sync with panel changes (write retry), L3 per-monitor menus; real PC
+optional, B1 + core). After the checklist passes: full site check (README + site: firmware findings, Active
+Sensing, budget, retry are user-visible stability changes - worth a line), release notes in build.yml, merge
+round-0.8.26 -> main, tag v0.8.26, release CI, site rebuild by hand, install the release on Linux, VM (silent), Mac.
+
 1. **Safety rule `72 00 03`** (issue #7 finding 1): never send the Multi parameter "Original Patch"; added to
    AGENTS.md rule 2 and the tirevive-test skill's safety list, pointing at issue #7 and E209 (their PR into
    claims.md is not in yet; point the rule at the claims entry once it is). Docs only, nothing to test.
