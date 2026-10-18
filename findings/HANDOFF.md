@@ -35,6 +35,19 @@ Evidence: [evidence.md](evidence.md) (E001-E244), protocol: [spec.md](spec.md); 
    tests/test_gapfill.cpp (5 tests), vtitests 242/242, full Linux build ok; the macOS code needs the CI build.
    **Mac test:** Live export (MC3-like), klog K equal before/after, "filled" > 0 in the stats during the export, no
    sync error page; then a cold start and a sleep (StallWatch unchanged). Not yet run: CI (ask the user).
+3. **Remaining firmware points closed (E251-E254, docs only; user: firmware first, testing later).** The Sync
+   Information Event is composed by the DSP (0x5411f -> SysEx sender 0x52484, cable 2, device id 0x10) on the first
+   MIDI-clock tick whose newest stamp is behind its clock after on-time ticks; the host CPU relays the DSP's USB-MIDI
+   frames unchanged (INT0 -> FUN_2644). So the alert means "our lead is used up", one event per transition (E251).
+   The host CPU's parameter model is decoded (4-byte records, internal pages, translation table 0x8700 in flash page
+   2, DSP words, 0x4F frames to the PC; E252) - with Ghidra asm scripts DisasFuncs.java / DisasAt.java in
+   work/firmware/scripts. F034/F035 = .lod data images "wvd119.lod" (2012, likely wavetables) and "fvd102.lod" (2009),
+   not code (E253). ESAI_1 is the DSP-to-DSP link, the master clocks it; ESAI is the codec/USB side (E254). The
+   DSP ignores Multi "Original Patch" 72 00 03 (page-0x72 table Y:$47f53, params 0-6 -> ignore handler); the host's
+   multi header path and issue #7's power-up effect stay unproven (E255). Still open (LOW value): the host CPU's
+   page-0x72 parameter parsing (FUN_3ae4 state tables 0x3b38/0x3c76), the USB chip's handling of 0x4F frames, when
+   the .lod data is streamed to the DSPs, the meaning of the DSP's cable-1 message 0B. Firmware work is done for
+   this round unless something new comes up; next = testing (CI build, Mac export check), not today.
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
 

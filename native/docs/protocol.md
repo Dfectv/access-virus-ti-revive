@@ -133,6 +133,9 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   at once). Nothing outside the DSPs moves the clock - no host command, no USB condition. The F2 song position only
   feeds the Virus' own tempo sync (arpeggiator, LFO, delay); the "without F2 the stamps are ignored" observation above
   (2026-10-13) was the modular window with ring-relative stamps: about 44 % of sessions landed inside it (E247).
+  The Sync Information Event (`73 00 54 01`) is the DSP's own SysEx (E251): at a MIDI-clock tick whose newest
+  stamp is behind its clock, after ticks where stamps were ahead, it sends one event - "the lead is used up", one
+  per transition, not one per late note. Late stamps still play; the event asks for more lead, not for a resync.
 - Active Sensing (2026-10-18, firmware E237): the DSP arms a watchdog with the first FE it sees and releases every
   voice about a second after the last one. The original sends FE every 0.31 s (E025); the plug-in now sends one
   every 300 ms on the timeline (keepalive.h), the first with the anchor's FE/F2 as before. Stamped bytes in flight
