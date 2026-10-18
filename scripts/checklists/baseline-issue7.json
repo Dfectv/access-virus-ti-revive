@@ -1,6 +1,6 @@
 {
  "round": "baseline-issue7",
- "lead": "One baseline on every system with release 0.8.23: the three checks from issue #7 (findings from a separate macOS TI2 project, not reproduced by us yet). Same items in the same order on Windows (real PC), Linux and macOS, so the results can be compared. Windows first: Claude is not available while this PC runs Windows, so that block is self-contained. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "lead": "One baseline on every system with release 0.8.23: the three checks from issue #7 (findings from a separate macOS TI2 project, not reproduced by us yet). Same items in the same order on Windows (real PC), Linux and macOS, so the results can be compared. Windows first: Claude is not available while this PC runs Windows, so that block is self-contained, and it has five catch-up items (B4-B8) for what the real PC has not seen since 0.8.20 (menus, export, aux track, Virus off during export, sleep); B1-B3 first, then B4-B8, about 60-70 minutes. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
  "rules": [
   "Disposable DAW project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches.",
   "Monitors and headphones LOW for the whole round: in finding 3 a hung Virus sent full-scale values on its USB inputs. If you hear loud noise or the Virus stops answering, stop the DAW, switch the Virus off and on, note the item and what you did just before.",
@@ -51,6 +51,55 @@
       "Without a DAW, look at the Virus' display: which patch does part 1 (Multi mode) or the single show?"
      ],
      "expect": "the Virus shows the patch you loaded (or its previous one), not \"-Init-\" in every part. \"-Init-\" everywhere would mean our start-up triggers finding 1: note exactly what the display shows."
+    },
+    {
+     "id": "B4",
+     "title": "Catch-up: installer cleanup, menus, REMOTE page",
+     "steps": [
+      "Apps &gt; Installed apps, search \"TI Revive\": write down every entry you see (the stale \"TI Revive 0.8.0\" entry from E186 should be gone).",
+      "Open the test project. OSC page, oscillator 1: click the mode field, pick Wavetable; right-click the table name, pick another table; open the list again, arrow keys + Return, then once more and Esc.",
+      "PATCH UTILITY &gt; REMOTE: double-click template 3, click knob VALUE 2, click the arrow at the right end of MIDI STRING and look at the list (do not change anything). Close the editor window and open it again."
+     ],
+     "expect": "exactly one entry, TI Revive 0.8.23; the lists open at their control (Wavetable list in 4 columns of 25, opens without delay), arrows/Return/Esc work; the REMOTE arrow opens the knob template list (4 groups with submenus); the Virus keeps playing. These passed in the VM in 0.8.21/0.8.22, never on this PC."
+    },
+    {
+     "id": "B5",
+     "title": "Catch-up: export and freeze at the Virus' pace (E203)",
+     "steps": [
+      "Make the timing clip 30 s long (16ths at 120 BPM), 44.1 kHz, buffer 256.",
+      "File &gt; Export Audio/Video, Rendered Track: the Virus track, to <code>C:\\tirevive-test\\B5.wav</code>. Watch how long it takes.",
+      "Freeze the Virus track, play the frozen track, then Unfreeze and play again."
+     ],
+     "expect": "the export takes about as long as the clip (not faster) and has the pattern; freezing takes about as long as the clip and sounds like the live track; after Unfreeze the plug-in plays normally. Claude measures B5.wav (the VM's export was ragged, E207: the real PC decides)."
+    },
+    {
+     "id": "B6",
+     "title": "Catch-up: plug-in fed from another track (aux style)",
+     "steps": [
+      "Insert a new MIDI track \"Notes\" and move the timing clip there. Its MIDI To: the Virus track (the Virus track keeps the plug-in; set its Monitor to In).",
+      "Play once and listen, then export the Virus track to <code>C:\\tirevive-test\\B6.wav</code>.",
+      "Move the clip back to the Virus track afterwards."
+     ],
+     "expect": "the Virus plays the pattern from the other track; Claude finds the notes on the grid like in B5 (the original lost its delay compensation on an aux track, C18; passed on Linux, E207)."
+    },
+    {
+     "id": "B7",
+     "title": "Catch-up: Virus switched off during an export",
+     "steps": [
+      "Export again (to <code>C:\\tirevive-test\\B7.wav</code>); about halfway, switch the Virus off.",
+      "Wait until Ableton finishes. Switch the Virus on, wait for its normal screen, press Play."
+     ],
+     "expect": "the export finishes (silence after the switch-off) and Ableton does not hang; afterwards the plug-in shows the Virus again and plays (on Linux: E207)."
+    },
+    {
+     "id": "B8",
+     "title": "Catch-up: sleep with the plug-in loaded (E208)",
+     "steps": [
+      "Ableton open, test project loaded, stopped. Start &gt; Power &gt; Sleep.",
+      "Wake the PC after about a minute, log in, press Play in Ableton.",
+      "Close Ableton. Copy <code>diag.log</code> to <code>C:\\tirevive-test\\B8-diag.log</code> (look for \"the Virus' audio stood still\")."
+     ],
+     "expect": "the plug-in finds the Virus again (a short \"No Virus TI can be found\" page in between is fine) and plays in time. Never tested on Windows; the fix is untested on any system."
     }
    ]
   },

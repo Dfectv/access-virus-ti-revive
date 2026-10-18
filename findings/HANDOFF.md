@@ -23,7 +23,7 @@ Four hardware reports from their own code (TI2, macOS 26, Apple Silicon), not re
 
 Baseline checklist for checks 1-3, same items on all systems with release 0.8.23:
 https://claude.ai/artifact/TsNG9uUTrf9Do1VMR441oz (spec scripts/checklists/baseline-issue7.json; B1-B3 bare-metal
-Windows first, then L1-L3, M1-M3). Windows logs: C:\tirevive-test\B*-diag.log on the Windows partition
+Windows first + catch-up B4-B8 since 0.8.20: menus/REMOTE, export+freeze, aux track, Virus off during export, sleep; then L1-L3, M1-M3). Windows logs: C:\tirevive-test\B*-diag.log on the Windows partition
 (nvme2n1p2, mount read-only from Linux after the reboot).
 
 ## CONTINUE HERE (state 2026-10-17 late: branch round-0.8.23, offline render)
