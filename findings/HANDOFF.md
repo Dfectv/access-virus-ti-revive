@@ -46,8 +46,19 @@ Evidence: [evidence.md](evidence.md) (E001-E244), protocol: [spec.md](spec.md); 
    DSP ignores Multi "Original Patch" 72 00 03 (page-0x72 table Y:$47f53, params 0-6 -> ignore handler); the host's
    multi header path and issue #7's power-up effect stay unproven (E255). Still open (LOW value): the host CPU's
    page-0x72 parameter parsing (FUN_3ae4 state tables 0x3b38/0x3c76), the USB chip's handling of 0x4F frames, when
-   the .lod data is streamed to the DSPs, the meaning of the DSP's cable-1 message 0B. Firmware work is done for
-   this round unless something new comes up; next = testing (CI build, Mac export check), not today.
+   the .lod data is streamed to the DSPs, the meaning of the DSP's cable-1 message 0B.
+4. **Last open points closed (E256-E258, docs only).** Correction: F020-F034 are the 15 sectors of the main DSP
+   stream, "wvd119.lod" is that image's own build stamp; F035 is a separate one-sector image at the same flash
+   address (use open, LOW). The host's 0x4F frames are messages to the USB chip: keys = globals 0x0F SA Freq, **0x10
+   Frequency (0 = 44.1 kHz, 1 = 48 kHz - the chip switches its audio clock)**, 0x11 Clock Mode, 0x1F input gain,
+   0x2B SPDIF routing, commands 0xF5/0xF6; the host re-sends 0x0F/0x11/0x2B/0x1F at a USB connect but not 0x10.
+   The host parses the PC's parameter SysEx into its record queue (internal page | 0x80 = not re-sent to the DSPs)
+   and stores it; "Original Patch" lands in the multi edit buffer, the power-up effect (issue #7) stays unproven.
+   **Device-side proposal for the 48 kHz state (E175/E241):** when 48 kHz packets appear, send the global
+   `73 00 10 00` (System Clock/Frequency = 44.1 kHz, what the panel does) next to the SET_CUR retry - normal global
+   parameter, rule-2 safe; code + tests + a hardware check in the next test round. Still open, low value: the DSP's
+   cable-1 message 0B, F035's use, the USB chip's 0xF6 command. Firmware analysis complete for this round; next =
+   testing (CI build, Mac export check, the 0x10 lever), not today.
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
 
