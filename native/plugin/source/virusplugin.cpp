@@ -2386,6 +2386,23 @@ bool VirusPlugin::store_patch(int part, int bank, int program)
     return true;
 }
 
+bool VirusPlugin::create_library()
+{
+    std::string path, err;
+    if (!create_empty_library(library_dir(), path, err)) {
+        fprintf(stderr, "Virus TI native: %s\n", err.c_str());
+        return false;
+    }
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        banks_[LIB_BASE + (int)lib_names_.size()].clear();
+        lib_names_.push_back(std::filesystem::path(path).stem().string()); // in the folder itself: no subfolder part
+        lib_paths_.push_back(path);
+    }
+    ui_dirty_ = true;
+    return true;
+}
+
 bool VirusPlugin::store_to_library(int part, int library, int slot)
 {
     std::vector<uint8_t> d;

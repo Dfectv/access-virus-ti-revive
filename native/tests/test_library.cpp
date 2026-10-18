@@ -148,3 +148,27 @@ TEST(library_dir_xdg_documents)
     fs::remove_all(dir);
 }
 #endif
+
+// "Create Empty Library" (E217): the original's empty library file (a standard MIDI file with one empty track, 26
+// bytes), "New Library.mid" in the library folder, never over an existing file; it loads as a library without patches
+TEST(library_create_empty)
+{
+    fs::path dir = fs::temp_directory_path() / "vtitests-library-empty";
+    fs::remove_all(dir);
+    std::string path, err;
+    CHECK(create_empty_library(dir.string(), path, err)); // the folder is created when missing
+    CHECK(fs::path(path) == dir / "New Library.mid");
+    const Dump want = {0x4D, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, 0x01, 0xE0,
+                       0x4D, 0x54, 0x72, 0x6B, 0, 0, 0, 4, 0x78, 0xFF, 0x2F, 0x00};
+    std::ifstream f(path, std::ios::binary);
+    Dump got((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    CHECK(got == want);
+    CHECK(create_empty_library(dir.string(), path, err));
+    CHECK(fs::path(path) == dir / "New Library 2.mid");
+    PatchLibrary lib;
+    CHECK(load_library_file(path, lib) && lib.dumps.empty());
+    auto libs = load_libraries(dir.string());
+    CHECK(libs.size() == 2);
+    fs::remove_all(dir);
+    CHECK(!create_empty_library("", path, err) && !err.empty());
+}

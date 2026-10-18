@@ -1689,6 +1689,10 @@ private:
     bool editing_search_ = false;
     CRect search_rect_;
 
+    // the last entry under "Personal Libraries" in the patch and bank menus, as in the original (E217); it makes
+    // "New Library.mid" at once (the original asks for the name in a save dialog; the editor has no file dialogs)
+    static constexpr const char *kCreateLibrary = "Create Empty Library";
+
     // LOAD / SAVE like the original: "<device> > RAM A.. (SAVE: RAM only) > 000 Name" and "Personal Libraries"
     void patch_menu_popup(const Hit &h, const CPoint &where, bool save)
     {
@@ -1722,13 +1726,17 @@ private:
             vti::PopupItem entry("", true, std::move(patches));
             (*libs)[vti::popup_add_path(lib, plugin_->library_name(i), std::move(entry), folders)] = i;
         }
-        if (lib.empty())
-            lib.push_back({"(none)", false});
+        const int create = (int)lib.size();
+        lib.push_back({kCreateLibrary});
         std::vector<vti::PopupItem> items;
         items.push_back({plugin_->device_name(), true, std::move(dev)});
         items.push_back({"Personal Libraries", true, std::move(lib)});
         int part = h.part;
-        show_popup(std::move(items), -1, 0, where, [this, part, save, libs](const std::vector<int> &path) {
+        show_popup(std::move(items), -1, 0, where, [this, part, save, libs, create](const std::vector<int> &path) {
+            if (path == std::vector<int>{1, create}) {
+                plugin_->create_library();
+                return;
+            }
             if (path.size() < 3)
                 return;
             int bank = -1, slot = path.back();
@@ -1762,14 +1770,16 @@ private:
         std::map<std::string, std::vector<int>> folders;
         for (int i = 0; i < plugin_->library_count(); i++)
             (*libs)[vti::popup_add_path(lib, plugin_->library_name(i), {""}, folders)] = i;
-        if (lib.empty())
-            lib.push_back({"(none)", false});
+        const int create = (int)lib.size();
+        lib.push_back({kCreateLibrary});
         std::vector<vti::PopupItem> items;
         items.push_back({plugin_->device_name(), true, std::move(dev)});
         items.push_back({"Personal Libraries", true, std::move(lib)});
         std::string param = h.element->get("Parameter");
-        show_popup(std::move(items), -1, 0, where, [this, param, libs](const std::vector<int> &path) {
-            if (path.size() == 2 && path[0] == 0)
+        show_popup(std::move(items), -1, 0, where, [this, param, libs, create](const std::vector<int> &path) {
+            if (path == std::vector<int>{1, create})
+                plugin_->create_library();
+            else if (path.size() == 2 && path[0] == 0)
                 plugin_->ui_set(param, -1, path[1]);
             else if (path.size() >= 2 && path[0] == 1) {
                 auto it = libs->find(std::vector<int>(path.begin() + 1, path.end()));
