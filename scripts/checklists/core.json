@@ -1,0 +1,200 @@
+{
+ "rules": [
+  "Disposable DAW project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches.",
+  "Monitors and headphones low. If you hear loud noise or the Virus stops answering: stop the DAW, switch the Virus off and on, note the item.",
+  "Logging on (an empty file diag.on in the plug-in's folder); copy diag.log where the item says.",
+  "Core items (C1-C5) are the same every round and catch regressions; the round's own items follow them."
+ ],
+ "sections": [
+  {
+   "id": "linux",
+   "items": [
+    {
+     "id": "LC1",
+     "title": "Core: cold start",
+     "steps": [
+      "REAPER closed. Switch the Virus off, wait 5 s, switch it on, wait for its normal screen.",
+      "Open the test project (16ths at 120 BPM). When the start-up page is gone, play about 10 s."
+     ],
+     "expect": "plays in time; the log has \"Virus ready after\" and \"sync marker at frame\", and no \"audio stood still\" line."
+    },
+    {
+     "id": "LC2",
+     "title": "Core: reopen after the broker's idle exit (twice)",
+     "steps": [
+      "Close REAPER, wait 60 s (<code>pgrep -a vtibroker</code> must show no broker), open the project, play about 10 s.",
+      "Do it once more (Virus stays on)."
+     ],
+     "expect": "both reopens play in time, no noise, no hang, no doubled notes."
+    },
+    {
+     "id": "LC3",
+     "title": "Core: export",
+     "steps": [
+      "Render the timing project with Full-speed offline to <code>work/timing/LC3.wav</code>. (After a wake, REAPER via PipeWire may need Preferences &gt; Audio &gt; Device re-applied, E211.)"
+     ],
+     "expect": "the export takes about as long as the clip; Claude measures the file (all notes on the grid)."
+    },
+    {
+     "id": "LC4",
+     "title": "Core: Virus off and on while the project is open",
+     "steps": [
+      "Stopped, plug-in loaded: switch the Virus off, wait 10 s, switch it on, wait for its normal screen.",
+      "Press Play."
+     ],
+     "expect": "the plug-in shows the Virus again within a few seconds and plays in time."
+    },
+    {
+     "id": "LC5",
+     "title": "Core: sleep with the plug-in loaded",
+     "steps": [
+      "Run <code>systemctl suspend</code>.",
+      "Wake it after about a minute, log in, press Play in REAPER.",
+      "Then copy the log: <code>cp ~/.local/share/virus-ti-native/diag.log work/timing/L-diag.log</code>."
+     ],
+     "expect": "the Virus is heard again (a short \"No Virus TI can be found\" page in between is fine)."
+    }
+   ]
+  },
+  {
+   "id": "vm",
+   "items": [
+    {
+     "id": "WC1",
+     "title": "Core: cold start",
+     "steps": [
+      "Ableton closed. Switch the Virus off, wait 5 s, switch it on, wait for its normal screen.",
+      "Open the test project (16ths at 120 BPM). When the start-up page is gone, play about 10 s."
+     ],
+     "expect": "plays in time; the log has \"Virus ready after\" and \"sync marker at frame\", and no \"audio stood still\" line."
+    },
+    {
+     "id": "WC2",
+     "title": "Core: reopen after the broker's idle exit (twice)",
+     "steps": [
+      "Close Ableton, wait 60 s (Task Manager must show no broker), open the project, play about 10 s.",
+      "Do it once more (Virus stays on)."
+     ],
+     "expect": "both reopens play in time, no noise, no hang, no doubled notes."
+    },
+    {
+     "id": "WC3",
+     "title": "Core: export",
+     "steps": [
+      "File &gt; Export Audio/Video, the Virus track, to <code>WC3.wav</code> on the Desktop (the VM can drop notes, E141)."
+     ],
+     "expect": "the export takes about as long as the clip; Claude measures the file (all notes on the grid)."
+    },
+    {
+     "id": "WC4",
+     "title": "Core: Virus off and on while the project is open",
+     "steps": [
+      "Stopped, plug-in loaded: switch the Virus off, wait 10 s, switch it on, wait for its normal screen.",
+      "Press Play."
+     ],
+     "expect": "the plug-in shows the Virus again within a few seconds and plays in time."
+    }
+   ]
+  },
+  {
+   "id": "win",
+   "items": [
+    {
+     "id": "BC1",
+     "title": "Core: cold start",
+     "steps": [
+      "Ableton closed. Switch the Virus off, wait 5 s, switch it on, wait for its normal screen.",
+      "Open the test project (16ths at 120 BPM). When the start-up page is gone, play about 10 s."
+     ],
+     "expect": "plays in time; the log has \"Virus ready after\" and \"sync marker at frame\", and no \"audio stood still\" line."
+    },
+    {
+     "id": "BC2",
+     "title": "Core: reopen after the broker's idle exit (twice)",
+     "steps": [
+      "Close Ableton, wait 60 s (Task Manager &gt; Details, <code>vtibroker.exe</code> must show no broker), open the project, play about 10 s.",
+      "Do it once more (Virus stays on)."
+     ],
+     "expect": "both reopens play in time, no noise, no hang, no doubled notes."
+    },
+    {
+     "id": "BC3",
+     "title": "Core: export",
+     "steps": [
+      "File &gt; Export Audio/Video, the Virus track, to <code>C:\\tirevive-test\\BC3.wav</code>."
+     ],
+     "expect": "the export takes about as long as the clip; Claude measures the file (all notes on the grid)."
+    },
+    {
+     "id": "BC4",
+     "title": "Core: Virus off and on while the project is open",
+     "steps": [
+      "Stopped, plug-in loaded: switch the Virus off, wait 10 s, switch it on, wait for its normal screen.",
+      "Press Play."
+     ],
+     "expect": "the plug-in shows the Virus again within a few seconds and plays in time."
+    },
+    {
+     "id": "BC5",
+     "title": "Core: sleep with the plug-in loaded",
+     "steps": [
+      "Start &gt; Power &gt; Sleep.",
+      "Wake it after about a minute, log in, press Play in Ableton.",
+      "Then copy the log: <code>C:\\tirevive-test\\B-diag.log</code>."
+     ],
+     "expect": "the Virus is heard again (a short \"No Virus TI can be found\" page in between is fine)."
+    }
+   ]
+  },
+  {
+   "id": "mac",
+   "items": [
+    {
+     "id": "MC1",
+     "title": "Core: cold start",
+     "steps": [
+      "Ableton closed. Switch the Virus off, wait 5 s, switch it on, wait for its normal screen.",
+      "Open the test project (16ths at 120 BPM). When the start-up page is gone, play about 10 s."
+     ],
+     "expect": "plays in time; the log has \"Virus ready after\" and \"sync marker at frame\", and no \"audio stood still\" line."
+    },
+    {
+     "id": "MC2",
+     "title": "Core: reopen after the broker's idle exit (twice)",
+     "steps": [
+      "Close Ableton, wait 60 s (<code>pgrep -a vtibroker</code> must show no broker), open the project, play about 10 s.",
+      "Do it once more (Virus stays on)."
+     ],
+     "expect": "both reopens play in time, no noise, no hang, no doubled notes."
+    },
+    {
+     "id": "MC3",
+     "title": "Core: export",
+     "steps": [
+      "File &gt; Export Audio/Video to <code>~/Downloads/MC3.wav</code>."
+     ],
+     "expect": "the export takes about as long as the clip; Claude measures the file (all notes on the grid)."
+    },
+    {
+     "id": "MC4",
+     "title": "Core: Virus off and on while the project is open",
+     "steps": [
+      "Stopped, plug-in loaded: switch the Virus off, wait 10 s, switch it on, wait for its normal screen.",
+      "Press Play."
+     ],
+     "expect": "the plug-in shows the Virus again within a few seconds and plays in time."
+    },
+    {
+     "id": "MC5",
+     "title": "Core: sleep with the plug-in loaded",
+     "steps": [
+      "Apple menu &gt; Sleep (or close the lid).",
+      "Wake it after about a minute, log in, press Play in Ableton.",
+      "Then copy the log: <code>cp ~/Library/Application\\ Support/virus-ti-native/diag.log ~/Downloads/M-diag.log</code>."
+     ],
+     "expect": "the Virus is heard again (a short \"No Virus TI can be found\" page in between is fine)."
+    }
+   ]
+  }
+ ]
+}

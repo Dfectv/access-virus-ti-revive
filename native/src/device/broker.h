@@ -25,6 +25,9 @@ public:
     bool open(std::string &error);
     void close();
     bool device_present() const { return present_; }
+    // how often the Virus became present (STATE 1 after anything else): a gone-and-back faster than the caller polls
+    // device_present() still changes it (E212: the broker reopened the Virus 0.27 s after a wake)
+    uint32_t device_arrivals() const { return arrivals_; }
     // the broker's release version from its INFO message ("" from older brokers): PATCH UTILITY > INFO (E189)
     std::string broker_version() const
     {
@@ -78,6 +81,7 @@ private:
     std::map<uint32_t, std::vector<uint8_t>> replies_; // seq -> i32 result + data
     uint32_t seq_ = 0;
     std::atomic<bool> present_{false}, elsewhere_{false}, stop_{false}, reader_done_{true};
+    std::atomic<uint32_t> arrivals_{0};
     RxHandler rx_;
     StateHandler state_;
     bool send(uint16_t type, const void *a, size_t alen, const void *b = nullptr, size_t blen = 0);

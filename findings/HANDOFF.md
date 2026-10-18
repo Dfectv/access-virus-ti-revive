@@ -1,8 +1,56 @@
 # HANDOFF
 
-_Last updated: 2026-10-18 (issue #7 open checks below; then CONTINUE HERE). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E210), protocol: [spec.md](spec.md); the native plug-in:
+_Last updated: 2026-10-18. CONTINUE HERE = "Round 0.8.24" below (test running, checklist link there) (work on branch round-0.8.24; main has the
+older HANDOFF). Test machines: Linux = dev build of round-0.8.24 in ~/.vst3; Mac, win11 VM and the real PC = release
+0.8.23. Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+Evidence: [evidence.md](evidence.md) (E001-E216), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
+
+## Round 0.8.24 (branch round-0.8.24, collecting; new test process 2026-10-18)
+
+Process (agreed with the user 2026-10-18): fixes collect on this branch; I check on Linux only (tests, build, own
+TI2 runs, user's short crash smoke test of a dev build); the round's test build + ONE checklist come when ~5-10
+changes are in, something users wait for is ready, or the user asks. Checklist = core items from
+scripts/checklists/core.json (checklist.py merges them with `"core": "core.json"`: cold start, reopen after broker
+idle exit, export, Virus off/on, sleep; ~15-20 min per system) + one item per change on the systems it affects.
+Failures go back into the batch; hotfixes only for crash / data loss / broken install.
+
+In this round so far:
+1. Sleep: a stall re-sends start-up messages + state like a reconnect (E210); Linux sleep works (E211, via the
+   kernel's USB reset). Needs: Windows real PC + Mac sleep (core item C5).
+2. StallWatch false alarm on every first connect fixed (E209 (5), test stallwatch_starting_stream_is_no_stall;
+   Linux checked E211). Needs: core C1 on all systems (no "audio stood still" line).
+3. Docs only (skill stocktake, 9cf52c3): tirevive-diagnose table refreshed (Snow works per E188, "latest release"
+   instead of 0.8.0, Driver Extensions fix, replug and sleep rows, 0.7.x buffer row re-sourced to E111/E123);
+   tirevive-pr (native first, real evidence.md columns, PR template, maintainer rules); tirevive-site-check
+   (core.json / baseline-*.json, full style rules); Snow wording in AGENTS.md and CONTRIBUTING.md. No test needed.
+**Fix for LC5 (E213, 2026-10-18): the Virus gone-and-back in 0.27 s at wake, unseen by the worker -> broker client
+counts arrivals, PresenceWatch reconnects on a changed count. 214 tests. Dev build in ~/.vst3 (backup of 0.8.24a in
+~/.vst3-backup/0.8.24a). L6 (LC5 redo, dev build) PASS (E214). CI test build 0.8.24b = run 39110354589 (version 0.8.24,
+green): Linux installed (= CI), real PC setup in C:\tirevive-test\0.8.24b (old 0.8.24a setup removed), Mac zip pushed
++ unzipped in ~/Downloads/TI-Revive-0.8.24b-mac (user runs the sudo installer, then I check pkgutil), VM stays on
+0.8.24a (WC1-WC4 passed, path untouched). E215: MC1-MC5 PASS on 0.8.24b (Mac sleep fix confirmed). Real PC ran
+0.8.23 (setup never run) -> BC1-BC5 cleared, new item B0 (installed version check). ONLY OPEN before the release:
+B0 + BC1-BC5 on the real PC with 0.8.24b (setup in C:\tirevive-test\0.8.24b). Then: site check, merge, tag v0.8.24.**
+**Round complete (E216): all 21 items pass. Site check before the release (2026-10-18): tests 208 -> 214; sleep moved
+from "Being tested now" (section removed) to the solved list (site + README); release notes "New in 0.8.24"; timing
+summaries 0.01-0.04 -> 0.01-0.33 ms std. dev. (user: honest range; this round's exports 0.16-0.33 ms) + 0.8.24 Windows
+PC row in both tables. Unchanged: Linux replug known issue (not retested), coverage 94 % (16 Oct).**
+**Baseline results (E212, 2026-10-18): NOT releasable yet.** Linux LC1-LC4 pass (false alarm gone), LC5 sleep FAIL:
+the stall path (no USB reset this time) sends set-up + state, Virus ready, but no sync marker afterwards -> timeline
+never re-anchored, silent. Next: trace in code why no ping/marker follows the stall path (reconnect path E211 gets
+one), test first. VM WC1-WC4 pass. Mac ran 0.8.23 (pkg not installed): redo MC1-MC5 with 0.8.24a (or the fix build).
+Real PC BC1-BC5 not run: user does a bigger Windows run later.
+**Plan (user 2026-10-18): test, merge to main, release 0.8.24, then the next round.**
+Test build 0.8.24a = CI run 39105250660 (version 0.8.24, from sleep-reconnect fe7b196; the branch has no code
+change since, only docs/checklist tooling, so no new CI run). Installed: Linux (install.sh, plug-in hash = CI), win11
+VM (setup.exe /quiet, entry 0.8.24, VM left running, Virus not attached yet), Mac (zip pushed + unzipped in
+~/Downloads/TI-Revive-0.8.24a-mac, user runs the sudo installer), real PC (setup.exe in C:\tirevive-test).
+Checklist https://claude.ai/artifact/CPe7iSh2gaTduJHBxaXeeG (spec scripts/checklists/round-0.8.24.json = core only:
+LC1-5, WC1-4, MC1-5, BC1-5). After all pass: merge round-0.8.24 into main, tag v0.8.24, release CI, site check +
+site rebuild by hand, install the release on the machines.
+Candidates for the round: Mac double notes after a reopen (E209 (7), watch); issue #7 PR review + `72 00 03` safety
+rule when it comes; E180 pixel comparison, E175 (old list).
 
 ## Baseline round results (2026-10-18): E209, E210
 
@@ -42,7 +90,7 @@ https://claude.ai/artifact/TsNG9uUTrf9Do1VMR441oz (spec scripts/checklists/basel
 Windows first + catch-up B4-B8 since 0.8.20: menus/REMOTE, export+freeze, aux track, Virus off during export, sleep; then L1-L3, M1-M3). Windows logs: C:\tirevive-test\B*-diag.log on the Windows partition
 (nvme2n1p2, mount read-only from Linux after the reboot).
 
-## CONTINUE HERE (state 2026-10-17 late: branch round-0.8.23, offline render)
+## Previous state (2026-10-17 late: branch round-0.8.23, offline render)
 
 **Released v0.8.23** (tag on main bcec1ce, CI run 39060420044 all green incl. release; assets setup.exe, msi, mac zip, linux tarball, tirevive-usbinfo.ps1, libusb source). Website rebuilt by hand (site run 39060784148), live: Version 0.8.23, 208 tests, offline/sync error help, original-problems section. Test machines: win11 VM release installed silently (0.8.23, plug-in has the sleep fix); Linux: install.sh now asks sudo for the udev rule - user runs it (still the 0.8.23a test build without the sleep fix until then); Mac asleep, release zip in ~/Downloads/TI-Revive-0.8.23-release on this PC, push when awake. Next round: Mac sleep test (E208), L4. Before: **Round 0.8.23 done, release prepared (state 2026-10-17 21:xx).** Results E207 (all pass except M3 Mac sleep FAIL -> fix E208 StallWatch, untested, user: release with it, test with the next round; L4 Linux sleep not tested). Site check before the release: release notes say the Windows test was in the VM; sleep sentence fixed (the failing build was 0.8.23a, not 0.8.22); USB-port advice sourced in E205. Version 0.8.23, 208 tests. Earlier state: **Branch `round-0.8.23` (pushed; commit 8574a72 ...).** CI test build 0.8.23a = run 39057457787 (version 0.8.23; run 39057093527 was 0.0.1 by mistake, discarded); installed: Linux (install.sh), win11 VM (bundle uninstall 0.8.22d + setup.exe /quiet, one entry 0.8.23); Mac asleep, package in ~/Downloads/TI-Revive-0.8.23a-mac on this PC, push when awake. Checklist https://claude.ai/artifact/LC2ixtX9PCrDWfHP5e7cJs (spec scripts/checklists/round-0.8.23.json: L1-L4, W1-W2, M1-M3). Also done: sync error page like the original (E205, SyncAlert, 203 tests; user wanted it before the release); offline render + sync error as features on README/site; REAPER offline render 0 ppm / 0.01 ms (E204). Started from the user's web research on what owners
 reported about the original plug-in (community claims C11-C18 in claims.md, with links). Done: (1) offline render

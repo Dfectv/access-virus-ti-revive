@@ -270,32 +270,57 @@ void DeviceOut::check_presence()
         if (on_waiting_ && !wait_reported_)
             on_waiting_(elsewhere);
     }
-    if (int present = broker_.device_present() ? 1 : 0; present != present_seen_) {
-        bool was = present_seen_ == 1;
-        present_seen_ = present;
-        if (!present) {
-            audio_ok_ = false;
-            audio_.close();
-        } else {
-            // a new audio stream counts its frames from 0 again: the scan positions of the old one would keep
-            // scan_audio idle (and the sync marker unfound) until the new stream passed them - ~19 s (user test)
-            scanned_ = -1;
-            marker_skip_ = -1;
-            last_sound = -1;
-            generation++;
-            // the Virus' OS version for PATCH UTILITY > INFO, read like the original at plug-in start, before the
-            // memory sync: the broker's fixed read-only flash sequence (flashinfo.h, E026/E040), ~2 s once per open
-            if (!elsewhere_seen_) {
-                std::vector<uint8_t> fl;
-                int n = broker_.flash_info(fl);
-                std::string os = n > 0 ? tios_from_flash(fl) : std::string();
-                log("Virus TI native: flash info %d bytes, OS \"%s\"\n", n, os.c_str());
-                std::lock_guard<std::mutex> g(info_mu_);
-                tios_ = os;
-            }
+    auto lost = [this] {
+        audio_ok_ = false;
+        audio_.close();
+    };
+    auto arrived = [this] {
+        // a new audio stream counts its frames from 0 again: the scan positions of the old one would keep
+        // scan_audio idle (and the sync marker unfound) until the new stream passed them - ~19 s (user test)
+        scanned_ = -1;
+        marker_skip_ = -1;
+        last_sound = -1;
+        generation++;
+        // the Virus' OS version for PATCH UTILITY > INFO, read like the original at plug-in start, before the
+        // memory sync: the broker's fixed read-only flash sequence (flashinfo.h, E026/E040), ~2 s once per open
+        if (!elsewhere_seen_) {
+            std::vector<uint8_t> fl;
+            int n = broker_.flash_info(fl);
+            std::string os = n > 0 ? tios_from_flash(fl) : std::string();
+            log("Virus TI native: flash info %d bytes, OS \"%s\"\n", n, os.c_str());
+            std::lock_guard<std::mutex> g(info_mu_);
+            tios_ = os;
         }
-        if (device_ && (was || present))
-            device_(present != 0);
+    };
+    const bool present = broker_.device_present(); // the flag before the count (the reader counts first)
+    switch (presence_.update(present, broker_.device_arrivals())) {
+    case vti::Presence::same:
+        break;
+    case vti::Presence::gone: {
+        bool was = present_seen_ == 1;
+        present_seen_ = 0;
+        lost();
+        if (device_ && was)
+            device_(false);
+        break;
+    }
+    case vti::Presence::back:
+        present_seen_ = 1;
+        arrived();
+        if (device_)
+            device_(true);
+        break;
+    case vti::Presence::bounced:
+        // gone and back while this thread was not looking (E212: a Linux wake, the broker reopened the Virus 0.27 s
+        // later): its audio stream is a new one that nobody started - a reconnect like a replug
+        log("Virus TI native: the Virus was gone for a moment - reconnecting\n");
+        lost();
+        if (device_)
+            device_(false);
+        arrived();
+        if (device_)
+            device_(true);
+        break;
     }
     report_status();
 }
@@ -443,8 +468,10 @@ void DeviceOut::run()
         if (audio_ok_ && stall_.update(audio_.newest_frame(),
                                        std::chrono::duration_cast<std::chrono::milliseconds>(
                                            std::chrono::steady_clock::now().time_since_epoch()).count())) {
-            log("Virus TI native: the Virus' audio stood still (sleep?) - new timeline and sync ping\n");
+            log("Virus TI native: the Virus' audio stood still (sleep?) - set-up, state and a new timeline again\n");
             generation++;
+            if (resume_) // after a Windows sleep the Virus answered sync pings but played no notes until this (E210)
+                resume_();
         }
         check_presence();
         if ((env_stats() || diag_on_.load(std::memory_order_acquire)) && std::chrono::steady_clock::now() >= stats_next_) { // endurance tests
@@ -685,11 +712,9 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
             return;
         }
         set_lcd("Virus reconnected", std::string(), std::string(), std::string());
-        for (auto &m : startup_messages())
-            out_->send(m);
-        send_state();
-        after_reconnect();
+        resend_to_virus();
     });
+    out_->on_resume([this] { resend_to_virus(); }); // worker thread
     usb_io_ = load_usb_io();
     // the original's start-up: GlobalInit (remote mode, cable numbers, clock sync, ...) + ParamInit, before any state
     for (auto &m : startup_messages())
@@ -2088,6 +2113,16 @@ bool VirusPlugin::probe_virus_ready()
 // The Virus is back (sender thread, after the start-up messages and the state were queued): until it has worked
 // through them, notes are held and the timeline does not anchor - else notes play up to 1.6 s late and the sync ping
 // goes unanswered (E144, E148), as before 0.8.6 at a first start. A reconnect during a running probe lets it run again.
+// The Virus came back or the stream woke up from a sleep: it gets what it got at the first start, then the readiness
+// probe holds notes until it has worked through it (a reconnect showed this works; a sleep needs it too, E210)
+void VirusPlugin::resend_to_virus()
+{
+    for (auto &m : startup_messages())
+        out_->send(m);
+    send_state();
+    after_reconnect();
+}
+
 void VirusPlugin::after_reconnect()
 {
     if (!sync_)

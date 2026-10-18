@@ -4,7 +4,9 @@
 Before every test round / release the maintainers get one page with a block per system: what to prepare (exact
 install commands), the items with steps and the expected result, pass / FAIL / not tested and a note per item, and a
 "Copy results" button that gives the text to paste back into the chat. Marks and notes stay in the tester's browser
-(localStorage, per round), so a republished page with redo items keeps them.
+(the artifact's database under rounds/<round>/marks/<item>, published with capabilities {"db": {}}; localStorage as
+the fallback), so they show on every device that opens the link, a republished page with redo items keeps them, and
+Claude can read them back with ArtifactData.
 
   python3 scripts/checklist.py scripts/checklists/round-X.Y.Z.json OUT.html
 
@@ -12,10 +14,14 @@ Spec (JSON): {"round": "0.8.20", "lead": "...", "rules": ["..."],
               "sections": [{"id": "mac", "title": "macOS", "where": "MacBook Air M3, Ableton Live 12",
                             "prep": ["... (HTML allowed)"], "notes": ["..."],
                             "items": [{"id": "M1", "title": "...", "steps": ["..."], "expect": "..."}]}]}
-Texts may contain HTML (<code>, <b>); keep them short: 3-5 items, about 30-45 minutes per system.
+Texts may contain HTML (<code>, <b>); keep them short.
+"core": "core.json" in a round spec puts the core items (same every round: cold start, reopen, export, Virus off/on,
+sleep) in front of the round's own items in each section with the same id, and the core rules before its rules;
+about 60-90 minutes per system in all.
 """
 import html
 import json
+import os
 import sys
 
 CSS = r"""
@@ -71,12 +77,29 @@ button { font: inherit; font-weight: 600; background: var(--accent); color: var(
 
 JS = r"""
 (function () {
-  var KEY = __KEY__;
+  var KEY = __KEY__, ROUND = __ROUND__;
   var state = {};
   try { state = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { state = {}; }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
   var items = Array.prototype.slice.call(document.querySelectorAll('.item'));
   var names = { pass: 'pass', fail: 'FAIL', skip: 'not tested' };
+  // The artifact's database keeps the marks across browsers and devices (the real PC runs Windows without
+  // Claude); localStorage stays as the fallback when the page runs without it. Writes go one after another (a
+  // burst of parallel writes, e.g. carrying a browser's marks over, is refused by the store's rate limit).
+  var marks = null, chain = Promise.resolve(), timer = {};
+  function put(id) {
+    if (!marks) return;
+    chain = chain.then(function () {
+      var s = state[id] || {};
+      return marks.doc(id).set({ v: s.v || '', n: s.n || '' });
+    }).catch(function () { status('Could not save to the page; kept in this browser.'); });
+  }
+  function changed(id, later) {
+    save(); render();
+    clearTimeout(timer[id]);
+    if (later) timer[id] = setTimeout(function () { timer[id] = 0; put(id); }, 800); else put(id);
+  }
+  function status(t) { document.getElementById('saved').textContent = t; }
   items.forEach(function (it) {
     var id = it.dataset.id, s = state[id] || {};
     var v = document.createElement('div'); v.className = 'verdict'; v.setAttribute('role', 'radiogroup');
@@ -84,13 +107,20 @@ JS = r"""
       var l = document.createElement('label'), i = document.createElement('input'), sp = document.createElement('span');
       i.type = 'radio'; i.name = 'v-' + id; i.id = 'v-' + id + '-' + o[0]; i.value = o[0]; i.checked = s.v === o[0];
       sp.textContent = o[1]; l.appendChild(i); l.appendChild(sp); v.appendChild(l);
-      i.addEventListener('change', function () { (state[id] = state[id] || {}).v = o[0]; save(); render(); });
+      i.addEventListener('change', function () { (state[id] = state[id] || {}).v = o[0]; changed(id, false); });
     });
     var t = document.createElement('textarea'); t.id = 'n-' + id; t.placeholder = 'Note (optional)'; t.value = s.n || '';
     t.setAttribute('aria-label', 'Note for ' + id);
-    t.addEventListener('input', function () { (state[id] = state[id] || {}).n = t.value; save(); render(); });
+    t.addEventListener('input', function () { (state[id] = state[id] || {}).n = t.value; changed(id, true); });
     it.appendChild(v); it.appendChild(t);
   });
+  function show(id) {
+    var s = state[id] || {}, t = document.getElementById('n-' + id);
+    ['pass', 'fail', 'skip'].forEach(function (k) {
+      var r = document.getElementById('v-' + id + '-' + k); if (r) r.checked = s.v === k;
+    });
+    if (t && document.activeElement !== t) t.value = s.n || '';
+  }
   function render() {
     var lines = [__RESULTS__], done = 0;
     document.querySelectorAll('section[id]').forEach(function (sec) {
@@ -107,6 +137,28 @@ JS = r"""
     document.getElementById('count').textContent = done + ' of ' + items.length + ' marked';
   }
   render();
+  status('Saved in this browser only.');
+  var use = window.claude && window.claude.use ? window.claude.use('db') : Promise.resolve(null);
+  Promise.resolve(use).then(function (db) {
+    if (!db) return;
+    marks = db.collection('rounds/' + ROUND + '/marks');
+    var first = true;
+    marks.onSnapshot(function (snap) {
+      if (snap.metadata.fromCache) return;
+      if (first && snap.empty) {
+        // a page that was used before the database: carry this browser's marks over once
+        Object.keys(state).forEach(function (id) { if (state[id].v || state[id].n) put(id); });
+      }
+      first = false;
+      snap.docs.forEach(function (d) {
+        var b = d.data() || {}, id = d.id;
+        if (timer[id] && document.activeElement === document.getElementById('n-' + id)) return;  // typing here
+        state[id] = { v: b.v || undefined, n: b.n || '' }; show(id);
+      });
+      save(); render();
+      status('Saved with the page: the marks show on every device that opens this link.');
+    }, function () { status('Saved in this browser only (the page store is not available).'); });
+  }, function () {});
   document.getElementById('copy').addEventListener('click', function () {
     var out = document.getElementById('out'), msg = document.getElementById('copied');
     var p = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(out.value) : Promise.reject();
@@ -158,15 +210,29 @@ def page(spec):
               "    <div class=\"bar\"><button type=\"button\" id=\"copy\">Copy results</button>"
               "<span class=\"note\" id=\"copied\" role=\"status\"></span></div>\n"
               "    <textarea id=\"out\" readonly aria-label=\"Results as text\"></textarea>\n"
-              "    <p class=\"note\">Marks and notes stay in this browser only.</p>\n  </section>\n</main>\n\n"
+              "    <p class=\"note\" id=\"saved\" role=\"status\"></p>\n  </section>\n</main>\n\n"
             + "<script>" + JS.replace("__KEY__", json.dumps("tirevive-round-" + rnd))
+                             .replace("__ROUND__", json.dumps(rnd))
                              .replace("__RESULTS__", json.dumps("Round " + rnd + " results")) + "</script>\n")
+
+
+def with_core(spec, spec_path):
+    """the round spec with the core checklist (spec["core"], relative to the spec file) merged in"""
+    if not spec.get("core"):
+        return spec
+    with open(os.path.join(os.path.dirname(spec_path), spec["core"]), encoding="utf-8") as f:
+        core = json.load(f)
+    items = {s["id"]: s["items"] for s in core["sections"]}
+    spec["rules"] = core.get("rules", []) + spec.get("rules", [])
+    for s in spec["sections"]:
+        s["items"] = items.get(s["id"], []) + s.get("items", [])
+    return spec
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         sys.exit(__doc__)
     with open(sys.argv[1], encoding="utf-8") as f:
-        spec = json.load(f)
+        spec = with_core(json.load(f), sys.argv[1])
     with open(sys.argv[2], "w", encoding="utf-8") as f:
         f.write(page(spec))

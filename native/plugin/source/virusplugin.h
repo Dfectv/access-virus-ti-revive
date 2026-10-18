@@ -9,6 +9,7 @@
 #include "device/broker.h"
 #include "device/memsync.h"
 #include "device/offlinepace.h"
+#include "device/presencewatch.h"
 #include "device/stallwatch.h"
 #include "model/syncalert.h"
 #include "device/resampler.h"
@@ -76,6 +77,8 @@ public:
     void on_idle(std::function<void()> h) { idle_ = std::move(h); }
     // the Virus went away (USB unplugged / switched off) or came back while the broker connection stays
     void on_device(std::function<void(bool present)> h) { device_ = std::move(h); }
+    // the stream ran on after standing still (sleep, StallWatch): the Virus may have lost its set-up meanwhile (E210)
+    void on_resume(std::function<void()> h) { resume_ = std::move(h); }
     // another instance in this process owns the Virus: this one waits (true), or takes over after the wait (false)
     void on_waiting(std::function<void(bool waiting)> h) { on_waiting_ = std::move(h); }
     // every change of (present, another program has it), from the first check on (the editor's status pages)
@@ -154,6 +157,7 @@ private:
     bool owner_ = false;         // worker: this instance holds the process-wide claim
     std::atomic<bool> wait_reported_{false}; // waiting for the other instance (set by the worker)
     int present_seen_ = -1; // worker: last device presence handled (-1 = unknown)
+    vti::PresenceWatch presence_; // worker: gone / back / gone and back between two looks (E212)
     Broker broker_;
     std::mutex mu_;
     std::condition_variable cv_;
@@ -197,7 +201,7 @@ private:
     std::chrono::steady_clock::time_point stats_next_{};  // VTI_NATIVE_STATS output
     int64_t stats_newest_ = -1; // worker: the newest ring frame at the last stats line (per instance, issue #6)
     std::function<void(const std::vector<uint8_t> &)> panel_, reply_;
-    std::function<void()> idle_;
+    std::function<void()> idle_, resume_;
     bool rx_set_ = false, pending_send_ = false;
     std::atomic<bool> go_{false};
     std::thread worker_;
@@ -472,6 +476,7 @@ private:
     std::atomic<bool> reconnect_busy_{false}, reconnect_again_{false};
     std::atomic<bool> absent_at_start_{false}; // the start-up check found no Virus: its first appearance waits too
     void after_reconnect();
+    void resend_to_virus(); // start-up messages + state + readiness probe, after the Virus came back or woke up
     bool probe_virus_ready(); // the readiness probe (30 00 00 behind everything queued); false: no reply
     std::atomic<bool> sync_started_{false};
     void sync_banks(); // brings the bank cache up to date with the Virus (background thread)

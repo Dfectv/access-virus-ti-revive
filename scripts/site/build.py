@@ -254,7 +254,7 @@ def page_landing(latest, releases, sums):
           (<a href="https://gearspace.com/threads/fixing-access-virus-sync-issues.839737/">Gearspace</a>,
           <a href="https://forum.ableton.com/viewtopic.php?p=938076">Ableton forum</a>). TI Revive stamps every note
           on the Virus' own clock and reports its latency to the DAW: in our tests every note lands on the grid, within
-          0.01 to 0.04 ms.</li>
+          0.01 to 0.33 ms (standard deviation).</li>
           <li>The original cannot export or freeze a Virus track faster than real time and shows a warning that
           offline rendering is not supported (<a href="https://www.kvraudio.com/forum/viewtopic.php?p=1599326">KVR</a>,
           <a href="https://zynewave.com/topic/realtime-bounce/">Zynewave forum</a>). TI Revive notices an offline
@@ -269,6 +269,10 @@ def page_landing(latest, releases, sums):
           (<a href="https://www.synthtopia.com/content/2016/09/13/access-virus-ti-owners-may-want-to-wait-to-update-their-mac-os/">Synthtopia</a>),
           and Windows 11 blocks its old USB driver. TI Revive runs natively on Windows 11, macOS (Apple Silicon and
           Intel) and Linux.</li>
+          <li>Sleep: on the Mac, sleep cut the original's connection until Access fixed it in 2008
+          (<a href="https://www.kvraudio.com/news-print.php?id=10515">KVR</a>). Since 0.8.24 the plug-in sets the
+          Virus up again after the computer wakes, also when the Virus dropped off USB for a moment. In our tests on
+          Windows 11, macOS and Linux the Virus played again after waking.</li>
         </ul>
         <h3 class="next">The same as in the original</h3>
         <ul>
@@ -281,13 +285,7 @@ def page_landing(latest, releases, sums):
         </ul>
       </div>
       <div>
-        <h3>Being tested now</h3>
-        <ul>
-          <li>Sleep: on the Mac, sleep cut the original's connection until Access fixed it in 2008
-          (<a href="https://www.kvraudio.com/news-print.php?id=10515">KVR</a>). In our test the plug-in stayed
-          silent after a Mac woke up; 0.8.23 starts its timing with the Virus again after waking, not tested yet.</li>
-        </ul>
-        <h3 class="next">What to report</h3>
+        <h3>What to report</h3>
         <p>Hanging notes, sync errors, crashes, projects that did not open, the preset browser, automation, timing.
         If you only remember it roughly, say so. One we could not test: Cubase on Windows opening a project while the
         Virus is switched on, where the original crashed
@@ -551,6 +549,7 @@ def features_section():
           <tr><th>Linux, REAPER</th><td>256 / 256</td><td>0.01 ms</td><td>0 ppm</td></tr>
           <tr><th>macOS, Ableton 12 (M3)</th><td>256 / 256</td><td>0.02 ms</td><td>0 ppm</td></tr>
           <tr><th>Windows 11, Ableton Live</th><td>480 / 480</td><td>0.04 ms</td><td>0 ppm</td></tr>
+          <tr><th>Windows 11, Ableton Live 11 (0.8.24)</th><td>256 / 256</td><td>0.33 ms</td><td>-1 ppm</td></tr>
           <tr class="old"><th>Classic plug-in 0.7.x</th><td>first late, second missing</td><td>0.06 ms</td><td>n/a</td></tr>
         </tbody>
       </table>
@@ -672,7 +671,7 @@ def page_changelog_landing(releases):
 # the README's screenshots that the site shows too (copied at build time)
 SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png", "plugin-help-inactive.png",
                  "plugin-menus.png"]
-TESTS = 208 # unit tests in native/tests (vtitests), as of 2026-10-17 (round 0.8.23)
+TESTS = 214 # unit tests in native/tests (vtitests), as of 2026-10-18 (round 0.8.24)
 # line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
 COVERAGE, COVERAGE_DATE = "94 %", "16 Oct 2026"
 
