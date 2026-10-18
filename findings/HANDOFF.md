@@ -11,7 +11,7 @@ in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (
 third entry (only if Snow users ask), PresenceWatch bounced branch on hardware,
 E175, Mac double notes E209 (7). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E224), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E225), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
@@ -42,6 +42,10 @@ Evidence: [evidence.md](evidence.md) (E001-E224), protocol: [spec.md](spec.md); 
    a 30 s recording each, D3 if doubled: record + Stop/Play, D4 three more reopens). Mac on release 0.8.25 (pkgutil),
    diag.on + klog.on present. Before the user starts: rename the Mac's old diag.log; afterwards fetch diag.log,
    broker log and the recordings (project folder Samples/Recorded), run timing_analysis.py on each take.
+   **Done 2026-10-18 (E225): all pass, D3 not needed.** 8 sessions, every first ping got its marker (Mac now 8/8
+   reopens after an idle exit); 7 takes 480/480 onsets, 0 extra, jitter 0.16-0.29 ms; klog K constant, 1-2 sync
+   reports per session. E209 (7) not reproduced (0/7), cause open: watch for it, no code change. Issue #7 finding 2:
+   nothing to fix on our side (no CC120 sent, first ping answered). Files: work/timing/mac-0.8.26-1.
 
 ## Round 0.8.25 (released as v0.8.25 2026-10-18)
 
