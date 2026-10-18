@@ -1,8 +1,24 @@
 # HANDOFF
 
 _Last updated: 2026-10-18 (issue #7 open checks below; then CONTINUE HERE). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E202), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E210), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
+
+## Baseline round results (2026-10-18): E209, E210
+
+All systems on release 0.8.23 (Linux installed by the user, Mac pkg installed by the user, Windows real PC).
+Logs and renders: work/timing/baseline-issue7/{win,linux,mac}. Results: issue #7 findings 1 and 3 not seen, finding 2
+not reproduced (6/6 reopens after the broker's idle exit got the marker on the first ping; E209). Windows catch-up
+B4-B7 pass (export 0 ppm / sd 0.04 ms on the real PC). Open, in this order:
+1. **B8 Windows sleep FAIL (E210):** after wake the plug-in re-anchors and gets markers, but the Virus stays silent
+   until the plug-in closes. The stall path (E208) only raises the generation; a reconnect also sends the start-up
+   messages + state. Fix candidate (test first): a stall = a reconnect (start-up messages, state, readiness probe).
+   Then sleep on all three systems (Mac M3 of 0.8.23 and Linux L4 never ran with the fix).
+2. **StallWatch false alarm on every first connect (E209 (5)):** the starting stream counts as a stall; reset the
+   watch when a stream (re)starts. Same branch as 1.
+3. macOS double notes after the last reopen (E209 (7)), 9 Sync Information Events; cause open, watch for it.
+4. Not done as planned: three reopens per system (1-3 were done); B6 has no file. Repeat with the next round if needed.
+Reply on issue #7 with the results once their PR is in (or before, if the user wants).
 
 ## Issue #7 (2026-10-18): findings from a separate macOS TI2 project (wirrareka), waiting for their PR
 
