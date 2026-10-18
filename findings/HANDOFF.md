@@ -10,7 +10,7 @@ unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo install
 in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
 third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E242), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E243), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
@@ -40,6 +40,9 @@ Linux; re-enumerates on the broker stop, attach a few seconds later).
 error 22 only where the Virus left Windows (WC4 power cycle 19:54:47, session end 20:06:58); W2 bank sync complete
 (RAM D 128 fetched, 516 s). Virus detached from the VM, Linux broker socket started again. Mac: 0.8.26c zip unpacked in
 ~/Downloads/TI-Revive-0.8.26c-mac, the user runs the sudo installer.
+**Mac block all PASS, real PC skipped (E243)** - but MC4 note: after the MC3 export the Virus' stamp clock had moved
+~5600 frames against the marker, every note late (sync errors) until the Virus was power-cycled. Not the budget.
+OPEN before the release: A/B on the Mac with 0.8.25 (regression or old behaviour?).
 After the checklist passes: full site check (README + site: firmware findings, Active
 Sensing, budget, retry are user-visible stability changes - worth a line), release notes in build.yml, merge
 round-0.8.26 -> main, tag v0.8.26, release CI, site rebuild by hand, install the release on Linux, VM (silent), Mac.
