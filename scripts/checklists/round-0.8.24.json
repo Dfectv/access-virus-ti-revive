@@ -27,6 +27,7 @@
    ],
    "notes": [
     "No sleep item in the VM: sleep is tested on the real PC (BC5).",
+    "WC4: after the Virus is switched on again, tell Claude: the VM's USB passthrough loses the device on a power cycle and Claude has to re-attach it (VM limit, not a fail; BC4 on the real PC checks it without the VM).",
     "The VM's USB passthrough can drop notes (E141): if notes are missing in WC3, note it, the real PC decides."
    ]
   },
@@ -39,6 +40,7 @@
     "Logging: <code>touch ~/Library/Application\\ Support/virus-ti-native/diag.on</code> (if it is not there yet)."
    ],
    "notes": [
+    "Baseline run (E212): the Mac still had 0.8.23 (the pkg above was not installed), so MC1-MC5 are 0.8.23 results; they get redone with the sleep fix build.",
     "MC2: watch for doubled notes after the reopen (seen once in the baseline round, E209 (7)); if you hear them, note which reopen."
    ]
   },
