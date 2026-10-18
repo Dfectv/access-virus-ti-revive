@@ -1,0 +1,148 @@
+{
+ "round": "baseline-issue7",
+ "lead": "One baseline on every system with release 0.8.23: the three checks from issue #7 (findings from a separate macOS TI2 project, not reproduced by us yet). Same items in the same order on Windows (real PC), Linux and macOS, so the results can be compared. Windows first: Claude is not available while this PC runs Windows, so that block is self-contained. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "rules": [
+  "Disposable DAW project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches.",
+  "Monitors and headphones LOW for the whole round: in finding 3 a hung Virus sent full-scale values on its USB inputs. If you hear loud noise or the Virus stops answering, stop the DAW, switch the Virus off and on, note the item and what you did just before.",
+  "Logging on: an empty file <code>diag.on</code> in the plug-in's folder (paths per system below). After each item copy <code>diag.log</code> from that folder and name the copy after the item (e.g. <code>B2-diag.log</code>); Claude reads the lines \"Virus ready after\", \"sync marker at frame\" and \"no sync marker\".",
+  "The same project on every system: one Virus track with the plug-in and a MIDI clip (16ths at 120 BPM, the timing pattern), part 1 only."
+ ],
+ "sections": [
+  {
+   "id": "win",
+   "title": "Windows 11 (real PC)",
+   "where": "this PC booted into Windows, Ableton Live 11, Virus on USB",
+   "prep": [
+    "Install release 0.8.23 if it is not installed yet: download <code>TI-Revive-0.8.23-setup.exe</code> from the GitHub release v0.8.23 and run it. Apps &gt; Installed apps must show one TI Revive entry, 0.8.23.",
+    "Logging: create an empty file <code>%LOCALAPPDATA%\\virus-ti-native\\diag.on</code> (Explorer address bar: <code>%LOCALAPPDATA%\\virus-ti-native</code>, New &gt; Text Document, rename to <code>diag.on</code> with \"File name extensions\" visible). Delete an old <code>diag.log</code> there first.",
+    "Put the log copies in a folder <code>C:\\tirevive-test</code>: Claude reads it from Linux after the reboot."
+   ],
+   "notes": [
+    "The broker (<code>vtibroker.exe</code>) exits 30 s after the last plug-in closed; Task Manager &gt; Details shows whether it still runs."
+   ],
+   "items": [
+    {
+     "id": "B1",
+     "title": "Cold start after a power cycle",
+     "steps": [
+      "Ableton closed. Switch the Virus off, wait 5 s, switch it on and wait until its display shows the normal screen.",
+      "Open the test project. Wait until the start-up page is gone, then press Play for about 10 s.",
+      "Close Ableton. Copy <code>diag.log</code> to <code>C:\\tirevive-test\\B1-diag.log</code>."
+     ],
+     "expect": "the Virus plays in time; the log has \"Virus ready after\" and a \"sync marker at frame\" line (Claude checks whether it came on the first ping)."
+    },
+    {
+     "id": "B2",
+     "title": "Reopen after the broker's idle exit, three times (finding 2 and 3)",
+     "steps": [
+      "Do NOT switch the Virus off from here on. Ableton is closed (end of B1). Wait 60 s; in Task Manager <code>vtibroker.exe</code> must be gone.",
+      "Open the test project, wait for the start-up page to go away, press Play for about 10 s, close Ableton.",
+      "Repeat the previous two steps two more times (three reopens in total, same power-on).",
+      "Copy <code>diag.log</code> to <code>C:\\tirevive-test\\B2-diag.log</code>."
+     ],
+     "expect": "every reopen plays in time with no noise and no hang; the log has three more \"sync marker at frame\" lines. Note it if a reopen took longer, played late, or needed a ping retry (more than one marker attempt, Claude sees it in the log)."
+    },
+    {
+     "id": "B3",
+     "title": "The Virus keeps the part's patch over a power cycle (finding 1)",
+     "steps": [
+      "Open the test project. In the plug-in load a patch with an easy name into part 1 (any ROM patch, e.g. from ROM A) and write its name in the note. Do not store it.",
+      "Close Ableton, wait 60 s. Switch the Virus off, wait 5 s, switch it on.",
+      "Without a DAW, look at the Virus' display: which patch does part 1 (Multi mode) or the single show?"
+     ],
+     "expect": "the Virus shows the patch you loaded (or its previous one), not \"-Init-\" in every part. \"-Init-\" everywhere would mean our start-up triggers finding 1: note exactly what the display shows."
+    }
+   ]
+  },
+  {
+   "id": "linux",
+   "title": "Linux",
+   "where": "REAPER via pw-jack, Virus on this PC",
+   "prep": [
+    "Release 0.8.23 installed with <code>./install.sh</code> (Claude checks before this block).",
+    "Logging: <code>touch ~/.local/share/virus-ti-native/diag.on</code>; delete an old <code>diag.log</code> there first. Copies go to <code>work/timing/</code>."
+   ],
+   "notes": [
+    "Broker still running? <code>pgrep -a vtibroker</code> (systemd starts it again on the next connect). Here the broker resets the USB port when it closes; on Windows and macOS it does not, so differences between the systems matter."
+   ],
+   "items": [
+    {
+     "id": "L1",
+     "title": "Cold start after a power cycle",
+     "steps": [
+      "REAPER closed. Switch the Virus off, wait 5 s, switch it on and wait until its display shows the normal screen.",
+      "Open the test project. Wait until the start-up page is gone, then press Play for about 10 s.",
+      "Close REAPER. Copy <code>diag.log</code> to <code>work/timing/L1-diag.log</code>."
+     ],
+     "expect": "the Virus plays in time; the log has \"Virus ready after\" and a \"sync marker at frame\" line."
+    },
+    {
+     "id": "L2",
+     "title": "Reopen after the broker's idle exit, three times (finding 2 and 3)",
+     "steps": [
+      "Do NOT switch the Virus off from here on. REAPER is closed (end of L1). Wait 60 s; <code>pgrep -a vtibroker</code> must print nothing.",
+      "Open the test project, wait for the start-up page to go away, press Play for about 10 s, close REAPER.",
+      "Repeat the previous two steps two more times (three reopens in total, same power-on).",
+      "Copy <code>diag.log</code> to <code>work/timing/L2-diag.log</code>."
+     ],
+     "expect": "every reopen plays in time with no noise and no hang; three more \"sync marker at frame\" lines."
+    },
+    {
+     "id": "L3",
+     "title": "The Virus keeps the part's patch over a power cycle (finding 1)",
+     "steps": [
+      "Open the test project. In the plug-in load a patch with an easy name into part 1 and write its name in the note. Do not store it.",
+      "Close REAPER, wait 60 s. Switch the Virus off, wait 5 s, switch it on.",
+      "Without a DAW, look at the Virus' display: which patch does part 1 show?"
+     ],
+     "expect": "the Virus shows the patch you loaded (or its previous one), not \"-Init-\" in every part."
+    }
+   ]
+  },
+  {
+   "id": "mac",
+   "title": "macOS",
+   "where": "MacBook Air M3, Ableton Live 12",
+   "prep": [
+    "Release 0.8.23 installed (Claude checks before this block, and gives the install command if not).",
+    "Logging: <code>touch ~/Library/Application\\ Support/virus-ti-native/diag.on</code>; delete an old <code>diag.log</code> there first. Copies go to Downloads; Claude fetches them."
+   ],
+   "notes": [
+    "Broker still running? <code>pgrep -a vtibroker</code> in Terminal (launchd starts it again on the next connect). Same situation as in the report of issue #7: macOS, no port reset on close."
+   ],
+   "items": [
+    {
+     "id": "M1",
+     "title": "Cold start after a power cycle",
+     "steps": [
+      "Ableton closed. Switch the Virus off, wait 5 s, switch it on and wait until its display shows the normal screen.",
+      "Open the test project. Wait until the start-up page is gone, then press Play for about 10 s.",
+      "Quit Ableton. Copy <code>diag.log</code> to <code>~/Downloads/M1-diag.log</code>."
+     ],
+     "expect": "the Virus plays in time; the log has \"Virus ready after\" and a \"sync marker at frame\" line."
+    },
+    {
+     "id": "M2",
+     "title": "Reopen after the broker's idle exit, three times (finding 2 and 3)",
+     "steps": [
+      "Do NOT switch the Virus off from here on. Ableton is closed (end of M1). Wait 60 s; <code>pgrep -a vtibroker</code> must print nothing.",
+      "Open the test project, wait for the start-up page to go away, press Play for about 10 s, quit Ableton.",
+      "Repeat the previous two steps two more times (three reopens in total, same power-on).",
+      "Copy <code>diag.log</code> to <code>~/Downloads/M2-diag.log</code>."
+     ],
+     "expect": "every reopen plays in time with no noise and no hang; three more \"sync marker at frame\" lines. This is the system where the report saw the marker go missing."
+    },
+    {
+     "id": "M3",
+     "title": "The Virus keeps the part's patch over a power cycle (finding 1)",
+     "steps": [
+      "Open the test project. In the plug-in load a patch with an easy name into part 1 and write its name in the note. Do not store it.",
+      "Quit Ableton, wait 60 s. Switch the Virus off, wait 5 s, switch it on.",
+      "Without a DAW, look at the Virus' display: which patch does part 1 show?"
+     ],
+     "expect": "the Virus shows the patch you loaded (or its previous one), not \"-Init-\" in every part."
+    }
+   ]
+  }
+ ]
+}
