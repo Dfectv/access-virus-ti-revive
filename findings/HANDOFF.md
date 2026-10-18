@@ -10,7 +10,7 @@ unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo install
 in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
 third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E230), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E232), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
@@ -74,6 +74,16 @@ Evidence: [evidence.md](evidence.md) (E001-E230), protocol: [spec.md](spec.md); 
    so Ghidra 12.1.4 headless with own scripts; everything in work/firmware/ (git-ignored, Access material).
    REA updated 6.3.0 -> 6.7.0 (setup --client claude_code, effective after a restart). Open: DSP side of a
    parameter flood (rule 2), handshake pins, sync event origin - see the memory note project-firmware-analysis.
+
+9. **Send rates vs the firmware (E231) and a DSP disassembler (E232).** Our 250/s automation limit is far under the
+   link's ~4 k packets/s (LOW); the hazard is bursts (one block's events go out in one write of up to 3072 bytes,
+   each stamped message = 2 packets) and totals above the link rate, where the USB chip's NAK makes the broker's
+   write block and the host CPU's parking rule drops frames. No code changed. DSP56300: the emulator core
+   github.com/dsp56300/dsp56300 (GPL-3) has a standalone disassembler (built: work/firmware/tools/dsp56kDisassemble,
+   listing work/firmware/out/dsp_main.asm, 126k lines) and the Ghidra module github.com/yatli/ghidra_dsp56k
+   compiles with one fix and is installed as a user extension (DSP56K:LE:24:default, byte-swapped image). Next:
+   the DSP's host-port receive handler (what happens to MIDI bytes when the host writes faster than the DSP
+   drains) - the missing half of the rule-2 hang.
 
 ## Round 0.8.25 (released as v0.8.25 2026-10-18)
 
