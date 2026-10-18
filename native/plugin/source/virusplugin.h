@@ -7,6 +7,7 @@
 #include "editor/editormodel.h"
 #include "device/automation.h"
 #include "device/broker.h"
+#include "device/keepalive.h"
 #include "device/memsync.h"
 #include "device/offlinepace.h"
 #include "device/presencewatch.h"
@@ -543,6 +544,7 @@ private:
     int64_t tl_ = 0;
     bool tl_valid_ = false, anchored_ = false;
     double next_tick_ = 0;
+    ActiveSensing fe_;  // FE every 300 ms on the timeline (the DSP's watchdog, E237)
     double tl_acc_ = 0; // fractional Virus frames of the timeline (host rates other than 44.1 kHz)
     double stat_acc_ = 0; // the same for the host-frames statistic
     int64_t stream_start_ = -1;

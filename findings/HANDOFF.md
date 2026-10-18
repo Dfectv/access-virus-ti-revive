@@ -10,7 +10,7 @@ unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo install
 in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
 third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E236), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E238), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
@@ -105,6 +105,16 @@ Evidence: [evidence.md](evidence.md) (E001-E236), protocol: [spec.md](spec.md); 
     (clock freeze, host-set?), the F2 dependence of stamps seen in protocol.md. Scripts:
     work/firmware/scripts/dsprecords.py; listings work/firmware/out/dsp_P_000000.asm, out/dsp_X_04f000.asm
     (git-ignored, rule 1).
+
+12. **Active Sensing fixed from the firmware (E237, E238; code change, not yet on hardware).** The DSP arms a
+    watchdog with the first FE and releases every voice ~1 s after the last one; the plug-in sent ONE FE per
+    anchor (one-shot note cut a second after every anchor/re-anchor). Now: FE every 300 ms on the timeline
+    (native/src/device/keepalive.h, test_keepalive.cpp; vtitests 227/227, Linux build ok). E238: the DSP's
+    stamped-event queue is 2046 bytes without a fill check = the first firmware number that matches the old
+    hang threshold (1000/s automation + 2750 notes/s = 3.6 kB per 160 ms lead); rule: < 10 kB/s stamped traffic,
+    bursts < 1500 bytes - parameters are bounded by the AutomationQueue, notes are not (open). Hardware test
+    needed: play held notes across the first seconds after start and after a host stall; check that no note is
+    cut and that FE packets appear every ~300 ms in VTI_TRACE.
 
 ## Round 0.8.25 (released as v0.8.25 2026-10-18)
 

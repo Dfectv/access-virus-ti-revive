@@ -1067,6 +1067,8 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         static const int M = getenv("VTI_NATIVE_M") ? atoi(getenv("VTI_NATIVE_M")) : 1024;
         static const uint8_t fe = 0xFE;
         add(tl_ - M, &fe, 1);
+        // and then every 300 ms (ActiveSensing): the DSP releases every voice ~1 s after the last FE it saw (E237)
+        fe_.reset(tl_ - M + fe_.period);
         int spp = 0; // song position (sixteenths) from the host, else 0
         if (data.processContext && (data.processContext->state & ProcessContext::kProjectTimeMusicValid))
             spp = (int)std::max(0.0, data.processContext->projectTimeMusic * 4.0);
@@ -1088,6 +1090,8 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             add((int64_t)std::lround(next_tick_), &f8, 1);
             next_tick_ += per_tick;
         }
+        static const uint8_t fe = 0xFE; // Active Sensing every 300 ms, like the original (E025); see keepalive.h
+        fe_.run(tl_ + block_frames, [&](int64_t t) { add(t, &fe, 1); });
     }
     auto at = [&](int32 offset) { return tl_valid_ ? tl_ + (int64_t)std::lround(offset * ratio) : -1; };
     if (data.inputParameterChanges && out_) {
