@@ -124,6 +124,15 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   getLatencySamples. No marker within 0.5 s: stamps stay ring-relative (old behaviour) and the ping is repeated up to
   3 times once USB 1/2 are quiet and the host is not playing. VTI_NATIVE_NO_PING = old behaviour, VTI_NATIVE_KLOG =
   log K per note.
+- The stamp clock in the firmware (2026-10-18, E245-E247): the TI2's two DSPs run one image; the master (a strap pin
+  read at reset) owns the clock, the slave takes it from the master's status word in the audio ring with a fixed
+  lead of 256 frames, and the master forwards channel messages to the slave the same way. The sync ping is parsed
+  by the DSP itself (page 0x73 parameter 0x22, value 0): both clocks go to 0 and the slave renders the one-sample
+  marker. Value 0x7E switches a continuous test signal on, 0x7F off (never sent by TI Revive). Stamps are compared
+  modulo 16384 with a signed window: up to 8191 frames ahead = future (honoured), up to 8192 behind = late (played
+  at once). Nothing outside the DSPs moves the clock - no host command, no USB condition. The F2 song position only
+  feeds the Virus' own tempo sync (arpeggiator, LFO, delay); the "without F2 the stamps are ignored" observation above
+  (2026-10-13) was the modular window with ring-relative stamps: about 44 % of sessions landed inside it (E247).
 - Active Sensing (2026-10-18, firmware E237): the DSP arms a watchdog with the first FE it sees and releases every
   voice about a second after the last one. The original sends FE every 0.31 s (E025); the plug-in now sends one
   every 300 ms on the timeline (keepalive.h), the first with the anchor's FE/F2 as before. Stamped bytes in flight

@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-18. CONTINUE HERE = **v0.8.26 released 2026-10-18** (tag v0.8.26, release CI run 39155327343 green, 6 assets; merge ea6a286 on main; site rebuilt by hand, run 39155767115, live shows Download 0.8.26 / 237 tests / the firmware findings). New: Active Sensing every 300 ms (E237), stamped-MIDI budget (E238), broker write retry (E239), Linux 48 kHz after wake protection (E241, unexercised on hardware), Linux menus per monitor (E227); firmware analysis E228-E236. Checklist W8EcFqru6zvxirJGJY2c36: Linux, VM, Mac all pass, real PC skipped. Test machines: win11 VM = release (silent, 0.8.26c uninstalled first); Linux: release unpacked in work/builds/v0.8.26/x, install.sh stopped at the udev step (sudo needs a terminal; the Virus was on the Mac) - user runs it once; broker binary already equals the release; Mac offline: release zip in work/builds/v0.8.26, push + sudo installer next time (it has 0.8.26c or 0.8.25 from the A/B). Next round: the Mac export clock shift (E243/E244, known issue in the release notes), E241 fix on hardware, E175 watch, LC3 crash watch._
+_Last updated: 2026-10-18. CONTINUE HERE = **v0.8.26 released 2026-10-18** (tag v0.8.26, release CI run 39155327343 green, 6 assets; merge ea6a286 on main; site rebuilt by hand, run 39155767115, live shows Download 0.8.26 / 237 tests / the firmware findings). New: Active Sensing every 300 ms (E237), stamped-MIDI budget (E238), broker write retry (E239), Linux 48 kHz after wake protection (E241, unexercised on hardware), Linux menus per monitor (E227); firmware analysis E228-E236. Checklist W8EcFqru6zvxirJGJY2c36: Linux, VM, Mac all pass, real PC skipped. Test machines: win11 VM = release (silent, 0.8.26c uninstalled first); Linux: release unpacked in work/builds/v0.8.26/x, install.sh stopped at the udev step (sudo needs a terminal; the Virus was on the Mac) - user runs it once; broker binary already equals the release; Mac offline: release zip in work/builds/v0.8.26, push + sudo installer next time (it has 0.8.26c or 0.8.25 from the A/B). Next round: the Mac export clock shift (E243/E244, known issue in the release notes), E241 fix on hardware, E175 watch, LC3 crash watch. **Round 0.8.27 started (branch round-0.8.27, 2026-10-18 evening): firmware loose ends closed (E245-E250), Mac export cause found = the macOS IOProc lost Core Audio cycles (E249), fix gapfill.h untested on the Mac - see below.**_
 39131364441 green, 6 assets; site rebuilt by hand, run 39131769375, live shows 0.8.25 / 220 tests / original VST3
 projects). New: original VST3 projects open (second class with the original's id, E221-E223; VST2 not), Revert to /
 Recently Used (E220), Create Empty Library (E217), Windows 10 menu look (E219), plug-in version 0.8.25. Test machines:
@@ -12,6 +12,29 @@ third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac 
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E244), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
+
+## Round 0.8.27 (branch round-0.8.27, collecting; started 2026-10-18 evening)
+
+1. **Firmware loose ends closed (E245-E250, docs only).** `X:$48293` is the DSP identity strap (two DSPs, one image;
+   master = HDR bit 15 set at reset), not a clock freeze. The audio-ring control words are the OTHER DSP's status and
+   command words (same layout both ways; 0x123456+n composed by DSP code; 0x12345b forwards channel messages master
+   -> slave); the master owns the stamp clock, the slave takes it +256 frames; unit = one sample frame (HIGH). The
+   sync ping (page 0x73 param 0x22 value 0) is parsed by the DSP: both clocks reset, the slave renders the marker
+   sample; 0x7E/0x7F = a test signal on/off (never send). Stamp compare is modular (+-8192 frames). F2 does not touch
+   the stamp logic (the 2026-10-13 "ignored without F2" was session luck in the modular window). Rule-2 reassessment:
+   ring A cannot be flooded (~88 kB/s needed), DEBUGcc traps HALT the DSP (then the host CPU blocks on the port =
+   whole Virus dead, E241's symptom), the pool allocator is per patch set-up, so the stamped queue wrap (E238) that
+   can feed 0xF4 host commands into the parser stays the only MIDI-driven path. Sync Information Event (0x54) origin
+   still open (E250). protocol.md got the firmware paragraph.
+2. **Mac export clock shift (E243/E244) - cause found and fixed, NOT on hardware yet (E249).** E246 shows nothing
+   outside the DSPs moves the Virus' clock, so the plug-in's ring lost frames: the macOS IOProc (audioin.cpp) ignored
+   Core Audio's input sample time; skipped IO cycles during the CPU-heavy export shortened the ring silently (eleven
+   512-frame cycles = the ~5600 frames), every stamp then landed late. Linux is immune (the broker fills USB gaps).
+   Fix: native/src/device/gapfill.h (silence for the missing frames, from the device's sample time; re-base on a
+   restart or a jump > 5 s), used in io_proc when the time stamp is valid; "filled N" added to the stats line.
+   tests/test_gapfill.cpp (5 tests), vtitests 242/242, full Linux build ok; the macOS code needs the CI build.
+   **Mac test:** Live export (MC3-like), klog K equal before/after, "filled" > 0 in the stats during the export, no
+   sync error page; then a cold start and a sleep (StallWatch unchanged). Not yet run: CI (ask the user).
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
 
