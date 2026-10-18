@@ -44,7 +44,7 @@ TEST(popup_one_column)
 {
     PopupMenu m(numbered(24), -1, width6); // the 24 categories
     m.layout(25, 1000);
-    CHECK(m.columns() == 1 && m.rows() == 24);
+    CHECK(m.columns() == 1 && m.rows() == 24 && m.themed()); // no column break: Windows' themed look (E219)
     PopupMenu z(numbered(40), -1, width6);
     z.layout(0, 1000); // 0 = no columns
     CHECK(z.columns() == 1 && z.rows() == 40);
@@ -435,4 +435,40 @@ TEST(popup_cascade_delay_click_path)
     c.hover(at_x(c.level(1), 0), at_y(c.level(1), 0), 100); // crossing RAM A
     auto res = c.click(at_x(c.level(2), 4), at_y(c.level(2), 4));
     CHECK(res.kind == PopupCascade::Result::Chosen && (res.path == std::vector<int>{0, 2, 4}));
+}
+
+// a single-column menu has Windows 10's themed look (measured 2026-10-18 in the win10 VM, E219): 22 px rows, a 7 px
+// separator row, the row from x 3 over the full width minus 3, the text 32 px into the row and 54 px of room after it
+TEST(popup_themed_single_column)
+{
+    std::vector<PopupItem> items = {{"Atomizer", true, {{"000 A"}}}, {"My Patches"}, {"Vocoder"}, PopupItem::line(),
+                                    {"Create Empty Library"}};
+    PopupMenu m(items, -1, width6);
+    m.layout(0, 1000);
+    CHECK(m.themed() && m.columns() == 1);
+    const int row = PopupMenu::kThemedTextLeft + 6 * 20 + PopupMenu::kThemedTextRight; // the widest text
+    CHECK(m.width() == 2 * PopupMenu::kThemedFrame + row);
+    CHECK(m.height() == 2 * PopupMenu::kThemedFrame + 4 * PopupMenu::kThemedRow + PopupMenu::kThemedLine);
+    PopupMenu::Rect r0 = m.item_rect(0), r3 = m.item_rect(3), r4 = m.item_rect(4);
+    CHECK(r0.x == 3 && r0.y == 3 && r0.w == row && r0.h == 22);
+    CHECK(r3.y == 3 + 3 * 22 && r3.h == 7 && r4.y == r3.y + 7 && r4.h == 22);
+    m.place(0, 0, 1000, 1000);
+    CHECK(m.item_at(r3.x + 5, r3.y + 3) == -1); // the separator cannot be chosen
+    CHECK(m.item_at(r4.x + 5, r4.y + 3) == 4);
+    m.hot = 2;
+    m.key(PopupMenu::Key::Down); // over the separator
+    CHECK(m.hot == 4);
+}
+
+// a menu with columns keeps the older look: 19 px rows and a 9 px separator row
+TEST(popup_separator_in_columns)
+{
+    auto items = numbered(30);
+    items[26] = PopupItem::line();
+    PopupMenu m(items, -1, width6);
+    m.layout(25, 1000);
+    CHECK(!m.themed() && m.columns() == 2);
+    CHECK(m.item_rect(26).h == PopupMenu::kLine && m.item_rect(27).y == m.item_rect(26).y + PopupMenu::kLine);
+    CHECK(m.height() == 2 * (PopupMenu::kBorder + PopupMenu::kPad) + 25 * PopupMenu::kRow);
+    CHECK(PopupItem::line().separator && !PopupItem::line().enabled);
 }
