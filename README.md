@@ -349,8 +349,8 @@ Revive rebuilds that plug-in, and we want to fix its problems instead of copying
   and Linux.
 - Sleep: on the Mac, sleep cut the original's connection until Access fixed it in 2008
   ([KVR](https://www.kvraudio.com/news-print.php?id=10515)). Since 0.8.24 the plug-in sets the Virus up again after
-  the computer wakes, also when the Virus dropped off USB for a moment. In our tests on Windows 11, macOS and Linux the
-  Virus played again after waking.
+  the computer wakes, also after a short USB drop at wake (tested with a drop of under a second on Linux). In our tests
+  on Windows 11, macOS and Linux the Virus played again after waking.
 
 **The same as in the original**
 

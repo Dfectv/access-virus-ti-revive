@@ -271,8 +271,8 @@ def page_landing(latest, releases, sums):
           Intel) and Linux.</li>
           <li>Sleep: on the Mac, sleep cut the original's connection until Access fixed it in 2008
           (<a href="https://www.kvraudio.com/news-print.php?id=10515">KVR</a>). Since 0.8.24 the plug-in sets the
-          Virus up again after the computer wakes, also when the Virus dropped off USB for a moment. In our tests on
-          Windows 11, macOS and Linux the Virus played again after waking.</li>
+          Virus up again after the computer wakes, also after a short USB drop at wake (tested with a drop of under a
+          second on Linux). In our tests on Windows 11, macOS and Linux the Virus played again after waking.</li>
         </ul>
         <h3 class="next">The same as in the original</h3>
         <ul>
