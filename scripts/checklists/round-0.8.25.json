@@ -1,0 +1,97 @@
+{
+ "round": "0.8.25",
+ "core": "core.json",
+ "lead": "Test build 0.8.25c (CI run 39130131007). New in this round: (1) the LOAD menu has the original's \"Revert to\" and \"Recently Used\" (E220); (2) Personal Libraries has \"Create Empty Library\" with the original's save dialog (E217); (3) menus look like the original's on Windows 10: one column in Windows' modern look, columns in the older look, with separator lines (E219); (4) projects made with the original's VST3 plug-in open (second entry \"TI Revive Virus Control (original projects)\", already tested: E222, E223); (5) the plug-in reports version 0.8.25 (was 0.8.23). The menu look and Revert/Recently Used are the same code on every system, so they are tested on Linux only (user decision); the save dialog is per system, so the VM and the Mac have one item for it. The real PC is not part of this round. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat. When all pass, 0.8.25 is released.",
+ "rules": [
+  "Order: Linux first (the Virus is on this PC), then the Windows 11 VM, then macOS. Close the DAW before the Virus moves."
+ ],
+ "sections": [
+  {
+   "id": "linux",
+   "title": "Linux",
+   "where": "REAPER via pw-jack, Virus on this PC",
+   "prep": [
+    "Claude installs 0.8.25c (replaces the dev build in ~/.vst3; you may be asked for sudo for the udev rule). Logging is on. Restart REAPER if it was open."
+   ],
+   "notes": [
+    "Exports in REAPER: File &gt; Render, Source Master mix, Render speed <b>Full-speed offline</b>."
+   ],
+   "items": [
+    {
+     "id": "L1",
+     "title": "Menus look like the original's on Windows 10",
+     "steps": [
+      "Click LOAD on part 1: a one-column menu with a light band on the left, 22 px rows, \"&gt;\" for submenus, and a thin separator line before the device entry once a patch was loaded.",
+      "Open Personal Libraries (a separator before Create Empty Library) and a short value list (e.g. the filter mode menu): the current value has a tick on a light blue square.",
+      "Open the Wavetable list (right click on the big ring knob on the OSC page): 4 columns in the older look, as before."
+     ],
+     "expect": "one-column menus in the modern look, menus with columns in the older look, hover is a light blue row, no drawing errors."
+    },
+    {
+     "id": "L2",
+     "title": "Revert to and Recently Used",
+     "steps": [
+      "Part 1: load three different patches from LOAD one after another, then the first one again; then double-click a fourth patch in the BROWSER page.",
+      "LOAD &gt; Recently Used: newest first (the browser patch on top), the patch you loaded twice only once. \"Revert to\" names the patch before the last load.",
+      "Turn a knob a bit, choose Revert to: the previous patch comes back; LOAD again: Revert now names the edited patch; choose it: your knob change is back.",
+      "Choose an entry from Recently Used: it loads, the list keeps its order. Part 2's LOAD menu has its own (empty) list."
+     ],
+     "expect": "as described; nothing is stored in the Virus or in the project (a new project starts with empty lists)."
+    },
+    {
+     "id": "L3",
+     "title": "Create Empty Library (zenity dialog)",
+     "steps": [
+      "Open the plug-in, click LOAD on part 1 &gt; Personal Libraries: below a separator line is <b>Create Empty Library</b>. Choose it.",
+      "A save dialog opens titled \"Save empty library as...\", in the patches folder (~/Dokumente/Access Music/Virus TI/Patches), with the name \"New Library.mid\". Click Save/OK.",
+      "Open LOAD &gt; Personal Libraries again: \"New Library\" is listed. SAVE part 1 into it (SAVE &gt; Personal Libraries &gt; New Library &gt; 000 (new)), then LOAD &gt; Personal Libraries &gt; New Library shows that patch.",
+      "Once more Create Empty Library, this time Cancel: no new file. Afterwards delete New Library.mid from the folder."
+     ],
+     "expect": "the dialog as described, the library listed at once, saving into it works, Cancel creates nothing, no crash."
+    }
+   ]
+  },
+  {
+   "id": "vm",
+   "title": "Windows 11 VM",
+   "where": "win11 VM, Ableton Live 11, Virus attached by Claude",
+   "prep": [
+    "Claude installs 0.8.25c silently and attaches the Virus (ask in the chat)."
+   ],
+   "items": [
+    {
+     "id": "W1",
+     "title": "Create Empty Library (Windows dialog)",
+     "steps": [
+      "Open the plug-in, click LOAD on part 1 &gt; Personal Libraries: below a separator line is <b>Create Empty Library</b>. Choose it.",
+      "A save dialog opens titled \"Save empty library as...\", in the patches folder (Documents\\Access Music\\Virus TI\\Patches), with the name \"New Library.mid\". Click Save/OK.",
+      "Open LOAD &gt; Personal Libraries again: \"New Library\" is listed. SAVE part 1 into it (SAVE &gt; Personal Libraries &gt; New Library &gt; 000 (new)), then LOAD &gt; Personal Libraries &gt; New Library shows that patch.",
+      "Once more Create Empty Library, this time Cancel: no new file. Afterwards delete New Library.mid from the folder."
+     ],
+     "expect": "the dialog as described, the library listed at once, saving into it works, Cancel creates nothing, no crash."
+    }
+   ]
+  },
+  {
+   "id": "mac",
+   "title": "macOS",
+   "where": "MacBook Air M3, Ableton Live 12",
+   "prep": [
+    "Claude pushes the package; install with <code>sudo installer -pkg \"$HOME/Downloads/TI-Revive-0.8.25c-mac/TI-Revive-0.8.25-mac/TI Revive.pkg\" -target /</code>. Virus on the Mac."
+   ],
+   "items": [
+    {
+     "id": "M1",
+     "title": "Create Empty Library (macOS dialog)",
+     "steps": [
+      "Open the plug-in, click LOAD on part 1 &gt; Personal Libraries: below a separator line is <b>Create Empty Library</b>. Choose it.",
+      "A save dialog opens titled \"Save empty library as...\", in the patches folder (~/Documents/Access Music/Virus TI/Patches), with the name \"New Library.mid\". Click Save/OK.",
+      "Open LOAD &gt; Personal Libraries again: \"New Library\" is listed. SAVE part 1 into it (SAVE &gt; Personal Libraries &gt; New Library &gt; 000 (new)), then LOAD &gt; Personal Libraries &gt; New Library shows that patch.",
+      "Once more Create Empty Library, this time Cancel: no new file. Afterwards delete New Library.mid from the folder."
+     ],
+     "expect": "the dialog as described, the library listed at once, saving into it works, Cancel creates nothing, no crash."
+    }
+   ]
+  }
+ ]
+}
