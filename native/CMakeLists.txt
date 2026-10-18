@@ -156,6 +156,17 @@ if(CAIRO_FOUND)
     target_link_libraries(vtirender PRIVATE vticore PkgConfig::CAIRO)
 endif()
 
+# the plug-in's VST3 classes: its own id and the original's (old projects in Live 11, E221)
+if(APPLE)
+    set(VTI_CID_OWN 7A1E5C3B4D2F4E619B0C8A172F64D5E9)
+else()
+    set(VTI_CID_OWN B49F90D9735F4305AC5397BE8958CD6B)
+endif()
+add_test(NAME factory_classes
+         COMMAND ${CMAKE_COMMAND} -DTOOL=$<TARGET_FILE:moduleinfotool> -DBUNDLE=$<TARGET_FILE_DIR:VirusTINative>/../..
+                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/factory_classes.json -DOWN=${VTI_CID_OWN}
+                 -DORIGINAL=B49F90D9735F4305AC5397BE8958CD31 -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/factory_classes.cmake)
+
 # end-to-end checks in a virtual X display (Linux; skipped without xvfb-run): two editors of a duplicated track (E183),
 # the Control Center's window size and close button (E185)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

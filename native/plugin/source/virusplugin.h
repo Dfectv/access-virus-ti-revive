@@ -41,6 +41,7 @@ namespace vti {
 // Original class ids (formats.md). The development build uses its own id (byte 15 XOR 0xA5) so it can sit next to
 // the original; VTI_NATIVE_DROPIN=ON builds with the original id (loads projects saved with the original).
 extern const Steinberg::FUID kVirusTIClassId;
+extern const Steinberg::FUID kOriginalClassId; // the Access plug-in's id: a second class for its projects (E221)
 
 // Messages to the Virus, sent by a worker thread (socket writes do not belong in process()).
 class DeviceOut {

@@ -39,6 +39,9 @@ const FUID kVirusTIClassId(0x7A1E5C3B, 0x4D2F4E61, 0x9B0C8A17, 0x2F64D5E9);
 #else
 const FUID kVirusTIClassId(0xB49F90D9, 0x735F4305, 0xAC5397BE, 0x8958CD31 ^ 0x5A);
 #endif
+// Hosts that ignore moduleinfo compatibility restore only the exact id (Ableton Live 11, E221): the same plug-in is
+// registered a second time under the original's id (entry.cpp), so projects made with the original open with it
+const FUID kOriginalClassId(0xB49F90D9, 0x735F4305, 0xAC5397BE, 0x8958CD31);
 
 static bool env_debug()
 {
