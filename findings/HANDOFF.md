@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-18. CONTINUE HERE = **Released v0.8.25** (merge 95879c7 on main, tag v0.8.25, release CI run
+_Last updated: 2026-10-18. CONTINUE HERE = **Round 0.8.26** (branch round-0.8.26, no code change yet): `72 00 03` safety rule (docs), Mac session mac-0.8.26-1 all pass (E225: no doubled notes in 7 takes, first sync ping answered after every broker idle exit; issue #7 finding 2 needs nothing from us). Virus: back to the Linux PC after the Mac session. Next candidates: PresenceWatch bounced branch + E175 with the user at the hardware. Before: **Released v0.8.25** (merge 95879c7 on main, tag v0.8.25, release CI run
 39131364441 green, 6 assets; site rebuilt by hand, run 39131769375, live shows 0.8.25 / 220 tests / original VST3
 projects). New: original VST3 projects open (second class with the original's id, E221-E223; VST2 not), Revert to /
 Recently Used (E220), Create Empty Library (E217), Windows 10 menu look (E219), plug-in version 0.8.25. Test machines:
@@ -9,7 +9,7 @@ win11 VM = release (silent, 0.8.25c uninstalled first, plug-in 13:27 UTC); Linux
 unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo installer; real PC still 0.8.24 (0.8.25b setup
 in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
 third entry (only if Snow users ask), PresenceWatch bounced branch on hardware,
-E175, Mac double notes E209 (7). Not relevant (user 2026-10-18): VST2 projects of the
+E175, Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E225), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
