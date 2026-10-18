@@ -58,7 +58,7 @@ Same process as 0.8.24 (Linux checks only during the round; test build + one che
    recommendation taken: keep two entries. Round checklist plan (user: UI on Linux is enough): Linux core + menus +
    Revert/Recently Used + Create Empty Library; VM and Mac core + Create Empty Library dialog only.
    **Round test build 0.8.25c = CI run 39130131007 (7b49ada). Checklist https://claude.ai/artifact/YV55z8yQ737u5JpLcNAx93
-   (spec scripts/checklists/round-0.8.25.json: LC1-5 + L1-L3, WC1-4 + W1, MC1-5 + M1; real PC not in this round).
+   (spec scripts/checklists/round-0.8.25.json: L1-L3, W1, M1; no core items and no real PC this round - user).
    Plan (user): ship 0.8.25 soon; live site stays until then.** Linux ~/.vst3 = dev build 9dcd74f (backup of 0.8.24 in
    ~/.vst3-backup/0.8.24). User smoke test of the earlier dev build (menus, Create Empty Library): ok.
 win10 VM: 5 crash dumps since 2026-10-10 (bugcheck 0x139 at 13:06 today while Live + the Access driver ran with the
