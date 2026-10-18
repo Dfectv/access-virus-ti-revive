@@ -36,6 +36,10 @@ the rest of the Linux checklist if convenient.
 **Linux block all PASS with 0.8.26c (E242)**; LC5 redo passed but the 48 kHz state did not recur (fix unexercised).
 win11 VM: 0.8.26c installed silently (C:\tirevive-test\0.8.26c, entries 0.8.26), Virus attached (broker socket stopped on
 Linux; re-enumerates on the broker stop, attach a few seconds later).
+**VM block all PASS (WC1-WC4, W1, W2; checklist marks).** VM broker log: 0 write timeouts (retry unused on WinUSB too),
+error 22 only where the Virus left Windows (WC4 power cycle 19:54:47, session end 20:06:58); W2 bank sync complete
+(RAM D 128 fetched, 516 s). Virus detached from the VM, Linux broker socket started again. Mac: 0.8.26c zip unpacked in
+~/Downloads/TI-Revive-0.8.26c-mac, the user runs the sudo installer.
 After the checklist passes: full site check (README + site: firmware findings, Active
 Sensing, budget, retry are user-visible stability changes - worth a line), release notes in build.yml, merge
 round-0.8.26 -> main, tag v0.8.26, release CI, site rebuild by hand, install the release on Linux, VM (silent), Mac.
