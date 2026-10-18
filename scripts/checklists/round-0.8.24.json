@@ -67,7 +67,19 @@
    ],
    "notes": [
     "The broker (<code>vtibroker.exe</code>) exits 30 s after the last plug-in closed; Task Manager &gt; Details shows whether it still runs.",
-    "BC5 is the item that failed in the baseline round (E210): the Virus stayed silent after wake."
+    "BC5 is the item that failed in the baseline round (E210): the Virus stayed silent after wake.",
+    "First run (E215) was still on 0.8.23 (the setup was not run), so BC1-BC5 are cleared for the redo. BC4 then had small issues on the first Play: note it if you see it again."
+   ],
+   "items": [
+    {
+     "id": "B0",
+     "title": "Installed version: do this BEFORE BC1",
+     "steps": [
+      "Run <code>C:\\tirevive-test\\0.8.24b\\TI-Revive-0.8.24-setup.exe</code> (uninstall TI Revive 0.8.24 first if it is listed).",
+      "Explorer: <code>C:\\Program Files\\Common Files\\VST3\\TI Revive Virus Control.vst3\\Contents\\x86_64-win</code>, column Date modified."
+     ],
+     "expect": "Apps &gt; Installed apps shows one TI Revive, 0.8.24, and the plug-in file is dated today (18.10.2026), not 17.10. Only then BC1-BC5."
+    }
    ]
   }
  ]
