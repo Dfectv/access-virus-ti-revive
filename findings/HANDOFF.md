@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-18. CONTINUE HERE = **Round 0.8.26** (branch round-0.8.26, no code change yet): `72 00 03` safety rule (docs), Mac session mac-0.8.26-1 all pass (E225: no doubled notes in 7 takes, first sync ping answered after every broker idle exit; issue #7 finding 2 needs nothing from us). Virus: was on the Mac for that session (moves back to Linux for the next items). Linux session E226: PresenceWatch bounced branch PASS on hardware, E175 not reproduced (0/12). Linux = release 0.8.25 now. Before: **Released v0.8.25** (merge 95879c7 on main, tag v0.8.25, release CI run
+_Last updated: 2026-10-18. CONTINUE HERE = **Round 0.8.26** (branch round-0.8.26; code change: per-monitor work area on Linux, E227): `72 00 03` safety rule (docs), Mac session mac-0.8.26-1 all pass (E225: no doubled notes in 7 takes, first sync ping answered after every broker idle exit; issue #7 finding 2 needs nothing from us). Virus: was on the Mac for that session (moves back to Linux for the next items). Linux session E226: PresenceWatch bounced branch PASS on hardware, E175 not reproduced (0/12). Linux = release 0.8.25 now. Before: **Released v0.8.25** (merge 95879c7 on main, tag v0.8.25, release CI run
 39131364441 green, 6 assets; site rebuilt by hand, run 39131769375, live shows 0.8.25 / 220 tests / original VST3
 projects). New: original VST3 projects open (second class with the original's id, E221-E223; VST2 not), Revert to /
 Recently Used (E220), Create Empty Library (E217), Windows 10 menu look (E219), plug-in version 0.8.25. Test machines:
@@ -10,7 +10,7 @@ unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo install
 in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
 third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E226), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E227), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
@@ -58,8 +58,9 @@ Evidence: [evidence.md](evidence.md) (E001-E226), protocol: [spec.md](spec.md); 
    _GTK_WORKAREAS_D<desktop> (mutter: 67,32 2493x1408 and 2560,223 1920x1080) -> RandR 1.5 monitors cut to
    _NET_WORKAREA (KDE, Xfce, ...) -> _NET_WORKAREA -> the screen; the monitor at the anchor, else the nearest.
    Links xcb-randr (libxcb-randr0-dev installed here by the user, added to the CI apt list). Built + tests on Linux;
-   dev build in ~/.vst3 (release 0.8.25 backed up in ~/.vst3-backup/0.8.25). Not tested on screen yet; RandR path
-   untested (GNOME has the GTK property). ctest installer_scripts "Not Run": stale PWSH_EXECUTABLE in the build
+   dev build in ~/.vst3 (release 0.8.25 backed up in ~/.vst3-backup/0.8.25). **User test in REAPER PASS (E227):**
+   menus stay on their monitor, submenu flips at the monitor border, no crash. RandR path untested (GNOME has the
+   GTK property). Needs CI build (deps changed) before the round's test build. ctest installer_scripts "Not Run": stale PWSH_EXECUTABLE in the build
    cache (an old scratchpad), unrelated.
 
 ## Round 0.8.25 (released as v0.8.25 2026-10-18)

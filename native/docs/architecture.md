@@ -180,7 +180,7 @@ editor or a switch to another window closes the menu. Submenus open, switch and 
 |---|---|
 | plug-in format | VST3 bundle `~/.vst3/TI Revive Virus Control.vst3` (`x86_64-linux`) |
 | UI | VSTGUI on X11; uses the host's `IRunLoop` (from the plug frame or host context) and `X11::FrameConfig`; the host maps the XEmbed window |
-| menus | our own popup (above) in override-redirect X11 windows (`popupwindow_x11.cpp`); the work area is `_NET_WORKAREA` (all monitors together) |
+| menus | our own popup (above) in override-redirect X11 windows (`popupwindow_x11.cpp`); the work area is that of the monitor at the menu (`src/editor/workarea.h`): mutter's `_GTK_WORKAREAS_D<n>`, else the RandR monitors cut to `_NET_WORKAREA`, else `_NET_WORKAREA` |
 | drawing speed | VSTGUI keeps bitmaps as CPU (cairo image) surfaces and uploads their pixels on every draw into the X back buffer - ~70 ms per full repaint on a real X server/XWayland. The editor keeps X pixmap copies of all bitmaps (`cairo_surface_create_similar` on the frame window) and caches the static layer (backgrounds, panels, labels) as a pixmap; repaints become server-side composites (GPU with glamor): full repaint ~1-7 ms, knob step < 1 ms. `VTI_NATIVE_NO_PIXMAPS=1` disables the copies |
 | broker | systemd user socket `/tmp/vtibroker-<uid>.sock` (starts on demand, exits after 30 s idle) |
 | audio ring | `/dev/shm/tirevive-audio-<uid>` |
