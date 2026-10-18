@@ -49,7 +49,7 @@
    "title": "macOS",
    "where": "MacBook Air M3, Ableton Live 12, TI Revive 0.8.25b",
    "prep": [
-    "Install 0.8.25b first: <code>sudo installer -pkg ~/Downloads/TI-Revive-0.8.25b-mac/*.pkg -target /</code> (Claude puts the package there when the Mac is awake). Virus on the Mac. The projects are in <code>~/Downloads/projcompat/</code>. Live 12 may ask to update the set: allow it."
+    "Install 0.8.25b first: <code>sudo installer -pkg \"$HOME/Downloads/TI-Revive-0.8.25b-mac/TI-Revive-0.8.25-mac/TI Revive.pkg\" -target /</code>. Virus on the Mac. The projects are in <code>~/Downloads/projcompat/</code>. Live 12 may ask to update the set: allow it."
    ],
    "items": [
     {
@@ -84,7 +84,7 @@
   {
    "id": "win",
    "title": "Windows PC (bare metal)",
-   "where": "this PC booted into Windows 11, Ableton Live 11, TI Revive 0.8.25b",
+   "where": "this PC booted into Windows 11 - skipped (user, 2026-10-18: the same Windows path as the VM, which passed)",
    "prep": [
     "Install 0.8.25b first: run <code>C:\\tirevive-test\\0.8.25b\\TI-Revive-0.8.25-setup.exe</code> (it upgrades 0.8.24). The projects are in <code>C:\\tirevive-test\\projcompat\\</code>. Claude is not available while this PC runs Windows: note everything here."
    ],
