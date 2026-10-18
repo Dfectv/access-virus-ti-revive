@@ -21,6 +21,22 @@ Evidence: [evidence.md](evidence.md) (E001-E224), protocol: [spec.md](spec.md); 
    claims.md is not in yet; point the rule at the claims entry once it is). Docs only, nothing to test.
 2. Deleted the stray ignored file `--help` in the repo root (user 2026-10-18; it was a 907x513 PNG screenshot
    from 2026-10-17, written by a tool run by mistake).
+3. **Mac double notes E209 (7): log analysis only** (work/timing/baseline-issue7/mac/M2-diag.log, session 3 =
+   broker start 08:09:04, 16 s after the previous idle exit). klog K was 6024/6025 (= session 1, which also had
+   5566 once), then 6382-6384 for the next 7 notes (+359 frames = 8.1 ms) from stamp ~1029117 on, with "timeline
+   steps 0, anchors 0" in the stats: the plug-in did not move its timeline, so the Virus' stamp clock vs its USB 1
+   output shifted by itself. Sync reports rose during playback and also with no sound for 20 s (6 at 08:10:06, 7 at
+   08:10:18); sessions 1/2 had 0-1. Hypothesis (LOW, not tested): the Virus lost/re-took its sync in that session;
+   the doubling itself is not visible in klog (it needs 2000 quiet frames; "no onset" lines are as frequent in the
+   good sessions). Next: reproduce on the Mac with a recording the user makes in Live (resample track, no SSH
+   permissions needed - user declined sudoers/TCC changes 2026-10-18), then compare onsets with timing_analysis.py.
+4. **Issue #7 finding 2: code reading.** A missed ping is visible: after 5 s without a marker the log says "no sync
+   marker - time stamps relative to the ring" (scan_audio), then up to 3 retries while quiet and not playing
+   (process, marker_retries_). E209 (2) counted 2/2 Mac reopens after an idle exit with the marker on the first
+   ping. TI Revive never sends CC120: the plug-in sends CC64 0 + CC123 per part at setActive(false), the broker
+   CC64 0 + CC123 on 16 channels at a disconnect (vti_pack_notes_off), and host CCs are not passed on
+   (getMidiControllerAssignment maps only aftertouch and pitch bend). So their exact trigger (CC120 + CC123) cannot
+   come from TI Revive; remaining check: Mac, broker idle exit + reopen x3, look for the "no sync marker" line.
 
 ## Round 0.8.25 (released as v0.8.25 2026-10-18)
 
