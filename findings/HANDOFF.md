@@ -112,9 +112,11 @@ Evidence: [evidence.md](evidence.md) (E001-E238), protocol: [spec.md](spec.md); 
     (native/src/device/keepalive.h, test_keepalive.cpp; vtitests 227/227, Linux build ok). E238: the DSP's
     stamped-event queue is 2046 bytes without a fill check = the first firmware number that matches the old
     hang threshold (1000/s automation + 2750 notes/s = 3.6 kB per 160 ms lead); rule: < 10 kB/s stamped traffic,
-    bursts < 1500 bytes - parameters are bounded by the AutomationQueue, notes are not (open). Hardware test
-    needed: play held notes across the first seconds after start and after a host stall; check that no note is
-    cut and that FE packets appear every ~300 ms in VTI_TRACE.
+    bursts < 1500 bytes - now enforced for ALL stamped traffic by native/src/device/sendbudget.h (4 kB/s, burst
+    1000 bytes, VTI_NATIVE_MIDI_RATE=0 switches it off; test_sendbudget.cpp; vtitests 230/230). Hardware test
+    needed: (a) held notes across the first seconds after start and after a host stall - no note cut, FE every
+    ~300 ms in VTI_TRACE; (b) normal dense playing + automation - nothing delayed (VTI_NATIVE_STATS); (c) the old
+    stress test (1000/s automation + a note flood) - the Virus must survive, events may be delayed/dropped.
 
 ## Round 0.8.25 (released as v0.8.25 2026-10-18)
 

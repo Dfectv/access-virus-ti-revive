@@ -89,6 +89,14 @@ Access is installed or registered. These are the files it loads:
   - Automation is rate limited (`src/device/automation.h`): coalesced per parameter, at most 250 messages/s,
     oldest parameter first. A flood of parameter messages hangs the Virus' audio until a power cycle; with the
     limit, three LFOs on every block still give each parameter ~80 updates/s.
+  - All stamped traffic (notes, controllers, clock, with their F5 stamps) is bounded by a byte budget
+    (`src/device/sendbudget.h`: 4 kB/s sustained, 1000 bytes at once; `VTI_NATIVE_MIDI_RATE` overrides, 0 = off):
+    the Virus' DSP parks stamped bytes in a 2046-byte queue without a fill check until they are due (E235/E238),
+    so a flood larger than that within the lead window corrupts its MIDI stream. Musical rates never come near
+    the budget; a runaway host is delayed a few blocks, and stamps are absolute, so timing is unchanged.
+  - Active Sensing (`src/device/keepalive.h`): one FE every 300 ms on the timeline, like the original. The DSP arms
+    a watchdog with the first FE and releases every voice about a second after the last one (E237), so FE goes out
+    regularly or not at all - never once.
   - Timing (sample accurate, the same latency in every session): the Virus plays a time-stamped event when its own
     14-bit stamp clock reaches the stamp. After the start-up sync ping it marks where that clock is 0 with a single
     sample on USB 2; the plug-in finds it and converts every stamp, so an event sounds a fixed `lead` after its

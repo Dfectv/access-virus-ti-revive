@@ -343,6 +343,8 @@ void DeviceOut::run()
 {
     while (!stop_ && !go_) // until the plug-in is activated (see start())
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    if (const char *e = getenv("VTI_NATIVE_MIDI_RATE")) // bytes/s of stamped traffic, 0 = unlimited (tests only)
+        budget_.rate = atof(e);
     while (!stop_) {
         if (!open_) {
             std::string err;
@@ -443,8 +445,17 @@ void DeviceOut::run()
             // else dense MIDI starves the queue (stress test: queue stuck, bank sync timed out)
             // after a multi dump the Virus sets up its 16 parts and drops what arrives meanwhile (the following part 1
             // dump got lost in 2 of 5 start-ups): queued messages wait until it is done; events go on
-            bool held = std::chrono::steady_clock::now() < queue_hold_until_;
-            bool rt = r != rt_w_.load(std::memory_order_acquire) && !(rt_run_ >= 8 && !queue_.empty());
+            auto now = std::chrono::steady_clock::now();
+            bool held = now < queue_hold_until_;
+            // stamped traffic within the budget (sendbudget.h): a flood waits here, a few blocks at most
+            bool budget_ok = budget_.available(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                                   now.time_since_epoch()).count()) >= 8;
+            bool rt = r != rt_w_.load(std::memory_order_acquire) && !(rt_run_ >= 8 && !queue_.empty()) && budget_ok;
+            if ((held || !budget_ok) && !rt && queue_.empty()) {
+                lk.unlock();
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                continue;
+            }
             if (held && !rt) {
                 lk.unlock();
                 std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -548,8 +559,12 @@ void DeviceOut::run()
         // fairness rule stays: after 8 in a row the queue gets its turn in the next round
         if (stamp >= 0 && !pending_send_) {
             std::lock_guard<std::mutex> lk(mu_);
+            // one write holds at most the budget's balance (sendbudget.h): the rest of a flood goes in later rounds
+            size_t cap = std::min<size_t>(3072, (size_t)std::max(0, budget_.available(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    std::chrono::steady_clock::now().time_since_epoch()).count())));
             for (size_t r = rt_r_.load(std::memory_order_relaxed);
-                 r != rt_w_.load(std::memory_order_acquire) && pk_.size() < 3072 && !(rt_run_ >= 8 && !queue_.empty());
+                 r != rt_w_.load(std::memory_order_acquire) && pk_.size() < cap && !(rt_run_ >= 8 && !queue_.empty());
                  r = rt_r_.load(std::memory_order_relaxed)) {
                 const Slot &sl = rt_[r % RT_SLOTS];
                 msg.assign(sl.data, sl.data + sl.len);
@@ -560,6 +575,8 @@ void DeviceOut::run()
             }
         }
         bool ok = broker_.write(EP_PLUGIN_OUT, pk_.data(), pk_.size());
+        if (stamp >= 0) // stamped traffic counts against the budget; queued dumps go to the host CPU, not the DSP queue
+            budget_.take((int)pk_.size());
         if (msg.size() > 7 && msg[0] == 0xF0 && msg[6] == 0x11) { // a multi dump (11 00 00 ...)
             static const int pause = getenv("VTI_NATIVE_MULTI_PAUSE") ? atoi(getenv("VTI_NATIVE_MULTI_PAUSE")) : 250;
             queue_hold_until_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(pause);

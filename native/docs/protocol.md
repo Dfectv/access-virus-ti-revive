@@ -127,7 +127,8 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
 - Active Sensing (2026-10-18, firmware E237): the DSP arms a watchdog with the first FE it sees and releases every
   voice about a second after the last one. The original sends FE every 0.31 s (E025); the plug-in now sends one
   every 300 ms on the timeline (keepalive.h), the first with the anchor's FE/F2 as before. Stamped bytes in flight
-  are bounded by the DSP's 2046-byte stamp queue (E238): keep bursts under ~1500 bytes per lead window.
+  are bounded by the DSP's 2046-byte stamp queue (E238): the plug-in keeps them under 4 kB/s with bursts of 1000
+  bytes (sendbudget.h), far above musical rates.
 - The original reports a plug-in latency of 3840 + block size (4352 at 512, 4096 at 256; vtihost prints it).
   Experiments with the sync ping (S=5000, M=6441 = the original's F2 offset): ping stamped 3072 like the original ->
   honoured in 3/3 runs (K 10752-11322, ~6000 frames after sending); ping stamped on our timeline -> honoured 3/3, K
