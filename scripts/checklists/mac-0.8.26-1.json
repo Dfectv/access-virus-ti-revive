@@ -1,0 +1,73 @@
+{
+ "round": "mac-0.8.26-1",
+ "lead": "One Mac session for two open questions from the baseline round. (1) Doubled notes: on the last reopen of the baseline (E209 (7)) notes sounded doubled until Stop/Play, and the Virus sent 9 sync reports; the log shows the Virus' note delay moving by 8 ms in that session while the plug-in kept its timeline. A recording of it lets Claude see what is doubled. (2) Issue #7 finding 2: does the first sync ping after the broker's idle exit always get its marker? Release 0.8.25 is installed (checked). About 25-35 minutes. Mark each item, note anything different, then copy the results at the bottom into the chat.",
+ "rules": [
+  "Disposable copy of the test project only. No firmware or OS update, no \"Burn To Flash\", no factory reset, no storing patches.",
+  "Monitors and headphones LOW. If you hear loud noise or the Virus stops answering, stop Live, switch the Virus off and on, note the item and what you did just before.",
+  "Do not switch the Virus off during the session (after the cold start in D1): the reopens must happen in one power-on, like the report.",
+  "Logging is already on (diag.on + klog.on). Claude renames the old diag.log before you start and fetches diag.log, the broker log and the recordings afterwards; you do not need to copy anything."
+ ],
+ "sections": [
+  {
+   "id": "mac",
+   "title": "macOS",
+   "where": "MacBook Air M3, Ableton Live 12, TI Revive 0.8.25 (release)",
+   "prep": [
+    "Move the Virus' USB cable to the Mac and tell Claude in the chat; Claude then starts a fresh diag.log.",
+    "The baseline test project (one Virus track, part 1, the 16ths clip at 120 BPM). Save a copy as <code>mac-doubles.als</code> and work only in the copy."
+   ],
+   "notes": [
+    "Broker still running? <code>pgrep -a vtibroker</code> in Terminal: no output = it exited (it exits 30 s after the last client).",
+    "\"Doubled\" = each note sounds twice (a flam or echo), or there are extra notes between the 16ths. Stop/Play cleared it last time."
+   ],
+   "items": [
+    {
+     "id": "D0",
+     "title": "Recording track",
+     "steps": [
+      "In <code>mac-doubles.als</code> add an audio track. Audio From = the Virus track (Post FX), Monitor = Off, arm it.",
+      "Save the set."
+     ],
+     "expect": "Pressing Record in the arrangement records the Virus into that track (check once with 5 s, then delete the clip)."
+    },
+    {
+     "id": "D1",
+     "title": "Cold start",
+     "steps": [
+      "Live closed. Switch the Virus off, wait 5 s, switch it on and wait for its normal display.",
+      "Open <code>mac-doubles.als</code>, wait until the start-up page is gone.",
+      "Arrangement Record for about 30 s with the clip playing, listen. Stop, save, quit Live."
+     ],
+     "expect": "notes in time, not doubled; Claude finds \"Virus ready after\" and \"sync marker at frame\" in the log."
+    },
+    {
+     "id": "D2",
+     "title": "Three reopens after the broker's idle exit (finding 2, doubled notes)",
+     "steps": [
+      "Live closed. Wait 60 s; <code>pgrep -a vtibroker</code> must print nothing.",
+      "Open <code>mac-doubles.als</code>, wait until the start-up page is gone, Record about 30 s, listen. Stop, save, quit Live.",
+      "Repeat the two steps above two more times (three reopens in total). Note for each reopen: in time / doubled / other."
+     ],
+     "expect": "each reopen in time and not doubled; Claude finds a \"sync marker at frame\" line per reopen and no \"no sync marker\" line. A doubled reopen is not a failure of this item: go to D3 right there."
+    },
+    {
+     "id": "D3",
+     "title": "If notes sound doubled (at any point)",
+     "steps": [
+      "Keep recording for another 20 s, then press Stop and Play once (Record stays on) and record 20 s more.",
+      "Note which reopen it was and whether Stop/Play cleared it. Then go on with the remaining reopens."
+     ],
+     "expect": "a recording with the doubled part and the part after Stop/Play. Mark \"not tested\" if nothing ever sounded doubled."
+    },
+    {
+     "id": "D4",
+     "title": "Three more reopens (only if nothing sounded doubled in D2)",
+     "steps": [
+      "Same as D2, three more times (wait 60 s, check <code>pgrep</code>, open, record 30 s, save, quit)."
+     ],
+     "expect": "as D2. Mark \"not tested\" if D3 already happened."
+    }
+   ]
+  }
+ ]
+}

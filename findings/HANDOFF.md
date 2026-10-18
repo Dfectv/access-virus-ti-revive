@@ -37,6 +37,11 @@ Evidence: [evidence.md](evidence.md) (E001-E224), protocol: [spec.md](spec.md); 
    CC64 0 + CC123 on 16 channels at a disconnect (vti_pack_notes_off), and host CCs are not passed on
    (getMidiControllerAssignment maps only aftertouch and pitch bend). So their exact trigger (CC120 + CC123) cannot
    come from TI Revive; remaining check: Mac, broker idle exit + reopen x3, look for the "no sync marker" line.
+5. **Mac session checklist for 3 + 4:** https://claude.ai/artifact/Pg1eFZf4Fv7TCkJNmDA7a3 (spec
+   scripts/checklists/mac-0.8.26-1.json: D0 recording track, D1 cold start, D2 three reopens after idle exit with
+   a 30 s recording each, D3 if doubled: record + Stop/Play, D4 three more reopens). Mac on release 0.8.25 (pkgutil),
+   diag.on + klog.on present. Before the user starts: rename the Mac's old diag.log; afterwards fetch diag.log,
+   broker log and the recordings (project folder Samples/Recorded), run timing_analysis.py on each take.
 
 ## Round 0.8.25 (released as v0.8.25 2026-10-18)
 
