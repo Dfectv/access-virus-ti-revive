@@ -1,8 +1,13 @@
 # HANDOFF
 
-_Last updated: 2026-10-18. CONTINUE HERE = "Round 0.8.24" below (test running, checklist link there) (work on branch round-0.8.24; main has the
-older HANDOFF). Test machines: Linux = dev build of round-0.8.24 in ~/.vst3; Mac, win11 VM and the real PC = release
-0.8.23. Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-18. CONTINUE HERE = **Released v0.8.24** (tag on main 6a672d6, release CI run 39115035193 green,
+release text corrected by hand: the sleep sentence says "tested with a drop of under a second on Linux"; site rebuilt,
+run 39115534532, live shows 0.8.24 / 214 tests). Test machines: Linux and win11 VM = release 0.8.24 (VM: 0.8.24a
+uninstalled first, plug-in hash = release CI); real PC = 0.8.24b test build, release setup in
+C:\tirevive-test\0.8.24-release (uninstall 0.8.24 first, same version); Mac = 0.8.24b, release unzipped in
+~/Downloads/TI-Revive-0.8.24-release-mac (user runs the sudo installer). Next: start the next round (new branch).
+Open from this round: the PresenceWatch "bounced" branch (a USB drop the worker never sees) is covered by unit tests
+only, not yet hit on hardware (E214); Linux replug known issue not retested. Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E216), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
