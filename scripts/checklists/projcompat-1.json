@@ -1,6 +1,6 @@
 {
  "round": "projcompat-1",
- "lead": "Do projects made with the original Access plug-in open with TI Revive? Two Ableton Live 11 projects were saved with the original on Windows 10 (one with the VST3, one with the VST2): parts 1-3 Fimplex HS, Acidia AV, Alead BC, a MIDI clip, Cutoff automation on part 1 and Reso on part 2 (Easy page). Every machine has release 0.8.24 and no Access software. On Linux the same state already loaded into TI Revive (244 records, part 1 Fimplex HS, getState identical); Ableton cannot run there. Mark each item, note anything different, then copy the results at the bottom into the chat.",
+ "lead": "Do projects made with the original Access plug-in open with TI Revive? Two Ableton Live 11 projects were saved with the original on Windows 10 (one with the VST3, one with the VST2): parts 1-3 Fimplex HS, Acidia AV, Alead BC, a MIDI clip, Cutoff automation on part 1 and Reso on part 2 (Easy page). Update: release 0.8.24 failed PW1 (Live 11 restores only the exact class id, E221). Test build 0.8.25b registers the plug-in a second time under the original's id as \"TI Revive Virus Control (original projects)\"; with it PW1 and PW2 passed on the Windows 11 VM, PW3 (VST2) fails as expected (E222). Now the Mac and the real PC with 0.8.25b. Mark each item, note anything different, then copy the results at the bottom into the chat.",
  "rules": [
   "Order: Windows 11 VM first (Claude moves the Virus there), then the Mac, the real Windows PC last. Close Live before the Virus moves.",
   "Disposable copies only: the projects are copies; do not store patches into the Virus.",
@@ -10,7 +10,7 @@
   {
    "id": "vm",
    "title": "Windows 11 VM",
-   "where": "win11 VM, Ableton Live 11, TI Revive 0.8.24",
+   "where": "win11 VM, Ableton Live 11, TI Revive 0.8.25b (done: PW1, PW2 pass, PW3 as expected)",
    "prep": [
     "Claude attaches the Virus to the VM before you start (ask in the chat). The projects are in <code>C:\\tirevive-test\\projcompat\\</code>."
    ],
@@ -47,9 +47,9 @@
   {
    "id": "mac",
    "title": "macOS",
-   "where": "MacBook Air M3, Ableton Live 12, TI Revive 0.8.24 (pkg)",
+   "where": "MacBook Air M3, Ableton Live 12, TI Revive 0.8.25b",
    "prep": [
-    "Virus on the Mac. The projects are in <code>~/Downloads/projcompat/</code>. Live 12 may ask to update the set: allow it."
+    "Install 0.8.25b first: <code>sudo installer -pkg ~/Downloads/TI-Revive-0.8.25b-mac/*.pkg -target /</code> (Claude puts the package there when the Mac is awake). Virus on the Mac. The projects are in <code>~/Downloads/projcompat/</code>. Live 12 may ask to update the set: allow it."
    ],
    "items": [
     {
@@ -84,9 +84,9 @@
   {
    "id": "win",
    "title": "Windows PC (bare metal)",
-   "where": "this PC booted into Windows 11, Ableton Live 11, TI Revive 0.8.24",
+   "where": "this PC booted into Windows 11, Ableton Live 11, TI Revive 0.8.25b",
    "prep": [
-    "The projects are in <code>C:\\tirevive-test\\projcompat\\</code>. Claude is not available while this PC runs Windows: note everything here."
+    "Install 0.8.25b first: run <code>C:\\tirevive-test\\0.8.25b\\TI-Revive-0.8.25-setup.exe</code> (it upgrades 0.8.24). The projects are in <code>C:\\tirevive-test\\projcompat\\</code>. Claude is not available while this PC runs Windows: note everything here."
    ],
    "items": [
     {
