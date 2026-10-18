@@ -14,3 +14,6 @@ typedef void (*vla_out_fn)(int16_t *pcm, uint32_t frames, void *user);      // 2
 int vla_start(struct libusb_context *ctx, struct libusb_device_handle *h, vla_in_fn in, vla_out_fn out, void *user);
 void vla_stop(void);
 int vla_running(void);
+// 1 once per run of 48 kHz packets (the Virus left 44.1 kHz, E241): the caller may ask for the rate again
+int vla_rate_lost(void);
+int vla_set_rate_again(void); // SET_CUR 44.1 kHz on both endpoints again; 0 = both accepted

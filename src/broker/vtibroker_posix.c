@@ -812,6 +812,22 @@ static void *device_thread(void *unused)
             send_states(1);
             pthread_mutex_unlock(&g_cs_clients);
         }
+#ifdef __linux__
+        // the Virus left 44.1 kHz while streaming (E175/E241: after a wake, a replug): the stream already sends it
+        // silent packets of its size; ask for the rate again, a few times per stream
+        static int rate_tries;
+        if (g_dev && g_shm && g_shm->streaming) {
+            if (vla_rate_lost()) {
+                if (rate_tries < 3) {
+                    rate_tries++;
+                    blog("usbaudio: the Virus sends 48 kHz packets - asking for 44.1 kHz again (%d/3): %s", rate_tries,
+                         vla_set_rate_again() ? "failed" : "accepted");
+                } else if (rate_tries++ == 3)
+                    blog("usbaudio: the Virus stays at 48 kHz - its sound stays silent; switch it off and on");
+            }
+        } else
+            rate_tries = 0;
+#endif
         int open = g_dev != NULL;
         pthread_mutex_unlock(&g_cs_dev);
         static uint32_t last_status;

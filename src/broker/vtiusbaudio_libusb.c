@@ -40,6 +40,7 @@ static struct {
     pthread_mutex_t mx;
     pthread_t ev;
     unsigned pattern;      // nominal 44/45 pattern position
+    volatile int rate_lost; // a run of 48 kHz packets was reported (E241); read and cleared by vla_rate_lost()
     double t0_ms;          // monotonic time of the first IN completion
     uint64_t delivered_ms; // USB frames (ms) delivered so far (packets + filled gaps)
     uint64_t frames, errs, gaps, next_log;
@@ -65,7 +66,8 @@ static void out_cb(struct libusb_transfer *t)
 }
 
 // Queue one OUT transfer carrying `n` packets of the given frame counts (audio from the out source, or silence).
-static void send_out(const unsigned *counts, int n)
+// silent[k] (optional) = 1: packet k carries silence (the Virus sends 48 kHz packets, E241).
+static void send_out(const unsigned *counts, const int *silent, int n)
 {
     pthread_mutex_lock(&S.mx);
     int s = -1;
@@ -85,7 +87,7 @@ static void send_out(const unsigned *counts, int n)
     for (int k = 0; k < n; k++) {
         unsigned len = counts[k] * OUT_CH * 2;
         t->iso_packet_desc[k].length = len;
-        if (S.out)
+        if (S.out && !(silent && silent[k]))
             S.out((int16_t *)(t->buffer + off), counts[k], S.user);
         else
             memset(t->buffer + off, 0, len);
@@ -111,7 +113,7 @@ static uint32_t fill_silence(uint64_t packets) // nominal pattern, delivered in 
             frames += counts[j] = S.pattern++ % 10 ? 44 : 45;
         memset(S.pcm, 0, frames * IN_CH * 2);
         S.in(S.pcm, frames, S.user);
-        send_out(counts, (int)k);
+        send_out(counts, NULL, (int)k);
         total += frames;
         packets -= k;
     }
@@ -144,7 +146,8 @@ static void in_cb(struct libusb_transfer *t)
         S.delivered_ms += g;
     }
     uint32_t frames = 0;
-    unsigned counts[NP];
+    unsigned out_counts[NP];
+    int out_silent[NP];
     for (int k = 0; k < t->num_iso_packets; k++) {
         struct libusb_iso_packet_descriptor *p = &t->iso_packet_desc[k];
         uint32_t f = p->status == LIBUSB_TRANSFER_COMPLETED ? p->actual_length / (IN_CH * 2) : 0;
@@ -156,6 +159,9 @@ static void in_cb(struct libusb_transfer *t)
                     p->actual_length, (int)p->status);
         else if (ev < 0)
             vti_log("usbaudio: packets back in range at %llu ms after the start", (unsigned long long)S.ps.packets);
+        if (vti_pktstat_rate_lost(&S.ps) && S.ps.bad_run % VTI_PKT_BAD_RUN == 0)
+            S.rate_lost = 1; // once per second of 48 kHz packets: the device thread asks for 44.1 kHz again
+        out_counts[k] = vti_pkt_out(f, nominal, &out_silent[k]);
         if (f < 43 || f > 46) { // lost packet, or still 48 kHz right after SET_CUR: nominal silence ("repair")
             if (p->status != LIBUSB_TRANSFER_COMPLETED)
                 S.errs++;
@@ -164,10 +170,9 @@ static void in_cb(struct libusb_transfer *t)
         } else {
             memcpy(S.pcm + frames * IN_CH, libusb_get_iso_packet_buffer_simple(t, (unsigned)k), f * IN_CH * 2);
         }
-        counts[k] = f;
         frames += f;
     }
-    send_out(counts, t->num_iso_packets); // mirror the synth's frame counts towards it
+    send_out(out_counts, out_silent, t->num_iso_packets); // mirror the synth's packets towards it (E241)
     S.in(S.pcm, frames, S.user);
     S.frames += frames;
     S.delivered_ms += (uint64_t)t->num_iso_packets;
@@ -247,7 +252,7 @@ int vla_start(libusb_context *ctx, libusb_device_handle *h, vla_in_fn in, vla_ou
         int n = OUT_LEAD - done < NP ? OUT_LEAD - done : NP;
         for (int k = 0; k < n; k++)
             lead[k] = S.pattern++ % 10 ? 44 : 45;
-        send_out(lead, n);
+        send_out(lead, NULL, n);
         done += n;
     }
     for (int i = 0; i < NR; i++) {
@@ -303,3 +308,19 @@ void vla_stop(void)
 }
 
 int vla_running(void) { return S.running; }
+
+int vla_rate_lost(void)
+{
+    if (!S.running || !S.rate_lost)
+        return 0;
+    S.rate_lost = 0;
+    return 1;
+}
+
+int vla_set_rate_again(void) // from the device thread, while streaming (libusb's synchronous API is thread-safe)
+{
+    if (!S.running)
+        return -1;
+    int a = set_rate(EP_OUT, VLA_RATE), b = set_rate(EP_IN, VLA_RATE);
+    return a || b ? -1 : 0;
+}
