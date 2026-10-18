@@ -17,15 +17,19 @@ Work through the steps in order and report the result of each one to the human.
 
 ## 2. Build what changed
 
-- `src/broker/`, `src/wrapper/`: `make -C src/broker`, `make -C src/wrapper` (mingw-w64 on Linux).
+- `native/` (the shipped plug-in and ASIO driver since 0.8.0): `cmake -S native -B build-native && cmake --build
+  build-native && ctest --test-dir build-native` (needs the submodule `native/external/vst3sdk`); Windows needs
+  MSVC, macOS Xcode.
+- `src/broker/`: `make -C src/broker` (mingw-w64 for Windows, libusb on Linux/macOS).
 - `src/mac/`: on a Mac, `scripts/mac-build-bridge.sh <repo> --install`.
-- `native/`: `cmake -S native -B build-native && cmake --build build-native && ctest --test-dir build-native` (needs
-  the submodule `native/external/vst3sdk`); Windows needs MSVC, macOS Xcode.
+- `src/wrapper/`: 0.7.x reference code, not shipped since 0.8.0; build it (`make -C src/wrapper`) only if the change
+  touches it.
 - Installer scripts: run their syntax check (`bash -n`, PowerShell parser) at least.
 Record which builds you ran and their result. If a platform could not be built, say so.
 
 ## 3. Test
 
+- Fixes and features in `native/`: write the failing test first, then the code; keep the coverage.
 - With hardware: describe the setup (platform, Virus model, DAW, TI Revive version) and the steps and results.
 - Without hardware: write "not tested on hardware" and explain what a tester should check.
 - Never send untested vendor requests or SysEx to a real Virus; no firmware/flash operations.
@@ -33,26 +37,22 @@ Record which builds you ran and their result. If a platform could not be built, 
 ## 4. Document
 
 - New knowledge about the device or the Access software: add a row to `findings/evidence.md` with the next free
-  number: `| E### | YYYY-MM-DD | observation with numbers and conditions | source | file/function | HIGH/MEDIUM/LOW/open |`.
+  number, in the table's columns `| ID | Date | Claim | Pointer | Method / command | Confidence |`: claim with
+  numbers and conditions, pointer to the capture/log/file, method or command used, confidence `HIGH` (directly
+  observed), `MED` (strong inference), `LOW` (plausible, needs confirmation) or `open`.
   Correct earlier entries with a new entry instead of editing history away.
-- Changed user-visible behaviour: update `README.md` (installation, "Good to know", status table).
+- Changed user-visible behaviour: update `README.md` (installation, "Good to know", status table); notable features
+  also go on the website (`scripts/site/build.py`, see the `tirevive-site-check` skill).
 
 ## 5. Pull request description
 
-```
-## Problem
-<symptom, platform, issue link>
-
-## Cause
-<what the evidence shows; E-number if any>
-
-## Change
-<what the code does now>
-
-## Tested
-<builds run; hardware test with setup, or "not tested on hardware">
-
-Written with the help of an AI assistant (<name>).
-```
+Fill `.github/PULL_REQUEST_TEMPLATE.md` (Problem, Cause with the E-number, Change, Tested, Checklist); GitHub
+puts it into the description. Under Tested name the builds you ran and the hardware setup, or "not tested on
+hardware". One line says that an AI assistant helped.
 
 Keep the PR to one problem. Small, well-explained changes get merged fastest.
+
+## Maintainers
+
+Fixes go onto the current round branch (`round-X.Y.Z`), not into one release each; hotfixes are the exception.
+Update and commit `findings/HANDOFF.md` after each step. Commit as `derpsn`.

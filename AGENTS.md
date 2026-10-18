@@ -1,6 +1,6 @@
 # Instructions for AI coding agents
 
-You are working on **TI Revive**: it makes the Access Virus TI (Desktop, Polar, Keyboard; the Snow with 0.7.4) work
+You are working on **TI Revive**: it makes the Access Virus TI (Desktop, Polar, Keyboard; the Snow per user reports) work
 on Windows 11, macOS and Linux without the old Access drivers. Since 0.8.0 its plug-in is "TI Revive Virus Control"
 (`native/`), a rewrite that looks and works like the original "Virus Control" and loads the Access files from the
 user's own installer at runtime.

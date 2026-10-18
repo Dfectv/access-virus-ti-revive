@@ -29,7 +29,9 @@ For each claim search, newest first:
 1. `findings/evidence.md` (search by number, model, OS, "bare metal", "real PC", "VM")
 2. `findings/HANDOFF.md` (top = current state, test round results, open items)
 3. `native/docs/status.md`, `native/docs/architecture.md`
-4. `scripts/checklists/round-*.json` (which items a test round covered: e.g. B1 = sidechain on bare metal)
+4. `scripts/checklists/`: `core.json` (the core items every round runs, merged into each round by
+   `scripts/checklist.py`), `round-*.json` (the round's own items: e.g. B1 = sidechain on bare metal) and
+   `baseline-*.json` (baseline rounds against a release)
 5. `native/tests` for the test count (`ctest --test-dir build-native -N | tail -1` if built)
 
 Record per claim: source (E-number or file:line), date, setup. Watch the setup closely:
@@ -50,8 +52,8 @@ human as a table before editing: claim, where (file:line), status, source.
 
 - Change `scripts/site/build.py` and the README together, same wording and numbers.
 - `unsourced`: do not invent a source. Ask the human, or remove/soften the claim.
-- Keep the site style: one page, no marketing sentences, no long dashes, no emojis; footnotes only when they are
-  still true for the new number.
+- Keep the site style: one page, no marketing sentences, no long dashes, no emojis, no mono caps labels, no glows,
+  no arrows, no underlines; footnotes only when they are still true for the new number.
 - Build to check: `python3 scripts/site/build.py --out <scratchpad>/site` and grep the output for the new values.
 - Do not deploy. The site is rebuilt by hand (`gh workflow run site.yml`) only when the human says so.
 - Note the check in `findings/HANDOFF.md` and commit with the other changes.
