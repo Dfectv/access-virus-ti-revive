@@ -10,7 +10,7 @@ unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo install
 in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
 third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E239), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E240), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
@@ -127,6 +127,11 @@ Evidence: [evidence.md](evidence.md) (E001-E239), protocol: [spec.md](spec.md); 
     brokers build). No pacing of SysEx dumps is needed: the Virus paces them itself through this chain.
     Hardware test: a bank upload while switching patches on the Virus' panel; look for "timeout(s), then
     accepted" in the broker log and no dump error.
+
+14. **Dev build smoke test passed (E240, 2026-10-18).** Local Linux build of items 12-13 on the real TI2 in
+    REAPER: "all sounds really good and stable"; broker log clean (no write timeouts or errors, so the retry
+    was not exercised). Still open for the CI build / full checklist: held notes across start/stop and
+    re-anchor (FE fix), a bank sync during panel patch changes (retry), Windows and macOS.
 
 ## Round 0.8.25 (released as v0.8.25 2026-10-18)
 
