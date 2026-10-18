@@ -3,7 +3,7 @@
 _Last updated: 2026-10-18. CONTINUE HERE = "Round 0.8.24" below (test running, checklist link there) (work on branch round-0.8.24; main has the
 older HANDOFF). Test machines: Linux = dev build of round-0.8.24 in ~/.vst3; Mac, win11 VM and the real PC = release
 0.8.23. Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E215), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E216), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.24 (branch round-0.8.24, collecting; new test process 2026-10-18)
