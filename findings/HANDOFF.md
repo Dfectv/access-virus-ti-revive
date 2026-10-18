@@ -20,14 +20,18 @@ Same process as 0.8.24 (Linux checks only during the round; test build + one che
    "New Library.mid"), ".mid" added like the original, 26-byte empty SMF written, listed at once. Linux: VSTGUI's
    zenity/kdialog dialog (modal, blocks the host UI like every VSTGUI plug-in; without zenity/kdialog nothing happens).
    Xvfb check passed (dialog, OK, file byte-identical, listed). Windows/macOS: not built locally (CI later).
-   OPEN: the separator line before the entry. Needs the Windows 10 THEMED separator height: win10 VM has no
-   logged-on user -> classic menus (rows 17 px, separator 9 px; our rows are the themed 19 px). Tool ready:
-   scratchpad sep/menumeasure.exe (copied to C:\vti\sep in the win10 VM); run it in a logged-on desktop session
-   (e.g. a scheduled task /IT) and read C:\vti\sep\rects.txt + menu.bmp. Then: separator rows in PopupMenu (TDD).
+   Separator done with item 3.
    Checklist item later: LOAD > Personal Libraries > Create Empty Library (dialog, OK), SAVE into it, LOAD from it.
    Dev build NOT installed in ~/.vst3 (release 0.8.24 stays); user smoke test of the dev build still to do.
 2. **Issue #7 finding 3 on Linux** (E218): 6 start-ups after broker idle exits with a full state restore, release
    0.8.24: ready 6.7-6.9 s, marker every time, normal sound, no hang (9/9 with E209). No code change.
+3. **Menu look like Windows 10** (E219, commit b929bcb): measured in the user's logged-on win10 VM session with our own
+   test menu (scratchpad sep/menumeasure.c): menus with columns = the older look we had (19 px rows, separator 9 px);
+   single-column menus = the themed look (22 px rows, check band, chevron, separator 7 px). Ours now draws every
+   one-column menu themed (LOAD/SAVE top level, Personal Libraries, value lists <= 32, categories) and has separator
+   rows; Create Empty Library gets its separator. 217 tests; Xvfb check of LOAD > Personal Libraries (+ greyed
+   "(empty)"). Not seen on screen: a checked entry in the themed look. Checklist items later (W especially: compare
+   with the original's menus side by side if the user wants).
 Not possible alone (need the user): PresenceWatch "bounced" branch on hardware (a sub-second USB drop: needs sudo
 for /sys/bus/usb/devices/1-8/authorized, or a cable pull + replug within ~0.3 s); Linux replug known issue (E175,
 needs a physical replug); per-monitor work area on Linux (xcb-randr: libxcb-randr0-dev not installed, needs sudo +
