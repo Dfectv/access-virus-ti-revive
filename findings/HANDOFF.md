@@ -56,9 +56,16 @@ Evidence: [evidence.md](evidence.md) (E001-E244), protocol: [spec.md](spec.md); 
    and stores it; "Original Patch" lands in the multi edit buffer, the power-up effect (issue #7) stays unproven.
    **Device-side proposal for the 48 kHz state (E175/E241):** when 48 kHz packets appear, send the global
    `73 00 10 00` (System Clock/Frequency = 44.1 kHz, what the panel does) next to the SET_CUR retry - normal global
-   parameter, rule-2 safe; code + tests + a hardware check in the next test round. Still open, low value: the DSP's
-   cable-1 message 0B, F035's use, the USB chip's 0xF6 command. Firmware analysis complete for this round; next =
-   testing (CI build, Mac export check, the 0x10 lever), not today.
+   parameter, rule-2 safe; code + tests + a hardware check in the next test round.
+5. **Nothing left open that static analysis can answer (E259, E260).** REA on the Access updater
+   (CAInstallerHelperDeferred): the flash bank comes from the chunk TAG, record addresses are ignored - F035 is
+   flashed to page 0x23 (0x230000), F060/F061 are two copies of the USB firmware (0x3C/0x3D), ROM banks are
+   skipped when their CRC is intact; no host code reads page 0x23 -> F035 ("fvd102.lod", 2009) is a legacy sector.
+   USB chip 0xF6 = the serial number for the iSerialNumber string descriptor (never logged, rule 5). The DSP's
+   cable-1 "0B" sender is unreachable code. Issue #7: at boot the host re-derives Original Bank/Patch from the
+   multi arrays; only the current part is restored from the power-off snapshot at 0x4B00 - the exact trigger of
+   "all 16 Init" is the one residual that only hardware could show, and rule 2 forbids that test. Firmware analysis
+   is complete; next = testing (CI build, Mac export check, the 0x10 lever), not today.
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
 
