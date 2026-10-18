@@ -1,7 +1,7 @@
 # HANDOFF
 
 _Last updated: 2026-10-18 (issue #7 open checks below; then CONTINUE HERE). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E210), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E211), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Branch sleep-reconnect (2026-10-18): fixes for E210 (1) and E209 (5), dev build on Linux
