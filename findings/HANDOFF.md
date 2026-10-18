@@ -10,7 +10,7 @@ unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo install
 in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
 third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E238), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E239), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
@@ -117,6 +117,16 @@ Evidence: [evidence.md](evidence.md) (E001-E238), protocol: [spec.md](spec.md); 
     needed: (a) held notes across the first seconds after start and after a host stall - no note cut, FE every
     ~300 ms in VTI_TRACE; (b) normal dense playing + automation - nothing delayed (VTI_NATIVE_STATS); (c) the old
     stress test (1000/s automation + a note flood) - the Virus must survive, events may be delayed/dropped.
+
+13. **The USB-chip -> host-CPU link is lossless (E239), so the broker now retries timed-out writes.** The chip
+    sends a byte only after the host toggled its handshake pin for the previous one; a parked frame (host ring
+    nearly full) stops the chip, its ring fills, the PC gets NAK. E229's "frame lost" is corrected. Consequence:
+    a 1 s transfer timeout means the Virus was busy for a second (patch load), not that data vanished - the old
+    broker dropped the rest of the message (a broken SysEx dump), now vti_write retries the packet up to 5 times
+    (src/broker/writeretry.h, both libusb and WinUSB; test_writeretry.cpp; vtitests 235/235; Linux + mingw
+    brokers build). No pacing of SysEx dumps is needed: the Virus paces them itself through this chain.
+    Hardware test: a bank upload while switching patches on the Virus' panel; look for "timeout(s), then
+    accepted" in the broker log and no dump error.
 
 ## Round 0.8.25 (released as v0.8.25 2026-10-18)
 

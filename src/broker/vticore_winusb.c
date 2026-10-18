@@ -5,6 +5,7 @@
 #include <windows.h>
 #include <setupapi.h>
 #include <winusb.h>
+#include "writeretry.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -148,16 +149,40 @@ void vti_close(vti *v)
     free(v);
 }
 
+struct write_ctx {
+    iface *f;
+    uint8_t ep;
+    DWORD err; // last error that was not the pipe timeout
+};
+
+static int write_packet(void *ctx, const uint8_t *data, int n, int *done)
+{
+    struct write_ctx *c = ctx;
+    ULONG got = 0;
+    // WinUSB splits into wMaxPacketSize packets itself; on the pipe timeout (1 s, set at open) `got` holds what
+    // the Virus took before it, the retry continues from there
+    BOOL ok = WinUsb_WritePipe(c->f->usb, c->ep, (PUCHAR)data, (ULONG)n, &got, NULL);
+    *done = (int)got;
+    if (ok)
+        return 0;
+    DWORD e = GetLastError();
+    if (e == ERROR_SEM_TIMEOUT)
+        return VTI_XFER_TIMEOUT;
+    c->err = e;
+    return -1;
+}
+
 int vti_write(vti *v, uint8_t ep, const uint8_t *data, int len)
 {
-    iface *f = iface_for(v, ep);
-    ULONG done = 0;
-    // WinUSB splits into wMaxPacketSize packets itself.
-    if (!WinUsb_WritePipe(f->usb, ep, (PUCHAR)data, (ULONG)len, &done, NULL) || (int)done != len) {
-        vti_log("vti: write ep %02x: error %lu\n", ep, GetLastError());
-        return -1;
-    }
-    return 0;
+    struct write_ctx c = {iface_for(v, ep), ep, 0};
+    int timeouts = 0;
+    // a timed-out packet was NAKed, never taken (the link is lossless, E239): try again, up to 5 s in a row
+    int r = vti_write_chunks(&c, write_packet, data, len, len > 0 ? len : 1, 5, &timeouts);
+    if (timeouts)
+        vti_log("vti: write ep %02x: %d timeout(s), %s\n", ep, timeouts, r ? "gave up" : "then accepted");
+    if (r && c.err)
+        vti_log("vti: write ep %02x: error %lu\n", ep, c.err);
+    return r;
 }
 
 int vti_control(vti *v, uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue, uint16_t wIndex, uint8_t *data,
