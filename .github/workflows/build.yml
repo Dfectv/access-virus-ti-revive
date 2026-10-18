@@ -224,6 +224,22 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
+          **New in 0.8.26: steadier MIDI, from the Virus' own firmware.** We read the Virus TI's firmware (the copy
+          in your Access installer) to see how it handles MIDI from the computer, and fixed what did not match:
+          notes are no longer cut a second after you press Play (the Virus stops every sounding note about a second
+          after the last Active Sensing message; the plug-in now sends one every 300 ms, like the original); a flood of
+          MIDI can no longer overrun the Virus' small buffer for time-stamped notes (the plug-in keeps its stamped MIDI
+          well under the limit; normal playing and automation never come near it); and a bank sync or patch dump no
+          longer breaks when the Virus is busy for a moment, for example while you change a patch on its panel (a USB
+          write the Virus did not take within a second is sent again). Tested on Linux (REAPER), macOS (Ableton Live 12)
+          and Windows 11 (Ableton Live 11, in a VM).
+
+          **Also in 0.8.26:** on Linux, if the Virus keeps the wrong sample rate after the computer wakes (seen once in
+          our tests: a loud signal on its outputs, then it stopped responding until switched off and on), the broker now
+          sends it silence and asks for the right rate again. Popup menus on Linux open on the monitor they belong to.
+          Known issue: on macOS, after an export, notes can come late until the Virus is switched off and on (0.8.25
+          does the same; 0.8.26 now shows the sync error message then). Being worked on.
+
           **New in 0.8.25: projects made with the original plug-in open.** Projects with the original's VST3 version
           open with TI Revive: the plug-in list also shows it as "TI Revive Virus Control (original projects)", which has
           the original's plug-in ID. Tested in Ableton Live 11 (Windows 11 VM) and Live 12 (macOS, also with a project

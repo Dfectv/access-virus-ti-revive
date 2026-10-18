@@ -44,7 +44,10 @@ error 22 only where the Virus left Windows (WC4 power cycle 19:54:47, session en
 ~5600 frames against the marker, every note late (sync errors) until the Virus was power-cycled. Not the budget.
 A/B done (E244): 0.8.25 has the same late notes after the export (K 512), only no error page -> old fault, not a
 regression; 0.8.26's stamped FE makes it visible. Recommendation to the user: release with a known-issue line, fix
-the clock shift next round. Waiting for the user's go for merge/tag/release.
+the clock shift next round. **User: "go ahead with the release".** Site check 2026-10-18 (round changes only;
+the full check of 0.8.25 stands for the rest): TESTS 220 -> 237 (site + README), sleep claim gets the E241 case, three
+firmware findings E237-E239 under "Problems found on the hardware" / "Reliability fixes found with the Virus", per-monitor
+menus on Linux (E227), known issue Mac export (E243/E244) in the sync error FAQ. Release notes in build.yml.
 After the checklist passes: full site check (README + site: firmware findings, Active
 Sensing, budget, retry are user-visible stability changes - worth a line), release notes in build.yml, merge
 round-0.8.26 -> main, tag v0.8.26, release CI, site rebuild by hand, install the release on Linux, VM (silent), Mac.
