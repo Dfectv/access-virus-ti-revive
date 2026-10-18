@@ -11,6 +11,7 @@
 #include "device/offlinepace.h"
 #include "device/presencewatch.h"
 #include "device/stallwatch.h"
+#include "model/patchhistory.h"
 #include "model/syncalert.h"
 #include "device/resampler.h"
 #include "device/sidechain.h"
@@ -254,6 +255,12 @@ public:
     std::string patch_name(int part);
     std::string bank_patch(int bank, int program); // stored patch name from the bank cache (RAM A..D)
     bool load_patch(int bank, int program, int part); // a stored patch into a part's edit buffer (and the state)
+    // the same, chosen in the editor (LOAD menu, browser): remembered for "Revert to" / "Recently Used" (E220)
+    bool load_patch_remembered(int bank, int program, int part);
+    bool load_recent(int part, int index); // a "Recently Used" entry (the list keeps its order)
+    bool revert_patch(int part);           // "Revert to": swaps the part's patch with the one before the last load
+    std::string revert_name(int part);     // empty: no "Revert to" entry
+    std::vector<std::string> recent_names(int part);
     bool copy_part(int from, int to);                    // a part's patch onto another part (drag and drop)
     bool load_dump(std::vector<uint8_t> d, int part);    // a single dump into a part's edit buffer
     bool rename_part(int part, const std::string &name); // the part's patch name (10 characters) -> dump + Virus
@@ -551,6 +558,9 @@ private:
     void report_offline();
     // the original's sync error page (E205): events from the Virus (broker rx thread), ticks and transport (worker)
     SyncAlert sync_alert_;
+    std::mutex history_mu_;
+    PatchHistory history_; // per part: Revert to / Recently Used (E220), this session only
+    std::vector<uint8_t> part_dump(int part); // the part's patch as it is now (edits included)
     std::mutex sync_alert_mu_;
     std::atomic<bool> host_playing_{false}; // audio thread -> worker
     int64_t sync_tick_ms_ = 0, sync_log_ms_ = 0; // worker

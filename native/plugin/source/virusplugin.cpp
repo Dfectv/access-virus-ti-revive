@@ -2270,6 +2270,64 @@ bool VirusPlugin::load_patch(int bank, int program, int part)
     return load_dump(d, part);
 }
 
+std::vector<uint8_t> VirusPlugin::part_dump(int part)
+{
+    std::lock_guard<std::mutex> lk(state_mu_);
+    for (auto &r : state_.empty() ? default_ : state_)
+        if (is_part_dump(r, part))
+            return r;
+    return {};
+}
+
+bool VirusPlugin::load_patch_remembered(int bank, int program, int part)
+{
+    std::vector<uint8_t> before = part_dump(part), d;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto b = banks_.find(bank);
+        if (b == banks_.end() || program < 0 || program >= (int)b->second.size())
+            return false;
+        d = b->second[program];
+    }
+    if (!load_patch(bank, program, part))
+        return false;
+    std::lock_guard<std::mutex> lk(history_mu_);
+    history_.loaded(part, before, d);
+    return true;
+}
+
+bool VirusPlugin::load_recent(int part, int index)
+{
+    std::vector<uint8_t> d, current = part_dump(part);
+    {
+        std::lock_guard<std::mutex> lk(history_mu_);
+        d = history_.take_recent(part, index, current);
+    }
+    return load_dump(d, part);
+}
+
+bool VirusPlugin::revert_patch(int part)
+{
+    std::vector<uint8_t> d, current = part_dump(part);
+    {
+        std::lock_guard<std::mutex> lk(history_mu_);
+        d = history_.revert(part, current);
+    }
+    return load_dump(d, part);
+}
+
+std::string VirusPlugin::revert_name(int part)
+{
+    std::lock_guard<std::mutex> lk(history_mu_);
+    return history_.revert_name(part);
+}
+
+std::vector<std::string> VirusPlugin::recent_names(int part)
+{
+    std::lock_guard<std::mutex> lk(history_mu_);
+    return history_.recent_names(part);
+}
+
 // a part's patch onto another part (drag and drop between the part strips, like the original)
 bool VirusPlugin::copy_part(int from, int to)
 {

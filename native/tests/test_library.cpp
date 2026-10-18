@@ -167,8 +167,11 @@ TEST(library_create_empty)
     CHECK(write_empty_library(path, err));
     const Dump want = {0x4D, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, 0x01, 0xE0,
                        0x4D, 0x54, 0x72, 0x6B, 0, 0, 0, 4, 0x78, 0xFF, 0x2F, 0x00};
-    std::ifstream f(path, std::ios::binary);
-    Dump got((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    Dump got;
+    {
+        std::ifstream f(path, std::ios::binary); // closed before remove_all: Windows cannot delete an open file
+        got.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+    }
     CHECK(got == want);
     PatchLibrary lib;
     CHECK(load_library_file(path, lib) && lib.dumps.empty());

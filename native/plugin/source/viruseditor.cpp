@@ -490,10 +490,13 @@ static void draw_popup_menu(CDrawContext *ctx, CFontDesc *font, const CRect &upd
     ctx->drawRect(CRect(x0, y0, x0 + menu.width(), y0 + menu.height()), kDrawFilled);
     ctx->setFillColor(back);
     ctx->drawRect(CRect(x0 + 1, y0 + 1, x0 + menu.width() - 1, y0 + menu.height() - 1), kDrawFilled);
-    if (themed) { // the check mark band left of the texts, as high as the rows
+    if (themed) { // the check mark band left of the texts, as high as the rows, and a 3 px strip of its colour at the
+                  // bottom of the last row (E220: in the original's menus and in Windows' own)
         const double f = PopupMenu::kThemedFrame;
         ctx->setFillColor(gutter);
         ctx->drawRect(CRect(x0 + f, y0 + f, x0 + f + PopupMenu::kThemedGutter, y0 + menu.height() - f), kDrawFilled);
+        ctx->drawRect(CRect(x0 + f, y0 + menu.height() - f - 3, x0 + menu.width() - f, y0 + menu.height() - f),
+                      kDrawFilled);
     }
     // between the columns a dark and a light line, the full height inside the border
     for (int c = 1; c < menu.columns(); c++) {
@@ -1385,7 +1388,7 @@ public:
                 dnd_bank_ = bank, dnd_prog_ = prog; // may be dragged onto a part strip
                 renderer_.selected[bank] = prog;
                 if (event.clickCount >= 2)
-                    plugin_->load_patch(bank, prog, plugin_->ui_value(plugin_->layout().frame_parameter, -1));
+                    plugin_->load_patch_remembered(bank, prog, plugin_->ui_value(plugin_->layout().frame_parameter, -1));
                 invalid();
             }
             event.consumed = true;
@@ -1533,7 +1536,7 @@ public:
             if (strip && drag_.element->type == "NameEdit")
                 plugin_->copy_part(drag_.part, t.part);
             else if (strip && dnd_prog_ >= 0)
-                plugin_->load_patch(dnd_bank_, dnd_prog_, t.part);
+                plugin_->load_patch_remembered(dnd_bank_, dnd_prog_, t.part);
             dnd_ = false;
         }
         drag_ = {};
@@ -1795,20 +1798,54 @@ private:
         const int create = (int)lib.size();
         lib.push_back({kCreateLibrary});
         std::vector<vti::PopupItem> items;
+        int part = h.part;
+        // LOAD only, like the original (E220): "Revert to "<name>"" after a load, "Recently Used" > "<n> <name>"
+        // (n = the entry's position in this menu, so 1.. under Revert), then a separator
+        int revert = -1, recent = -1;
+        if (!save) {
+            const std::string rn = plugin_->revert_name(part);
+            if (!rn.empty()) {
+                revert = (int)items.size();
+                items.push_back({"Revert to \"" + rn + "\""});
+            }
+            std::vector<vti::PopupItem> used;
+            auto names = plugin_->recent_names(part);
+            for (size_t i = 0; i < names.size(); i++)
+                used.push_back({std::to_string(i + (revert >= 0 ? 1 : 0)) + " " + names[i]});
+            if (!used.empty()) {
+                recent = (int)items.size();
+                items.push_back({"Recently Used", true, std::move(used)});
+            }
+            if (!items.empty())
+                items.push_back(vti::PopupItem::line());
+        }
+        const int devi = (int)items.size(), libi = devi + 1;
         items.push_back({plugin_->device_name(), true, std::move(dev)});
         items.push_back({"Personal Libraries", true, std::move(lib)});
-        int part = h.part;
-        show_popup(std::move(items), -1, 0, where, [this, part, save, libs, create](const std::vector<int> &path) {
-            if (path == std::vector<int>{1, create}) {
+        show_popup(std::move(items), -1, 0, where,
+                   [this, part, save, libs, create, revert, recent, devi, libi](const std::vector<int> &path) {
+            if (path.empty())
+                return;
+            if (path == std::vector<int>{libi, create}) {
                 create_library_dialog();
+                return;
+            }
+            if (path.size() == 1 && path[0] == revert) {
+                plugin_->revert_patch(part);
+                invalid();
+                return;
+            }
+            if (path.size() == 2 && path[0] == recent) {
+                plugin_->load_recent(part, path[1]);
+                invalid();
                 return;
             }
             if (path.size() < 3)
                 return;
             int bank = -1, slot = path.back();
-            if (path[0] == 0 && path.size() == 3)
+            if (path[0] == devi && path.size() == 3)
                 bank = path[1];
-            else if (path[0] == 1) {
+            else if (path[0] == libi) {
                 auto it = libs->find(std::vector<int>(path.begin() + 1, path.end() - 1));
                 if (it != libs->end())
                     bank = VirusPlugin::LIB_BASE + it->second;
@@ -1820,7 +1857,7 @@ private:
             else if (save)
                 plugin_->store_patch(part, bank, slot);
             else
-                plugin_->load_patch(bank, slot, part);
+                plugin_->load_patch_remembered(bank, slot, part);
             invalid();
         });
     }
