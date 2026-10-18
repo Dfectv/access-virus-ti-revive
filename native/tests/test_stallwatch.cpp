@@ -26,7 +26,8 @@ TEST(stallwatch_short_gaps_are_no_stall)
 TEST(stallwatch_resume_after_sleep_is_reported_once)
 {
     StallWatch w;
-    w.update(969472, 0);
+    w.update(968590, 0);
+    w.update(969472, 20);            // running
     CHECK(!w.update(969472, 19000)); // asleep: no movement, nothing yet
     CHECK(w.update(970000, 19050));  // awake: the stream runs on - a new stream for the timeline
     CHECK(!w.update(970441, 19060)); // once
@@ -37,7 +38,8 @@ TEST(stallwatch_worker_paused_too)
     // the whole process slept (the worker did not run): the first call after wake sees the jump at once
     StallWatch w;
     w.update(1000, 0);
-    CHECK(w.update(1441, 30000));
+    w.update(1441, 10); // running
+    CHECK(w.update(1882, 30000));
 }
 
 TEST(stallwatch_no_stream_resets)
@@ -46,4 +48,17 @@ TEST(stallwatch_no_stream_resets)
     w.update(1000, 0);
     CHECK(!w.update(-1, 5000));   // no audio (Virus gone): the reconnect path handles it
     CHECK(!w.update(2000, 9000)); // the new stream's first frame is no stall
+}
+
+TEST(stallwatch_starting_stream_is_no_stall)
+{
+    // a new broker stream: the ring shows a frame number before the Virus' audio really runs, and starts moving
+    // seconds later (E209: "audio stood still" on 9/9 first connects) - a start, not a sleep
+    StallWatch w;
+    w.update(0, 0);
+    CHECK(!w.update(0, 3000));    // waiting for the stream
+    CHECK(!w.update(441, 3010));  // it starts: no stall
+    CHECK(!w.update(882, 3020));
+    CHECK(!w.update(882, 9000));  // now running, then standing still (sleep)
+    CHECK(w.update(1323, 9010));  // that one is reported
 }

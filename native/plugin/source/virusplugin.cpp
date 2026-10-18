@@ -443,8 +443,10 @@ void DeviceOut::run()
         if (audio_ok_ && stall_.update(audio_.newest_frame(),
                                        std::chrono::duration_cast<std::chrono::milliseconds>(
                                            std::chrono::steady_clock::now().time_since_epoch()).count())) {
-            log("Virus TI native: the Virus' audio stood still (sleep?) - new timeline and sync ping\n");
+            log("Virus TI native: the Virus' audio stood still (sleep?) - set-up, state and a new timeline again\n");
             generation++;
+            if (resume_) // after a Windows sleep the Virus answered sync pings but played no notes until this (E210)
+                resume_();
         }
         check_presence();
         if ((env_stats() || diag_on_.load(std::memory_order_acquire)) && std::chrono::steady_clock::now() >= stats_next_) { // endurance tests
@@ -685,11 +687,9 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
             return;
         }
         set_lcd("Virus reconnected", std::string(), std::string(), std::string());
-        for (auto &m : startup_messages())
-            out_->send(m);
-        send_state();
-        after_reconnect();
+        resend_to_virus();
     });
+    out_->on_resume([this] { resend_to_virus(); }); // worker thread
     usb_io_ = load_usb_io();
     // the original's start-up: GlobalInit (remote mode, cable numbers, clock sync, ...) + ParamInit, before any state
     for (auto &m : startup_messages())
@@ -2088,6 +2088,16 @@ bool VirusPlugin::probe_virus_ready()
 // The Virus is back (sender thread, after the start-up messages and the state were queued): until it has worked
 // through them, notes are held and the timeline does not anchor - else notes play up to 1.6 s late and the sync ping
 // goes unanswered (E144, E148), as before 0.8.6 at a first start. A reconnect during a running probe lets it run again.
+// The Virus came back or the stream woke up from a sleep: it gets what it got at the first start, then the readiness
+// probe holds notes until it has worked through it (a reconnect showed this works; a sleep needs it too, E210)
+void VirusPlugin::resend_to_virus()
+{
+    for (auto &m : startup_messages())
+        out_->send(m);
+    send_state();
+    after_reconnect();
+}
+
 void VirusPlugin::after_reconnect()
 {
     if (!sync_)
