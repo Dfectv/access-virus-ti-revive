@@ -10,7 +10,7 @@ unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo install
 in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
 third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E235), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E236), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
@@ -97,9 +97,14 @@ Evidence: [evidence.md](evidence.md) (E001-E235), protocol: [spec.md](spec.md); 
     none on MIDI data -> no proven DSP hang mechanism yet (open: pool allocator 0x53b0f, per-part counter 0x55fb4).
     F5: 14-bit stamp (low 7 bits first) vs clock X:$55865; late or within the threshold (<= 1023 units) = play
     now, else queued in a 2046-word ring and played per tick; a gate holds the live stream while the queue plays.
-    Next, if wanted: units and source of the stamp clock (0x53cbe) - would explain protocol.md's F2 dependence;
-    the host's other 0x31 port words. Scripts: work/firmware/scripts/dsprecords.py; listings
-    work/firmware/out/dsp_P_000000.asm, out/dsp_X_04f000.asm (git-ignored, rule 1).
+    E236: the stamp clock is a control word the USB chip delivers inside the audio-frame ring (16 words per
+    frame, column 11 of every second frame after a sync marker), plus a fixed lead of 256 units; one tick = 64
+    units (a 64-frame block if the unit is a sample frame - LOW). Ring B is the host CPU's own command channel:
+    'F4 <cmd> <value>' sequences (private F4 handler 0x5256c) - never send F4 from the plug-in (rule 2).
+    Still open: who composes the control words (not literal in the USB chip or host code), the unit, X:$48293
+    (clock freeze, host-set?), the F2 dependence of stamps seen in protocol.md. Scripts:
+    work/firmware/scripts/dsprecords.py; listings work/firmware/out/dsp_P_000000.asm, out/dsp_X_04f000.asm
+    (git-ignored, rule 1).
 
 ## Round 0.8.25 (released as v0.8.25 2026-10-18)
 
