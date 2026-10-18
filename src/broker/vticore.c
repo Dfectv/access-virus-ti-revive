@@ -5,10 +5,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "writeretry.h" // all platforms: vti_write (Linux and macOS)
 
 #ifdef __linux__
 #include "resetguard.h"
-#include "writeretry.h"
 #include <stdio.h>
 #include <time.h>
 #define RESET_GAP_S 5 // E136, see resetguard.h
