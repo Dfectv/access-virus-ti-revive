@@ -12,6 +12,8 @@ stage as **pass**, **fail** or **not tested**. Never claim something you did not
 
 - Never update the Virus firmware/OS, never write stored patches or banks, never send SysEx or USB requests that
   TI Revive itself does not send. No "let's see what happens" commands.
+- Never send the Multi parameter "Original Patch" (`72 00 03`): reported to set all 16 edit buffers to Init at
+  the next power-up (issue #7, AGENTS.md rule 2).
 - Use a **disposable DAW project**. Loading the plug-in sends its project state to the Virus' **edit buffers**
   (the currently loaded sounds); stored patches are not touched, and a power cycle of the Virus restores the
   previous sounds. Mention this, especially for models we have not tested (Virus TI Snow).

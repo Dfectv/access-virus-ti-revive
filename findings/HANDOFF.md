@@ -7,14 +7,22 @@ Recently Used (E220), Create Empty Library (E217), Windows 10 menu look (E219), 
 win11 VM = release (silent, 0.8.25c uninstalled first, plug-in 13:27 UTC); Linux: release unpacked in
 ~/Downloads/TI-Revive-0.8.25-release, user runs install.sh (~/.vst3 still dev build 9dcd74f until then); Mac: release
 unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo installer; real PC still 0.8.24 (0.8.25b setup
-in C:\tirevive-test\0.8.25b, release not copied). Next round: not started. Open: Snow original id 1B4C380B.. as a
+in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
 third entry (only if Snow users ask), PresenceWatch bounced branch on hardware,
-E175, Mac double notes E209 (7), issue #7 safety rule. Not relevant (user 2026-10-18): VST2 projects of the
+E175, Mac double notes E209 (7). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E224), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## Round 0.8.25 (branch round-0.8.25, collecting; started 2026-10-18 while the user was away)
+## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
+
+1. **Safety rule `72 00 03`** (issue #7 finding 1): never send the Multi parameter "Original Patch"; added to
+   AGENTS.md rule 2 and the tirevive-test skill's safety list, pointing at issue #7 and E209 (their PR into
+   claims.md is not in yet; point the rule at the claims entry once it is). Docs only, nothing to test.
+2. Deleted the stray ignored file `--help` in the repo root (user 2026-10-18; it was a 907x513 PNG screenshot
+   from 2026-10-17, written by a tool run by mistake).
+
+## Round 0.8.25 (released as v0.8.25 2026-10-18)
 
 Same process as 0.8.24 (Linux checks only during the round; test build + one checklist later). In this round so far:
 1. **Create Empty Library** (E217, commits a466a8b + 43e15de; user 2026-10-18: "replicate the original as close
@@ -75,8 +83,6 @@ for /sys/bus/usb/devices/1-8/authorized, or a cable pull + replug within ~0.3 s)
 needs a physical replug); per-monitor work area on Linux (xcb-randr: libxcb-randr0-dev not installed, needs sudo +
 CI apt list); E180 pixel comparison (needs the 0.7.x wrapper rebuilt + installed in ~/.wine, see
 native/tools/uicompare/README.md; "Virus TI (TI Revive).vst3" is no longer in the prefix); Mac double notes (E209 (7)).
-Note: an untracked/ignored file named "--help" (213 KB, 2026-10-17) sits in the repo root - probably a tool run by
-mistake; not touched.
 
 ## Round 0.8.24 (branch round-0.8.24, collecting; new test process 2026-10-18)
 
@@ -147,7 +153,8 @@ Four hardware reports from their own code (TI2, macOS 26, Apple Silicon), not re
 (no Access material, claims format), then move what we reproduce to evidence.md. Our side, checked in code only:
 1. Multi "Original Patch" write `72 00 03` -> all 16 edit buffers Init at the next power-up (2/2). TI Revive never sends
    it (ParamInit = part MIDI channels + Panel Part only; not in automation; bulk multi dump ignores the byte). To do
-   after the PR: a safety rule "never send `72 00 03`" (AGENTS.md rule 2 / test checklist), pointing at the claims entry.
+   after the PR: a safety rule "never send `72 00 03`" - DONE in round 0.8.26 (AGENTS.md rule 2, tirevive-test);
+   still to do after the PR: point it at the claims entry.
 2. Panic (CC120 + CC123) before close -> no sync marker in the next session (5/5). We send CC64 0 + CC123 on
    setActive(false), no CC120; Linux broker resets the port on close, macOS/Windows do not; marker retry (3x) would
    hide a missed first ping. Open check (Mac, read-only): first ping after a broker idle exit + reopen answered? If
