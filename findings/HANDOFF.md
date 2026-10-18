@@ -20,6 +20,10 @@ In this round so far:
    kernel's USB reset). Needs: Windows real PC + Mac sleep (core item C5).
 2. StallWatch false alarm on every first connect fixed (E209 (5), test stallwatch_starting_stream_is_no_stall;
    Linux checked E211). Needs: core C1 on all systems (no "audio stood still" line).
+3. Docs only (skill stocktake, 9cf52c3): tirevive-diagnose table refreshed (Snow works per E188, "latest release"
+   instead of 0.8.0, Driver Extensions fix, replug and sleep rows, 0.7.x buffer row re-sourced to E111/E123);
+   tirevive-pr (native first, real evidence.md columns, PR template, maintainer rules); tirevive-site-check
+   (core.json / baseline-*.json, full style rules); Snow wording in AGENTS.md and CONTRIBUTING.md. No test needed.
 CI run 39105250660 (version 0.8.24, from sleep-reconnect = same code, green) was started before the process change:
 not for testing, the round gets its own build when it is full.
 Candidates for the round: Mac double notes after a reopen (E209 (7), watch); issue #7 PR review + `72 00 03` safety
