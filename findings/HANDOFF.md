@@ -3,7 +3,7 @@
 _Last updated: 2026-10-18. CONTINUE HERE = "Round 0.8.24" below (test running, checklist link there) (work on branch round-0.8.24; main has the
 older HANDOFF). Test machines: Linux = dev build of round-0.8.24 in ~/.vst3; Mac, win11 VM and the real PC = release
 0.8.23. Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E213), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E214), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.24 (branch round-0.8.24, collecting; new test process 2026-10-18)
@@ -26,8 +26,10 @@ In this round so far:
    (core.json / baseline-*.json, full style rules); Snow wording in AGENTS.md and CONTRIBUTING.md. No test needed.
 **Fix for LC5 (E213, 2026-10-18): the Virus gone-and-back in 0.27 s at wake, unseen by the worker -> broker client
 counts arrivals, PresenceWatch reconnects on a changed count. 214 tests. Dev build in ~/.vst3 (backup of 0.8.24a in
-~/.vst3-backup/0.8.24a). Next: user smoke test + LC5 on Linux with the dev build, then CI test build 0.8.24b for Mac
-(MC1-MC5, check pkgutil first), real PC (BC1-BC5), VM.**
+~/.vst3-backup/0.8.24a). L6 (LC5 redo, dev build) PASS (E214). CI test build 0.8.24b = run 39110354589 (version 0.8.24,
+green): Linux installed (= CI), real PC setup in C:\tirevive-test\0.8.24b (old 0.8.24a setup removed), Mac zip pushed
++ unzipped in ~/Downloads/TI-Revive-0.8.24b-mac (user runs the sudo installer, then I check pkgutil), VM stays on
+0.8.24a (WC1-WC4 passed, path untouched). MC1-MC5 marks cleared for the redo. Open: MC1-MC5 (0.8.24b), BC1-BC5.**
 **Baseline results (E212, 2026-10-18): NOT releasable yet.** Linux LC1-LC4 pass (false alarm gone), LC5 sleep FAIL:
 the stall path (no USB reset this time) sends set-up + state, Virus ready, but no sync marker afterwards -> timeline
 never re-anchored, silent. Next: trace in code why no ping/marker follows the stall path (reconnect path E211 gets
