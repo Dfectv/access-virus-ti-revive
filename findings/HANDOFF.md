@@ -51,6 +51,16 @@ Evidence: [evidence.md](evidence.md) (E001-E226), protocol: [spec.md](spec.md); 
    E175 cable 3/3 and power-off/on with a waiting host 3/3 recovered: E175 not reproduced (0/12). Likely why
    (LOW): since 0.8.21 the flash info read (~3 s) comes before the audio start, so the stream no longer starts
    while the Virus boots. E175 stays "watch", no code change.
+7. **Per-monitor work area on Linux** (popup menus): _NET_WORKAREA is one box around all monitors (this PC under
+   GNOME/XWayland: 67,32 4413x1408 over DP-3 2560x1440 at 0,0 and DP-2 1920x1080 at 2560,223), so a menu on the
+   smaller monitor could open where it has no pixels. New native/src/editor/workarea.h (NativeRect moved there;
+   work_area_at, parse_work_areas, clip_monitors; 5 tests, 225 in all) and popup_screen in popupwindow_x11.cpp:
+   _GTK_WORKAREAS_D<desktop> (mutter: 67,32 2493x1408 and 2560,223 1920x1080) -> RandR 1.5 monitors cut to
+   _NET_WORKAREA (KDE, Xfce, ...) -> _NET_WORKAREA -> the screen; the monitor at the anchor, else the nearest.
+   Links xcb-randr (libxcb-randr0-dev installed here by the user, added to the CI apt list). Built + tests on Linux;
+   dev build in ~/.vst3 (release 0.8.25 backed up in ~/.vst3-backup/0.8.25). Not tested on screen yet; RandR path
+   untested (GNOME has the GTK property). ctest installer_scripts "Not Run": stale PWSH_EXECUTABLE in the build
+   cache (an old scratchpad), unrelated.
 
 ## Round 0.8.25 (released as v0.8.25 2026-10-18)
 

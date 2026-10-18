@@ -8,6 +8,9 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <vector>
+#include <xcb/randr.h>
 #include <xcb/xcb.h>
 
 using namespace VSTGUI;
@@ -32,6 +35,38 @@ xcb_atom_t atom(xcb_connection_t *c, const char *name)
 }
 
 // the X window of a VSTGUI frame
+// up to `max` CARDINAL values of a root window property (empty when the window manager does not set it)
+std::vector<uint32_t> cardinals(xcb_connection_t *c, xcb_window_t root, const char *name, uint32_t max)
+{
+    std::vector<uint32_t> out;
+    const xcb_atom_t a = atom(c, name);
+    if (a == XCB_ATOM_NONE)
+        return out;
+    auto *p = xcb_get_property_reply(c, xcb_get_property(c, 0, root, a, XCB_ATOM_CARDINAL, 0, max), nullptr);
+    if (p && p->type == XCB_ATOM_CARDINAL && p->format == 32) {
+        const auto *v = static_cast<const uint32_t *>(xcb_get_property_value(p));
+        out.assign(v, v + xcb_get_property_value_length(p) / 4);
+    }
+    free(p);
+    return out;
+}
+
+// the monitors RandR 1.5 reports (active outputs); empty without the extension
+std::vector<NativeRect> randr_monitors(xcb_connection_t *c, xcb_window_t root)
+{
+    std::vector<NativeRect> out;
+    const auto *ext = xcb_get_extension_data(c, &xcb_randr_id);
+    if (!ext || !ext->present)
+        return out;
+    auto *r = xcb_randr_get_monitors_reply(c, xcb_randr_get_monitors(c, root, 1), nullptr);
+    if (!r)
+        return out;
+    for (auto it = xcb_randr_get_monitors_monitors_iterator(r); it.rem; xcb_randr_monitor_info_next(&it))
+        out.push_back({it.data->x, it.data->y, it.data->width, it.data->height});
+    free(r);
+    return out;
+}
+
 xcb_window_t window_of(CFrame *frame)
 {
     auto *pf = frame ? frame->getPlatformFrame() : nullptr;
@@ -133,18 +168,19 @@ bool popup_screen(CFrame *editor, CPoint at, double content_scale, PopupScreen &
     out.anchor_y = tr->dst_y + (int)std::lround(at.y * zoom);
     free(tr);
     out.scale = content_scale > 0 ? content_scale : 1.0;
-    out.work = {0, 0, scr->width_in_pixels, scr->height_in_pixels};
-    // the desktop's work area (without panels) when the window manager publishes it; spans all monitors
-    const xcb_atom_t wa = atom(c, "_NET_WORKAREA");
-    if (wa != XCB_ATOM_NONE) {
-        auto *p = xcb_get_property_reply(c, xcb_get_property(c, 0, scr->root, wa, XCB_ATOM_CARDINAL, 0, 4), nullptr);
-        if (p && xcb_get_property_value_length(p) >= 16) {
-            const uint32_t *v = static_cast<const uint32_t *>(xcb_get_property_value(p));
-            if (v[2] > 0 && v[3] > 0)
-                out.work = {(int)v[0], (int)v[1], (int)v[2], (int)v[3]};
-        }
-        free(p);
-    }
+    // the work area of the monitor at the anchor (workarea.h): _NET_WORKAREA alone is one box around all monitors
+    const NativeRect screen{0, 0, scr->width_in_pixels, scr->height_in_pixels};
+    const auto desk = cardinals(c, scr->root, "_NET_CURRENT_DESKTOP", 1);
+    const uint32_t d = desk.empty() ? 0 : desk[0];
+    const auto net = cardinals(c, scr->root, "_NET_WORKAREA", 4 * (d + 1)); // x, y, w, h per desktop
+    const auto box = net.size() >= 4 * (d + 1) ? parse_work_areas(net.data() + 4 * d, 4) : std::vector<NativeRect>{};
+    const NativeRect desktop = box.empty() ? screen : box[0];
+    // mutter (GNOME) publishes each monitor's work area; other window managers: the RandR monitors cut to the box
+    const auto gtk = cardinals(c, scr->root, ("_GTK_WORKAREAS_D" + std::to_string(d)).c_str(), 64);
+    auto areas = parse_work_areas(gtk.data(), gtk.size());
+    if (areas.empty())
+        areas = clip_monitors(randr_monitors(c, scr->root), box.empty() ? NativeRect{} : desktop);
+    out.work = work_area_at(areas, out.anchor_x, out.anchor_y, desktop);
     return true;
 }
 
