@@ -10,7 +10,7 @@ unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo install
 in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
 third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E227), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E230), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
@@ -62,6 +62,18 @@ Evidence: [evidence.md](evidence.md) (E001-E227), protocol: [spec.md](spec.md); 
    menus stay on their monitor, submenu flips at the monitor border, no crash. RandR path untested (GNOME has the
    GTK property). Needs CI build (deps changed) before the round's test build. ctest installer_scripts "Not Run": stale PWSH_EXECUTABLE in the build
    cache (an old scratchpad), unrelated.
+
+8. **Firmware analysis started** (E228-E230, 2026-10-18, user's idea: "decompile the firmware and check it against
+   our implementation"). firmware.bin decoded (IFF FORM, 32 KB flash sectors with 3-byte addresses), chips named:
+   host CPU = 8051 family with a 7-bit flash page register at XDATA 0x02E0, USB controller = TI TUSB3200A/TAS1020
+   family (8052; its firmware F060 holds the USB descriptors and streams the audio), synth = DSP56300 (no
+   disassembler, not analysed). USB-MIDI packets: USB chip 64-byte ring, holds the endpoint (NAK) below 32 free
+   bytes, 9-bit UART with 4-byte frames to the host; host parks a packet when its ring has < 8 free bytes; cable
+   5 (F5 stamps) goes straight to both DSPs, cable 2 to the parser ring and the DSPs, 3 to the parser ring, 0 to
+   DIN out. Host rings 1 KB each; full ring = reset + "MIDI Buffer overflow". Tooling: REA cannot open 8051/56k,
+   so Ghidra 12.1.4 headless with own scripts; everything in work/firmware/ (git-ignored, Access material).
+   REA updated 6.3.0 -> 6.7.0 (setup --client claude_code, effective after a restart). Open: DSP side of a
+   parameter flood (rule 2), handshake pins, sync event origin - see the memory note project-firmware-analysis.
 
 ## Round 0.8.25 (released as v0.8.25 2026-10-18)
 
