@@ -13,6 +13,7 @@ extern char **environ;
 #include "virusplugin.h"
 #include "vstgui/lib/cbitmap.h"
 #include "vstgui/lib/cdrawcontext.h"
+#include "vstgui/lib/cfileselector.h"
 #include "vstgui/lib/coffscreencontext.h"
 #include "vstgui/lib/cframe.h"
 #include "vstgui/lib/controls/ctextedit.h"
@@ -21,6 +22,7 @@ extern char **environ;
 #include "vstgui/lib/events.h"
 #include "vstgui/lib/platform/iplatformfont.h"
 #include "vstgui/lib/platform/platformfactory.h"
+#include "access/library.h"
 #include "cc/diag.h"
 #include "editor/helptext.h"
 #include "editor/popupmenu.h"
@@ -467,13 +469,19 @@ static void after_event(CFrame *frame, std::function<void()> fn)
         fn();
 }
 
-// draws one menu of a cascade with its top-left corner at (x0, y0), like the original's Windows menus with columns
-// (E194); of its rows only those inside `update` (a hover repaints two rows, not 100 texts)
+// draws one menu of a cascade with its top-left corner at (x0, y0) like the original's Windows 10 menus: with columns
+// in the older look (E194), a single column in the themed look (E219); of its rows only those inside `update` (a hover
+// repaints two rows, not 100 texts)
 static void draw_popup_menu(CDrawContext *ctx, CFontDesc *font, const CRect &update, const vti::PopupMenu &menu,
                             double x0, double y0)
 {
-    const CColor back(240, 240, 240, 255), border(160, 160, 160, 255), light(255, 255, 255, 255),
-        hot(145, 201, 247, 255), text(0, 0, 0, 255), grey(109, 109, 109, 255);
+    using vti::PopupMenu;
+    const bool themed = menu.themed();
+    const CColor back = themed ? CColor(242, 242, 242, 255) : CColor(240, 240, 240, 255),
+                 border = themed ? CColor(204, 204, 204, 255) : CColor(160, 160, 160, 255),
+                 gutter(240, 240, 240, 255), line(215, 215, 215, 255), light(255, 255, 255, 255),
+                 hot(145, 201, 247, 255), checkbox(144, 200, 246, 255), text(0, 0, 0, 255), grey(109, 109, 109, 255),
+                 mark(51, 51, 51, 255), chevron(62, 62, 62, 255);
     if (!CRect(x0, y0, x0 + menu.width(), y0 + menu.height()).rectOverlap(update))
         return;
     ctx->setDrawMode(kAliasing);
@@ -482,9 +490,17 @@ static void draw_popup_menu(CDrawContext *ctx, CFontDesc *font, const CRect &upd
     ctx->drawRect(CRect(x0, y0, x0 + menu.width(), y0 + menu.height()), kDrawFilled);
     ctx->setFillColor(back);
     ctx->drawRect(CRect(x0 + 1, y0 + 1, x0 + menu.width() - 1, y0 + menu.height() - 1), kDrawFilled);
+    if (themed) { // the check mark band left of the texts, as high as the rows, and a 3 px strip of its colour at the
+                  // bottom of the last row (E220: in the original's menus and in Windows' own)
+        const double f = PopupMenu::kThemedFrame;
+        ctx->setFillColor(gutter);
+        ctx->drawRect(CRect(x0 + f, y0 + f, x0 + f + PopupMenu::kThemedGutter, y0 + menu.height() - f), kDrawFilled);
+        ctx->drawRect(CRect(x0 + f, y0 + menu.height() - f - 3, x0 + menu.width() - f, y0 + menu.height() - f),
+                      kDrawFilled);
+    }
     // between the columns a dark and a light line, the full height inside the border
     for (int c = 1; c < menu.columns(); c++) {
-        const double sx = x0 + menu.column_x()[c] - vti::PopupMenu::kSeparator;
+        const double sx = x0 + menu.column_x()[c] - PopupMenu::kSeparator;
         ctx->setFillColor(border);
         ctx->drawRect(CRect(sx, y0 + 1, sx + 1, y0 + menu.height() - 1), kDrawFilled);
         ctx->setFillColor(light);
@@ -497,36 +513,63 @@ static void draw_popup_menu(CDrawContext *ctx, CFontDesc *font, const CRect &upd
         const CRect row(x0 + r.x, y0 + r.y, x0 + r.x + r.w, y0 + r.y + r.h);
         if (!row.rectOverlap(update))
             continue;
+        if (items[i].separator) { // themed: one line after the band; columns: a dark and a light line
+            if (themed) {
+                ctx->setFillColor(line);
+                ctx->drawRect(CRect(row.left + PopupMenu::kThemedGutter, row.top + 3, row.right, row.top + 4),
+                              kDrawFilled);
+            } else {
+                ctx->setFillColor(border);
+                ctx->drawRect(CRect(row.left + 1, row.top + 3, row.right - 1, row.top + 4), kDrawFilled);
+                ctx->setFillColor(light);
+                ctx->drawRect(CRect(row.left + 1, row.top + 4, row.right - 1, row.top + 5), kDrawFilled);
+            }
+            continue;
+        }
         if (i == menu.hot) {
             ctx->setFillColor(hot);
             ctx->drawRect(row, kDrawFilled);
         }
         const CColor ink = items[i].enabled ? text : grey;
-        if (i == menu.checked()) { // a tick in the space before the text
+        if (i == menu.checked()) { // a tick before the text; themed: on a blue square filling the band's row
             ctx->setDrawMode(kAntiAliasing);
             ctx->setLineWidth(1.6);
-            ctx->setFrameColor(text);
-            ctx->drawLine(CPoint(row.left + 6, row.top + 9.5), CPoint(row.left + 8.5, row.top + 12));
-            ctx->drawLine(CPoint(row.left + 8.5, row.top + 12), CPoint(row.left + 13, row.top + 6));
+            if (themed) {
+                ctx->setFillColor(checkbox);
+                ctx->drawRect(CRect(row.left, row.top, row.left + r.h, row.bottom), kDrawFilled);
+                ctx->setFrameColor(mark);
+                ctx->drawLine(CPoint(row.left + 6.5, row.top + 10), CPoint(row.left + 9.5, row.top + 13));
+                ctx->drawLine(CPoint(row.left + 9.5, row.top + 13), CPoint(row.left + 16, row.top + 6.5));
+            } else {
+                ctx->setFrameColor(text);
+                ctx->drawLine(CPoint(row.left + 6, row.top + 9.5), CPoint(row.left + 8.5, row.top + 12));
+                ctx->drawLine(CPoint(row.left + 8.5, row.top + 12), CPoint(row.left + 13, row.top + 6));
+            }
             ctx->setDrawMode(kAliasing);
             ctx->setLineWidth(1);
         }
-        if (items[i].has_sub()) { // the submenu arrow in the space after the text
-            if (auto arrow = owned(ctx->createGraphicsPath())) {
+        if (items[i].has_sub()) { // the submenu sign after the text: themed a chevron, columns a filled arrow
+            ctx->setDrawMode(kAntiAliasing);
+            if (themed) {
+                const double ax = row.right - 13.5, ay = row.top + 7.5;
+                ctx->setLineWidth(1);
+                ctx->setFrameColor(items[i].enabled ? chevron : grey);
+                ctx->drawLine(CPoint(ax, ay), CPoint(ax + 3.5, ay + 3.5));
+                ctx->drawLine(CPoint(ax + 3.5, ay + 3.5), CPoint(ax, ay + 7));
+            } else if (auto arrow = owned(ctx->createGraphicsPath())) {
                 const double ax = row.right - 13, ay = row.top + 6;
                 arrow->beginSubpath(CPoint(ax, ay));
                 arrow->addLine(CPoint(ax + 4, ay + 3.5));
                 arrow->addLine(CPoint(ax, ay + 7));
                 arrow->closeSubpath();
-                ctx->setDrawMode(kAntiAliasing);
                 ctx->setFillColor(ink);
                 ctx->drawGraphicsPath(arrow, CDrawContext::kPathFilled);
-                ctx->setDrawMode(kAliasing);
             }
+            ctx->setDrawMode(kAliasing);
         }
         ctx->setFontColor(ink);
         CRect tr(row);
-        tr.left += vti::PopupMenu::kTextLeft;
+        tr.left += themed ? PopupMenu::kThemedTextLeft : PopupMenu::kTextLeft;
         ctx->drawString(items[i].text.c_str(), tr, kLeftText, true);
     }
 }
@@ -1345,7 +1388,7 @@ public:
                 dnd_bank_ = bank, dnd_prog_ = prog; // may be dragged onto a part strip
                 renderer_.selected[bank] = prog;
                 if (event.clickCount >= 2)
-                    plugin_->load_patch(bank, prog, plugin_->ui_value(plugin_->layout().frame_parameter, -1));
+                    plugin_->load_patch_remembered(bank, prog, plugin_->ui_value(plugin_->layout().frame_parameter, -1));
                 invalid();
             }
             event.consumed = true;
@@ -1493,7 +1536,7 @@ public:
             if (strip && drag_.element->type == "NameEdit")
                 plugin_->copy_part(drag_.part, t.part);
             else if (strip && dnd_prog_ >= 0)
-                plugin_->load_patch(dnd_bank_, dnd_prog_, t.part);
+                plugin_->load_patch_remembered(dnd_bank_, dnd_prog_, t.part);
             dnd_ = false;
         }
         drag_ = {};
@@ -1689,6 +1732,35 @@ private:
     bool editing_search_ = false;
     CRect search_rect_;
 
+    // the last entry under "Personal Libraries" in the patch and bank menus, as in the original (E217)
+    static constexpr const char *kCreateLibrary = "Create Empty Library";
+
+    // the original's save dialog for it: title, filter, the library folder and "New Library.mid"; the file is written
+    // when the dialog ends with a name
+    void create_library_dialog()
+    {
+        auto *fs = CNewFileSelector::create(getFrame(), CNewFileSelector::kSelectSaveFile);
+        if (!fs)
+            return;
+        fs->setTitle("Save empty library as...");
+        fs->addFileExtension(CFileExtension("Virus TI Patch Libraries", "mid"));
+        const std::string dir = vti::library_dir(), name = "New Library.mid";
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+#if defined(_WIN32) || defined(__APPLE__)
+        fs->setInitialDirectory(dir.c_str());
+        fs->setDefaultSaveName(name.c_str());
+#else
+        fs->setInitialDirectory((std::filesystem::path(dir) / name).string().c_str()); // zenity/kdialog: a full path
+#endif
+        auto *plugin = plugin_;
+        fs->run([plugin](CNewFileSelector *sel) {
+            if (sel->getNumSelectedFiles() == 1)
+                plugin->create_library(sel->getSelectedFile(0));
+        });
+        fs->forget();
+    }
+
     // LOAD / SAVE like the original: "<device> > RAM A.. (SAVE: RAM only) > 000 Name" and "Personal Libraries"
     void patch_menu_popup(const Hit &h, const CPoint &where, bool save)
     {
@@ -1722,19 +1794,58 @@ private:
             vti::PopupItem entry("", true, std::move(patches));
             (*libs)[vti::popup_add_path(lib, plugin_->library_name(i), std::move(entry), folders)] = i;
         }
-        if (lib.empty())
-            lib.push_back({"(none)", false});
+        lib.push_back(vti::PopupItem::line()); // as in the original (0x180041a10): a separator, then the entry
+        const int create = (int)lib.size();
+        lib.push_back({kCreateLibrary});
         std::vector<vti::PopupItem> items;
+        int part = h.part;
+        // LOAD only, like the original (E220): "Revert to "<name>"" after a load, "Recently Used" > "<n> <name>"
+        // (n = the entry's position in this menu, so 1.. under Revert), then a separator
+        int revert = -1, recent = -1;
+        if (!save) {
+            const std::string rn = plugin_->revert_name(part);
+            if (!rn.empty()) {
+                revert = (int)items.size();
+                items.push_back({"Revert to \"" + rn + "\""});
+            }
+            std::vector<vti::PopupItem> used;
+            auto names = plugin_->recent_names(part);
+            for (size_t i = 0; i < names.size(); i++)
+                used.push_back({std::to_string(i + (revert >= 0 ? 1 : 0)) + " " + names[i]});
+            if (!used.empty()) {
+                recent = (int)items.size();
+                items.push_back({"Recently Used", true, std::move(used)});
+            }
+            if (!items.empty())
+                items.push_back(vti::PopupItem::line());
+        }
+        const int devi = (int)items.size(), libi = devi + 1;
         items.push_back({plugin_->device_name(), true, std::move(dev)});
         items.push_back({"Personal Libraries", true, std::move(lib)});
-        int part = h.part;
-        show_popup(std::move(items), -1, 0, where, [this, part, save, libs](const std::vector<int> &path) {
+        show_popup(std::move(items), -1, 0, where,
+                   [this, part, save, libs, create, revert, recent, devi, libi](const std::vector<int> &path) {
+            if (path.empty())
+                return;
+            if (path == std::vector<int>{libi, create}) {
+                create_library_dialog();
+                return;
+            }
+            if (path.size() == 1 && path[0] == revert) {
+                plugin_->revert_patch(part);
+                invalid();
+                return;
+            }
+            if (path.size() == 2 && path[0] == recent) {
+                plugin_->load_recent(part, path[1]);
+                invalid();
+                return;
+            }
             if (path.size() < 3)
                 return;
             int bank = -1, slot = path.back();
-            if (path[0] == 0 && path.size() == 3)
+            if (path[0] == devi && path.size() == 3)
                 bank = path[1];
-            else if (path[0] == 1) {
+            else if (path[0] == libi) {
                 auto it = libs->find(std::vector<int>(path.begin() + 1, path.end() - 1));
                 if (it != libs->end())
                     bank = VirusPlugin::LIB_BASE + it->second;
@@ -1746,7 +1857,7 @@ private:
             else if (save)
                 plugin_->store_patch(part, bank, slot);
             else
-                plugin_->load_patch(bank, slot, part);
+                plugin_->load_patch_remembered(bank, slot, part);
             invalid();
         });
     }
@@ -1762,14 +1873,17 @@ private:
         std::map<std::string, std::vector<int>> folders;
         for (int i = 0; i < plugin_->library_count(); i++)
             (*libs)[vti::popup_add_path(lib, plugin_->library_name(i), {""}, folders)] = i;
-        if (lib.empty())
-            lib.push_back({"(none)", false});
+        lib.push_back(vti::PopupItem::line()); // as in the original (0x180041a10): a separator, then the entry
+        const int create = (int)lib.size();
+        lib.push_back({kCreateLibrary});
         std::vector<vti::PopupItem> items;
         items.push_back({plugin_->device_name(), true, std::move(dev)});
         items.push_back({"Personal Libraries", true, std::move(lib)});
         std::string param = h.element->get("Parameter");
-        show_popup(std::move(items), -1, 0, where, [this, param, libs](const std::vector<int> &path) {
-            if (path.size() == 2 && path[0] == 0)
+        show_popup(std::move(items), -1, 0, where, [this, param, libs, create](const std::vector<int> &path) {
+            if (path == std::vector<int>{1, create})
+                create_library_dialog();
+            else if (path.size() == 2 && path[0] == 0)
                 plugin_->ui_set(param, -1, path[1]);
             else if (path.size() >= 2 && path[0] == 1) {
                 auto it = libs->find(std::vector<int>(path.begin() + 1, path.end()));

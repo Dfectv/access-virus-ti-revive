@@ -19,6 +19,12 @@ std::vector<PatchLibrary> load_libraries(const std::string &dir, const std::vect
 // writes `lib.dumps` to `lib.path` in the original's file layout (SMF type 0, one track, a SysEx per patch with
 // delta 120, bank byte 1, program = position, division 96)
 bool save_library(const PatchLibrary &lib, std::string &error);
+// the original's "Create Empty Library" (E217): the name chosen in its save dialog ends in ".mid" (".midi" loses the
+// "i", any other name gets ".mid"; case-sensitive like the original)
+std::string library_file_name(const std::string &chosen);
+// writes the original's empty library file to `path` (SMF type 0, one track with only its end, division 480),
+// replacing an existing file
+bool write_empty_library(const std::string &path, std::string &error);
 // the folder for this platform. Linux: an existing ~/Documents/... (earlier installs), else the XDG documents folder
 // (localized, e.g. ~/Dokumente), else the Wine prefix's Documents when that one exists, else ~/Documents/...
 std::string library_dir();

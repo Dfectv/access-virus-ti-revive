@@ -33,12 +33,17 @@ namespace vti {
 // macOS the bridge's id (tirbridge_vst3.cpp). The other ids are declared compatible in moduleinfo.json
 // (plugin/CMakeLists.txt). VTI_NATIVE_DROPIN: the original Access id (tests with projects of the original).
 #if defined(VTI_NATIVE_DROPIN)
-const FUID kVirusTIClassId(0xB49F90D9, 0x735F4305, 0xAC5397BE, 0x8958CD31);
+const FUID kVirusTIClassId(0xD9909FB4, 0x5F730543, 0xAC5397BE, 0x8958CD31);
 #elif defined(__APPLE__)
 const FUID kVirusTIClassId(0x7A1E5C3B, 0x4D2F4E61, 0x9B0C8A17, 0x2F64D5E9);
 #else
 const FUID kVirusTIClassId(0xB49F90D9, 0x735F4305, 0xAC5397BE, 0x8958CD31 ^ 0x5A);
 #endif
+// Hosts that ignore moduleinfo compatibility restore only the exact id (Ableton Live 11, E221): the same plug-in is
+// registered a second time under the original's id (entry.cpp), so projects made with the original open with it.
+// As a FUID (the words hosts store, e.g. Live's Uid Fields): D9909FB4 5F730543 ...; the wrapper's id above was made
+// from the raw bytes (B4 9F 90 D9 ..., E221) and stays: projects saved with it exist
+const FUID kOriginalClassId(0xD9909FB4, 0x5F730543, 0xAC5397BE, 0x8958CD31);
 
 static bool env_debug()
 {
@@ -2267,6 +2272,64 @@ bool VirusPlugin::load_patch(int bank, int program, int part)
     return load_dump(d, part);
 }
 
+std::vector<uint8_t> VirusPlugin::part_dump(int part)
+{
+    std::lock_guard<std::mutex> lk(state_mu_);
+    for (auto &r : state_.empty() ? default_ : state_)
+        if (is_part_dump(r, part))
+            return r;
+    return {};
+}
+
+bool VirusPlugin::load_patch_remembered(int bank, int program, int part)
+{
+    std::vector<uint8_t> before = part_dump(part), d;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto b = banks_.find(bank);
+        if (b == banks_.end() || program < 0 || program >= (int)b->second.size())
+            return false;
+        d = b->second[program];
+    }
+    if (!load_patch(bank, program, part))
+        return false;
+    std::lock_guard<std::mutex> lk(history_mu_);
+    history_.loaded(part, before, d);
+    return true;
+}
+
+bool VirusPlugin::load_recent(int part, int index)
+{
+    std::vector<uint8_t> d, current = part_dump(part);
+    {
+        std::lock_guard<std::mutex> lk(history_mu_);
+        d = history_.take_recent(part, index, current);
+    }
+    return load_dump(d, part);
+}
+
+bool VirusPlugin::revert_patch(int part)
+{
+    std::vector<uint8_t> d, current = part_dump(part);
+    {
+        std::lock_guard<std::mutex> lk(history_mu_);
+        d = history_.revert(part, current);
+    }
+    return load_dump(d, part);
+}
+
+std::string VirusPlugin::revert_name(int part)
+{
+    std::lock_guard<std::mutex> lk(history_mu_);
+    return history_.revert_name(part);
+}
+
+std::vector<std::string> VirusPlugin::recent_names(int part)
+{
+    std::lock_guard<std::mutex> lk(history_mu_);
+    return history_.recent_names(part);
+}
+
 // a part's patch onto another part (drag and drop between the part strips, like the original)
 bool VirusPlugin::copy_part(int from, int to)
 {
@@ -2381,6 +2444,29 @@ bool VirusPlugin::store_patch(int part, int bank, int program)
         std::error_code ec;
         std::filesystem::create_directories(dir, ec);
         save_bank_file(dir + "/RAM " + (char)('A' + bank), cache);
+    }
+    ui_dirty_ = true;
+    return true;
+}
+
+bool VirusPlugin::create_library(const std::string &chosen)
+{
+    const std::string path = library_file_name(chosen);
+    std::string err;
+    if (!write_empty_library(path, err)) {
+        fprintf(stderr, "Virus TI native: %s\n", err.c_str());
+        return false;
+    }
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto it = std::find(lib_paths_.begin(), lib_paths_.end(), path);
+        if (it != lib_paths_.end()) { // replaced a listed library: now empty
+            banks_[LIB_BASE + (int)(it - lib_paths_.begin())].clear();
+        } else { // listed by its file name, as the original adds it (wherever the file was saved)
+            banks_[LIB_BASE + (int)lib_names_.size()].clear();
+            lib_names_.push_back(std::filesystem::path(path).stem().string());
+            lib_paths_.push_back(path);
+        }
     }
     ui_dirty_ = true;
     return true;

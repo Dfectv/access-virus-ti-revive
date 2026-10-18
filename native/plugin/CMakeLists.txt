@@ -1,7 +1,7 @@
 # class ids (plugin/source/virusplugin.cpp): this platform's id replaces the others in DAW projects (VST3
 # moduleinfo "Compatibility", hosts with VST 3.7.5+ support): the original Access plug-in, the TI Revive wrapper
 # (Windows/Linux), the TI Revive bridge (macOS) and the test builds' own id
-set(VTI_CID_ORIGINAL B49F90D9735F4305AC5397BE8958CD31)
+set(VTI_CID_ORIGINAL D9909FB45F730543AC5397BE8958CD31) # as a FUID (E221; the raw bytes read B49F90D9 735F4305..)
 set(VTI_CID_WRAPPER B49F90D9735F4305AC5397BE8958CD6B)
 set(VTI_CID_BRIDGE 7A1E5C3B4D2F4E619B0C8A172F64D5E9)
 set(VTI_CID_TESTS B49F90D9735F4305AC5397BE8958CD94)

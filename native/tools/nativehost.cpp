@@ -6,6 +6,7 @@
 // like a DAW's export; the wall time of that part is printed (the plug-in paces it to the Virus: ~1x).
 // --hold T: C4 on at T s and held to the end; --param-at T:ID=NORM: a parameter change at T s (repeatable) - e.g. to
 // hear whether the Virus applies a change to a held note.
+// --cid HEX: load that class (e.g. the original Access id D9909FB45F730543AC5397BE8958CD31, E221), else the first.
 // --duplicate T: a second instance runs next to the first from the start (a DAW's duplicated track, issue #6) with
 // the same notes; at T s the first is removed and the second takes over the Virus. --editor2 with it: the
 // duplicate's editor too (its "Virus unavailable" page while it waits); with --editor both editors are open at once,
@@ -217,6 +218,7 @@ int main(int argc, char **argv)
         return 2;
     }
     const char *state = nullptr, *save = nullptr, *wav = nullptr;
+    std::string cid; // --cid: the class to load, else the first audio class
     int wav_bus = 0; // the output bus that is measured and written (0 = Out 1)
     bool notes = false, editor = false, editor2 = false, stress = false, stress_notes = true, stress_params = true, scan = false;
     double stress_stop = 1e9;
@@ -313,6 +315,8 @@ int main(int argc, char **argv)
             sc_sine = atof(argv[++i]);
         else if (!strcmp(argv[i], "--offline") && i + 1 < argc)
             offline_at = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--cid") && i + 1 < argc) // the class to load (32 hex digits as moduleinfo prints them)
+            cid = argv[++i];
         else if (!strcmp(argv[i], "--seconds") && i + 1 < argc)
             seconds = atof(argv[++i]);
         else if (!strcmp(argv[i], "--param") && i + 1 < argc) {
@@ -338,11 +342,20 @@ int main(int argc, char **argv)
     factory.setHostContext(host);
     auto infos = factory.classInfos();
     VST3::Hosting::ClassInfo audio;
+    bool found = false;
     for (auto &ci : infos) {
         printf("class %s \"%s\" %s\n", ci.ID().toString().c_str(), ci.name().c_str(), ci.category().c_str());
-        if (ci.category() == kVstAudioEffectClass)
+        // the first audio class (the plug-in's own id), or the one --cid names (e.g. the original's id, E221)
+        if (ci.category() == kVstAudioEffectClass && !found && (cid.empty() || ci.ID().toString() == cid)) {
             audio = ci;
+            found = true;
+        }
     }
+    if (!found) {
+        fprintf(stderr, "nativehost: no audio class%s%s\n", cid.empty() ? "" : " with id ", cid.c_str());
+        return 1;
+    }
+    printf("using class %s\n", audio.ID().toString().c_str());
     auto comp = factory.createInstance<IComponent>(audio.ID());
     if (!comp) {
         fprintf(stderr, "nativehost: createInstance failed\n");

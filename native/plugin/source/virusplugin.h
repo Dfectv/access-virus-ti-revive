@@ -11,6 +11,7 @@
 #include "device/offlinepace.h"
 #include "device/presencewatch.h"
 #include "device/stallwatch.h"
+#include "model/patchhistory.h"
 #include "model/syncalert.h"
 #include "device/resampler.h"
 #include "device/sidechain.h"
@@ -41,6 +42,7 @@ namespace vti {
 // Original class ids (formats.md). The development build uses its own id (byte 15 XOR 0xA5) so it can sit next to
 // the original; VTI_NATIVE_DROPIN=ON builds with the original id (loads projects saved with the original).
 extern const Steinberg::FUID kVirusTIClassId;
+extern const Steinberg::FUID kOriginalClassId; // the Access plug-in's id: a second class for its projects (E221)
 
 // Messages to the Virus, sent by a worker thread (socket writes do not belong in process()).
 class DeviceOut {
@@ -253,12 +255,21 @@ public:
     std::string patch_name(int part);
     std::string bank_patch(int bank, int program); // stored patch name from the bank cache (RAM A..D)
     bool load_patch(int bank, int program, int part); // a stored patch into a part's edit buffer (and the state)
+    // the same, chosen in the editor (LOAD menu, browser): remembered for "Revert to" / "Recently Used" (E220)
+    bool load_patch_remembered(int bank, int program, int part);
+    bool load_recent(int part, int index); // a "Recently Used" entry (the list keeps its order)
+    bool revert_patch(int part);           // "Revert to": swaps the part's patch with the one before the last load
+    std::string revert_name(int part);     // empty: no "Revert to" entry
+    std::vector<std::string> recent_names(int part);
     bool copy_part(int from, int to);                    // a part's patch onto another part (drag and drop)
     bool load_dump(std::vector<uint8_t> d, int part);    // a single dump into a part's edit buffer
     bool rename_part(int part, const std::string &name); // the part's patch name (10 characters) -> dump + Virus
     bool store_patch(int part, int bank, int program);   // the part's patch into a RAM slot of the Virus (+ cache)
     // the part's patch into a personal library (slot = position, == size: append) - writes the library file
     bool store_to_library(int part, int library, int slot);
+    // the original's "Create Empty Library" (E217): an empty library file at the path chosen in the save dialog
+    // (".mid" added like the original), listed at once
+    bool create_library(const std::string &chosen);
     // does a stored patch have category `cat` (filter menu index, 0 = any) and contain `q` in its name?
     bool patch_matches(int bank, int program, int cat, const std::string &q);
     static constexpr int SEARCH_BANK = 1000;             // "Search Results" (search://): the current page
@@ -547,6 +558,9 @@ private:
     void report_offline();
     // the original's sync error page (E205): events from the Virus (broker rx thread), ticks and transport (worker)
     SyncAlert sync_alert_;
+    std::mutex history_mu_;
+    PatchHistory history_; // per part: Revert to / Recently Used (E220), this session only
+    std::vector<uint8_t> part_dump(int part); // the part's patch as it is now (edits included)
     std::mutex sync_alert_mu_;
     std::atomic<bool> host_playing_{false}; // audio thread -> worker
     int64_t sync_tick_ms_ = 0, sync_log_ms_ = 0; // worker

@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-18. CONTINUE HERE = **Released v0.8.24** (tag on main 6a672d6, release CI run 39115035193 green,
+_Last updated: 2026-10-18. CONTINUE HERE = **Round 0.8.25 started (branch round-0.8.25, see the section below)**; before that: **Released v0.8.24** (tag on main 6a672d6, release CI run 39115035193 green,
 release text corrected by hand: the sleep sentence says "tested with a drop of under a second on Linux"; site rebuilt,
 run 39115534532, live shows 0.8.24 / 214 tests). Test machines: Linux and win11 VM = release 0.8.24 (VM: 0.8.24a
 uninstalled first, plug-in hash = release CI); real PC = 0.8.24b test build, release setup in
@@ -10,6 +10,70 @@ Open from this round: the PresenceWatch "bounced" branch (a USB drop the worker 
 only, not yet hit on hardware (E214); Linux replug known issue not retested. Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E216), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
+
+## Round 0.8.25 (branch round-0.8.25, collecting; started 2026-10-18 while the user was away)
+
+Same process as 0.8.24 (Linux checks only during the round; test build + one checklist later). In this round so far:
+1. **Create Empty Library** (E217, commits a466a8b + 43e15de; user 2026-10-18: "replicate the original as close
+   as possible"): entry last under "Personal Libraries" in LOAD, SAVE and the browser's bank menu; opens the
+   original's save dialog (title "Save empty library as...", filter "Virus TI Patch Libraries" *.mid, library folder,
+   "New Library.mid"), ".mid" added like the original, 26-byte empty SMF written, listed at once. Linux: VSTGUI's
+   zenity/kdialog dialog (modal, blocks the host UI like every VSTGUI plug-in; without zenity/kdialog nothing happens).
+   Xvfb check passed (dialog, OK, file byte-identical, listed). Windows/macOS: not built locally (CI later).
+   Separator done with item 3.
+   Checklist item later: LOAD > Personal Libraries > Create Empty Library (dialog, OK), SAVE into it, LOAD from it.
+   Dev build NOT installed in ~/.vst3 (release 0.8.24 stays); user smoke test of the dev build still to do.
+2. **Issue #7 finding 3 on Linux** (E218): 6 start-ups after broker idle exits with a full state restore, release
+   0.8.24: ready 6.7-6.9 s, marker every time, normal sound, no hang (9/9 with E209). No code change.
+3. **Menu look like Windows 10** (E219, commit b929bcb): measured in the user's logged-on win10 VM session with our own
+   test menu (scratchpad sep/menumeasure.c): menus with columns = the older look we had (19 px rows, separator 9 px);
+   single-column menus = the themed look (22 px rows, check band, chevron, separator 7 px). Ours now draws every
+   one-column menu themed (LOAD/SAVE top level, Personal Libraries, value lists <= 32, categories) and has separator
+   rows; Create Empty Library gets its separator. 217 tests; Xvfb check of LOAD > Personal Libraries (+ greyed
+   "(empty)"). Not seen on screen: a checked entry in the themed look. Checklist items later (W especially: compare
+   with the original's menus side by side if the user wants).
+4. **Project compatibility test** (2026-10-18, with the user): two Ableton Live 11 projects saved with the ORIGINAL
+   on the win10 VM (restore-test-vst3.als = original VST3, class id = VTI_CID_ORIGINAL; restore-test-vst2.als =
+   original VST2 'VCP ' 0x56435020): parts 1-3 Fimplex HS / Acidia AV / Alead BC, MIDI clip, automation Cutoff part 1
+   and Reso part 2 (Easy page). Copies: work/projcompat/ (not in git: contain the original's state), real PC
+   C:\tirevive-test\projcompat, win11 VM same, Mac ~/Downloads/projcompat. Linux (nativehost, release 0.8.24): the
+   state loads (244 records, part 1 Fimplex HS, getState identical). Checklist
+   https://claude.ai/artifact/5qa9fHxYrLiPG1CnMBViVV (spec scripts/checklists/projcompat-1.json: PW1-3, PM1-3,
+   PB1-3). Expectation for the VST2 project: "missing" (we declare no VST2 id) - untested.
+5. **Revert to / Recently Used DONE** (E220, commit 9dcd74f) + themed menus' 3 px bottom strip. 220 tests.
+6. **Live 11 does not open the original's projects** (E221): fix = second VST3 class under the original's id
+   "TI Revive Virus Control (original projects)" (commit d58e175, test factory_classes; user: keep two entries for
+   now, decide before the release whether to take over the id - after the Live 11 redo and the Live 12 data).
+   CI run 39124266237 failed on Windows: my library_create_empty test kept a file open while deleting its folder
+   (Windows throws -> abort 0xc0000409); fixed + test runner names each test first (9dcd74f). 0.8.25a (CI
+   39124817970) still failed PW1: the "original's id" B49F90D9735F4305.. was the raw TUID bytes, never the FUID;
+   the real one is D9909FB45F730543AC5397BE8958CD31 (E221 correction, 2a6d97c; also fixes the moduleinfo entry).
+   **0.8.25b (CI 39125467481) on the win11 VM: PW1 + PW2 pass, PW3 (VST2) fails as expected (E222).** Plug-in
+   version was still 0.8.23 (also in the 0.8.24 release) -> 0.8.25 (87eef8a) + site-check rule. **Mac (Live 12.4.6,
+   0.8.25b installed): PM1 + PM2 pass, PM3 VST2 fails as expected (E223). Real PC skipped (user). Test complete.**
+   Site check 2026-10-18 (round items only; full check before the release): "projects of the original open" was
+   wrong for 0.8.24 in Live 11 -> now "VST3 projects open (since 0.8.25, second entry), VST2 do not" (site +
+   README); TESTS 214 -> 220; menu look, Revert/Recently Used, Create Empty Library added (since 0.8.25). NOT live
+   (site from main by hand). Still to do at the release: retake docs/images/plugin-menus.png (old look). User
+   recommendation taken: keep two entries. Round checklist plan (user: UI on Linux is enough): Linux core + menus +
+   Revert/Recently Used + Create Empty Library; VM and Mac core + Create Empty Library dialog only.
+   **Round test build 0.8.25c = CI run 39130131007 (7b49ada). Checklist https://claude.ai/artifact/YV55z8yQ737u5JpLcNAx93
+   (spec scripts/checklists/round-0.8.25.json: L1-L3, W1, M1; no core items and no real PC this round - user).
+   Plan (user): ship 0.8.25 soon; live site stays until then.**
+   **Round results (E224): L1-L3, W1, M1 all PASS. Ready for the release steps:** full site check, retake
+   docs/images/plugin-menus.png (themed look), release notes in build.yml, merge round-0.8.25 -> main, tag v0.8.25,
+   release CI, site rebuild by hand, install the release on Linux (user runs install.sh), VM (silent), Mac. Linux ~/.vst3 = dev build 9dcd74f (backup of 0.8.24 in
+   ~/.vst3-backup/0.8.24). User smoke test of the earlier dev build (menus, Create Empty Library): ok.
+win10 VM: 5 crash dumps since 2026-10-10 (bugcheck 0x139 at 13:06 today while Live + the Access driver ran with the
+Virus passed through) - the VM is a reference machine only.
+
+Not possible alone (need the user): PresenceWatch "bounced" branch on hardware (a sub-second USB drop: needs sudo
+for /sys/bus/usb/devices/1-8/authorized, or a cable pull + replug within ~0.3 s); Linux replug known issue (E175,
+needs a physical replug); per-monitor work area on Linux (xcb-randr: libxcb-randr0-dev not installed, needs sudo +
+CI apt list); E180 pixel comparison (needs the 0.7.x wrapper rebuilt + installed in ~/.wine, see
+native/tools/uicompare/README.md; "Virus TI (TI Revive).vst3" is no longer in the prefix); Mac double notes (E209 (7)).
+Note: an untracked/ignored file named "--help" (213 KB, 2026-10-17) sits in the repo root - probably a tool run by
+mistake; not touched.
 
 ## Round 0.8.24 (branch round-0.8.24, collecting; new test process 2026-10-18)
 

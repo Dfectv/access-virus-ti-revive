@@ -1,6 +1,6 @@
 # virus-ti-native - native rewrite of the Access Virus TI plug-in (docs/plan.md)
 cmake_minimum_required(VERSION 3.25)
-project(virus-ti-native VERSION 0.8.23 LANGUAGES C CXX) # = the TI Revive release it ships with
+project(virus-ti-native VERSION 0.8.25 LANGUAGES C CXX) # = the TI Revive release it ships with
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Windows: static C/C++ runtime, so the plug-in and the ASIO driver run without the VC++ redistributable
@@ -127,7 +127,7 @@ add_executable(vtitests tests/main.cpp tests/test_usbmidi.cpp tests/test_state.c
                tests/test_cc.cpp tests/test_broker.cpp tests/test_audioin.cpp tests/test_panelfollow.cpp tests/test_editor.cpp
                tests/test_accessfiles.cpp tests/test_firmware.cpp tests/test_diag.cpp
                tests/test_protocol.cpp tests/test_upscale.cpp tests/test_ctrlguard.cpp tests/test_pktstat.cpp tests/test_owner.cpp tests/test_sysinfo.cpp tests/test_flashinfo.cpp tests/test_remotetemplates.cpp tests/test_popupmenu.cpp
-               tests/test_offlinepace.cpp tests/test_syncalert.cpp tests/test_stallwatch.cpp
+               tests/test_offlinepace.cpp tests/test_syncalert.cpp tests/test_patchhistory.cpp tests/test_stallwatch.cpp
                tests/test_presencewatch.cpp)
 target_link_libraries(vtitests PRIVATE vticore)
 add_test(NAME vtitests COMMAND vtitests)
@@ -155,6 +155,17 @@ if(CAIRO_FOUND)
     add_executable(vtirender tools/vtirender.cpp)
     target_link_libraries(vtirender PRIVATE vticore PkgConfig::CAIRO)
 endif()
+
+# the plug-in's VST3 classes: its own id and the original's (old projects in Live 11, E221)
+if(APPLE)
+    set(VTI_CID_OWN 7A1E5C3B4D2F4E619B0C8A172F64D5E9)
+else()
+    set(VTI_CID_OWN B49F90D9735F4305AC5397BE8958CD6B)
+endif()
+add_test(NAME factory_classes
+         COMMAND ${CMAKE_COMMAND} -DTOOL=$<TARGET_FILE:moduleinfotool> -DBUNDLE=$<TARGET_FILE_DIR:VirusTINative>/../..
+                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/factory_classes.json -DOWN=${VTI_CID_OWN}
+                 -DORIGINAL=D9909FB45F730543AC5397BE8958CD31 -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/factory_classes.cmake)
 
 # end-to-end checks in a virtual X display (Linux; skipped without xvfb-run): two editors of a duplicated track (E183),
 # the Control Center's window size and close button (E185)

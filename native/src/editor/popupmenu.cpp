@@ -10,27 +10,60 @@ PopupMenu::PopupMenu(std::vector<PopupItem> items, int checked, std::function<in
         checked_ = -1;
 }
 
+int PopupMenu::row_h(int i) const
+{
+    if (items_[i].separator)
+        return themed_ ? kThemedLine : kLine;
+    return themed_ ? kThemedRow : kRow;
+}
+
 void PopupMenu::layout(int per_column, int area_h)
 {
     const int n = (int)items_.size(), frame = 2 * (kBorder + kPad);
-    rows_ = per_column > 0 ? std::min(per_column, n) : n;
-    // a list taller than the editor wraps into more columns: a menu inside the editor cannot stick out of it
-    // (the original's Windows menus are windows of their own and can)
-    rows_ = std::max(1, std::min(rows_, (area_h - frame) / kRow));
+    // one column (no column rule, or no more entries than one column holds) that fits: the themed look
+    int themed_h = 2 * kThemedFrame;
+    for (auto &it : items_)
+        themed_h += it.separator ? kThemedLine : kThemedRow;
+    themed_ = n > 0 && (per_column <= 0 || n <= per_column) && themed_h <= area_h;
+    rows_ = themed_ ? n : per_column > 0 ? std::min(per_column, n) : n;
+    // a list taller than the area wraps into more columns (the original's Windows menus scroll instead)
+    if (!themed_)
+        rows_ = std::max(1, std::min(rows_, (area_h - frame) / kRow));
     const int cols = n > 0 ? (n + rows_ - 1) / rows_ : 0;
     col_x_.assign(cols, 0);
     col_w_.assign(cols, 0);
+    row_y_.assign(n, 0);
+    int tallest = 0;
+    for (int c = 0; c < cols; c++) {
+        int y = themed_ ? kThemedFrame : kBorder + kPad;
+        for (int i = c * rows_; i < std::min(n, (c + 1) * rows_); i++) {
+            row_y_[i] = y;
+            y += row_h(i);
+        }
+        tallest = std::max(tallest, y);
+    }
+    if (themed_) {
+        int widest = 0;
+        for (auto &it : items_)
+            widest = std::max(widest, it.separator ? 0 : text_width_(it.text));
+        col_x_[0] = kThemedFrame;
+        col_w_[0] = kThemedTextLeft + widest + kThemedTextRight;
+        width_ = 2 * kThemedFrame + col_w_[0];
+        height_ = tallest + kThemedFrame;
+        return;
+    }
     int cx = kBorder + 1; // 1 px more on the left than inside the border, like the original
     for (int c = 0; c < cols; c++) {
         int widest = 0;
         for (int i = c * rows_; i < std::min(n, (c + 1) * rows_); i++)
-            widest = std::max(widest, text_width_(items_[i].text));
+            if (!items_[i].separator)
+                widest = std::max(widest, text_width_(items_[i].text));
         col_x_[c] = cx;
         col_w_[c] = kTextLeft + widest + kTextRight;
         cx += col_w_[c] + (c + 1 < cols ? kSeparator : 0);
     }
     width_ = cx + kBorder;
-    height_ = frame + rows_ * kRow;
+    height_ = tallest + kBorder + kPad;
 }
 
 void PopupMenu::place(int ax, int ay, int area_w, int area_h)
@@ -44,7 +77,7 @@ PopupMenu::Rect PopupMenu::item_rect(int i) const
     if (i < 0 || i >= (int)items_.size() || rows_ <= 0)
         return {};
     const int c = i / rows_;
-    return {col_x_[c], kBorder + kPad + (i % rows_) * kRow, col_w_[c], kRow};
+    return {col_x_[c], row_y_[i], col_w_[c], row_h(i)};
 }
 
 std::vector<PopupMenu::Rect> PopupMenu::set_hot(int i)
@@ -79,14 +112,14 @@ int PopupMenu::item_at(int px, int py) const
 {
     if (!contains(px, py) || rows_ <= 0)
         return -1;
-    const int mx = px - x, my = py - y - kBorder - kPad;
-    if (my < 0 || my >= rows_ * kRow)
-        return -1;
+    const int mx = px - x, my = py - y;
     for (int c = 0; c < columns(); c++) {
         if (mx < col_x_[c] || mx >= col_x_[c] + col_w_[c])
             continue;
-        const int i = c * rows_ + my / kRow;
-        return i < (int)items_.size() && items_[i].enabled ? i : -1;
+        for (int i = c * rows_; i < std::min((int)items_.size(), (c + 1) * rows_); i++)
+            if (my >= row_y_[i] && my < row_y_[i] + row_h(i))
+                return items_[i].enabled ? i : -1;
+        return -1;
     }
     return -1;
 }

@@ -224,6 +224,21 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
+          **New in 0.8.25: projects made with the original plug-in open.** Projects with the original's VST3 version
+          open with TI Revive: the plug-in list also shows it as "TI Revive Virus Control (original projects)", which has
+          the original's plug-in ID. Tested in Ableton Live 11 (Windows 11 VM) and Live 12 (macOS, also with a project
+          made on Windows). Projects with the original's VST2 version do not open: TI Revive is VST3 only. Before, only
+          hosts that read the plug-in's compatibility list could map old projects, and that list had the original's ID
+          in the wrong byte order.
+
+          **New in 0.8.25: the LOAD menu like the original's.** "Revert to" brings back the patch from before the last
+          load, edits included, and a second revert goes back again; "Recently Used" lists the last 10 patches of each
+          part, newest first. Personal Libraries has "Create Empty Library" with the original's save dialog. Menus look
+          like the original's on Windows 10: menus with one column in Windows' modern look, menus with columns in the
+          older one, with separator lines. Tested on Linux; the save dialog also on Windows and macOS.
+
+          **Also in 0.8.25:** the plug-in reports its own version again (0.8.24 still said 0.8.23).
+
           **New in 0.8.24: the Virus plays again after the computer slept.** After waking, the plug-in sets the Virus
           up again like after a reconnect (start-up messages, your project's sound, new timing), also after a short USB
           drop at wake (tested with a drop of under a second on Linux). Tested on a Windows 11 PC, macOS and Linux.

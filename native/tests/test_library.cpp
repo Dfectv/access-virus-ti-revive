@@ -148,3 +148,34 @@ TEST(library_dir_xdg_documents)
     fs::remove_all(dir);
 }
 #endif
+
+// "Create Empty Library" (E217): the name from the save dialog gets ".mid" like in the original (".midi" -> ".mid",
+// anything else + ".mid"); the file is the original's empty library (a standard MIDI file with one empty track, 26
+// bytes), written over an existing file (the dialog asked); it loads as a library without patches
+TEST(library_create_empty)
+{
+    CHECK(library_file_name("/a/New Library.mid") == "/a/New Library.mid");
+    CHECK(library_file_name("/a/x.midi") == "/a/x.mid");
+    CHECK(library_file_name("/a/x") == "/a/x.mid");
+    CHECK(library_file_name("/a/x.syx") == "/a/x.syx.mid");
+    fs::path dir = fs::temp_directory_path() / "vtitests-library-empty";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    const std::string path = (dir / "New Library.mid").string();
+    std::string err;
+    std::ofstream(path) << "old";
+    CHECK(write_empty_library(path, err));
+    const Dump want = {0x4D, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, 0x01, 0xE0,
+                       0x4D, 0x54, 0x72, 0x6B, 0, 0, 0, 4, 0x78, 0xFF, 0x2F, 0x00};
+    Dump got;
+    {
+        std::ifstream f(path, std::ios::binary); // closed before remove_all: Windows cannot delete an open file
+        got.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+    }
+    CHECK(got == want);
+    PatchLibrary lib;
+    CHECK(load_library_file(path, lib) && lib.dumps.empty());
+    CHECK(load_libraries(dir.string()).size() == 1);
+    CHECK(!write_empty_library((dir / "no-such-folder" / "x.mid").string(), err) && !err.empty());
+    fs::remove_all(dir);
+}

@@ -57,3 +57,5 @@ human as a table before editing: claim, where (file:line), status, source.
 - Build to check: `python3 scripts/site/build.py --out <scratchpad>/site` and grep the output for the new values.
 - Do not deploy. The site is rebuilt by hand (`gh workflow run site.yml`) only when the human says so.
 - Note the check in `findings/HANDOFF.md` and commit with the other changes.
+- Before a release: the plug-in's own version (`project(... VERSION x.y.z)` in `native/CMakeLists.txt`) must equal the
+  release. Hosts show it (Live's log: "v0.8.23" in the 0.8.24/0.8.25 test builds, E222 - it was not bumped for 0.8.24).

@@ -18,7 +18,14 @@ struct PopupItem {
     std::string text;
     bool enabled = true;
     std::vector<PopupItem> sub; // a submenu (the patch and bank menus, E195); empty for a plain entry
+    bool separator = false;     // a separator line (Windows' MF_SEPARATOR, E217): never chosen
     bool has_sub() const { return !sub.empty(); }
+    static PopupItem line()
+    {
+        PopupItem it("", false);
+        it.separator = true;
+        return it;
+    }
 };
 
 class PopupMenu {
@@ -27,6 +34,11 @@ public:
     // 19 px rows, the text 20 px after a column's left edge (the check mark lives there) and 26 px before its right
     // one, columns 2 px apart (a dark and a light line)
     static constexpr int kBorder = 1, kPad = 2, kRow = 19, kTextLeft = 20, kTextRight = 26, kSeparator = 2;
+    // Windows 10 draws a menu with columns as above, a menu without them in its themed look (E219, measured with a
+    // test menu in the win10 VM): 1 px border + 2 px inside it, 22 px rows over the full width, a 28 px band for the
+    // check mark, the text 32 px into the row and 54 px of room after it; separator rows 9 px (columns) / 7 px (themed)
+    static constexpr int kLine = 9, kThemedFrame = 3, kThemedRow = 22, kThemedLine = 7, kThemedGutter = 28,
+                         kThemedTextLeft = 32, kThemedTextRight = 54;
 
     enum class Key { Up, Down, Left, Right, Home, End };
 
@@ -47,6 +59,7 @@ public:
     int height() const { return height_; }
     int columns() const { return (int)col_x_.size(); }
     int rows() const { return rows_; }
+    bool themed() const { return themed_; } // one column: Windows 10's themed menu look
     // x of each column's left edge, relative to the menu (the separators lie in the 2 px before columns 1..n-1)
     const std::vector<int> &column_x() const { return col_x_; }
     Rect item_rect(int i) const; // relative to the menu
@@ -72,6 +85,9 @@ private:
     std::function<int(const std::string &)> text_width_;
     std::vector<int> col_x_, col_w_;
     int rows_ = 0, width_ = 0, height_ = 0;
+    bool themed_ = false;
+    std::vector<int> row_y_; // each entry's top within its column (variable: separator rows are lower)
+    int row_h(int i) const;
     int step(int from, int dir) const; // the next enabled entry from `from` in direction dir (+-1), wrapping
 };
 

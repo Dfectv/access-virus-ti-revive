@@ -73,8 +73,10 @@ Default project: 10329 bytes. The rewrite reads and writes exactly this format -
 load in the rewrite and vice versa.
 
 ## VST3 identity and parameter list of the original (vtihost class listing, VTI_LISTPARAMS)
-- One single-component class per product (no separate controller class): "Virus TI" B49F90D9735F4305AC5397BE8958CD31,
-  "Virus TI Snow" 0B384C1BEADB40679E8EEEE233A98C9C (TI Revive's wrapper: byte 15 XOR 0x5A).
+- One single-component class per product (no separate controller class). The listing printed the raw TUID bytes:
+  "Virus TI" B49F90D9735F4305AC5397BE8958CD31, "Virus TI Snow" 0B384C1BEADB40679E8EEEE233A98C9C (TI Revive's wrapper:
+  byte 15 XOR 0x5A). As FUIDs (what hosts store and moduleinfo.json lists; Windows TUIDs are COM-ordered, E221):
+  "Virus TI" D9909FB45F730543AC5397BE8958CD31, "Virus TI Snow" 1B4C380BDBEA67409E8EEEE233A98C9C.
 - 10404 parameters; mapped (automatable) = 2671 from automation.xml + 32 MIDI-mapping targets (per channel ch 0..15:
   0x100000 + ch*0x1000 + 0x80 Aftertouch, + 0x81 Pitchbend, default 0.5). Title "[<part>] <shortname>", unit "Part NN/".
   automation.xml is keyed by (parameter, part), later entries win - which is why id 1574 (typo Part="4") is unmapped.
