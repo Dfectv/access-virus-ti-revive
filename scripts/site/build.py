@@ -254,7 +254,7 @@ def page_landing(latest, releases, sums):
           (<a href="https://gearspace.com/threads/fixing-access-virus-sync-issues.839737/">Gearspace</a>,
           <a href="https://forum.ableton.com/viewtopic.php?p=938076">Ableton forum</a>). TI Revive stamps every note
           on the Virus' own clock and reports its latency to the DAW: in our tests every note lands on the grid, within
-          0.01 to 0.24 ms.</li>
+          0.01 to 0.04 ms.</li>
           <li>The original cannot export or freeze a Virus track faster than real time and shows a warning that
           offline rendering is not supported (<a href="https://www.kvraudio.com/forum/viewtopic.php?p=1599326">KVR</a>,
           <a href="https://zynewave.com/topic/realtime-bounce/">Zynewave forum</a>). TI Revive notices an offline
@@ -550,7 +550,7 @@ def features_section():
         <tbody>
           <tr><th>Linux, REAPER</th><td>256 / 256</td><td>0.01 ms</td><td>0 ppm</td></tr>
           <tr><th>macOS, Ableton 12 (M3)</th><td>256 / 256</td><td>0.02 ms</td><td>0 ppm</td></tr>
-          <tr><th>Windows 11, Ableton Live</th><td>224 / 224</td><td>0.24 ms</td><td>2 ppm</td></tr>
+          <tr><th>Windows 11, Ableton Live</th><td>480 / 480</td><td>0.04 ms</td><td>0 ppm</td></tr>
           <tr class="old"><th>Classic plug-in 0.7.x</th><td>first late, second missing</td><td>0.06 ms</td><td>n/a</td></tr>
         </tbody>
       </table>
