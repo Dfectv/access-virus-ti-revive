@@ -1,8 +1,25 @@
 # HANDOFF
 
-_Last updated: 2026-10-17 night (CONTINUE HERE below; round 0.8.22 in progress). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
+_Last updated: 2026-10-18 (issue #7 open checks below; then CONTINUE HERE). Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E202), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
+
+## Issue #7 (2026-10-18): findings from a separate macOS TI2 project (wirrareka), waiting for their PR
+
+Four hardware reports from their own code (TI2, macOS 26, Apple Silicon), not reproduced by us. Replied twice (personal
++ technical, with E031/E112/E136/E139/E145/E149); asked for a PR into `findings/claims.md`. When it comes: review
+(no Access material, claims format), then move what we reproduce to evidence.md. Our side, checked in code only:
+1. Multi "Original Patch" write `72 00 03` -> all 16 edit buffers Init at the next power-up (2/2). TI Revive never sends
+   it (ParamInit = part MIDI channels + Panel Part only; not in automation; bulk multi dump ignores the byte). To do
+   after the PR: a safety rule "never send `72 00 03`" (AGENTS.md rule 2 / test checklist), pointing at the claims entry.
+2. Panic (CC120 + CC123) before close -> no sync marker in the next session (5/5). We send CC64 0 + CC123 on
+   setActive(false), no CC120; Linux broker resets the port on close, macOS/Windows do not; marker retry (3x) would
+   hide a missed first ping. Open check (Mac, read-only): first ping after a broker idle exit + reopen answered? If
+   not, try without CC123.
+3. Heavy restore after a reopen hangs the Virus (full-scale on all six inputs, until a power cycle). Our pacing (E145
+   250 ms pause, automation rate limit, one readback E149) should avoid their trigger. Open check (Linux): several
+   start-ups after broker reopens in one power-on, watch for a hang. They test pacing and report back.
+4. Panel knob drift (Osc1 PW 0 -> 21/22 by itself). Nothing to do; note for unexplained readback differences.
 
 ## CONTINUE HERE (state 2026-10-17 late: branch round-0.8.23, offline render)
 
