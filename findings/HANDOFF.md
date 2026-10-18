@@ -1,14 +1,16 @@
 # HANDOFF
 
-_Last updated: 2026-10-18. CONTINUE HERE = **Round 0.8.25 started (branch round-0.8.25, see the section below)**; before that: **Released v0.8.24** (tag on main 6a672d6, release CI run 39115035193 green,
-release text corrected by hand: the sleep sentence says "tested with a drop of under a second on Linux"; site rebuilt,
-run 39115534532, live shows 0.8.24 / 214 tests). Test machines: Linux and win11 VM = release 0.8.24 (VM: 0.8.24a
-uninstalled first, plug-in hash = release CI); real PC = 0.8.24b test build, release setup in
-C:\tirevive-test\0.8.24-release (uninstall 0.8.24 first, same version); Mac = 0.8.24b, release unzipped in
-~/Downloads/TI-Revive-0.8.24-release-mac (user runs the sudo installer). Next: start the next round (new branch).
-Open from this round: the PresenceWatch "bounced" branch (a USB drop the worker never sees) is covered by unit tests
-only, not yet hit on hardware (E214); Linux replug known issue not retested. Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E216), protocol: [spec.md](spec.md); the native plug-in:
+_Last updated: 2026-10-18. CONTINUE HERE = **Released v0.8.25** (merge 95879c7 on main, tag v0.8.25, release CI run
+39131364441 green, 6 assets; site rebuilt by hand, run 39131769375, live shows 0.8.25 / 220 tests / original VST3
+projects). New: original VST3 projects open (second class with the original's id, E221-E223; VST2 not), Revert to /
+Recently Used (E220), Create Empty Library (E217), Windows 10 menu look (E219), plug-in version 0.8.25. Test machines:
+win11 VM = release (silent, 0.8.25c uninstalled first, plug-in 13:27 UTC); Linux: release unpacked in
+~/Downloads/TI-Revive-0.8.25-release, user runs install.sh (~/.vst3 still dev build 9dcd74f until then); Mac: release
+unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo installer; real PC still 0.8.24 (0.8.25b setup
+in C:\tirevive-test\0.8.25b, release not copied). Next round: not started. Open: Snow original id 1B4C380B.. as a
+third entry (only if Snow users ask), VST2 projects (.als converter idea), PresenceWatch bounced branch on hardware,
+E175, Mac double notes E209 (7), issue #7 safety rule. Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
+Evidence: [evidence.md](evidence.md) (E001-E224), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.25 (branch round-0.8.25, collecting; started 2026-10-18 while the user was away)
