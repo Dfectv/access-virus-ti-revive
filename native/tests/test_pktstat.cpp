@@ -47,3 +47,35 @@ TEST(pktstat_bad_run)
         end += vti_pktstat_add(&s, 44 + (i % 10 == 0)) == -1;
     CHECK(end == 1 && !s.bad);
 }
+
+// E241: after a wake the Virus kept sending 48 kHz packets while the broker mirrored 44/45-frame OUT packets with
+// audio at it; a loud signal on its outputs, then a freeze. The OUT packet now matches a 48 kHz packet's size and is
+// silent; a lost or empty packet keeps the old rule (nominal size, audio).
+TEST(pktstat_out_matches_48k_with_silence)
+{
+    int silent = -1;
+    CHECK(vti_pkt_out(44, 44, &silent) == 44 && silent == 0);
+    CHECK(vti_pkt_out(46, 45, &silent) == 46 && silent == 0);
+    CHECK(vti_pkt_out(48, 44, &silent) == 48 && silent == 1);
+    CHECK(vti_pkt_out(47, 45, &silent) == 47 && silent == 1);
+    CHECK(vti_pkt_out(49, 44, &silent) == 49 && silent == 1);
+    CHECK(vti_pkt_out(0, 45, &silent) == 45 && silent == 0);  // lost packet: as before
+    CHECK(vti_pkt_out(60, 44, &silent) == 44 && silent == 0); // nonsense size: as before
+}
+
+// the rate is lost when a reported bad run consists of 48 kHz packets (not when packets are merely lost)
+TEST(pktstat_rate_lost_only_for_48k_runs)
+{
+    vti_pktstat s = {};
+    for (int i = 0; i < VTI_PKT_BAD_RUN; i++)
+        vti_pktstat_add(&s, 48);
+    CHECK(s.bad && vti_pktstat_rate_lost(&s));
+    vti_pktstat t = {};
+    for (int i = 0; i < VTI_PKT_BAD_RUN; i++)
+        vti_pktstat_add(&t, 0);
+    CHECK(t.bad && !vti_pktstat_rate_lost(&t));
+    vti_pktstat u = {};
+    for (int i = 0; i < 300; i++) // the short 48 kHz phase right after SET_CUR is not "lost"
+        vti_pktstat_add(&u, 48);
+    CHECK(!vti_pktstat_rate_lost(&u));
+}

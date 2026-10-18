@@ -272,7 +272,7 @@ def page_landing(latest, releases, sums):
           <li>Sleep: on the Mac, sleep cut the original's connection until Access fixed it in 2008
           (<a href="https://www.kvraudio.com/news-print.php?id=10515">KVR</a>). Since 0.8.24 the plug-in sets the
           Virus up again after the computer wakes, also after a short USB drop at wake (tested with a drop of under a
-          second on Linux). In our tests on Windows 11, macOS and Linux the Virus played again after waking.</li>
+          second on Linux). In our tests on Windows 11, macOS and Linux the Virus played again after waking. Once, on Linux, the Virus stayed silent after waking because it kept the wrong sample rate; since 0.8.26 the plug-in keeps it quiet then and asks for the right rate again.</li>
         </ul>
         <h3 class="next">The same as in the original</h3>
         <ul>
@@ -414,7 +414,7 @@ def page_landing(latest, releases, sums):
       <details><summary>&ldquo;A sync error occurred. Press Stop and Play to clear.&rdquo;</summary>
       <p>Like the original, the editor shows this when the Virus reports several notes in a row that arrived too late
       for their time stamp while your DAW plays. Stop and Play clears it. If it comes back, use a USB port the Virus does
-      not share with other devices; the original gives the same advice.</p></details>
+      not share with other devices; the original gives the same advice. Known issue: on macOS, after an export, notes can come late until the Virus is switched off and on, and since 0.8.26 this message shows then (being worked on).</p></details>
       <details><summary>The first notes after Play are late</summary>
       <p>The plug-in sends notes slightly ahead to make up for the USB round trip, so start playback a little before
       the first note. The original driver did the same.</p></details>
@@ -520,7 +520,7 @@ def features_section():
       Wavetable list: 4 columns of 25). A submenu opens when the pointer rests on its entry for a moment, so you can
       move across other entries into an open submenu, for example from RAM A to its patches past RAM B. Arrow keys,
       Return and Esc work; a click elsewhere or switching to another window closes the menu. Since 0.8.25 they also look
-      like the original's on Windows 10: menus with one column in Windows' modern look, menus with columns in the older one.</p></div>
+      like the original's on Windows 10: menus with one column in Windows' modern look, menus with columns in the older one. Since 0.8.26 they open on the monitor they belong to on Linux, also with several monitors of different sizes.</p></div>
       <figure class="shot"><img src="plugin-menus.png" width="1020" height="760"
       alt="The LOAD menu: the device entry, the bank list and RAM A's 128 patches in columns, beyond the plug-in window">
       <figcaption>The LOAD menu reaching beyond the plug-in window (Linux), drawn from your own Access installer. TI Revive
@@ -595,10 +595,13 @@ def features_section():
 
     <div class="feature">
       <div><h3>Problems found on the hardware</h3>
-      <p>Behaviour of the Virus that is not documented anywhere, found by testing.</p></div>
+      <p>Behaviour of the Virus that is not documented anywhere, found by testing and, since 0.8.26, by reading its own firmware.</p></div>
       <ul>
         <li>A flood of parameter changes can hang the audio of the Virus until it is switched off. Automation is limited to
         250 messages per second and merged per parameter; a 4-minute full-load test passes.</li>
+        <li>The Virus releases every sounding note about a second after the last Active Sensing message it received. Since 0.8.26 the plug-in sends one every 300 ms, like the original; before, it sent one at the start only.</li>
+        <li>The Virus keeps time-stamped MIDI in a small buffer without an overflow check. Since 0.8.26 the plug-in keeps its time-stamped MIDI well under that buffer's limit; normal playing and automation never come near it.</li>
+        <li>When the Virus is busy for a moment, for example while you change a patch on its panel, it holds back what the computer sends. Since 0.8.26 the plug-in sends it again instead of dropping it, so a bank sync or patch dump no longer breaks.</li>
         <li>The Virus drops the message right after a multi dump. The plug-in pauses after one, so new projects reset
         the synth reliably.</li>
         <li>Bank sync requests make the Virus play its notes late. The sync pauses while you play and continues in the gaps.</li>
@@ -677,7 +680,7 @@ def page_changelog_landing(releases):
 # the README's screenshots that the site shows too (copied at build time)
 SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png", "plugin-help-inactive.png",
                  "plugin-menus.png"]
-TESTS = 220 # unit tests in native/tests (vtitests), as of 2026-10-18 (round 0.8.25)
+TESTS = 237 # unit tests in native/tests (vtitests), as of 2026-10-18 (round 0.8.26)
 # line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
 COVERAGE, COVERAGE_DATE = "94 %", "16 Oct 2026"
 

@@ -218,7 +218,7 @@ for the Virus.
 
 **"A sync error occurred. Press Stop and Play to clear."** Like the original, the editor shows this when the Virus
 reports several notes in a row that arrived too late for their time stamp while your DAW plays. Stop and Play clears
-it. If it comes back, use a USB port the Virus does not share with other devices; the original gives the same advice.
+it. If it comes back, use a USB port the Virus does not share with other devices; the original gives the same advice. Known issue: on macOS, after an export, notes can come late until the Virus is switched off and on, and since 0.8.26 this message shows then (being worked on).
 
 **Start playback slightly before the first note.** The plug-in sends notes to the Virus ahead of time to make up
 for the USB round trip; right at Play, notes in the first quarter second can come late or be skipped. This was the
@@ -240,7 +240,7 @@ same with Access' own driver.
   you can move across other entries into an open submenu, for example from RAM A to its patches past RAM B. Arrow
   keys, Return and Esc work; a click elsewhere or switching to another window closes the menu. Since 0.8.25 they also
   look like the original's on Windows 10: menus with one column in Windows' modern look, menus with columns in the
-  older one.
+  older one. Since 0.8.26 they open on the monitor they belong to on Linux, also with several monitors of different sizes.
 - **Projects made with the original plug-in:** projects with its VST3 version open with "TI Revive Virus Control"
   (since 0.8.25: the plug-in list also shows it as "TI Revive Virus Control (original projects)", which has the
   original's plug-in ID; tested in Ableton Live 11 and 12, also a Windows project on the Mac); the saved state is byte
@@ -358,7 +358,7 @@ Revive rebuilds that plug-in, and we want to fix its problems instead of copying
 - Sleep: on the Mac, sleep cut the original's connection until Access fixed it in 2008
   ([KVR](https://www.kvraudio.com/news-print.php?id=10515)). Since 0.8.24 the plug-in sets the Virus up again after
   the computer wakes, also after a short USB drop at wake (tested with a drop of under a second on Linux). In our tests
-  on Windows 11, macOS and Linux the Virus played again after waking.
+  on Windows 11, macOS and Linux the Virus played again after waking. Once, on Linux, the Virus stayed silent after waking because it kept the wrong sample rate; since 0.8.26 the plug-in keeps it quiet then and asks for the right rate again.
 
 **The same as in the original**
 
@@ -412,7 +412,7 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 - **Automation rate limit** (250 messages/s, coalesced per parameter): unthrottled parameter floods hung the Virus'
   audio until a power cycle within 4 minutes; with the limit a 4-minute full-load test (16 channels of notes + 32
   automation lanes) passes.
-- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 220 unit
+- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 237 unit
   tests run with every release build on Windows and Linux, plus two end-to-end tests on Linux in a virtual display
   (two editors of a duplicated track; the Control Center's window and close button).
 
@@ -427,6 +427,9 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 
 **Reliability fixes found with the Virus**
 
+- The Virus releases every sounding note about a second after the last Active Sensing message it received. Since 0.8.26 the plug-in sends one every 300 ms, like the original; before, it sent one at the start only. (E237)
+- The Virus keeps time-stamped MIDI in a small buffer without an overflow check. Since 0.8.26 the plug-in keeps its time-stamped MIDI well under that buffer's limit; normal playing and automation never come near it. (E238)
+- When the Virus is busy for a moment, for example while you change a patch on its panel, it holds back what the computer sends. Since 0.8.26 the plug-in sends it again instead of dropping it, so a bank sync or patch dump no longer breaks. (E239)
 - New projects reliably reset the Virus: it drops the message that follows a multi dump, so the plug-in now pauses
   250 ms after one (part 1 kept its old patch in 3 of 11 start-ups before, 0 of 8 after; E145).
 - Notes play while the bank sync runs: the sync pauses while you play (dump requests delay the Virus' notes by

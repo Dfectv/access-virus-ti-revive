@@ -51,3 +51,28 @@ static inline int vti_pktstat_add(vti_pktstat *s, uint32_t f)
     s->packets++;
     return ev;
 }
+
+// The OUT packet that answers an IN packet of f frames (E241). In range (43-46): the same size, with audio. A 48 kHz
+// packet (47-49): the same size but silent - the Virus runs at 48 kHz then, and a 44/45-frame packet with audio
+// starves its output every ms (a loud signal on its outputs after a wake, then a freeze). Anything else (lost, empty,
+// nonsense): the nominal size with audio, as before.
+static inline unsigned vti_pkt_out(uint32_t f, unsigned nominal, int *silent)
+{
+    if (f >= 43 && f <= 46) {
+        *silent = 0;
+        return f;
+    }
+    if (f >= 47 && f <= 49) {
+        *silent = 1;
+        return f;
+    }
+    *silent = 0;
+    return nominal;
+}
+
+// the Virus left 44.1 kHz: a reported bad run (VTI_PKT_BAD_RUN packets, longer than the phase after SET_CUR) of
+// 48 kHz packets - lost packets alone are not a rate problem
+static inline int vti_pktstat_rate_lost(const vti_pktstat *s)
+{
+    return s->bad && s->bad_frames >= 47 && s->bad_frames <= 49;
+}

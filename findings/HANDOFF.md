@@ -1,20 +1,176 @@
 # HANDOFF
 
-_Last updated: 2026-10-18. CONTINUE HERE = **Released v0.8.25** (merge 95879c7 on main, tag v0.8.25, release CI run
+_Last updated: 2026-10-18. CONTINUE HERE = **Round 0.8.26** (branch round-0.8.26; code change: per-monitor work area on Linux, E227): `72 00 03` safety rule (docs), Mac session mac-0.8.26-1 all pass (E225: no doubled notes in 7 takes, first sync ping answered after every broker idle exit; issue #7 finding 2 needs nothing from us). Virus: was on the Mac for that session (moves back to Linux for the next items). Linux session E226: PresenceWatch bounced branch PASS on hardware, E175 not reproduced (0/12). Linux = release 0.8.25 now. Before: **Released v0.8.25** (merge 95879c7 on main, tag v0.8.25, release CI run
 39131364441 green, 6 assets; site rebuilt by hand, run 39131769375, live shows 0.8.25 / 220 tests / original VST3
 projects). New: original VST3 projects open (second class with the original's id, E221-E223; VST2 not), Revert to /
 Recently Used (E220), Create Empty Library (E217), Windows 10 menu look (E219), plug-in version 0.8.25. Test machines:
 win11 VM = release (silent, 0.8.25c uninstalled first, plug-in 13:27 UTC); Linux: release unpacked in
 ~/Downloads/TI-Revive-0.8.25-release, user runs install.sh (~/.vst3 still dev build 9dcd74f until then); Mac: release
 unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo installer; real PC still 0.8.24 (0.8.25b setup
-in C:\tirevive-test\0.8.25b, release not copied). Next round: not started. Open: Snow original id 1B4C380B.. as a
-third entry (only if Snow users ask), PresenceWatch bounced branch on hardware,
-E175, Mac double notes E209 (7), issue #7 safety rule. Not relevant (user 2026-10-18): VST2 projects of the
+in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
+third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E224), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E244), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
-## Round 0.8.25 (branch round-0.8.25, collecting; started 2026-10-18 while the user was away)
+## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
+
+**Round closed 2026-10-18 (user: "we close this round ... we prepare for the release").** Version 0.8.26 in
+native/CMakeLists.txt. Round test build 0.8.26b = CI run 39148618705 (version input must be numeric for the MSI: 0.8.26; run 39148161706 with "0.8.26b" failed in the msi job) (0.8.26a run 39147901750 failed on macOS: writeretry.h was included only on Linux, fixed). Checklist
+https://claude.ai/artifact/W8EcFqru6zvxirJGJY2c36 (spec scripts/checklists/round-0.8.26.json: core on Linux, VM,
+Mac; L1/W1/M1 long notes (FE), L2/W2/M2 bank sync with panel changes (write retry), L3 per-monitor menus; real PC
+optional, B1 + core). CI run 39148618705 all green; Linux build installed 19:18 (install.sh, version 0.8.26).
+**OPEN, blocks the release: REAPER crashed after the LC3 render** (user, dev build of 18:51, editor open, host at
+48 kHz block 256): plug-in log ends cleanly with "offline render ended" at 19:15:34, broker sees the client go at
+19:15:35, no kernel segfault line, no core (ulimit -c 0, apport). Not reproduced by a command-line render
+(REAPER -renderproject under gdb, editor closed, exits after the render: normal exit, WAV ok). Next: user runs REAPER
+under gdb (command in the chat, output work/timing/LC3-crash-gdb.txt) and repeats LC3 with the editor open.
+**Repeat 19:20 under gdb with the CI build (48 kHz, block 256, editor open): render OK, no crash** (user: "worked
+now. maybe it was an issue with reaper?"). Status: WATCH, not reproduced (1 crash in 2 GUI renders, cause unknown -
+not shown to be REAPER). If it happens again: the same gdb command catches it; keep running REAPER under gdb for
+the rest of the Linux checklist if convenient.
+**LC5 FAIL (E241, blocks the release):** after the wake the Virus stayed at 48 kHz (E175 state), the broker fed it
+44/45-frame packets, loud signal on its headphones, no sound, then the Virus froze (power cycle). Fix in the broker
+(silent same-size OUT packets for 48 kHz packets, SET_CUR again 3x) in test build 0.8.26c = CI run 39149779397 (all green), installed on Linux; needs a careful LC5 redo
+(headphones off, monitors low).
+**Linux block all PASS with 0.8.26c (E242)**; LC5 redo passed but the 48 kHz state did not recur (fix unexercised).
+win11 VM: 0.8.26c installed silently (C:\tirevive-test\0.8.26c, entries 0.8.26), Virus attached (broker socket stopped on
+Linux; re-enumerates on the broker stop, attach a few seconds later).
+**VM block all PASS (WC1-WC4, W1, W2; checklist marks).** VM broker log: 0 write timeouts (retry unused on WinUSB too),
+error 22 only where the Virus left Windows (WC4 power cycle 19:54:47, session end 20:06:58); W2 bank sync complete
+(RAM D 128 fetched, 516 s). Virus detached from the VM, Linux broker socket started again. Mac: 0.8.26c zip unpacked in
+~/Downloads/TI-Revive-0.8.26c-mac, the user runs the sudo installer.
+**Mac block all PASS, real PC skipped (E243)** - but MC4 note: after the MC3 export the Virus' stamp clock had moved
+~5600 frames against the marker, every note late (sync errors) until the Virus was power-cycled. Not the budget.
+A/B done (E244): 0.8.25 has the same late notes after the export (K 512), only no error page -> old fault, not a
+regression; 0.8.26's stamped FE makes it visible. Recommendation to the user: release with a known-issue line, fix
+the clock shift next round. **User: "go ahead with the release".** Site check 2026-10-18 (round changes only;
+the full check of 0.8.25 stands for the rest): TESTS 220 -> 237 (site + README), sleep claim gets the E241 case, three
+firmware findings E237-E239 under "Problems found on the hardware" / "Reliability fixes found with the Virus", per-monitor
+menus on Linux (E227), known issue Mac export (E243/E244) in the sync error FAQ. Release notes in build.yml.
+After the checklist passes: full site check (README + site: firmware findings, Active
+Sensing, budget, retry are user-visible stability changes - worth a line), release notes in build.yml, merge
+round-0.8.26 -> main, tag v0.8.26, release CI, site rebuild by hand, install the release on Linux, VM (silent), Mac.
+
+1. **Safety rule `72 00 03`** (issue #7 finding 1): never send the Multi parameter "Original Patch"; added to
+   AGENTS.md rule 2 and the tirevive-test skill's safety list, pointing at issue #7 and E209 (their PR into
+   claims.md is not in yet; point the rule at the claims entry once it is). Docs only, nothing to test.
+2. Deleted the stray ignored file `--help` in the repo root (user 2026-10-18; it was a 907x513 PNG screenshot
+   from 2026-10-17, written by a tool run by mistake).
+3. **Mac double notes E209 (7): log analysis only** (work/timing/baseline-issue7/mac/M2-diag.log, session 3 =
+   broker start 08:09:04, 16 s after the previous idle exit). klog K was 6024/6025 (= session 1, which also had
+   5566 once), then 6382-6384 for the next 7 notes (+359 frames = 8.1 ms) from stamp ~1029117 on, with "timeline
+   steps 0, anchors 0" in the stats: the plug-in did not move its timeline, so the Virus' stamp clock vs its USB 1
+   output shifted by itself. Sync reports rose during playback and also with no sound for 20 s (6 at 08:10:06, 7 at
+   08:10:18); sessions 1/2 had 0-1. Hypothesis (LOW, not tested): the Virus lost/re-took its sync in that session;
+   the doubling itself is not visible in klog (it needs 2000 quiet frames; "no onset" lines are as frequent in the
+   good sessions). Next: reproduce on the Mac with a recording the user makes in Live (resample track, no SSH
+   permissions needed - user declined sudoers/TCC changes 2026-10-18), then compare onsets with timing_analysis.py.
+4. **Issue #7 finding 2: code reading.** A missed ping is visible: after 5 s without a marker the log says "no sync
+   marker - time stamps relative to the ring" (scan_audio), then up to 3 retries while quiet and not playing
+   (process, marker_retries_). E209 (2) counted 2/2 Mac reopens after an idle exit with the marker on the first
+   ping. TI Revive never sends CC120: the plug-in sends CC64 0 + CC123 per part at setActive(false), the broker
+   CC64 0 + CC123 on 16 channels at a disconnect (vti_pack_notes_off), and host CCs are not passed on
+   (getMidiControllerAssignment maps only aftertouch and pitch bend). So their exact trigger (CC120 + CC123) cannot
+   come from TI Revive; remaining check: Mac, broker idle exit + reopen x3, look for the "no sync marker" line.
+5. **Mac session checklist for 3 + 4:** https://claude.ai/artifact/Pg1eFZf4Fv7TCkJNmDA7a3 (spec
+   scripts/checklists/mac-0.8.26-1.json: D0 recording track, D1 cold start, D2 three reopens after idle exit with
+   a 30 s recording each, D3 if doubled: record + Stop/Play, D4 three more reopens). Mac on release 0.8.25 (pkgutil),
+   diag.on + klog.on present. Before the user starts: rename the Mac's old diag.log; afterwards fetch diag.log,
+   broker log and the recordings (project folder Samples/Recorded), run timing_analysis.py on each take.
+   **Done 2026-10-18 (E225): all pass, D3 not needed.** 8 sessions, every first ping got its marker (Mac now 8/8
+   reopens after an idle exit); 7 takes 480/480 onsets, 0 extra, jitter 0.16-0.29 ms; klog K constant, 1-2 sync
+   reports per session. E209 (7) not reproduced (0/7), cause open: watch for it, no code change. Issue #7 finding 2:
+   nothing to fix on our side (no CC120 sent, first ping answered). Files: work/timing/mac-0.8.26-1.
+6. **Linux reconnects (E226, 2026-10-18, release 0.8.25 installed on Linux by install.sh):** new
+   scripts/linux-usb-bounce.sh (sudo; sysfs authorized 0/1, optional --freeze PID). PresenceWatch bounced branch
+   PASS on hardware (frozen host 3/3, 2/3 via the bounced branch; unfrozen 0.3 s drops 3/3, 2/3 bounced too);
+   E175 cable 3/3 and power-off/on with a waiting host 3/3 recovered: E175 not reproduced (0/12). Likely why
+   (LOW): since 0.8.21 the flash info read (~3 s) comes before the audio start, so the stream no longer starts
+   while the Virus boots. E175 stays "watch", no code change.
+7. **Per-monitor work area on Linux** (popup menus): _NET_WORKAREA is one box around all monitors (this PC under
+   GNOME/XWayland: 67,32 4413x1408 over DP-3 2560x1440 at 0,0 and DP-2 1920x1080 at 2560,223), so a menu on the
+   smaller monitor could open where it has no pixels. New native/src/editor/workarea.h (NativeRect moved there;
+   work_area_at, parse_work_areas, clip_monitors; 5 tests, 225 in all) and popup_screen in popupwindow_x11.cpp:
+   _GTK_WORKAREAS_D<desktop> (mutter: 67,32 2493x1408 and 2560,223 1920x1080) -> RandR 1.5 monitors cut to
+   _NET_WORKAREA (KDE, Xfce, ...) -> _NET_WORKAREA -> the screen; the monitor at the anchor, else the nearest.
+   Links xcb-randr (libxcb-randr0-dev installed here by the user, added to the CI apt list). Built + tests on Linux;
+   dev build in ~/.vst3 (release 0.8.25 backed up in ~/.vst3-backup/0.8.25). **User test in REAPER PASS (E227):**
+   menus stay on their monitor, submenu flips at the monitor border, no crash. RandR path untested (GNOME has the
+   GTK property). Needs CI build (deps changed) before the round's test build. ctest installer_scripts "Not Run": stale PWSH_EXECUTABLE in the build
+   cache (an old scratchpad), unrelated.
+
+8. **Firmware analysis started** (E228-E230, 2026-10-18, user's idea: "decompile the firmware and check it against
+   our implementation"). firmware.bin decoded (IFF FORM, 32 KB flash sectors with 3-byte addresses), chips named:
+   host CPU = 8051 family with a 7-bit flash page register at XDATA 0x02E0, USB controller = TI TUSB3200A/TAS1020
+   family (8052; its firmware F060 holds the USB descriptors and streams the audio), synth = DSP56300 (no
+   disassembler, not analysed). USB-MIDI packets: USB chip 64-byte ring, holds the endpoint (NAK) below 32 free
+   bytes, 9-bit UART with 4-byte frames to the host; host parks a packet when its ring has < 8 free bytes; cable
+   5 (F5 stamps) goes straight to both DSPs, cable 2 to the parser ring and the DSPs, 3 to the parser ring, 0 to
+   DIN out. Host rings 1 KB each; full ring = reset + "MIDI Buffer overflow". Tooling: REA cannot open 8051/56k,
+   so Ghidra 12.1.4 headless with own scripts; everything in work/firmware/ (git-ignored, Access material).
+   REA updated 6.3.0 -> 6.7.0 (setup --client claude_code, effective after a restart). Open: DSP side of a
+   parameter flood (rule 2), handshake pins, sync event origin - see the memory note project-firmware-analysis.
+
+9. **Send rates vs the firmware (E231) and a DSP disassembler (E232).** Our 250/s automation limit is far under the
+   link's ~4 k packets/s (LOW); the hazard is bursts (one block's events go out in one write of up to 3072 bytes,
+   each stamped message = 2 packets) and totals above the link rate, where the USB chip's NAK makes the broker's
+   write block and the host CPU's parking rule drops frames. No code changed. DSP56300: the emulator core
+   github.com/dsp56300/dsp56300 (GPL-3) has a standalone disassembler (built: work/firmware/tools/dsp56kDisassemble,
+   listing work/firmware/out/dsp_main.asm, 126k lines) and the Ghidra module github.com/yatli/ghidra_dsp56k
+   compiles with one fix and is installed as a user extension (DSP56K:LE:24:default, byte-swapped image). Next:
+   the DSP's host-port receive handler (what happens to MIDI bytes when the host writes faster than the DSP
+   drains) - the missing half of the rule-2 hang.
+
+10. **DSP host-port receive handler found (E233, corrected the same day).** P:$5237d (HI08 receive vector): two
+    unchecked X-memory rings - 128 words for the live MIDI byte stream (one byte per word; USB cables 2/5 and DIN
+    input) and 512 words for the host CPU's own complete 3-byte messages; drained once per main-loop tick (0xd8f)
+    into the MIDI byte parser 0x522a8 (tables Y:$482ca/Y:$482d1: program change ignored by the DSP, active-sensing
+    watchdog of 750 ticks). The live ring is only 128 bytes deep: more than that between two ticks corrupts the
+    stream silently. The DEBUGNE in the channel path checks a register invariant (m1 linear), not data.
+11. **DSP image decoded, traps assessed, F5 stamp machinery read (E234, E235).** Sector headers + host-bootstrap
+    stream + second-stage loader records (type/address/count); memory map; main code at P:$4f000-$6f8bc; tick
+    order in 0x53840. 16 real DEBUGcc assertion sites, all bounds checks on internal pointers, counters and pools,
+    none on MIDI data -> no proven DSP hang mechanism yet (open: pool allocator 0x53b0f, per-part counter 0x55fb4).
+    F5: 14-bit stamp (low 7 bits first) vs clock X:$55865; late or within the threshold (<= 1023 units) = play
+    now, else queued in a 2046-word ring and played per tick; a gate holds the live stream while the queue plays.
+    E236: the stamp clock is a control word the USB chip delivers inside the audio-frame ring (16 words per
+    frame, column 11 of every second frame after a sync marker), plus a fixed lead of 256 units; one tick = 64
+    units (a 64-frame block if the unit is a sample frame - LOW). Ring B is the host CPU's own command channel:
+    'F4 <cmd> <value>' sequences (private F4 handler 0x5256c) - never send F4 from the plug-in (rule 2).
+    Still open: who composes the control words (not literal in the USB chip or host code), the unit, X:$48293
+    (clock freeze, host-set?), the F2 dependence of stamps seen in protocol.md. Scripts:
+    work/firmware/scripts/dsprecords.py; listings work/firmware/out/dsp_P_000000.asm, out/dsp_X_04f000.asm
+    (git-ignored, rule 1).
+
+12. **Active Sensing fixed from the firmware (E237, E238; code change, not yet on hardware).** The DSP arms a
+    watchdog with the first FE and releases every voice ~1 s after the last one; the plug-in sent ONE FE per
+    anchor (one-shot note cut a second after every anchor/re-anchor). Now: FE every 300 ms on the timeline
+    (native/src/device/keepalive.h, test_keepalive.cpp; vtitests 227/227, Linux build ok). E238: the DSP's
+    stamped-event queue is 2046 bytes without a fill check = the first firmware number that matches the old
+    hang threshold (1000/s automation + 2750 notes/s = 3.6 kB per 160 ms lead); rule: < 10 kB/s stamped traffic,
+    bursts < 1500 bytes - now enforced for ALL stamped traffic by native/src/device/sendbudget.h (4 kB/s, burst
+    1000 bytes, VTI_NATIVE_MIDI_RATE=0 switches it off; test_sendbudget.cpp; vtitests 230/230). Hardware test
+    needed: (a) held notes across the first seconds after start and after a host stall - no note cut, FE every
+    ~300 ms in VTI_TRACE; (b) normal dense playing + automation - nothing delayed (VTI_NATIVE_STATS); (c) the old
+    stress test (1000/s automation + a note flood) - the Virus must survive, events may be delayed/dropped.
+
+13. **The USB-chip -> host-CPU link is lossless (E239), so the broker now retries timed-out writes.** The chip
+    sends a byte only after the host toggled its handshake pin for the previous one; a parked frame (host ring
+    nearly full) stops the chip, its ring fills, the PC gets NAK. E229's "frame lost" is corrected. Consequence:
+    a 1 s transfer timeout means the Virus was busy for a second (patch load), not that data vanished - the old
+    broker dropped the rest of the message (a broken SysEx dump), now vti_write retries the packet up to 5 times
+    (src/broker/writeretry.h, both libusb and WinUSB; test_writeretry.cpp; vtitests 235/235; Linux + mingw
+    brokers build). No pacing of SysEx dumps is needed: the Virus paces them itself through this chain.
+    Hardware test: a bank upload while switching patches on the Virus' panel; look for "timeout(s), then
+    accepted" in the broker log and no dump error.
+
+14. **Dev build smoke test passed (E240, 2026-10-18).** Local Linux build of items 12-13 on the real TI2 in
+    REAPER: "all sounds really good and stable"; broker log clean (no write timeouts or errors, so the retry
+    was not exercised). Still open for the CI build / full checklist: held notes across start/stop and
+    re-anchor (FE fix), a bank sync during panel patch changes (retry), Windows and macOS.
+
+## Round 0.8.25 (released as v0.8.25 2026-10-18)
 
 Same process as 0.8.24 (Linux checks only during the round; test build + one checklist later). In this round so far:
 1. **Create Empty Library** (E217, commits a466a8b + 43e15de; user 2026-10-18: "replicate the original as close
@@ -75,8 +231,6 @@ for /sys/bus/usb/devices/1-8/authorized, or a cable pull + replug within ~0.3 s)
 needs a physical replug); per-monitor work area on Linux (xcb-randr: libxcb-randr0-dev not installed, needs sudo +
 CI apt list); E180 pixel comparison (needs the 0.7.x wrapper rebuilt + installed in ~/.wine, see
 native/tools/uicompare/README.md; "Virus TI (TI Revive).vst3" is no longer in the prefix); Mac double notes (E209 (7)).
-Note: an untracked/ignored file named "--help" (213 KB, 2026-10-17) sits in the repo root - probably a tool run by
-mistake; not touched.
 
 ## Round 0.8.24 (branch round-0.8.24, collecting; new test process 2026-10-18)
 
@@ -147,7 +301,8 @@ Four hardware reports from their own code (TI2, macOS 26, Apple Silicon), not re
 (no Access material, claims format), then move what we reproduce to evidence.md. Our side, checked in code only:
 1. Multi "Original Patch" write `72 00 03` -> all 16 edit buffers Init at the next power-up (2/2). TI Revive never sends
    it (ParamInit = part MIDI channels + Panel Part only; not in automation; bulk multi dump ignores the byte). To do
-   after the PR: a safety rule "never send `72 00 03`" (AGENTS.md rule 2 / test checklist), pointing at the claims entry.
+   after the PR: a safety rule "never send `72 00 03`" - DONE in round 0.8.26 (AGENTS.md rule 2, tirevive-test);
+   still to do after the PR: point it at the claims entry.
 2. Panic (CC120 + CC123) before close -> no sync marker in the next session (5/5). We send CC64 0 + CC123 on
    setActive(false), no CC120; Linux broker resets the port on close, macOS/Windows do not; marker retry (3x) would
    hide a missed first ping. Open check (Mac, read-only): first ping after a broker idle exit + reopen answered? If

@@ -7,7 +7,9 @@
 #include "editor/editormodel.h"
 #include "device/automation.h"
 #include "device/broker.h"
+#include "device/keepalive.h"
 #include "device/memsync.h"
+#include "device/sendbudget.h"
 #include "device/offlinepace.h"
 #include "device/presencewatch.h"
 #include "device/stallwatch.h"
@@ -195,6 +197,7 @@ private:
     Slot rt_[RT_SLOTS];
     std::atomic<size_t> rt_w_{0}, rt_r_{0};
     int rt_run_ = 0; // real-time messages sent in a row (worker thread)
+    SendBudget budget_; // bytes of stamped traffic per second (the DSP's 2046-byte stamp queue, E238)
     std::atomic<bool> stop_{false};
     bool open_ = false;
     AudioIn audio_;
@@ -543,6 +546,7 @@ private:
     int64_t tl_ = 0;
     bool tl_valid_ = false, anchored_ = false;
     double next_tick_ = 0;
+    ActiveSensing fe_;  // FE every 300 ms on the timeline (the DSP's watchdog, E237)
     double tl_acc_ = 0; // fractional Virus frames of the timeline (host rates other than 44.1 kHz)
     double stat_acc_ = 0; // the same for the host-frames statistic
     int64_t stream_start_ = -1;

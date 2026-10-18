@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "writeretry.h" // all platforms: vti_write (Linux and macOS)
 
 #ifdef __linux__
 #include "resetguard.h"
@@ -138,19 +139,34 @@ void vti_close(vti *v)
     free(v);
 }
 
+struct write_ctx {
+    vti *v;
+    uint8_t ep;
+    int err; // last libusb error that was not a timeout
+};
+
+static int write_packet(void *ctx, const uint8_t *data, int n, int *done)
+{
+    struct write_ctx *c = ctx;
+    int r = libusb_interrupt_transfer(c->v->h, c->ep, (uint8_t *)data, n, done, 1000);
+    if (r == LIBUSB_ERROR_TIMEOUT)
+        return VTI_XFER_TIMEOUT;
+    c->err = r;
+    return r;
+}
+
 int vti_write(vti *v, uint8_t ep, const uint8_t *data, int len)
 {
     int max = ep == VTI_EP_MI03_OUT ? 8 : 32; // wMaxPacketSize (lsusb -v)
-    for (int off = 0; off < len;) {
-        int n = len - off < max ? len - off : max, done = 0;
-        int r = libusb_interrupt_transfer(v->h, ep, (uint8_t *)data + off, n, &done, 1000);
-        if (r) {
-            vti_log("vti: write ep %02x: %s\n", ep, libusb_error_name(r));
-            return -1;
-        }
-        off += done;
-    }
-    return 0;
+    struct write_ctx c = {v, ep, 0};
+    int timeouts = 0;
+    // a timed-out packet was NAKed, never taken (the link is lossless, E239): try it again, up to 5 s in a row
+    int r = vti_write_chunks(&c, write_packet, data, len, max, 5, &timeouts);
+    if (timeouts)
+        vti_log("vti: write ep %02x: %d timeout(s), %s\n", ep, timeouts, r ? "gave up" : "then accepted");
+    if (r && c.err)
+        vti_log("vti: write ep %02x: %s\n", ep, libusb_error_name(c.err));
+    return r;
 }
 
 int vti_control(vti *v, uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue, uint16_t wIndex, uint8_t *data,

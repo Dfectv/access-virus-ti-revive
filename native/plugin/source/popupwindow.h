@@ -5,18 +5,12 @@
 // with the editor. Windows: a WS_POPUP window, macOS: a borderless non-activating NSPanel, Linux: an override-redirect
 // X11 window. The menu logic stays in editor/popupmenu.h.
 #pragma once
+#include "editor/workarea.h" // NativeRect
 #include "vstgui/lib/cframe.h"
 #include <cstdint>
 #include <memory>
 
 namespace vti {
-
-// native screen coordinates: Windows pixels (as the host's thread sees them), macOS points with y down from the top
-// of the main screen, X11 root window pixels
-struct NativeRect {
-    int x = 0, y = 0, w = 0, h = 0;
-    bool contains(int px, int py) const { return px >= x && px < x + w && py >= y && py < y + h; }
-};
 
 class PopupWindow {
 public:

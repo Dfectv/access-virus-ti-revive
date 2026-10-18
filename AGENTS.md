@@ -20,6 +20,8 @@ The findings are free to use elsewhere; the maintainers would be happy about a m
 2. **Do not risk the user's hardware.** Never send untested USB vendor requests or SysEx to a Virus, never trigger
    firmware/OS updates, never write to the Virus' flash. Keep MIDI rates bounded (a parameter flood can hang the
    Virus' audio until a power cycle — see evidence on automation limits). Prefer read-only diagnostics.
+   Never send the Multi parameter "Original Patch" (`72 00 03`): issue #7 reports that it sets all 16 edit
+   buffers to Init at the next power-up (2/2 on their TI2, not reproduced by us; TI Revive never sends it, E209).
 3. **Evidence before claims.** Do not invent protocol details. Every claim about the device or the Access software
    needs a source (capture, log, hardware test, static analysis) and goes into `findings/evidence.md` with a
    confidence level. If you are guessing, say so in the PR and mark the entry `open` or `LOW`.

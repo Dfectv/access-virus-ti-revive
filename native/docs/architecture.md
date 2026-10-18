@@ -89,6 +89,14 @@ Access is installed or registered. These are the files it loads:
   - Automation is rate limited (`src/device/automation.h`): coalesced per parameter, at most 250 messages/s,
     oldest parameter first. A flood of parameter messages hangs the Virus' audio until a power cycle; with the
     limit, three LFOs on every block still give each parameter ~80 updates/s.
+  - All stamped traffic (notes, controllers, clock, with their F5 stamps) is bounded by a byte budget
+    (`src/device/sendbudget.h`: 4 kB/s sustained, 1000 bytes at once; `VTI_NATIVE_MIDI_RATE` overrides, 0 = off):
+    the Virus' DSP parks stamped bytes in a 2046-byte queue without a fill check until they are due (E235/E238),
+    so a flood larger than that within the lead window corrupts its MIDI stream. Musical rates never come near
+    the budget; a runaway host is delayed a few blocks, and stamps are absolute, so timing is unchanged.
+  - Active Sensing (`src/device/keepalive.h`): one FE every 300 ms on the timeline, like the original. The DSP arms
+    a watchdog with the first FE and releases every voice about a second after the last one (E237), so FE goes out
+    regularly or not at all - never once.
   - Timing (sample accurate, the same latency in every session): the Virus plays a time-stamped event when its own
     14-bit stamp clock reaches the stamp. After the start-up sync ping it marks where that clock is 0 with a single
     sample on USB 2; the plug-in finds it and converts every stamp, so an event sounds a fixed `lead` after its
@@ -180,7 +188,7 @@ editor or a switch to another window closes the menu. Submenus open, switch and 
 |---|---|
 | plug-in format | VST3 bundle `~/.vst3/TI Revive Virus Control.vst3` (`x86_64-linux`) |
 | UI | VSTGUI on X11; uses the host's `IRunLoop` (from the plug frame or host context) and `X11::FrameConfig`; the host maps the XEmbed window |
-| menus | our own popup (above) in override-redirect X11 windows (`popupwindow_x11.cpp`); the work area is `_NET_WORKAREA` (all monitors together) |
+| menus | our own popup (above) in override-redirect X11 windows (`popupwindow_x11.cpp`); the work area is that of the monitor at the menu (`src/editor/workarea.h`): mutter's `_GTK_WORKAREAS_D<n>`, else the RandR monitors cut to `_NET_WORKAREA`, else `_NET_WORKAREA` |
 | drawing speed | VSTGUI keeps bitmaps as CPU (cairo image) surfaces and uploads their pixels on every draw into the X back buffer - ~70 ms per full repaint on a real X server/XWayland. The editor keeps X pixmap copies of all bitmaps (`cairo_surface_create_similar` on the frame window) and caches the static layer (backgrounds, panels, labels) as a pixmap; repaints become server-side composites (GPU with glamor): full repaint ~1-7 ms, knob step < 1 ms. `VTI_NATIVE_NO_PIXMAPS=1` disables the copies |
 | broker | systemd user socket `/tmp/vtibroker-<uid>.sock` (starts on demand, exits after 30 s idle) |
 | audio ring | `/dev/shm/tirevive-audio-<uid>` |
