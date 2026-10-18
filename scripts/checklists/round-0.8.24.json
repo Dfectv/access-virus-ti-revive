@@ -15,6 +15,18 @@
    ],
    "notes": [
     "Exports in REAPER: File &gt; Render, Source Master mix, Render speed <b>Full-speed offline</b>."
+   ],
+   "items": [
+    {
+     "id": "L6",
+     "title": "Redo LC5 with the dev build (fix E213)",
+     "steps": [
+      "Virus back on this PC. Claude installed the dev build (Linux only, not CI). Open the test project, play a few seconds: nothing crashes, it plays (smoke test).",
+      "Run <code>systemctl suspend</code>, wake it after about a minute, log in, press Play in REAPER.",
+      "Copy the log: <code>cp ~/.local/share/virus-ti-native/diag.log work/timing/L6-diag.log</code>."
+     ],
+     "expect": "the Virus is heard again; if the Virus dropped off USB at wake, the log has \"the Virus was gone for a moment - reconnecting\" or \"device reconnected\". When this passes, Claude starts the CI test build 0.8.24b for the Mac and the real PC."
+    }
    ]
   },
   {
