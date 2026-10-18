@@ -16,7 +16,7 @@ Evidence: [evidence.md](evidence.md) (E001-E240), protocol: [spec.md](spec.md); 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
 
 **Round closed 2026-10-18 (user: "we close this round ... we prepare for the release").** Version 0.8.26 in
-native/CMakeLists.txt. Round test build 0.8.26b = CI run 39148161706 (0.8.26a run 39147901750 failed on macOS: writeretry.h was included only on Linux, fixed). Checklist
+native/CMakeLists.txt. Round test build 0.8.26b = CI run 39148618705 (version input must be numeric for the MSI: 0.8.26; run 39148161706 with "0.8.26b" failed in the msi job) (0.8.26a run 39147901750 failed on macOS: writeretry.h was included only on Linux, fixed). Checklist
 https://claude.ai/artifact/W8EcFqru6zvxirJGJY2c36 (spec scripts/checklists/round-0.8.26.json: core on Linux, VM,
 Mac; L1/W1/M1 long notes (FE), L2/W2/M2 bank sync with panel changes (write retry), L3 per-monitor menus; real PC
 optional, B1 + core). After the checklist passes: full site check (README + site: firmware findings, Active
