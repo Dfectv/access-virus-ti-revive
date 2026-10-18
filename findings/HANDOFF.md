@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-18. CONTINUE HERE = **Round 0.8.26** (branch round-0.8.26, no code change yet): `72 00 03` safety rule (docs), Mac session mac-0.8.26-1 all pass (E225: no doubled notes in 7 takes, first sync ping answered after every broker idle exit; issue #7 finding 2 needs nothing from us). Virus: back to the Linux PC after the Mac session. Next candidates: PresenceWatch bounced branch + E175 with the user at the hardware. Before: **Released v0.8.25** (merge 95879c7 on main, tag v0.8.25, release CI run
+_Last updated: 2026-10-18. CONTINUE HERE = **Round 0.8.26** (branch round-0.8.26, no code change yet): `72 00 03` safety rule (docs), Mac session mac-0.8.26-1 all pass (E225: no doubled notes in 7 takes, first sync ping answered after every broker idle exit; issue #7 finding 2 needs nothing from us). Virus: was on the Mac for that session (moves back to Linux for the next items). Next candidates: PresenceWatch bounced branch + E175 with the user at the hardware. Before: **Released v0.8.25** (merge 95879c7 on main, tag v0.8.25, release CI run
 39131364441 green, 6 assets; site rebuilt by hand, run 39131769375, live shows 0.8.25 / 220 tests / original VST3
 projects). New: original VST3 projects open (second class with the original's id, E221-E223; VST2 not), Revert to /
 Recently Used (E220), Create Empty Library (E217), Windows 10 menu look (E219), plug-in version 0.8.25. Test machines:
