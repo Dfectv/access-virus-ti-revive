@@ -1,7 +1,7 @@
 {
  "round": "0.8.26",
  "core": "core.json",
- "lead": "Test build 0.8.26b (CI run 39148618705). New in this round, all from the analysis of the Virus' own firmware: (1) Active Sensing is sent every 300 ms like the original, instead of once per start (the Virus releases every sounding voice about a second after the last one it received, E237); (2) all time-stamped MIDI to the Virus is kept under a byte budget so a flood cannot overrun the Virus' 2046-byte stamp queue (E238); (3) the broker retries a USB write the busy Virus did not take within a second, instead of dropping the rest of the message (E239, libusb and WinUSB); (4) on Linux, popup menus open on the monitor they belong to (E227, first test with the CI build). This round changes USB and timing code, so the core items run on every system. The real PC is last and optional: skip it if you like. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat. When all pass, 0.8.26 is released.",
+ "lead": "Test build 0.8.26c (CI run 39149779397; 0.8.26b failed LC5: after the wake the Virus stayed at 48 kHz, a loud signal on its headphones, then it froze - fixed in the broker, E241). New in this round, all from the analysis of the Virus' own firmware: (1) Active Sensing is sent every 300 ms like the original, instead of once per start (the Virus releases every sounding voice about a second after the last one it received, E237); (2) all time-stamped MIDI to the Virus is kept under a byte budget so a flood cannot overrun the Virus' 2046-byte stamp queue (E238); (3) the broker retries a USB write the busy Virus did not take within a second, instead of dropping the rest of the message (E239, libusb and WinUSB); (4) on Linux, popup menus open on the monitor they belong to (E227, first test with the CI build). This round changes USB and timing code, so the core items run on every system. The real PC is last and optional: skip it if you like. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat. When all pass, 0.8.26 is released.",
  "rules": [
   "Item 2 on each system (bank sync) only changes patches in the Virus' edit buffer from its panel: never store a patch on the Virus.",
   "Order: Linux first (the Virus is on this PC), then the Windows 11 VM, then macOS, then the real PC if you want it. Close the DAW before the Virus moves."
@@ -12,10 +12,11 @@
    "title": "Linux",
    "where": "REAPER via pw-jack, Virus on this PC",
    "prep": [
-    "Claude installs 0.8.26b (replaces the dev build in ~/.vst3 and the broker; you may be asked for sudo for the udev rule). Logging is on. Restart REAPER if it was open.",
+    "Claude installs 0.8.26c (replaces the dev build in ~/.vst3 and the broker; you may be asked for sudo for the udev rule). Logging is on. Restart REAPER if it was open.",
     "In the test project add a second track with one long chord (4 whole notes, bars 1-4) on part 1, a pad or any patch with a long release."
    ],
    "notes": [
+    "<b>Redo LC5 with 0.8.26c, carefully:</b> headphones off the Virus, monitors low. After the wake, wait 10 s before you listen. If anything sounds wrong: stop, switch the Virus off, note it. Items already passed stay passed; redo only LC5 and the items after it.",
     "Exports in REAPER: File &gt; Render, Source Master mix, Render speed <b>Full-speed offline</b>."
    ],
    "items": [
@@ -56,7 +57,7 @@
    "title": "Windows 11 VM",
    "where": "win11 VM, Ableton Live 11, Virus attached by Claude",
    "prep": [
-    "Claude installs 0.8.26b silently and attaches the Virus (ask in the chat).",
+    "Claude installs 0.8.26c silently and attaches the Virus (ask in the chat).",
     "In the test set add a MIDI clip with one long chord (bars 1-4) on part 1, a patch with a long release."
    ],
    "items": [
@@ -87,7 +88,7 @@
    "title": "macOS",
    "where": "MacBook Air M3, Ableton Live 12",
    "prep": [
-    "Claude pushes the package; install with <code>sudo installer -pkg \"$HOME/Downloads/TI-Revive-0.8.26b-mac/TI-Revive-0.8.26-mac/TI Revive.pkg\" -target /</code>. Virus on the Mac.",
+    "Claude pushes the package; install with <code>sudo installer -pkg \"$HOME/Downloads/TI-Revive-0.8.26c-mac/TI-Revive-0.8.26-mac/TI Revive.pkg\" -target /</code>. Virus on the Mac.",
     "In the test set add a MIDI clip with one long chord (bars 1-4) on part 1, a patch with a long release."
    ],
    "items": [
@@ -118,7 +119,7 @@
    "title": "Real Windows PC (optional, last)",
    "where": "this PC booted into Windows, one self-contained session",
    "prep": [
-    "Install TI-Revive-0.8.26b-setup.exe from the CI run's artifacts (Claude says where to get it before you reboot). Logging on: an empty file diag.on in the plug-in's folder."
+    "Install TI-Revive-0.8.26c-setup.exe from the CI run's artifacts (Claude says where to get it before you reboot). Logging on: an empty file diag.on in the plug-in's folder."
    ],
    "items": [
     {
