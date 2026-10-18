@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-18. CONTINUE HERE = **Round 0.8.26** (branch round-0.8.26, no code change yet): `72 00 03` safety rule (docs), Mac session mac-0.8.26-1 all pass (E225: no doubled notes in 7 takes, first sync ping answered after every broker idle exit; issue #7 finding 2 needs nothing from us). Virus: was on the Mac for that session (moves back to Linux for the next items). Next candidates: PresenceWatch bounced branch + E175 with the user at the hardware. Before: **Released v0.8.25** (merge 95879c7 on main, tag v0.8.25, release CI run
+_Last updated: 2026-10-18. CONTINUE HERE = **Round 0.8.26** (branch round-0.8.26, no code change yet): `72 00 03` safety rule (docs), Mac session mac-0.8.26-1 all pass (E225: no doubled notes in 7 takes, first sync ping answered after every broker idle exit; issue #7 finding 2 needs nothing from us). Virus: was on the Mac for that session (moves back to Linux for the next items). Linux session E226: PresenceWatch bounced branch PASS on hardware, E175 not reproduced (0/12). Linux = release 0.8.25 now. Before: **Released v0.8.25** (merge 95879c7 on main, tag v0.8.25, release CI run
 39131364441 green, 6 assets; site rebuilt by hand, run 39131769375, live shows 0.8.25 / 220 tests / original VST3
 projects). New: original VST3 projects open (second class with the original's id, E221-E223; VST2 not), Revert to /
 Recently Used (E220), Create Empty Library (E217), Windows 10 menu look (E219), plug-in version 0.8.25. Test machines:
@@ -8,10 +8,9 @@ win11 VM = release (silent, 0.8.25c uninstalled first, plug-in 13:27 UTC); Linux
 ~/Downloads/TI-Revive-0.8.25-release, user runs install.sh (~/.vst3 still dev build 9dcd74f until then); Mac: release
 unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo installer; real PC still 0.8.24 (0.8.25b setup
 in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
-third entry (only if Snow users ask), PresenceWatch bounced branch on hardware,
-E175, Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
+third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E225), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E226), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
@@ -46,6 +45,12 @@ Evidence: [evidence.md](evidence.md) (E001-E225), protocol: [spec.md](spec.md); 
    reopens after an idle exit); 7 takes 480/480 onsets, 0 extra, jitter 0.16-0.29 ms; klog K constant, 1-2 sync
    reports per session. E209 (7) not reproduced (0/7), cause open: watch for it, no code change. Issue #7 finding 2:
    nothing to fix on our side (no CC120 sent, first ping answered). Files: work/timing/mac-0.8.26-1.
+6. **Linux reconnects (E226, 2026-10-18, release 0.8.25 installed on Linux by install.sh):** new
+   scripts/linux-usb-bounce.sh (sudo; sysfs authorized 0/1, optional --freeze PID). PresenceWatch bounced branch
+   PASS on hardware (frozen host 3/3, 2/3 via the bounced branch; unfrozen 0.3 s drops 3/3, 2/3 bounced too);
+   E175 cable 3/3 and power-off/on with a waiting host 3/3 recovered: E175 not reproduced (0/12). Likely why
+   (LOW): since 0.8.21 the flash info read (~3 s) comes before the audio start, so the stream no longer starts
+   while the Virus boots. E175 stays "watch", no code change.
 
 ## Round 0.8.25 (released as v0.8.25 2026-10-18)
 
