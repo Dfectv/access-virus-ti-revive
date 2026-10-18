@@ -14,15 +14,18 @@ Evidence: [evidence.md](evidence.md) (E001-E216), protocol: [spec.md](spec.md); 
 ## Round 0.8.25 (branch round-0.8.25, collecting; started 2026-10-18 while the user was away)
 
 Same process as 0.8.24 (Linux checks only during the round; test build + one checklist later). In this round so far:
-1. **Create Empty Library** (E217, commit a466a8b): the original's entry last under "Personal Libraries" in LOAD, SAVE
-   and the browser's bank menu. The original asks for a name in a save dialog (default "New Library.mid") and writes a
-   26-byte empty SMF; ours writes the same bytes as "New Library.mid" / "New Library 2.mid".. in the library folder
-   without a dialog (our editor has no file dialogs; user to decide whether we want a real dialog) and lists it at once.
-   Test library_create_empty (215 tests). Xvfb check with the dev build + TI2: entry, byte-identical file, listed
-   after the click, SAVE > New Library > 000 (new) wrote a patch. Differences left: no separator line before the entry
-   (our popup has no separator rows; needs the original's separator height measured on Windows, not guessed).
-   Checklist item later: L/W/M "LOAD > Personal Libraries > Create Empty Library, then SAVE into it, LOAD from it".
-   Dev build NOT installed in ~/.vst3 (release 0.8.24 stays there); user smoke test of the dev build still to do.
+1. **Create Empty Library** (E217, commits a466a8b + 43e15de; user 2026-10-18: "replicate the original as close
+   as possible"): entry last under "Personal Libraries" in LOAD, SAVE and the browser's bank menu; opens the
+   original's save dialog (title "Save empty library as...", filter "Virus TI Patch Libraries" *.mid, library folder,
+   "New Library.mid"), ".mid" added like the original, 26-byte empty SMF written, listed at once. Linux: VSTGUI's
+   zenity/kdialog dialog (modal, blocks the host UI like every VSTGUI plug-in; without zenity/kdialog nothing happens).
+   Xvfb check passed (dialog, OK, file byte-identical, listed). Windows/macOS: not built locally (CI later).
+   OPEN: the separator line before the entry. Needs the Windows 10 THEMED separator height: win10 VM has no
+   logged-on user -> classic menus (rows 17 px, separator 9 px; our rows are the themed 19 px). Tool ready:
+   scratchpad sep/menumeasure.exe (copied to C:\vti\sep in the win10 VM); run it in a logged-on desktop session
+   (e.g. a scheduled task /IT) and read C:\vti\sep\rects.txt + menu.bmp. Then: separator rows in PopupMenu (TDD).
+   Checklist item later: LOAD > Personal Libraries > Create Empty Library (dialog, OK), SAVE into it, LOAD from it.
+   Dev build NOT installed in ~/.vst3 (release 0.8.24 stays); user smoke test of the dev build still to do.
 2. **Issue #7 finding 3 on Linux** (E218): 6 start-ups after broker idle exits with a full state restore, release
    0.8.24: ready 6.7-6.9 s, marker every time, normal sound, no hang (9/9 with E209). No code change.
 Not possible alone (need the user): PresenceWatch "bounced" branch on hardware (a sub-second USB drop: needs sudo
