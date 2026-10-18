@@ -31,7 +31,7 @@ not shown to be REAPER). If it happens again: the same gdb command catches it; k
 the rest of the Linux checklist if convenient.
 **LC5 FAIL (E241, blocks the release):** after the wake the Virus stayed at 48 kHz (E175 state), the broker fed it
 44/45-frame packets, loud signal on its headphones, no sound, then the Virus froze (power cycle). Fix in the broker
-(silent same-size OUT packets for 48 kHz packets, SET_CUR again 3x); needs a new test build and a careful LC5 redo
+(silent same-size OUT packets for 48 kHz packets, SET_CUR again 3x) in test build 0.8.26c = CI run 39149779397 (all green), installed on Linux; needs a careful LC5 redo
 (headphones off, monitors low).
 After the checklist passes: full site check (README + site: firmware findings, Active
 Sensing, budget, retry are user-visible stability changes - worth a line), release notes in build.yml, merge
