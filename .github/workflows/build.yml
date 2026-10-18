@@ -225,8 +225,9 @@ jobs:
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
           **New in 0.8.24: the Virus plays again after the computer slept.** After waking, the plug-in sets the Virus
-          up again like after a reconnect (start-up messages, your project's sound, new timing), also when the Virus
-          dropped off USB for a moment at wake. Tested on a Windows 11 PC, macOS and Linux. The plug-in's log no longer
+          up again like after a reconnect (start-up messages, your project's sound, new timing), also after a short USB
+          drop at wake (tested with a drop of under a second on Linux). Tested on a Windows 11 PC, macOS and Linux.
+          The plug-in's log no longer
           reports a false "audio stood still" at every start.
 
           **New in 0.8.23: export and freeze without a workaround.** The original refused offline rendering, so you
