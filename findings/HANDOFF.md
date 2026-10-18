@@ -59,7 +59,10 @@ Same process as 0.8.24 (Linux checks only during the round; test build + one che
    Revert/Recently Used + Create Empty Library; VM and Mac core + Create Empty Library dialog only.
    **Round test build 0.8.25c = CI run 39130131007 (7b49ada). Checklist https://claude.ai/artifact/YV55z8yQ737u5JpLcNAx93
    (spec scripts/checklists/round-0.8.25.json: L1-L3, W1, M1; no core items and no real PC this round - user).
-   Plan (user): ship 0.8.25 soon; live site stays until then.** Linux ~/.vst3 = dev build 9dcd74f (backup of 0.8.24 in
+   Plan (user): ship 0.8.25 soon; live site stays until then.**
+   **Round results (E224): L1-L3, W1, M1 all PASS. Ready for the release steps:** full site check, retake
+   docs/images/plugin-menus.png (themed look), release notes in build.yml, merge round-0.8.25 -> main, tag v0.8.25,
+   release CI, site rebuild by hand, install the release on Linux (user runs install.sh), VM (silent), Mac. Linux ~/.vst3 = dev build 9dcd74f (backup of 0.8.24 in
    ~/.vst3-backup/0.8.24). User smoke test of the earlier dev build (menus, Create Empty Library): ok.
 win10 VM: 5 crash dumps since 2026-10-10 (bugcheck 0x139 at 13:06 today while Live + the Access driver ran with the
 Virus passed through) - the VM is a reference machine only.
