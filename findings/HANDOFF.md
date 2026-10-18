@@ -25,6 +25,10 @@ optional, B1 + core). CI run 39148618705 all green; Linux build installed 19:18 
 19:15:35, no kernel segfault line, no core (ulimit -c 0, apport). Not reproduced by a command-line render
 (REAPER -renderproject under gdb, editor closed, exits after the render: normal exit, WAV ok). Next: user runs REAPER
 under gdb (command in the chat, output work/timing/LC3-crash-gdb.txt) and repeats LC3 with the editor open.
+**Repeat 19:20 under gdb with the CI build (48 kHz, block 256, editor open): render OK, no crash** (user: "worked
+now. maybe it was an issue with reaper?"). Status: WATCH, not reproduced (1 crash in 2 GUI renders, cause unknown -
+not shown to be REAPER). If it happens again: the same gdb command catches it; keep running REAPER under gdb for
+the rest of the Linux checklist if convenient.
 After the checklist passes: full site check (README + site: firmware findings, Active
 Sensing, budget, retry are user-visible stability changes - worth a line), release notes in build.yml, merge
 round-0.8.26 -> main, tag v0.8.26, release CI, site rebuild by hand, install the release on Linux, VM (silent), Mac.
