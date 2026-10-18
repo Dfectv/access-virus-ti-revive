@@ -4,6 +4,15 @@ _Last updated: 2026-10-18 (issue #7 open checks below; then CONTINUE HERE). Chro
 Evidence: [evidence.md](evidence.md) (E001-E210), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
+## Branch sleep-reconnect (2026-10-18): fixes for E210 (1) and E209 (5), dev build on Linux
+
+StallWatch reports only a stream that was running (new test stallwatch_starting_stream_is_no_stall, 209 tests);
+a reported stall now calls DeviceOut::on_resume -> VirusPlugin::resend_to_virus() (start-up messages + state +
+readiness probe, the same as on a reconnect). Built on Linux, ctest green (installer_scripts not run: no pwsh). Site
+updated with the Windows timing (E209; run 39104430486, live checked). Dev build installed in ~/.vst3 (old log kept as
+diag.log.baseline). Not tested on hardware yet: next the user's smoke test on Linux (cold start without the false
+alarm, systemctl suspend with the plug-in loaded), then CI test build and sleep on Windows + Mac.
+
 ## Baseline round results (2026-10-18): E209, E210
 
 All systems on release 0.8.23 (Linux installed by the user, Mac pkg installed by the user, Windows real PC).
