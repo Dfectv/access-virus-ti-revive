@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-18. CONTINUE HERE = **Released v0.8.24** (tag on main 6a672d6, release CI run 39115035193 green,
+_Last updated: 2026-10-18. CONTINUE HERE = **Round 0.8.25 started (branch round-0.8.25, see the section below)**; before that: **Released v0.8.24** (tag on main 6a672d6, release CI run 39115035193 green,
 release text corrected by hand: the sleep sentence says "tested with a drop of under a second on Linux"; site rebuilt,
 run 39115534532, live shows 0.8.24 / 214 tests). Test machines: Linux and win11 VM = release 0.8.24 (VM: 0.8.24a
 uninstalled first, plug-in hash = release CI); real PC = 0.8.24b test build, release setup in
@@ -10,6 +10,28 @@ Open from this round: the PresenceWatch "bounced" branch (a USB drop the worker 
 only, not yet hit on hardware (E214); Linux replug known issue not retested. Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E216), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
+
+## Round 0.8.25 (branch round-0.8.25, collecting; started 2026-10-18 while the user was away)
+
+Same process as 0.8.24 (Linux checks only during the round; test build + one checklist later). In this round so far:
+1. **Create Empty Library** (E217, commit a466a8b): the original's entry last under "Personal Libraries" in LOAD, SAVE
+   and the browser's bank menu. The original asks for a name in a save dialog (default "New Library.mid") and writes a
+   26-byte empty SMF; ours writes the same bytes as "New Library.mid" / "New Library 2.mid".. in the library folder
+   without a dialog (our editor has no file dialogs; user to decide whether we want a real dialog) and lists it at once.
+   Test library_create_empty (215 tests). Xvfb check with the dev build + TI2: entry, byte-identical file, listed
+   after the click, SAVE > New Library > 000 (new) wrote a patch. Differences left: no separator line before the entry
+   (our popup has no separator rows; needs the original's separator height measured on Windows, not guessed).
+   Checklist item later: L/W/M "LOAD > Personal Libraries > Create Empty Library, then SAVE into it, LOAD from it".
+   Dev build NOT installed in ~/.vst3 (release 0.8.24 stays there); user smoke test of the dev build still to do.
+2. **Issue #7 finding 3 on Linux** (E218): 6 start-ups after broker idle exits with a full state restore, release
+   0.8.24: ready 6.7-6.9 s, marker every time, normal sound, no hang (9/9 with E209). No code change.
+Not possible alone (need the user): PresenceWatch "bounced" branch on hardware (a sub-second USB drop: needs sudo
+for /sys/bus/usb/devices/1-8/authorized, or a cable pull + replug within ~0.3 s); Linux replug known issue (E175,
+needs a physical replug); per-monitor work area on Linux (xcb-randr: libxcb-randr0-dev not installed, needs sudo +
+CI apt list); E180 pixel comparison (needs the 0.7.x wrapper rebuilt + installed in ~/.wine, see
+native/tools/uicompare/README.md; "Virus TI (TI Revive).vst3" is no longer in the prefix); Mac double notes (E209 (7)).
+Note: an untracked/ignored file named "--help" (213 KB, 2026-10-17) sits in the repo root - probably a tool run by
+mistake; not touched.
 
 ## Round 0.8.24 (branch round-0.8.24, collecting; new test process 2026-10-18)
 
