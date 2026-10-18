@@ -493,10 +493,11 @@ void DeviceOut::run()
         if ((env_stats() || diag_on_.load(std::memory_order_acquire)) && std::chrono::steady_clock::now() >= stats_next_) { // endurance tests
             stats_next_ = std::chrono::steady_clock::now() + std::chrono::seconds(10);
             int64_t newest = audio_ok_ ? audio_.newest_frame() : -1, pos = audio_ok_ ? audio_.position() : -1;
-            log("stats: audio %d drops %lld distance %lld queued %d | marker %lld aligned blocks %lld, read margin min "
-                "%lld, timeline steps %lld, last sound %lld frames ago | host frames %lld / virus frames %lld, anchors "
-                "%lld, err %lld..%lld\n",
+            log("stats: audio %d drops %lld filled %lld distance %lld queued %d | marker %lld aligned blocks %lld, read "
+                "margin min %lld, timeline steps %lld, last sound %lld frames ago | host frames %lld / virus frames "
+                "%lld, anchors %lld, err %lld..%lld\n",
                 (int)audio_ok_.load(), (long long)(audio_ok_ ? audio_.drops() : -1),
+                (long long)(audio_ok_ ? audio_.filled() : -1),
                 (long long)(newest >= 0 && pos >= 0 ? newest - pos : -1), queued_.load(), (long long)marker.load(),
                 (long long)aligned_blocks.exchange(0), (long long)read_margin_min.exchange(INT64_MAX),
                 (long long)tl_steps.exchange(0), (long long)(newest - last_sound.load()), (long long)host_frames.exchange(0),

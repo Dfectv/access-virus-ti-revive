@@ -22,6 +22,7 @@ public:
     void read(float *usb1l, float *usb1r, float *usb2l, float *usb2r, int n, int latency, float *usb3l = nullptr,
               float *usb3r = nullptr);
     int64_t drops() const { return drops_; }
+    int64_t filled() const; // macOS: frames of silence put in for IO cycles Core Audio skipped (gapfill.h); else 0
     int64_t position() const { return pos_; } // next frame read() delivers (-1 before the first read)
     // n frames from the absolute ring frame `pos` (silence where not available)
     void read_at(float *usb1l, float *usb1r, float *usb2l, float *usb2r, int n, int64_t pos, float *usb3l = nullptr,

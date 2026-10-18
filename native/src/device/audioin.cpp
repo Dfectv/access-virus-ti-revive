@@ -23,6 +23,7 @@ extern "C" {
 #endif
 #ifdef __APPLE__
 #include <CoreAudio/CoreAudio.h>
+#include "gapfill.h"
 #include <string>
 #include <vector>
 #endif
@@ -54,6 +55,7 @@ struct MacAudio {
     AudioDeviceIOProcID proc = nullptr;
     vti_audio_shm *ring = nullptr;
     bool playing = false; // the output towards the Virus runs (IOProc thread)
+    GapFill gaps;         // skipped IO cycles become silence, so ring frames stay the Virus' frames (E243)
 };
 
 static std::string cf_string(AudioObjectID id, AudioObjectPropertySelector sel)
@@ -146,8 +148,8 @@ static void play_out(MacAudio *m, AudioBufferList *out)
 }
 
 // Core Audio delivers Float32 (interleaved or one buffer per stream); the ring holds int16 frames of 6 channels
-static OSStatus io_proc(AudioObjectID, const AudioTimeStamp *, const AudioBufferList *in, const AudioTimeStamp *,
-                        AudioBufferList *outl, const AudioTimeStamp *, void *user)
+static OSStatus io_proc(AudioObjectID, const AudioTimeStamp *, const AudioBufferList *in,
+                        const AudioTimeStamp *in_time, AudioBufferList *outl, const AudioTimeStamp *, void *user)
 {
     auto *m = (MacAudio *)user;
     auto *r = m->ring;
@@ -158,6 +160,15 @@ static OSStatus io_proc(AudioObjectID, const AudioTimeStamp *, const AudioBuffer
                         ? in->mBuffers[0].mDataByteSize / (sizeof(float) * in->mBuffers[0].mNumberChannels)
                         : 0;
     int64_t base = r->in_frames;
+    // IO cycles Core Audio skipped (processor overload, e.g. during an export) are only visible in the device's sample
+    // time: their frames become silence, so a ring frame stays a Virus frame and the stamps stay right (gapfill.h)
+    if (in_time && (in_time->mFlags & kAudioTimeStampSampleTimeValid)) {
+        const int64_t gap = m->gaps.update(in_time->mSampleTime, base);
+        for (int64_t f = 0; f < gap && f < VTI_AUDIO_RING; f++)
+            memset(r->in + ((base + f) & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_IN_CH, 0,
+                   VTI_AUDIO_IN_CH * sizeof(int16_t));
+        base += gap;
+    }
     for (UInt32 f = 0; f < frames; f++) {
         int16_t *dst = r->in + ((base + f) & (VTI_AUDIO_RING - 1)) * VTI_AUDIO_IN_CH;
         int ch = 0;
@@ -263,6 +274,15 @@ void AudioIn::close()
 }
 
 bool AudioIn::streaming() const { return shm_ && shm_->streaming; }
+
+int64_t AudioIn::filled() const
+{
+#ifdef __APPLE__
+    return mac_ ? ((MacAudio *)mac_)->gaps.filled() : 0;
+#else
+    return 0; // the broker fills USB gaps itself (vtiusbaudio_libusb.c, "stream stalled")
+#endif
+}
 
 int64_t AudioIn::newest_frame() const { return streaming() ? load_acquire(&shm_->in_frames) : -1; }
 
