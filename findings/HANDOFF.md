@@ -3,7 +3,7 @@
 _Last updated: 2026-10-18. CONTINUE HERE = "Round 0.8.24" below (test running, checklist link there) (work on branch round-0.8.24; main has the
 older HANDOFF). Test machines: Linux = dev build of round-0.8.24 in ~/.vst3; Mac, win11 VM and the real PC = release
 0.8.23. Chronological notes until now: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E211), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E212), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.24 (branch round-0.8.24, collecting; new test process 2026-10-18)
@@ -24,7 +24,12 @@ In this round so far:
    instead of 0.8.0, Driver Extensions fix, replug and sleep rows, 0.7.x buffer row re-sourced to E111/E123);
    tirevive-pr (native first, real evidence.md columns, PR template, maintainer rules); tirevive-site-check
    (core.json / baseline-*.json, full style rules); Snow wording in AGENTS.md and CONTRIBUTING.md. No test needed.
-**Round closed early on the user's request (2026-10-18): test, merge to main, release 0.8.24, then the next round.**
+**Baseline results (E212, 2026-10-18): NOT releasable yet.** Linux LC1-LC4 pass (false alarm gone), LC5 sleep FAIL:
+the stall path (no USB reset this time) sends set-up + state, Virus ready, but no sync marker afterwards -> timeline
+never re-anchored, silent. Next: trace in code why no ping/marker follows the stall path (reconnect path E211 gets
+one), test first. VM WC1-WC4 pass. Mac ran 0.8.23 (pkg not installed): redo MC1-MC5 with 0.8.24a (or the fix build).
+Real PC BC1-BC5 not run: user does a bigger Windows run later.
+**Plan (user 2026-10-18): test, merge to main, release 0.8.24, then the next round.**
 Test build 0.8.24a = CI run 39105250660 (version 0.8.24, from sleep-reconnect fe7b196; the branch has no code
 change since, only docs/checklist tooling, so no new CI run). Installed: Linux (install.sh, plug-in hash = CI), win11
 VM (setup.exe /quiet, entry 0.8.24, VM left running, Virus not attached yet), Mac (zip pushed + unzipped in
