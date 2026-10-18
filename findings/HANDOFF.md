@@ -45,9 +45,14 @@ Same process as 0.8.24 (Linux checks only during the round; test build + one che
    "TI Revive Virus Control (original projects)" (commit d58e175, test factory_classes; user: keep two entries for
    now, decide before the release whether to take over the id - after the Live 11 redo and the Live 12 data).
    CI run 39124266237 failed on Windows: my library_create_empty test kept a file open while deleting its folder
-   (Windows throws -> abort 0xc0000409); fixed + test runner names each test first (9dcd74f). CI run 39124817970 =
-   test build 0.8.25a for the VM (PW1 redo) and the other machines. Linux ~/.vst3 = dev build 9dcd74f (backup of
-   0.8.24 in ~/.vst3-backup/0.8.24). User smoke test of the earlier dev build (menus, Create Empty Library): ok.
+   (Windows throws -> abort 0xc0000409); fixed + test runner names each test first (9dcd74f). 0.8.25a (CI
+   39124817970) still failed PW1: the "original's id" B49F90D9735F4305.. was the raw TUID bytes, never the FUID;
+   the real one is D9909FB45F730543AC5397BE8958CD31 (E221 correction, 2a6d97c; also fixes the moduleinfo entry).
+   **0.8.25b (CI 39125467481) on the win11 VM: PW1 + PW2 pass, PW3 (VST2) fails as expected (E222).** Plug-in
+   version was still 0.8.23 (also in the 0.8.24 release) -> 0.8.25 (87eef8a) + site-check rule. Next: Mac (Live 12,
+   0.8.25b zip in ~/Downloads/TI-Revive-0.8.25b-mac, user runs the sudo installer) PM1-PM3, then the real PC PB1-PB3
+   (setup still to copy to C:\tirevive-test). Linux ~/.vst3 = dev build 9dcd74f (backup of 0.8.24 in
+   ~/.vst3-backup/0.8.24). User smoke test of the earlier dev build (menus, Create Empty Library): ok.
 win10 VM: 5 crash dumps since 2026-10-10 (bugcheck 0x139 at 13:06 today while Live + the Access driver ran with the
 Virus passed through) - the VM is a reference machine only.
 
