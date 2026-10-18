@@ -6,7 +6,7 @@
 // like a DAW's export; the wall time of that part is printed (the plug-in paces it to the Virus: ~1x).
 // --hold T: C4 on at T s and held to the end; --param-at T:ID=NORM: a parameter change at T s (repeatable) - e.g. to
 // hear whether the Virus applies a change to a held note.
-// --cid HEX: load that class (e.g. the original Access id B49F90D9735F4305AC5397BE8958CD31, E221), else the first.
+// --cid HEX: load that class (e.g. the original Access id D9909FB45F730543AC5397BE8958CD31, E221), else the first.
 // --duplicate T: a second instance runs next to the first from the start (a DAW's duplicated track, issue #6) with
 // the same notes; at T s the first is removed and the second takes over the Virus. --editor2 with it: the
 // duplicate's editor too (its "Virus unavailable" page while it waits); with --editor both editors are open at once,

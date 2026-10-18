@@ -33,15 +33,17 @@ namespace vti {
 // macOS the bridge's id (tirbridge_vst3.cpp). The other ids are declared compatible in moduleinfo.json
 // (plugin/CMakeLists.txt). VTI_NATIVE_DROPIN: the original Access id (tests with projects of the original).
 #if defined(VTI_NATIVE_DROPIN)
-const FUID kVirusTIClassId(0xB49F90D9, 0x735F4305, 0xAC5397BE, 0x8958CD31);
+const FUID kVirusTIClassId(0xD9909FB4, 0x5F730543, 0xAC5397BE, 0x8958CD31);
 #elif defined(__APPLE__)
 const FUID kVirusTIClassId(0x7A1E5C3B, 0x4D2F4E61, 0x9B0C8A17, 0x2F64D5E9);
 #else
 const FUID kVirusTIClassId(0xB49F90D9, 0x735F4305, 0xAC5397BE, 0x8958CD31 ^ 0x5A);
 #endif
 // Hosts that ignore moduleinfo compatibility restore only the exact id (Ableton Live 11, E221): the same plug-in is
-// registered a second time under the original's id (entry.cpp), so projects made with the original open with it
-const FUID kOriginalClassId(0xB49F90D9, 0x735F4305, 0xAC5397BE, 0x8958CD31);
+// registered a second time under the original's id (entry.cpp), so projects made with the original open with it.
+// As a FUID (the words hosts store, e.g. Live's Uid Fields): D9909FB4 5F730543 ...; the wrapper's id above was made
+// from the raw bytes (B4 9F 90 D9 ..., E221) and stays: projects saved with it exist
+const FUID kOriginalClassId(0xD9909FB4, 0x5F730543, 0xAC5397BE, 0x8958CD31);
 
 static bool env_debug()
 {
