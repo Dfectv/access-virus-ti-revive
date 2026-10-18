@@ -51,9 +51,12 @@ Same process as 0.8.24 (Linux checks only during the round; test build + one che
    **0.8.25b (CI 39125467481) on the win11 VM: PW1 + PW2 pass, PW3 (VST2) fails as expected (E222).** Plug-in
    version was still 0.8.23 (also in the 0.8.24 release) -> 0.8.25 (87eef8a) + site-check rule. **Mac (Live 12.4.6,
    0.8.25b installed): PM1 + PM2 pass, PM3 VST2 fails as expected (E223). Real PC skipped (user). Test complete.**
-   Open before the release: README/site claim "projects of the original open" -> "VST3 projects of the original open
-   (second entry 'TI Revive Virus Control (original projects)'), VST2 projects do not" (site check); decision two
-   entries vs one (data: both Live versions restore the exact id; keeping two is the safe choice). Linux ~/.vst3 = dev build 9dcd74f (backup of 0.8.24 in
+   Site check 2026-10-18 (round items only; full check before the release): "projects of the original open" was
+   wrong for 0.8.24 in Live 11 -> now "VST3 projects open (since 0.8.25, second entry), VST2 do not" (site +
+   README); TESTS 214 -> 220; menu look, Revert/Recently Used, Create Empty Library added (since 0.8.25). NOT live
+   (site from main by hand). Still to do at the release: retake docs/images/plugin-menus.png (old look). User
+   recommendation taken: keep two entries. Round checklist plan (user: UI on Linux is enough): Linux core + menus +
+   Revert/Recently Used + Create Empty Library; VM and Mac core + Create Empty Library dialog only. Linux ~/.vst3 = dev build 9dcd74f (backup of 0.8.24 in
    ~/.vst3-backup/0.8.24). User smoke test of the earlier dev build (menus, Create Empty Library): ok.
 win10 VM: 5 crash dumps since 2026-10-10 (bugcheck 0x139 at 13:06 today while Live + the Access driver ran with the
 Virus passed through) - the VM is a reference machine only.

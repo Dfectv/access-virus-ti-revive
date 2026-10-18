@@ -327,7 +327,7 @@ def page_landing(latest, releases, sums):
       <div><h3>Point it at your Access installer</h3><p>The setup unpacks the skin, the parameter descriptions and the
       ROM banks from the installer you own. No Access files come with TI Revive.</p></div>
       <div><h3>Load the plug-in</h3><p><strong>TI Revive Virus Control</strong> on a MIDI track. Projects made with the
-      original plug-in open with it. The first start reads RAM A&ndash;D from the Virus once, which takes a few
+      original plug-in (VST3) open with it. The first start reads RAM A&ndash;D from the Virus once, which takes a few
       minutes; you can play meanwhile.</p></div>
     </div>
   </div>
@@ -491,7 +491,12 @@ def features_section():
       <p><strong>TI Revive Virus Control</strong> is written from scratch and looks and works like the original Access plug-in, Virus Control. It draws its look from your own Access installer at runtime.</p></div>
       <ul>
         <li>All 16 parts, every parameter, the preset browser, RAM and ROM banks, patch libraries.</li>
-        <li>Projects made with the original plug-in open with it; the saved state is byte for byte the same.</li>
+        <li>Projects made with the original plug-in's VST3 version open with it (since 0.8.25: the plug-in list also
+        shows it as "TI Revive Virus Control (original projects)", which has the original's plug-in ID; tested in Ableton
+        Live 11 and 12, also a Windows project on the Mac); the saved state is byte for byte the same. Projects with the
+        original's VST2 version do not open: TI Revive is VST3 only.</li>
+        <li>The LOAD menu has the original's "Revert to" (back to the patch before the last load, edits included) and
+        "Recently Used" (the last 10 patches of each part); Personal Libraries has "Create Empty Library" (since 0.8.25).</li>
         <li>Presets and soft knobs chosen on the Virus itself are followed, as in the original.</li>
         <li>Three stereo outputs over USB, plus the analog outputs of the Virus.</li>
         <li>Audio from your DAW through the filters and effects of the Virus (sidechain input), as in the original.</li>
@@ -514,7 +519,8 @@ def features_section():
       Windows: it can reach beyond the plug-in window and use the whole screen, with the original's columns (the
       Wavetable list: 4 columns of 25). A submenu opens when the pointer rests on its entry for a moment, so you can
       move across other entries into an open submenu, for example from RAM A to its patches past RAM B. Arrow keys,
-      Return and Esc work; a click elsewhere or switching to another window closes the menu.</p></div>
+      Return and Esc work; a click elsewhere or switching to another window closes the menu. Since 0.8.25 they also look
+      like the original's on Windows 10: menus with one column in Windows' modern look, menus with columns in the older one.</p></div>
       <figure class="shot"><img src="plugin-menus.png" width="1020" height="760"
       alt="The LOAD menu: the device entry, the bank list and RAM A's 128 patches in four columns, beyond the plug-in window">
       <figcaption>The LOAD menu reaching beyond the plug-in window (Linux), drawn from your own Access installer. TI Revive
@@ -671,7 +677,7 @@ def page_changelog_landing(releases):
 # the README's screenshots that the site shows too (copied at build time)
 SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png", "plugin-help-inactive.png",
                  "plugin-menus.png"]
-TESTS = 214 # unit tests in native/tests (vtitests), as of 2026-10-18 (round 0.8.24)
+TESTS = 220 # unit tests in native/tests (vtitests), as of 2026-10-18 (round 0.8.25)
 # line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
 COVERAGE, COVERAGE_DATE = "94 %", "16 Oct 2026"
 

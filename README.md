@@ -238,7 +238,15 @@ same with Access' own driver.
   original's menus on Windows: it can reach beyond the plug-in window and use the whole screen, with the original's
   columns (the Wavetable list: 4 columns of 25). A submenu opens when the pointer rests on its entry for a moment, so
   you can move across other entries into an open submenu, for example from RAM A to its patches past RAM B. Arrow
-  keys, Return and Esc work; a click elsewhere or switching to another window closes the menu.
+  keys, Return and Esc work; a click elsewhere or switching to another window closes the menu. Since 0.8.25 they also
+  look like the original's on Windows 10: menus with one column in Windows' modern look, menus with columns in the
+  older one.
+- **Projects made with the original plug-in:** projects with its VST3 version open with "TI Revive Virus Control"
+  (since 0.8.25: the plug-in list also shows it as "TI Revive Virus Control (original projects)", which has the
+  original's plug-in ID; tested in Ableton Live 11 and 12, also a Windows project on the Mac); the saved state is byte
+  for byte the same. Projects with the original's VST2 version do not open: TI Revive is VST3 only.
+- **LOAD menu:** the original's "Revert to" (back to the patch before the last load, edits included) and "Recently
+  Used" (the last 10 patches of each part); Personal Libraries has "Create Empty Library" (since 0.8.25).
 
 <p align="center">
   <img src="docs/images/plugin-menus.png" alt="The LOAD menu: the device entry, the bank list and RAM A's 128 patches in four columns, beyond the plug-in window" width="680"><br>
@@ -404,7 +412,7 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 - **Automation rate limit** (250 messages/s, coalesced per parameter): unthrottled parameter floods hung the Virus'
   audio until a power cycle within 4 minutes; with the limit a 4-minute full-load test (16 channels of notes + 32
   automation lanes) passes.
-- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 214 unit
+- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 220 unit
   tests run with every release build on Windows and Linux, plus two end-to-end tests on Linux in a virtual display
   (two editors of a duplicated track; the Control Center's window and close button).
 
