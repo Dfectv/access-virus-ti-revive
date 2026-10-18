@@ -10,7 +10,7 @@ unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo install
 in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
 third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E233), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E235), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
@@ -85,14 +85,21 @@ Evidence: [evidence.md](evidence.md) (E001-E233), protocol: [spec.md](spec.md); 
    the DSP's host-port receive handler (what happens to MIDI bytes when the host writes faster than the DSP
    drains) - the missing half of the rule-2 hang.
 
-10. **DSP host-port receive handler found (E233).** Image offset 0xa823: appends each received word to one of two
-    X-memory rings by bit 7 (128 and 512 words, modulo pointers X:$25/X:$27), no fill check; the main loop
-    drains ring B word by word into a MIDI byte parser (0xa74e, state handlers 0x52305/0x52310, system table
-    X:$482d1) and routes complete channel messages per part (0xa7c3..). A flood of more than ~512 bytes ahead of
-    the main loop corrupts the stream silently. The channel path has a DEBUGNE trap (0xa7c8) - a 56300 DEBUGcc
-    halts the core until a reset, the first concrete candidate for the rule-2 hang (56 conditional
-    DEBUGcc in the listing, to be checked; the 677 plain DEBUG words are mostly data). Next: the image's P-memory base (vector table), the state handlers, which trap can fire. HI08 pins /
-    host-side ready check: E229/E230.
+10. **DSP host-port receive handler found (E233, corrected the same day).** P:$5237d (HI08 receive vector): two
+    unchecked X-memory rings - 128 words for the live MIDI byte stream (one byte per word; USB cables 2/5 and DIN
+    input) and 512 words for the host CPU's own complete 3-byte messages; drained once per main-loop tick (0xd8f)
+    into the MIDI byte parser 0x522a8 (tables Y:$482ca/Y:$482d1: program change ignored by the DSP, active-sensing
+    watchdog of 750 ticks). The live ring is only 128 bytes deep: more than that between two ticks corrupts the
+    stream silently. The DEBUGNE in the channel path checks a register invariant (m1 linear), not data.
+11. **DSP image decoded, traps assessed, F5 stamp machinery read (E234, E235).** Sector headers + host-bootstrap
+    stream + second-stage loader records (type/address/count); memory map; main code at P:$4f000-$6f8bc; tick
+    order in 0x53840. 16 real DEBUGcc assertion sites, all bounds checks on internal pointers, counters and pools,
+    none on MIDI data -> no proven DSP hang mechanism yet (open: pool allocator 0x53b0f, per-part counter 0x55fb4).
+    F5: 14-bit stamp (low 7 bits first) vs clock X:$55865; late or within the threshold (<= 1023 units) = play
+    now, else queued in a 2046-word ring and played per tick; a gate holds the live stream while the queue plays.
+    Next, if wanted: units and source of the stamp clock (0x53cbe) - would explain protocol.md's F2 dependence;
+    the host's other 0x31 port words. Scripts: work/firmware/scripts/dsprecords.py; listings
+    work/firmware/out/dsp_P_000000.asm, out/dsp_X_04f000.asm (git-ignored, rule 1).
 
 ## Round 0.8.25 (released as v0.8.25 2026-10-18)
 
