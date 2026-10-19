@@ -13,6 +13,7 @@
 #include "device/cablerule.h"
 #include "device/dumppacer.h"
 #include "device/startprogress.h"
+#include "device/transport.h"
 #include "device/sendguard.h"
 #include "device/stamprule.h"
 #include "device/offlinepace.h"
@@ -561,6 +562,7 @@ private:
     double next_tick_ = 0;
     ActiveSensing fe_;  // FE every 300 ms on the timeline (the DSP's watchdog, E237)
     double tl_acc_ = 0; // fractional Virus frames of the timeline (host rates other than 44.1 kHz)
+    TransportWatch transport_; // Play and loop restarts: the original's F2 + 73 00 23 01 + 6F <part> 7F 00 (E275)
     double stat_acc_ = 0; // the same for the host-frames statistic
     int64_t stream_start_ = -1;
     // offline render (export, freeze): each block waits for the Virus' audio; the worker logs mode changes and timeouts

@@ -1177,6 +1177,17 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             add(3072, ping, 11);
         }
     }
+    // Play and loop restarts (transport.h): like the original, the song position, the +1 clock tick and the per-part
+    // reset at the block's time, so the arpeggiator and clock-synced LFOs restart with the bar
+    if (tl_valid_ && data.processContext && (data.processContext->state & ProcessContext::kProjectTimeMusicValid)) {
+        const bool playing = (data.processContext->state & ProcessContext::kPlaying) != 0;
+        const double tempo_qn = (data.processContext->state & ProcessContext::kTempoValid) ? data.processContext->tempo
+                                                                                          : 120.0;
+        const double ppq = data.processContext->projectTimeMusic;
+        if (transport_.update(playing, ppq, (double)block_frames / 44100.0 * tempo_qn / 60.0))
+            for (auto &m : transport_messages((int)std::max(0.0, std::floor(ppq * 4.0 + 1e-6))))
+                add(tl_, m.data(), (int)m.size());
+    }
     if (tl_valid_) { // MIDI clock at the host tempo (120 BPM without a process context), 24 ticks per quarter
         double tempo = data.processContext && (data.processContext->state & ProcessContext::kTempoValid)
                            ? data.processContext->tempo
