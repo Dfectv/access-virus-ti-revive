@@ -1,0 +1,138 @@
+{
+ "round": "0.8.27",
+ "core": "core.json",
+ "lead": "Test build 0.8.27 (CI run 39230793499). New in this round, from checking the firmware findings against the code: (1) host automation gets its own time stamp at its block time, so it lands where the DAW put it, above all on Windows; one stamp per block keeps the byte budget for the notes (E261, E264); (2) a patch change or project load while playing counts against the byte budget as a bounded debt (E261); (3) the plug-in never sends the multi header parameters 0-3 or status F4 (rule 2, issue #7); (4) on Windows the audio streamer gets the Linux protection against the 48 kHz state after a wake, and both brokers also send the Virus' own 44.1 kHz setting next to the retry (E241, E257); (5) the macOS audio input fills skipped Core Audio cycles with silence, the cause of the late notes after a Mac export (E249); (6) the Linux installer names missing Control Center libraries (issue #9). The short smoke test was skipped on purpose, so the core items run on every system. The real PC is last and optional. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "rules": [
+  "Never store a patch on the Virus: patch changes in this round only load patches into the edit buffer.",
+  "Order: Linux first (the Virus is on this PC), then the Windows 11 VM, then macOS, then the real PC if you want it. Close the DAW before the Virus moves."
+ ],
+ "sections": [
+  {
+   "id": "linux",
+   "title": "Linux",
+   "where": "REAPER via pw-jack, Virus on this PC",
+   "prep": [
+    "Claude installs 0.8.27 from the CI run (replaces the dev build in ~/.vst3 and the broker) and checks that install.sh reports no missing library. Logging is on. Restart REAPER if it was open.",
+    "Timing project: the 16th-note clip (<code>native/tools/timing-16ths-120bpm.mid</code>) on part 1, a short percussive patch."
+   ],
+   "notes": [
+    "Exports in REAPER: File &gt; Render, Source Master mix, Render speed <b>Full-speed offline</b>, into <code>work/timing/</code> with the item's name.",
+    "LC5 (sleep): if the Virus comes back silent or loud, stop and note it. Claude then reads the broker log for the new line with <code>global 73 00 10 00</code>."
+   ],
+   "items": [
+    {
+     "id": "L1",
+     "title": "Two parts play the same note at the same time",
+     "steps": [
+      "Load the same short percussive patch on part 1 and part 2. Set part 1's output to USB 1 and part 2's output to USB 2.",
+      "Copy the 16th-note clip to a second MIDI track on channel 2.",
+      "Route the plug-in's Out 1 and Out 2 to two tracks and render them as stems to <code>work/timing/L1-out1.wav</code> and <code>work/timing/L1-out2.wav</code>."
+     ],
+     "expect": "both stems have all notes on the grid. Claude compares their onsets: the question is whether the Virus' two DSPs add an offset of about 6 ms between parts (E245, E263)."
+    },
+    {
+     "id": "L2",
+     "title": "Notes stay on the grid while automation runs",
+     "steps": [
+      "On the timing track, automate Cutoff, Resonance and Filter Envelope Amount of part 1 with fast curves (an LFO-like shape, a few cycles per bar) for the whole clip.",
+      "Play it once and listen; then render to <code>work/timing/L2.wav</code>."
+     ],
+     "expect": "the filter moves audibly while every note plays, no sync error page, no hanging note. Claude measures the file: all notes on the grid, jitter as in LC3."
+    },
+    {
+     "id": "L3",
+     "title": "Patch change while playing",
+     "steps": [
+      "Add a second track that plays the 16th-note clip on part 2 (any patch).",
+      "Loop bars 1-4. While it plays, pick a different patch for part 1 from LOAD about five times, a few seconds apart.",
+      "Record the plug-in's output into an audio track while you do it, and save the take as <code>work/timing/L3.wav</code>."
+     ],
+     "expect": "part 2 keeps playing in time through every patch change (at most a short gap on part 1 itself), no sync error page. Claude measures part 2's notes in the file."
+    }
+   ]
+  },
+  {
+   "id": "vm",
+   "title": "Windows 11 VM",
+   "where": "win11 VM, Ableton Live 11, Virus attached by Claude",
+   "prep": [
+    "Claude installs 0.8.27 silently and attaches the Virus (ask in the chat).",
+    "Timing set: the 16th-note clip on part 1, a short percussive patch."
+   ],
+   "notes": [
+    "Windows sends notes further ahead than Linux and macOS, so the automation timing matters most here (E261)."
+   ],
+   "items": [
+    {
+     "id": "W1",
+     "title": "Automation lands where Live puts it",
+     "steps": [
+      "Give the clip a clip envelope for part 1's Cutoff as a square wave: 0 for the first half of each bar, 127 for the second half.",
+      "Play it once and listen; then export to <code>Desktop\\W1.wav</code>."
+     ],
+     "expect": "the sound turns bright exactly on beat 3 of each bar and dark on beat 1, never a 16th early or late; all notes on the grid. Claude measures onsets and the brightness steps."
+    },
+    {
+     "id": "W2",
+     "title": "Patch change while playing",
+     "steps": [
+      "Add a second MIDI track with the 16th-note clip on part 2.",
+      "Loop bars 1-4. While it plays, pick a different patch for part 1 from LOAD about five times, a few seconds apart."
+     ],
+     "expect": "part 2 keeps playing in time through every patch change, no sync error page."
+    }
+   ]
+  },
+  {
+   "id": "mac",
+   "title": "macOS",
+   "where": "MacBook Air M3, Ableton Live 12",
+   "prep": [
+    "Claude pushes the package; install with <code>sudo installer -pkg \"$HOME/Downloads/TI-Revive-0.8.27-mac/TI-Revive-0.8.27-mac/TI Revive.pkg\" -target /</code>. Virus on the Mac.",
+    "Claude puts <code>diag.on</code> and <code>klog.on</code> in the plug-in's folder and renames the old diag.log.",
+    "Timing set: the 16th-note clip on part 1, a short percussive patch."
+   ],
+   "notes": [
+    "MC3 is this round's main Mac check: before 0.8.27 the notes came late after an export until the Virus was switched off and on (E243, E249)."
+   ],
+   "items": [
+    {
+     "id": "M1",
+     "title": "Play right after an export",
+     "steps": [
+      "Right after MC3, without switching the Virus off, play the clip again in Live and record the plug-in's output into an audio track for 30 s.",
+      "Export once more to <code>~/Downloads/M1.wav</code>."
+     ],
+     "expect": "notes are on time after the export, no sync error page. Claude checks diag.log: the delay K is the same before and after, and the stats line shows filled &gt; 0 during the export."
+    },
+    {
+     "id": "M2",
+     "title": "Notes stay on the grid while automation runs",
+     "steps": [
+      "Automate Cutoff, Resonance and Filter Envelope Amount of part 1 with fast curves for the whole clip.",
+      "Play it once and listen; then export to <code>~/Downloads/M2.wav</code>."
+     ],
+     "expect": "the filter moves audibly while every note plays, no sync error page. Claude measures the file."
+    }
+   ]
+  },
+  {
+   "id": "win",
+   "title": "Real Windows PC (optional, last)",
+   "where": "this PC booted into Windows, one self-contained session",
+   "prep": [
+    "Install TI-Revive-0.8.27-setup.exe from the CI run's artifacts (Claude says where to get it before you reboot). Logging on: an empty file diag.on in the plug-in's folder."
+   ],
+   "items": [
+    {
+     "id": "B1",
+     "title": "Automation lands where Live puts it",
+     "steps": [
+      "The W1 set: square-wave Cutoff envelope, 0 then 127 in each bar. Export to <code>Desktop\\B1.wav</code> and copy it to a USB stick or the Linux side."
+     ],
+     "expect": "the sound turns bright on beat 3 and dark on beat 1 of each bar, all notes on the grid."
+    }
+   ]
+  }
+ ]
+}
