@@ -129,6 +129,10 @@ void DeviceOut::send(std::vector<uint8_t> msg)
 
 void DeviceOut::send(std::vector<uint8_t> msg, uint8_t cable)
 {
+    if (blocked_to_virus(msg.data(), msg.size())) { // rule 2 (sendguard.h): never on the wire
+        blocked_.fetch_add(1, std::memory_order_relaxed);
+        return;
+    }
     std::lock_guard<std::mutex> lk(mu_);
     queue_.push_back({std::move(msg), false, cable});
     queued_++;
@@ -151,6 +155,10 @@ int DeviceOut::send_state(std::vector<std::vector<uint8_t>> records)
 
 bool DeviceOut::send_rt(const uint8_t *msg, size_t n, int64_t stamp)
 {
+    if (blocked_to_virus(msg, n)) { // rule 2 (sendguard.h); counted here, logged off the audio thread
+        blocked_.fetch_add(1, std::memory_order_relaxed);
+        return true;
+    }
     size_t w = rt_w_.load(std::memory_order_relaxed);
     if (n > sizeof rt_[0].data || w - rt_r_.load(std::memory_order_acquire) >= RT_SLOTS)
         return false;
@@ -428,7 +436,9 @@ void DeviceOut::run()
             cv_.wait_for(lk, std::chrono::milliseconds(10), [this] { return stop_.load(); });
             continue;
         }
-        std::vector<uint8_t> msg;
+        std::vector<uint8_t> msg, piece; // piece: the next part of a dump in pieces (dumppacer.h)
+        bool piece_last = false;
+        int64_t piece_wait_ns = 0;
         int64_t stamp = -1;
         uint8_t cable = CABLE_PLUGIN; // queued remote template records: 3 (E199)
         {
@@ -451,28 +461,51 @@ void DeviceOut::run()
             bool budget_ok = budget_.available(std::chrono::duration_cast<std::chrono::nanoseconds>(
                                                    now.time_since_epoch()).count()) >= 8;
             bool rt = r != rt_w_.load(std::memory_order_acquire) && !(rt_run_ >= 8 && !queue_.empty()) && budget_ok;
-            if ((held || !budget_ok) && !rt && queue_.empty()) {
-                lk.unlock();
-                std::this_thread::sleep_for(std::chrono::milliseconds(5));
-                continue;
-            }
-            if (held && !rt) {
-                lk.unlock();
-                std::this_thread::sleep_for(std::chrono::milliseconds(5));
-                continue;
-            }
-            if (rt) {
-                const Slot &sl = rt_[r % RT_SLOTS];
-                msg.assign(sl.data, sl.data + sl.len);
-                stamp = sl.stamp;
-                rt_r_.store(r + 1, std::memory_order_release);
-                rt_run_++;
-            } else if (!queue_.empty()) {
-                rt_run_ = 0;
-                msg = std::move(queue_.front().msg);
-                cable = queue_.front().cable;
-                queue_.pop_front();
-                pending_send_ = true; // counted down after the write, so busy() covers the transfer
+            // a dump in pieces (dumppacer.h): the DAW's events go between the pieces, queued messages wait for its end
+            // the piece is written below, after the regular work of each round (idle work, audio scan, stall watch,
+            // presence): skipping that for a whole state's dumps (~2 s) made the stall watch see a sleep (E272)
+            if (dump_.active() && !rt) {
+                const int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
+                if (dump_.next(now_ns, piece))
+                    piece_last = !dump_.active();
+                else
+                    piece_wait_ns = std::max<int64_t>(dump_.wait_ns(now_ns), 1);
+            } else {
+                if ((held || !budget_ok) && !rt && queue_.empty()) {
+                    lk.unlock();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                    continue;
+                }
+                if (held && !rt) {
+                    lk.unlock();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                    continue;
+                }
+                if (rt) {
+                    const Slot &sl = rt_[r % RT_SLOTS];
+                    msg.assign(sl.data, sl.data + sl.len);
+                    stamp = sl.stamp;
+                    rt_r_.store(r + 1, std::memory_order_release);
+                    rt_run_++;
+                    cable = dump_.event_cable(CABLE_PLUGIN); // cable 5 while a dump is in pieces (dumppacer.h)
+                    if (dump_.active() && HeldParams::held(msg.data(), msg.size())) { // automation: after the dump
+                        held_.add(msg);
+                        msg.clear();
+                        stamp = -1;
+                    }
+                } else if (!queue_.empty()) {
+                    rt_run_ = 0;
+                    msg = std::move(queue_.front().msg);
+                    cable = queued_cable(msg.data(), msg.size(), queue_.front().cable); // dumps: cable 3 (cablerule.h)
+                    queue_.pop_front();
+                    if (cable == 3 && msg.size() > 3 * (DumpPacer::PIECE / 4)) { // a dump: in pieces from the next round
+                        auto pk = usbmidi_pack(msg, cable);
+                        dump_.start(pk, std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count());
+                        dump_pending_ = true;
+                        msg.clear(); // its pieces go out from the next round on
+                    } else
+                        pending_send_ = true; // counted down after the write, so busy() covers the transfer
+                }
             }
         }
         if (idle_)
@@ -493,10 +526,11 @@ void DeviceOut::run()
         if ((env_stats() || diag_on_.load(std::memory_order_acquire)) && std::chrono::steady_clock::now() >= stats_next_) { // endurance tests
             stats_next_ = std::chrono::steady_clock::now() + std::chrono::seconds(10);
             int64_t newest = audio_ok_ ? audio_.newest_frame() : -1, pos = audio_ok_ ? audio_.position() : -1;
-            log("stats: audio %d drops %lld distance %lld queued %d | marker %lld aligned blocks %lld, read margin min "
-                "%lld, timeline steps %lld, last sound %lld frames ago | host frames %lld / virus frames %lld, anchors "
-                "%lld, err %lld..%lld\n",
+            log("stats: audio %d drops %lld filled %lld distance %lld queued %d | marker %lld aligned blocks %lld, read "
+                "margin min %lld, timeline steps %lld, last sound %lld frames ago | host frames %lld / virus frames "
+                "%lld, anchors %lld, err %lld..%lld\n",
                 (int)audio_ok_.load(), (long long)(audio_ok_ ? audio_.drops() : -1),
+                (long long)(audio_ok_ ? audio_.filled() : -1),
                 (long long)(newest >= 0 && pos >= 0 ? newest - pos : -1), queued_.load(), (long long)marker.load(),
                 (long long)aligned_blocks.exchange(0), (long long)read_margin_min.exchange(INT64_MAX),
                 (long long)tl_steps.exchange(0), (long long)(newest - last_sound.load()), (long long)host_frames.exchange(0),
@@ -527,12 +561,54 @@ void DeviceOut::run()
             if (audio_ok_)
                 fprintf(stderr, "Virus TI native: audio streaming (retry)\n");
         }
+        if (int b = blocked_.load(std::memory_order_relaxed); b != blocked_logged_) {
+            log("Virus TI native: dropped %d message(s) rule 2 forbids (multi header 72 xx 00-03 or F4; sendguard.h)\n",
+                b - blocked_logged_);
+            blocked_logged_ = b;
+        }
+        if (!piece.empty()) { // a piece of a dump (dumppacer.h)
+            bool wok = broker_.write(EP_PLUGIN_OUT, piece.data(), piece.size());
+            if (piece_last && dump_pending_) {
+                dump_pending_ = false;
+                queued_--;
+            }
+            if (piece_last && !held_.empty()) { // automation held during the dump goes first now (cable 2)
+                auto held = held_.take();
+                std::lock_guard<std::mutex> lk(mu_);
+                for (auto it = held.rbegin(); it != held.rend(); ++it) {
+                    queue_.push_front({std::move(*it), false, CABLE_PLUGIN});
+                    queued_++;
+                }
+            }
+            if (!wok) {
+                {
+                    std::lock_guard<std::mutex> lk(mu_);
+                    dump_ = DumpPacer(); // the device is gone; the state goes out again when it is back
+                }
+                if (dump_pending_) {
+                    dump_pending_ = false;
+                    queued_--;
+                }
+                audio_ok_ = false;
+                audio_.close();
+                broker_.close();
+                open_ = false;
+            }
+            continue;
+        }
+        if (piece_wait_ns > 0) { // the next piece is not due yet and nothing else is waiting
+            std::this_thread::sleep_for(std::chrono::nanoseconds(std::min<int64_t>(piece_wait_ns, 2000000)));
+            continue;
+        }
         if (msg.empty())
             continue;
         // channel messages and clock ticks carry a time stamp: F5 lo hi on cable 5 = the frame on the Virus timeline
-        // (docs/protocol.md "timing"); process() stamps its events, other threads use the latest timeline position
+        // (docs/protocol.md "timing"); process() stamps its events (and, since 0.8.27, its automation: stamprule.h),
+        // other threads use the latest timeline position
         pk_.clear();
+        StampRun stamps; // one F5 per stamp value in this write (stamprule.h)
         auto pack = [&](const std::vector<uint8_t> &m, int64_t st) {
+            bool from_process = st >= 0;
             if (st < 0)
                 st = timeline.load();
             if (st < 0 && audio_ok_)
@@ -544,8 +620,7 @@ void DeviceOut::run()
             if (env_debug())
                 fprintf(stderr, "send %02x stamp %lld newest %lld\n", m[0], (long long)st,
                         (long long)(audio_ok_ ? audio_.newest_frame() : -1));
-            if (st >= 0 && ((m[0] >= 0x80 && m[0] < 0xF0) || m[0] == 0xF8 || m[0] == 0xFE || m[0] == 0xF2 ||
-                            (m.size() == 11 && m[6] == 0x73 && m[8] == 0x22))) {
+            if (st >= 0 && needs_stamp(m.data(), m.size(), from_process) && (ping || stamps.fresh(st))) {
                 auto t = usbmidi_pack({0xF5, (uint8_t)(st & 0x7F), (uint8_t)((st >> 7) & 0x7F)}, CABLE_TIME);
                 pk_.insert(pk_.end(), t.begin(), t.end());
             }
@@ -571,11 +646,15 @@ void DeviceOut::run()
                 int64_t st = sl.stamp;
                 rt_r_.store(r + 1, std::memory_order_release);
                 rt_run_++;
+                if (dump_.active() && HeldParams::held(msg.data(), msg.size())) { // automation: after the dump
+                    held_.add(msg);
+                    continue;
+                }
                 pack(msg, st);
             }
         }
         bool ok = broker_.write(EP_PLUGIN_OUT, pk_.data(), pk_.size());
-        if (stamp >= 0) // stamped traffic counts against the budget; queued dumps go to the host CPU, not the DSP queue
+        if (stamp >= 0) // stamped traffic counts against the budget; queued SysEx does not (sendbudget.h, E266)
             budget_.take((int)pk_.size());
         if (msg.size() > 7 && msg[0] == 0xF0 && msg[6] == 0x11) { // a multi dump (11 00 00 ...)
             static const int pause = getenv("VTI_NATIVE_MULTI_PAUSE") ? atoi(getenv("VTI_NATIVE_MULTI_PAUSE")) : 250;
@@ -621,7 +700,8 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
         return kResultOk;
     }
     single_template_ = dev_.message("VirusTI_Singledump");
-    ui_state_["VirusControl/InitialSyncProgress"] = 127; // exists before the sync thread updates it
+    ui_state_["VirusControl/InitialSyncProgress"] = 127; // exist before the sync thread updates them
+    ui_state_["VirusControl/RecallProgress"] = 127;
     load_banks();
     load_remote_templates();
     if (ed_.load(files->get("editordevice.xml"), err) && layout_.load(files->get("editor.xml"), err))
@@ -799,9 +879,9 @@ tresult PLUGIN_API VirusPlugin::setActive(TBool state)
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     if (state && sync_ && !sync_started_.exchange(true)) {
-        // the start-up page from the first moment (the original shows it once, right away), not only after the
-        // start-up messages; sync_banks hides it when the check is done or cannot run
-        set_sync_progress(0);
+        // the "Starting up" page from the first moment (the original shows it once, right away), not only after the
+        // start-up messages; wait_virus_ready fills its ring and hides it when the Virus is ready
+        set_recall_progress(0);
         syncing_ = true;
         starting_ = true;
         sync_thread_ = std::thread([this] {
@@ -1043,6 +1123,7 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             out_->anchors.fetch_add(1, std::memory_order_relaxed);
             tl_valid_ = true;
             anchored_ = true; // FE + song position at the new anchor, like the original's start
+            rs_valid_ = false; // the resampled output jumps with the timeline, like the direct one (E279)
             if (!env_no_ping())
                 out_->calibrate(newest, new_stream); // the marker follows the ping sent in this block
         } else if (tl_valid_ && out_->marker.load() >= 0 && std::llabs(err) > 512) {
@@ -1051,6 +1132,9 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             tl_ += err;
             next_tick_ += (double)err;
             out_->anchors.fetch_add(1, std::memory_order_relaxed);
+            // the resampled output (host rate != 44.1 kHz) jumps too: steering at 0.2 % took >10 s for the ~1000
+            // frames after a render in REAPER - notes late, then catching up (user, L3; E279)
+            rs_valid_ = false;
         } else if (tl_valid_ && std::llabs(err) > 256) {
             tl_ += err > 0 ? 1 : -1;
             next_tick_ += err > 0 ? 1 : -1;
@@ -1095,6 +1179,22 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             // answers with a one-sample marker on USB 2 where its stamp clock is 0 (DeviceOut::scan_audio)
             static const uint8_t ping[11] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x22, 0x00, 0xF7};
             add(3072, ping, 11);
+        }
+    }
+    // Play and loop restarts (transport.h): like the original, the song position, the +1 clock tick and the per-part
+    // reset at the block's time, so the arpeggiator and clock-synced LFOs restart with the bar
+    if (tl_valid_ && data.processContext && (data.processContext->state & ProcessContext::kProjectTimeMusicValid)) {
+        const bool playing = (data.processContext->state & ProcessContext::kPlaying) != 0;
+        const double tempo_qn = (data.processContext->state & ProcessContext::kTempoValid) ? data.processContext->tempo
+                                                                                          : 120.0;
+        const double ppq = data.processContext->projectTimeMusic;
+        if (transport_.update(playing, ppq, (double)block_frames / 44100.0 * tempo_qn / 60.0)) {
+            // F2 and the +1 tick; the original's 16 part messages (6F <part> 7F 00) are left out: on the device they
+            // delayed the next note by 29-37 ms, and they only concern parts that use the Atomizer (E280)
+            uint8_t f2[3];
+            transport_f2((int)std::max(0.0, std::floor(ppq * 4.0 + 1e-6)), f2);
+            add(tl_, f2, 3);
+            add(tl_, TRANSPORT_TICK, 11);
         }
     }
     if (tl_valid_) { // MIDI clock at the host tempo (120 BPM without a process context), 24 ticks per quarter
@@ -1420,13 +1520,16 @@ void VirusPlugin::send_sidechain(ProcessData &data)
 }
 
 // host rate != 44.1 kHz: n output samples from the Virus frame `target` on, resampled. The read position moves on
-// smoothly and steers towards the target by at most 0.2 % in speed (a jump only on a large error), so the audio has
-// no clicks while it follows the timeline.
+// smoothly and steers towards the target by at most 0.2 % in speed while the error is small (the timeline's drift
+// steps), so the audio has no clicks; on a jump of the timeline it jumps too.
 void VirusPlugin::read_resampled(float **o1, float **o2, float **o3, int n, double ratio, int64_t newest,
                                  int64_t target)
 {
     double err = (double)target - rs_pos_;
-    if (!rs_valid_ || std::fabs(err) > 2048) {
+    // a jump beyond 128 frames (~3 ms): the timeline moved (anchor, marker, a burst) - follow it at once like the
+    // direct path; steering is for the timeline's drift steps of one frame per block (E280: 2048 left the first
+    // notes after a start ~9 ms late for ~7 s)
+    if (!rs_valid_ || std::fabs(err) > 128) {
         rs_pos_ = (double)target;
         rs_valid_ = true;
         err = 0;
@@ -2065,6 +2168,23 @@ void VirusPlugin::set_sync_progress(int v)
         ui_dirty_ = true;
 }
 
+void VirusPlugin::set_start_pages(int recall, int sync)
+{
+    {
+        std::lock_guard<std::mutex> lk(ui_state_mu_);
+        ui_state_["VirusControl/RecallProgress"] = recall;
+        ui_state_["VirusControl/InitialSyncProgress"] = sync;
+    }
+    ui_dirty_ = true;
+}
+
+void VirusPlugin::set_recall_progress(int v)
+{
+    const std::string path = "VirusControl/RecallProgress";
+    if (ui_state_set(path, v))
+        ui_dirty_ = true;
+}
+
 bool VirusPlugin::wait_until_quiet()
 {
     // playing has priority: no dump request while notes arrive (the Virus delays notes behind requests, E144). After
@@ -2074,13 +2194,17 @@ bool VirusPlugin::wait_until_quiet()
     auto gap = [&] { return sync_paused_ms_ + (now_ms() - t0) >= 30000 ? 300 : 1500; };
     while (!stop_warm_ && now_ms() - last_note_ms_.load(std::memory_order_relaxed) < gap()) {
         if (!shown) {
-            set_lcd("Bank sync paused (playing)", std::string(), std::string(), std::string());
+            if (ui_value("VirusControl/InitialSyncProgress", -1) < 127) // only during a real sync, not a bank check
+                set_lcd("Bank sync paused (playing)", std::string(), std::string(), std::string());
             sync_paused_ = true;
             ui_dirty_ = true; // the note on the sync page
             shown = true;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
+    // a dump in pieces (dumppacer.h): a request between its pieces would land in the host CPU's dump parse
+    while (!stop_warm_ && out_ && out_->dumping())
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
     if (shown) {
         sync_paused_ = false;
         ui_dirty_ = true;
@@ -2104,10 +2228,10 @@ void VirusPlugin::wait_virus_ready()
     if (!stop_warm_ && out_ && out_->waiting()) {
         // another instance owns the Virus (issue #6): this one starts up when it takes over, with the same start
         // page and note hold as a first start
-        set_sync_progress(127); // the "Virus unavailable" page instead of the start page
+        set_recall_progress(127); // the "Virus unavailable" page instead of the start pages
         while (!stop_warm_ && out_->waiting())
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        set_sync_progress(0);
+        set_recall_progress(0);
         const int64_t t1 = now_ms();
         while (!stop_warm_ && !out_->connected() && now_ms() - t1 < 4000)
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -2115,8 +2239,17 @@ void VirusPlugin::wait_virus_ready()
     if (stop_warm_ || !out_ || !out_->connected()) { // no Virus: nothing to wait for (when it comes: after_reconnect)
         absent_at_start_ = !stop_warm_ && out_;
         ready_ = true;
+        set_recall_progress(127);
         return;
     }
+    // the ring of the "Starting up" page follows the start-up messages and the state on their way out
+    RecallMeter meter;
+    set_recall_progress(meter.update(out_->queued()));
+    while (!stop_warm_ && out_->connected() && out_->busy()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        set_recall_progress(meter.update(out_->queued()));
+    }
+    set_recall_progress(RecallMeter::SENT);
     probe_virus_ready();
     ready_ = true;
     // process() anchors now and sends the ping (0.5 s of stream, 1 s of silence); notes stay held until its marker
@@ -2124,6 +2257,10 @@ void VirusPlugin::wait_virus_ready()
     const int64_t tm = now_ms();
     while (!stop_warm_ && out_->marker.load() < 0 && now_ms() - tm < 3000)
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    if (sync_expected_)
+        set_start_pages(127, 0); // straight to "Syncing memory"
+    else
+        set_recall_progress(127);
 }
 
 bool VirusPlugin::probe_virus_ready()
@@ -2182,6 +2319,19 @@ void VirusPlugin::sync_banks()
     // until the Virus is ready it works through the start-up messages and the state and plays notes up to 1.6 s late
     // (E144), so note-ons are held back; from then on notes play, and the sync pauses while they arrive (dump requests
     // delay the Virus' notes by ~130 ms and the sync stalls - measured 2026-10-14)
+    // a RAM bank without a cache file is read in full: its "Syncing memory" page follows "Starting up" directly,
+    // without the editor in between (user, L4)
+    bool sync_expected = false;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        for (int b = 0; b < 4; b++) { // no cache file, or one an interrupted sync left with gaps
+            auto it = banks_.find(b);
+            if (it == banks_.end() || it->second.size() < 128 ||
+                std::any_of(it->second.begin(), it->second.end(), [](const std::vector<uint8_t> &p) { return p.empty(); }))
+                sync_expected = true;
+        }
+    }
+    sync_expected_ = sync_expected; // wait_virus_ready switches from "Starting up" to "Syncing" in one step
     wait_virus_ready();
     starting_ = false;
     if (stop_warm_ || !out_ || !out_->connected()) { // no Virus: no sync, the editor as usual
@@ -2197,13 +2347,18 @@ void VirusPlugin::sync_banks()
     load_rom_banks();
     sync_->before_request = [this] { return wait_until_quiet(); };
     const int64_t sync_t0 = now_ms();
-    // like the original: its start-up page ("Initializing Virus TI and syncing memory", VirusControl/
-    // InitialSyncProgress 0..126, shown since setActive) covers the editor until the sync is done; notes still play
-    // the original keeps "synchronising" on the Virus display while it syncs (74 01 7E 07 about once a second)
-    std::atomic<bool> rise{true};
-    std::thread riser([this, &rise] {
+    // like the original: its page "Syncing memory with Virus" (VirusControl/InitialSyncProgress 0..126) covers the
+    // editor while banks are fetched; notes still play. Only when a patch is really fetched (startprogress.h): the
+    // check of a current cache shows nothing. The original keeps "synchronising" on the Virus display while it
+    // syncs (74 01 7E 07 about once a second) - also only then
+    SyncPage page;
+    if (sync_expected)
+        page.expect();
+    std::atomic<bool> rise{true}, fetching{page.shown()};
+    std::thread riser([this, &rise, &fetching] {
         while (rise) {
-            out_->send({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x74, 0x01, 0x7E, 0x07, 0xF7});
+            if (fetching)
+                out_->send({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x74, 0x01, 0x7E, 0x07, 0xF7});
             for (int i = 0; i < 10 && rise; i++)
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
@@ -2217,15 +2372,16 @@ void VirusPlugin::sync_banks()
                 for (size_t p = 0; p < 128 && p < it->second.size(); p++)
                     bank[p] = it->second[p];
         }
-        int n = sync_->sync_bank(b + 1, bank, [this, b, &bank, sync_t0](int p, bool fetched) {
-            set_sync_progress((b * 128 + p + 1) * 126 / 512);
+        int n = sync_->sync_bank(b + 1, bank, [this, b, &bank, sync_t0, &page, &fetching](int p, bool fetched) {
+            set_sync_progress(page.progress(b * 128 + p + 1, fetched));
+            fetching = page.shown();
             // remaining time at the pace so far (pauses for notes not counted): the original's start page promises
             // "a couple of seconds", but a first sync takes 8-9 minutes (issue #5)
             int done = b * 128 + p + 1;
             int64_t worked = now_ms() - sync_t0 - sync_paused_ms_;
             if (done >= 8 && worked > 0)
                 sync_eta_s_ = (int)((512 - done) * worked / done / 1000);
-            {
+            if (page.shown()) {
                 std::lock_guard<std::mutex> lk(values_mu_); // progress on the LCD
                 lcd_param_ = "Synchronizing " + bank_name(b);
                 lcd_value_ = std::to_string(p + 1) + " / 128";
@@ -2260,7 +2416,7 @@ void VirusPlugin::sync_banks()
     sync_eta_s_ = -1;
     set_sync_progress(127);
     out_->log("Virus TI native: bank sync done in %.1f s\n", (now_ms() - sync_t0) / 1000.0);
-    {
+    if (page.shown()) {
         std::lock_guard<std::mutex> lk(values_mu_);
         lcd_param_ = "Synchronization done";
         lcd_value_.clear();

@@ -37,7 +37,8 @@ Good to know
 - One DAW at a time uses the Virus; the plug-in in a second one shows "Virus unavailable". The Control Center works
   next to the DAW.
 - Backups of the Virus' RAM banks (read-only): "TI Revive Control Center" in the
-  application menu (needs gtkmm 3: Ubuntu 24.04+ libgtkmm-3.0-1t64, older libgtkmm-3.0-1v5), or "tirevive-cc backup" in a terminal (also
+  application menu (needs gtkmm 3: Ubuntu 24.04+ libgtkmm-3.0-1t64, older libgtkmm-3.0-1v5, Fedora gtkmm3.0,
+  Arch/CachyOS gtkmm3; without it the window closes at once), or "tirevive-cc backup" in a terminal (also
   "info", "list", "export"; both in ~/.local/bin). Firmware/OS updates are not supported.
 - Uninstall: ./uninstall.sh (your patch libraries in ~/Documents stay)
 

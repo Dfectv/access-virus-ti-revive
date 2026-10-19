@@ -709,7 +709,8 @@ TEST(editor_conditions)
     CHECK(!g.cond->eval("Page Two", vals, 0));
     g.vals[{"VirusControl/Page", -1}] = 2;
     CHECK(g.cond->eval("Page Two", vals, 0));
-    CHECK(!g.cond->eval("Internal System Info/Display Recall Progress", vals, 0));
+    // the "Starting up" page follows the XML like every condition (it was never shown before round 0.8.27)
+    CHECK(g.cond->eval("Internal System Info/Display Recall Progress", vals, 0)); // not defined in the rig: true
     CHECK(!g.cond->eval("VirusControl/Browser/Category Filter Selected", vals, 0));
     CHECK(g.cond->eval("VirusControl/Browser/Category Filter Not Selected", vals, 0));
     g.vals[{"Repository Actions/Category Filter", -1}] = 3;

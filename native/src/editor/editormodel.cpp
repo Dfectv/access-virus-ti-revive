@@ -86,8 +86,6 @@ bool Conditions::eval(const std::string &name, const ValueFn &values, int part) 
         return values("Repository Actions/Category Filter", -1) != 0;
     if (name == "VirusControl/Browser/Category Filter Not Selected")
         return values("Repository Actions/Category Filter", -1) == 0;
-    if (name == "Internal System Info/Display Recall Progress")
-        return false;
     bool known = false;
     for (const RemoteDevice *d : {&ed_, &dev_}) {
         auto range = d->conditions.equal_range(name);

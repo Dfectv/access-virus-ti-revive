@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-18. CONTINUE HERE = **v0.8.26 released 2026-10-18** (tag v0.8.26, release CI run 39155327343 green, 6 assets; merge ea6a286 on main; site rebuilt by hand, run 39155767115, live shows Download 0.8.26 / 237 tests / the firmware findings). New: Active Sensing every 300 ms (E237), stamped-MIDI budget (E238), broker write retry (E239), Linux 48 kHz after wake protection (E241, unexercised on hardware), Linux menus per monitor (E227); firmware analysis E228-E236. Checklist W8EcFqru6zvxirJGJY2c36: Linux, VM, Mac all pass, real PC skipped. Test machines: win11 VM = release (silent, 0.8.26c uninstalled first); Linux: release unpacked in work/builds/v0.8.26/x, install.sh stopped at the udev step (sudo needs a terminal; the Virus was on the Mac) - user runs it once; broker binary already equals the release; Mac offline: release zip in work/builds/v0.8.26, push + sudo installer next time (it has 0.8.26c or 0.8.25 from the A/B). Next round: the Mac export clock shift (E243/E244, known issue in the release notes), E241 fix on hardware, E175 watch, LC3 crash watch._
+_Last updated: 2026-10-19. CONTINUE HERE = **v0.8.26 released 2026-10-18** (tag v0.8.26, release CI run 39155327343 green, 6 assets; merge ea6a286 on main; site rebuilt by hand, run 39155767115, live shows Download 0.8.26 / 237 tests / the firmware findings). New: Active Sensing every 300 ms (E237), stamped-MIDI budget (E238), broker write retry (E239), Linux 48 kHz after wake protection (E241, unexercised on hardware), Linux menus per monitor (E227); firmware analysis E228-E236. Checklist W8EcFqru6zvxirJGJY2c36: Linux, VM, Mac all pass, real PC skipped. Test machines: win11 VM = release (silent, 0.8.26c uninstalled first); Linux: release unpacked in work/builds/v0.8.26/x, install.sh stopped at the udev step (sudo needs a terminal; the Virus was on the Mac) - user runs it once; broker binary already equals the release; Mac offline: release zip in work/builds/v0.8.26, push + sudo installer next time (it has 0.8.26c or 0.8.25 from the A/B). Next round: the Mac export clock shift (E243/E244, known issue in the release notes), E241 fix on hardware, E175 watch, LC3 crash watch. **Round 0.8.27 started (branch round-0.8.27, 2026-10-18 evening): firmware loose ends closed (E245-E250), Mac export cause found = the macOS IOProc lost Core Audio cycles (E249), fix gapfill.h untested on the Mac. 2026-10-19 morning: the firmware findings were challenged against the code (round 0.8.27 item 6): E238's residency withdrawn, threshold semantics corrected, gaps found; 2026-10-19 afternoon: T1-T8 done without the user (E261/E262, stamprule.h, sendguard.h, SendBudget::take_queued, Windows E241 handling, the 73 00 10 00 lever in both brokers, Arch package names for issue #9); vtitests 251/251, all Linux/mingw builds green; NOTHING on hardware (the Virus was not on this PC). NEXT = the user's crash smoke test of the dev build on Linux, then CI build (gh workflow run build.yml --ref round-0.8.27 -f version=0.8.27), then the test round with T9 (and the Mac export check of item 2). Open decisions for the user: T4 narrowed to page 0x72 parameters 0-3 (not 0-6); T6's global read-back request has no evidence and was left out. 2026-10-19 evening: site check run (tirevive-site-check): only the Linux card lacked the gtkmm sentence (issue #9) and the test count was 237 -> both fixed in build.py and README (251 tests, as on this branch), plug-in version bumped to 0.8.27 in native/CMakeLists.txt for the CI build (E222 lesson); every other claim still has its 0.8.26 source, nothing newer measured. Site NOT rebuilt (by hand, after the release). The Virus is now on this PC (133e:0815, broker socket 0.8.26): virusmon shows it answering read-only; nothing of 0.8.27 was exercised on it (the smoke test is the user's). The round 0.8.27 dev build (plug-in version 0.8.27, vtitests 251/251) is copied to ~/.vst3 for the smoke test (the release 0.8.26 plug-in from 2026-10-18 19:33 was there before; its tarball is in work/builds/v0.8.26); the installed broker stays the 0.8.26 release. Then two bounded nativehost runs per build on the Virus (E264): the 0.8.27 start-up is clean; stamped automation at the 250/s cap saturated the byte budget (16 B per message) and starved the notes and the probe -> fixed with one F5 per stamp value per write (StampRun, stamprule.h), vtitests 252/252, re-run on the device: audio during the automation, 3 sync reports instead of 5; ~/.vst3 holds this build. 2026-10-19 (later): the user skipped the short smoke test; branch pushed, CI build 0.8.27 = run 39230793499; checklist https://claude.ai/artifact/ESkc2zMi4egwTJJWrSjBmF (spec scripts/checklists/round-0.8.27.json: core on all systems + L1 two-part onsets, L2/M2 automation with notes, L3/W2 patch change while playing, W1/B1 automation step timing on Windows, M1 play after an export) Linux/VM run 0.8.27 CI, Mac zip in work/builds/v0.8.27 (3rd CI attempt; the first two Mac jobs got no runner). **REAPER crash again (2nd time, after a GUI render, editor open, 48 kHz block 1024, 2026-10-19 12:24:57):** plug-in log ends cleanly with 'offline render ended' 12:24:49 + one stats line; kernel: general protection fault in libgobject at g_type_check_instance_is_a+72 (main thread) = a GObject used after it was freed or a bad pointer; the plug-in links libgobject via Pango (VSTGUI cairofont.cpp, one process-wide font map) and REAPER's SWELL/GDK uses it too, so the owner is open; no render file found. Next: REAPER under gdb for the rest of the Linux block (command in the chat, output work/timing/LC1-crash-gdb.txt). **Caught at L2 (12:36, E265):** main thread SIGSEGV in gdk_window_set_cursor called by REAPER's libSwell, no plug-in frame, plug-in threads idle. Next: A/B with ReaSynth (render at real-time speed) and the plug-in's render with the editor closed User: "Seems like its an issue on reapers side", not pursued further. **Linux block: 8/8 pass (E266).** LC5 hit the 48 kHz state after the wake and the T5/T6 levers brought it back in ~1 s (first hardware proof). **Open finding (blocks nothing yet, needs a decision): T2's queued-bytes debt makes stamped notes late during patch changes (L3: 4-10 sync events per Play vs 1-2)** - proposed fix: never hold stamped events for queued debt; instead queued cable-2 messages wait for the budget (the Virus paces dumps anyway), so the DSP stream stays bounded and notes stay on time; then redo L3 with a percussive patch on part 2 and measure. **Done on request (user: "Can we fix l3 first an redo the test ?"):** the debt is removed instead (SendBudget::take_queued and its test gone; queued SysEx no longer touches the budget): gating the queued dumps on the budget would slow a 100 kB state to ~25 s, and the USB link (~4.2 k packets/s, E231, LOW) parks at most ~400 bytes of queued traffic in Windows' 30 ms window, Linux/macOS park nothing (E261). vtitests 251/251. L3 redo (E267): sync events unchanged (6-12 per Play during patch changes) and the same pattern is in the 0.8.26 logs (37 of 182 Plays >= 4) - pre-existing, not a 0.8.27 regression; take not measurable (echo/rhythm in part 2's patch). Hypothesis (LOW): the dump occupies the USB link ~20 ms, notes behind it miss the Linux lead (~6-11 ms after transit). Candidate for T10 (more lead while a dump is in flight, or interleave dumps with notes); needs a measurement with a dry percussive patch first. **Then (user: part 2 stopped for a moment on each part-1 patch change; the original on the win10 VM plays through): cause found by capture (E268) - the original sends single dumps on cable 3 (host CPU only), we sent them on cable 2 (also both DSPs). Fixed: cablerule.h, vtitests 253/253. Virus is on the win10 VM now (Access driver): close Live there, detach, then the L3 redo on Linux with the dev build. **L3 redo still FAILS (E269, user: part 2 still stops for a short time on each part-1 patch change); sync events now at the original's rate. Next: capture our own traffic on one patch change and diff it against the original's (E268). Then E270 from the original's capture: it sends the dump in 64-byte pieces 6-12 ms apart with its notes between them on cable 5 - implemented (dumppacer.h, the bank sync waits for a dump), vtitests 256/256, not on hardware yet. L3 redo with it: part 2 plays through (user), but a false "audio stood still" loop made the start-up long (E272) - fixed (pieces written after the regular work), REAPER redo pending. **L3 PASS (E273).** New on request: the original's "Starting up" page with the filling ring during the start-up, the "Syncing memory" page only when banks are really fetched (startprogress.h, E273) - built, tested and checked on the device with screenshots (E273); ~/.vst3 = dev build a020cb4. Next: the user's look in REAPER, then a new CI build (0.8.27 CI lacks every fix since 914087b) for the VM/Mac sections. Review against the original (E274, user asked before the next test phase): open points - (a) the original's Play/loop-restart set - DONE (E275: F2 + 73 00 23 01 = clock exactly on the song position, 6F <part> 7F 00 = a hidden Atomizer/input value per part set to 0 (E276, MED), matters only with Input Mode / Atomizer; transport.h, sent at Play and loop restarts, checked on the wire); second CI build 0.8.27 = run 39263694834 (all green, Mac too), packages in work/builds/v0.8.27-2; installed: Linux (install.sh, plug-in + broker = CI), win11 VM (first build uninstalled with its own setup, renamed TI-Revive-0.8.27-first-setup.exe; plug-in 13:55 UTC); Mac unreachable 2026-10-19 ~16:00 (push the zip later); checklist republished as round 0.8.27-2 on the same link (fresh marks); third CI build 0.8.27 = run 39278145816 (Linux/Windows green; Mac job still running at 18:00), packages in work/builds/v0.8.27-3, installed on Linux (plug-in + broker = CI3) and the win11 VM (second build uninstalled, its setup renamed TI-Revive-0.8.27-second-setup.exe; plug-in 15:31 UTC); Virus attached to win11 for the VM block; W block finding (user screenshot 18:10, Live 11 on the VM): "SYNC PAUSED WHILE YOU PLAY" was drawn over the EASY page and the LCD said "Bank sync paused (playing)" while only the bank check ran (no syncing page since E273) - fixed on the branch (notes and LCD line only while the syncing page shows), vtitests 262/262, in the next CI build; **VM block of 0.8.27-2: 7/7 pass (E282)**; exports show the VM's usual USB timing; meters starved by automation - fixed and checked on the device (E282); Virus back on Linux, both VM entries removed; **macOS block: 8/8 pass on the third CI build (E283); ROUND 0.8.27-2 COMPLETE: Linux 10/10, VM 7/7, Mac 8/8, real PC skipped.** Fourth CI build 39285650918 (= third + the two editor fixes: sync note only on the sync page, meters during automation) - Linux/Windows green and installed on Linux (packages in work/builds/v0.8.27-4), its Mac job was still queued at 18:40. User 2026-10-19: "yes release 0.8.27". Release prep: release notes in build.yml, README + site identical (patch changes like the original, arpeggiator at Play, start-up page, first notes at 48 kHz, Mac export note, 262 tests), site check: no other claim changed, site built in the scratchpad (not deployed). never take virsh screenshot series while the VM plays; **Linux block of 0.8.27-2: 10/10 pass (E278)**; open from it: (1) after a GUI render the 48 kHz output started ~22 ms late and caught up at the 0.2 % limit (user note on L3) - FIXED (E279: the resampler jumps with the timeline; E280: jump threshold 2048 -> 128 frames, and the 16 `6F <part> 7F 00` of the Play set left out - they made the next note 29-37 ms late), REAPER check PASS (E281); (2) the L3 render gaps came from patch changes during the render (E281);  (3) E266's LC3 jitter figures withdrawn (unit error); (b) automation during a dump goes on cable 5 (host CPU does not store it) - DONE: HeldParams in dumppacer.h holds parameter SysEx until the dump is out (latest value per parameter, then first in the queue), vtitests 259/259; (c) per-note timing during patch changes not measured (dry percussive patch); (d) Windows/Mac with the new send path untested.** Virus back on Linux, win10 VM shut down, ~/.vst3 = dev build d14e7a0 (needs a new CI build before the VM/Mac sections: 0.8.27 CI lacks the cable fix and the debt removal).**_
 39131364441 green, 6 assets; site rebuilt by hand, run 39131769375, live shows 0.8.25 / 220 tests / original VST3
 projects). New: original VST3 projects open (second class with the original's id, E221-E223; VST2 not), Revert to /
 Recently Used (E220), Create Empty Library (E217), Windows 10 menu look (E219), plug-in version 0.8.25. Test machines:
@@ -12,6 +12,132 @@ third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac 
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E244), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
+
+## Round 0.8.27 (branch round-0.8.27, collecting; started 2026-10-18 evening)
+
+1. **Firmware loose ends closed (E245-E250, docs only).** `X:$48293` is the DSP identity strap (two DSPs, one image;
+   master = HDR bit 15 set at reset), not a clock freeze. The audio-ring control words are the OTHER DSP's status and
+   command words (same layout both ways; 0x123456+n composed by DSP code; 0x12345b forwards channel messages master
+   -> slave); the master owns the stamp clock, the slave takes it +256 frames; unit = one sample frame (HIGH). The
+   sync ping (page 0x73 param 0x22 value 0) is parsed by the DSP: both clocks reset, the slave renders the marker
+   sample; 0x7E/0x7F = a test signal on/off (never send). Stamp compare is modular (+-8192 frames). F2 does not touch
+   the stamp logic (the 2026-10-13 "ignored without F2" was session luck in the modular window). Rule-2 reassessment:
+   ring A cannot be flooded (~88 kB/s needed), DEBUGcc traps HALT the DSP (then the host CPU blocks on the port =
+   whole Virus dead, E241's symptom), the pool allocator is per patch set-up, so the stamped queue wrap (E238) that
+   can feed 0xF4 host commands into the parser stays the only MIDI-driven path. Sync Information Event (0x54) origin
+   still open (E250). protocol.md got the firmware paragraph.
+2. **Mac export clock shift (E243/E244) - cause found and fixed, NOT on hardware yet (E249).** E246 shows nothing
+   outside the DSPs moves the Virus' clock, so the plug-in's ring lost frames: the macOS IOProc (audioin.cpp) ignored
+   Core Audio's input sample time; skipped IO cycles during the CPU-heavy export shortened the ring silently (eleven
+   512-frame cycles = the ~5600 frames), every stamp then landed late. Linux is immune (the broker fills USB gaps).
+   Fix: native/src/device/gapfill.h (silence for the missing frames, from the device's sample time; re-base on a
+   restart or a jump > 5 s), used in io_proc when the time stamp is valid; "filled N" added to the stats line.
+   tests/test_gapfill.cpp (5 tests), vtitests 242/242, full Linux build ok; the macOS code needs the CI build.
+   **Mac test:** Live export (MC3-like), klog K equal before/after, "filled" > 0 in the stats during the export, no
+   sync error page; then a cold start and a sleep (StallWatch unchanged). Not yet run: CI (ask the user).
+3. **Remaining firmware points closed (E251-E254, docs only; user: firmware first, testing later).** The Sync
+   Information Event is composed by the DSP (0x5411f -> SysEx sender 0x52484, cable 2, device id 0x10) on the first
+   MIDI-clock tick whose newest stamp is behind its clock after on-time ticks; the host CPU relays the DSP's USB-MIDI
+   frames unchanged (INT0 -> FUN_2644). So the alert means "our lead is used up", one event per transition (E251).
+   The host CPU's parameter model is decoded (4-byte records, internal pages, translation table 0x8700 in flash page
+   2, DSP words, 0x4F frames to the PC; E252) - with Ghidra asm scripts DisasFuncs.java / DisasAt.java in
+   work/firmware/scripts. F034/F035 = .lod data images "wvd119.lod" (2012, likely wavetables) and "fvd102.lod" (2009),
+   not code (E253). ESAI_1 is the DSP-to-DSP link, the master clocks it; ESAI is the codec/USB side (E254). The
+   DSP ignores Multi "Original Patch" 72 00 03 (page-0x72 table Y:$47f53, params 0-6 -> ignore handler); the host's
+   multi header path and issue #7's power-up effect stay unproven (E255). Still open (LOW value): the host CPU's
+   page-0x72 parameter parsing (FUN_3ae4 state tables 0x3b38/0x3c76), the USB chip's handling of 0x4F frames, when
+   the .lod data is streamed to the DSPs, the meaning of the DSP's cable-1 message 0B.
+4. **Last open points closed (E256-E258, docs only).** Correction: F020-F034 are the 15 sectors of the main DSP
+   stream, "wvd119.lod" is that image's own build stamp; F035 is a separate one-sector image at the same flash
+   address (use open, LOW). The host's 0x4F frames are messages to the USB chip: keys = globals 0x0F SA Freq, **0x10
+   Frequency (0 = 44.1 kHz, 1 = 48 kHz - the chip switches its audio clock)**, 0x11 Clock Mode, 0x1F input gain,
+   0x2B SPDIF routing, commands 0xF5/0xF6; the host re-sends 0x0F/0x11/0x2B/0x1F at a USB connect but not 0x10.
+   The host parses the PC's parameter SysEx into its record queue (internal page | 0x80 = not re-sent to the DSPs)
+   and stores it; "Original Patch" lands in the multi edit buffer, the power-up effect (issue #7) stays unproven.
+   **Device-side proposal for the 48 kHz state (E175/E241):** when 48 kHz packets appear, send the global
+   `73 00 10 00` (System Clock/Frequency = 44.1 kHz, what the panel does) next to the SET_CUR retry - normal global
+   parameter, rule-2 safe; code + tests + a hardware check in the next test round.
+5. **Nothing left open that static analysis can answer (E259, E260).** REA on the Access updater
+   (CAInstallerHelperDeferred): the flash bank comes from the chunk TAG, record addresses are ignored - F035 is
+   flashed to page 0x23 (0x230000), F060/F061 are two copies of the USB firmware (0x3C/0x3D), ROM banks are
+   skipped when their CRC is intact; no host code reads page 0x23 -> F035 ("fvd102.lod", 2009) is a legacy sector.
+   USB chip 0xF6 = the serial number for the iSerialNumber string descriptor (never logged, rule 5). The DSP's
+   cable-1 "0B" sender is unreachable code. Issue #7: at boot the host re-derives Original Bank/Patch from the
+   multi arrays; only the current part is restored from the power-off snapshot at 0x4B00 - the exact trigger of
+   "all 16 Init" is the one residual that only hardware could show, and rule 2 forbids that test. Firmware analysis
+   is complete; next = testing (CI build, Mac export check, the 0x10 lever), not today.
+
+6. **Firmware findings challenged against the code (2026-10-19 morning, assessment, no code change yet).** Checked
+   E228-E260 against the send path (virusplugin.cpp pack/send thread), keepalive.h, sendbudget.h, the ping, the
+   three gap fillers and the DSP listing. Holds: cable routing, write retry, modular window vs our lead, FE every
+   300 ms, ping value 0 only, no F4 anywhere, sync-event meaning. Does not hold: E238's residency (the stamp leaves
+   the plug-in A frames ahead of the newest ring frame, not the whole lead; the DSP parks only what is beyond the
+   threshold: Linux/macOS A=1024 -> ~300-500 frames ahead, nothing parked; Windows A=3072 -> ~2400 ahead, ~1400
+   parked = 30 ms); the 2026-10-13 stress hang (Linux, MIDI still answering) is therefore unexplained again. New from
+   the listing: within the threshold the stamp is stored as the current stamp (0x55904) and the note-on handler
+   0x53337 copies it into the voice's start slot X:$54145 - the threshold is the max per-voice delay, not "play
+   now"; threshold = 1023 only while the counter X:$5412e is 0 (what it counts: open). Gaps found: unstamped
+   messages (parameter SysEx, part dumps on patch change, CC resets, the resume state) inherit the previous stamp
+   and are not counted by the budget (Windows: parked, 2 patch changes + a burst ~ the 2046 wrap); no explicit
+   guard against 72 00 03; the Windows streamer lacks the E241 handling; E248's "host blocks on the port" vs
+   E230/E233 "no ready check" contradict; E245's slave clock +256 raises a two-part timing question.
+   **Tasks (order agreed 2026-10-19; TDD, local Linux build + user smoke test first, CI after). Done 2026-10-19
+   afternoon (Claude alone, the Virus was NOT on this PC: nothing below is tested on hardware):**
+   - [x] T1 docs: E261 (threshold semantics, residency per platform, E238 corrected, E248's host-blocks chain
+         withdrawn, the two failure modes, the code gaps); protocol.md paragraph, sendbudget.h and automation.h.
+   - [x] T2 code: SendBudget::take_queued - queued cable-2 bytes count as a debt capped at one burst (a 100 kB state
+         send delays stamped traffic by 250 ms, not 25 s; the Virus paces dumps itself, E239); DeviceOut calls it
+         after a queued cable-2 write (cable 3 records not). Test sendbudget_queued_bytes_are_a_bounded_debt.
+   - [x] T3 code: native/src/device/stamprule.h needs_stamp(m, n, from_process): channel/F8/FE/F2/ping always, a
+         parameter SysEx (pages 0x6E-0x72, 11 bytes) only from process(); pack() uses it (from_process = the slot
+         had a stamp). tests/test_stamprule.cpp (3 tests). 2026-10-19 evening, Virus on this PC: one F5 per
+         stamp value within a USB write (StampRun in stamprule.h, 4th test; the ping exempt) - with one F5 per
+         message, automation at the 250/s cap cost 16 B/message = the whole 4 kB/s budget and the notes and the
+         readiness probe starved behind it (E264: nativehost A/B on the device).
+   - [x] T4 code: native/src/device/sendguard.h blocked_to_virus(): page 0x72 parameters **0-3** (Flags, Original
+         Bank, Original Patch - NARROWED from the agreed 0-6: 4-13 are the multi name characters in the XML, the
+         DSP's ignore range 0-6 cuts through the name; widen m[8] <= 3 if you disagree) and status F4; checked in
+         DeviceOut::send and send_rt (counted on the audio thread, one log line from the worker). The start-up
+         messages (72 pp 22, 72 00 1D) pass; nothing in the plug-in sends 0-13. tests/test_sendguard.cpp (3 tests).
+   - [x] T5 broker (Windows): src/wrapper/vtiusbaudio.c - OUT packet via vti_pkt_out (same size, silent for 47-49
+         frames), SET_CUR again once per second of 48 kHz packets, 3x, then the power-cycle line; vua_rate_lost()
+         for the broker; mingw broker + classic wrapper build. NOT tested on the VM (needs the E175/E241 state).
+   - [x] T6 broker (Linux + Windows): src/broker/ratelever.h (vti_pack_rate_44k1 = USB-MIDI packets of
+         `F0 00 20 33 01 10 73 00 10 00 F7` on cable 2; vti_rate_report finds the Virus' `73 00 10 vv`); sent by
+         both brokers' device threads next to the SET_CUR retry (3x per stream), the report logged when it arrives.
+         **Open: the "global request" read-back** - no request format for a single global is in our evidence
+         (spec.md has 30 for singles only), and rule 2 forbids guessing one; the Virus' own report is logged instead.
+         Tests ratelever_* in test_pktstat.cpp. Hardware check in the next round (E175/E241 state needed).
+   - [x] T7 static: E262 (1)(2) - X:$5412e = live part set-up records (allocated in a burst by the part/patch
+         set-up 0x55fe5/0x547f8 via 0x54484, retired per tick by 0x5457d); the threshold is 1023 outside a patch
+         change and shrinks during one; the input X:$5413b = 1536 while X:$54144 counts down, else max(2*y:$2a,
+         192) from the setting X:$54a2c (<= 0x40). What one record drives stays LOW.
+   - [x] T8 static: E262 (3) - FUN_605b/6113/6270 are plain stores to BOTH host ports (0x00xx and 0x01xx) with
+         interrupts off, no ready check, no wait: the host CPU cannot block there; E248's chain withdrawn, E230/E233
+         stand; E241's dead panel = the host CPU itself stopped (open).
+   - [x] E263 (2026-10-19, static, no task number): the two DSPs' work split - both parse the whole stream, a note
+         runs on the DSP whose identity matches bit 6 of its slot index, the master hands slave notes over through
+         the ring command 0x123456 with the start stamp minus 256 frames. Prediction for T9: equal onsets if the
+         slave's +256 clock and the ring path cancel; a ~256-frame offset would reveal the split.
+   - [ ] T9 hardware (next test round): same note on two parts, onset offset (E245: slave clock +256; E263); Windows
+         automation timing with and without T3; Mac export with gapfill ("filled" > 0, K equal); E241 fix on wake;
+         the T5/T6 path if the 48 kHz state shows up. Plus the user's crash smoke test of this dev build (Linux).
+         Done on the device 2026-10-19 (nativehost, no DAW; E264): start-up of the 0.8.27 build clean (no message
+         dropped by sendguard, marker found, 0 drops, bank sync done, notes audible), 10 s of automation at the cap
+         with notes: audio while the automation runs, 3 sync reports (0.8.26: probe unanswered, audio only after).
+   - [ ] T10 optional: stamp the retry ping timeline-relative (today absolute 3072: up to 186 ms in the queue);
+         an adaptive answer to the Sync Information Event (raise A or re-ping) - deferred until T9 says it matters.
+   Build state after T1-T8: vtitests 251/251 (Linux, build-native Release), plug-in builds, Linux broker and
+   mingw broker build (work/build), classic wrapper builds. Not run: CI, any hardware, the Mac.
+7. **Issue #9 (2026-10-19, Reddit report, CachyOS/Arch, reporter not named):** plug-in loads but silent, Control
+   Center closes at once. Assessment without logs: the Control Center binary needs gtkmm 3 (direct NEEDED: libgtkmm-3.0,
+   glibmm-2.4, libsigc-2.0), not installed on Arch desktops -> loader abort = "spinning cursor, then gone";
+   install.sh's hint names only apt/Fedora packages. Silence: usual first-install list (replug after the udev rule,
+   E175, E135, Snow E115, PulseAudio). Reply posted on Reddit with the log commands. Done 2026-10-19: install.sh
+   prints the Control Center's missing libraries and names the packages for Ubuntu/Debian, Fedora and
+   Arch/CachyOS/Manjaro (gtkmm3; plug-in libs: xcb-util-cursor xcb-util libxkbcommon-x11 cairo pango fontconfig),
+   README-linux.txt and the README's Linux requirements say the same (the website's Linux sentence does not mention
+   gtkmm - check with tirevive-site-check at the next rebuild). Follow up when the logs arrive.
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
 
@@ -929,7 +1055,7 @@ plug-in in ~/.vst3 is 0.8.3 (moduleinfo).
 | macOS 14.4+ | native plug-in (VST3 + AUv2, universal, no Rosetta since 0.8.1), broker, Control Center app | `-mac.zip` (pkg + setup scripts) | native/docs/architecture.md, design-macos*.md |
 | Linux | native plug-in (VST3), native broker owns the whole Virus (MIDI + iso audio), Control Center app | `-linux.tar.gz` (install.sh) | native/docs/architecture.md, design-linux.md |
 
-Latest release: **v0.8.18** (2026-10-16, full project recall E174, "No Virus TI" page E173, help reasons; earlier: v0.8.10 reconnect + absent start + two DAWs on Windows, E163/E166; 0.8.9: the third USB output, E159; 0.8.8: soft knobs on the Virus change the sound, E154; 0.8.7: presets chosen on the Virus + soft knobs, E150/E152; 0.8.6: start-up waits for the Virus, E149; 0.8.5: one plug-in instance per process, issue #6). The 0.8.x
+Latest release: **v0.8.26** (2026-10-18; the rounds 0.8.19-0.8.26 are in the sections above; 0.8.18 of 2026-10-16: full project recall E174, "No Virus TI" page E173, help reasons; earlier: v0.8.10 reconnect + absent start + two DAWs on Windows, E163/E166; 0.8.9: the third USB output, E159; 0.8.8: soft knobs on the Virus change the sound, E154; 0.8.7: presets chosen on the Virus + soft knobs, E150/E152; 0.8.6: start-up waits for the Virus, E149; 0.8.5: one plug-in instance per process, issue #6). The 0.8.x
 releases are summarised in the sections above; 0.7.x and older in [HANDOFF-history.md](HANDOFF-history.md).
 Virus TI Snow: works with the native plug-in per user reports (macOS, 0.8.3+, USB 3 and soft knobs with 0.8.20, E188; issue #4 closed 2026-10-17); v0.7.4 stays available for Windows.
 

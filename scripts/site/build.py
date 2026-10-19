@@ -210,7 +210,10 @@ def page_landing(latest, releases, sums):
                    "Unpack and run <code>./install.sh \"/path/to/Virus TI Software Suite 64-bit.msi\"</code>; it "
                    "asks for your password once (udev rule).",
                    "For steady audio join the real-time group (<code>sudo usermod -aG pipewire $USER</code>, log "
-                   "out and in), then rescan plug-ins."])
+                   "out and in), then rescan plug-ins.",
+                   "The Control Center window needs gtkmm 3 (Ubuntu 24.04+ <code>libgtkmm-3.0-1t64</code>, Fedora "
+                   "<code>gtkmm3.0</code>, Arch/CachyOS <code>gtkmm3</code>); <code>install.sh</code> names what is "
+                   "missing."])
     return f"""
 <section class="hero">
   <div class="wrap">
@@ -414,7 +417,7 @@ def page_landing(latest, releases, sums):
       <details><summary>&ldquo;A sync error occurred. Press Stop and Play to clear.&rdquo;</summary>
       <p>Like the original, the editor shows this when the Virus reports several notes in a row that arrived too late
       for their time stamp while your DAW plays. Stop and Play clears it. If it comes back, use a USB port the Virus does
-      not share with other devices; the original gives the same advice. Known issue: on macOS, after an export, notes can come late until the Virus is switched off and on, and since 0.8.26 this message shows then (being worked on).</p></details>
+      not share with other devices; the original gives the same advice. On macOS, notes could come late after an export in 0.8.25 and 0.8.26; since 0.8.27 the plug-in fills the audio cycles Core Audio skips during an export, and in our tests the late notes did not come back.</p></details>
       <details><summary>The first notes after Play are late</summary>
       <p>The plug-in sends notes slightly ahead to make up for the USB round trip, so start playback a little before
       the first note. The original driver did the same.</p></details>
@@ -506,6 +509,7 @@ def features_section():
         <li>Export, freeze and offline bounce work without a real-time render setting or a live recording: the plug-in
         renders at the pace of the Virus. The original refused offline renders.</li>
         <li>The original's sync error message, shown when the Virus reports late notes while your DAW plays.</li>
+        <li>The original's start-up page, &ldquo;Starting up&rdquo; with its filling ring, while a project opens; &ldquo;Syncing memory with Virus&rdquo; only when the plug-in really reads banks from the Virus (since 0.8.27).</li>
         <li>VST3 on Windows, macOS and Linux; Audio Unit for Logic and GarageBand. Native on Apple Silicon.</li>
         <li>Editor sizes from 100 to 200 %. On larger sizes and Retina screens each image is enlarged once with a
         sharp filter, in memory only.</li>
@@ -602,6 +606,9 @@ def features_section():
         <li>The Virus releases every sounding note about a second after the last Active Sensing message it received. Since 0.8.26 the plug-in sends one every 300 ms, like the original; before, it sent one at the start only.</li>
         <li>The Virus keeps time-stamped MIDI in a small buffer without an overflow check. Since 0.8.26 the plug-in keeps its time-stamped MIDI well under that buffer's limit; normal playing and automation never come near it.</li>
         <li>When the Virus is busy for a moment, for example while you change a patch on its panel, it holds back what the computer sends. Since 0.8.26 the plug-in sends it again instead of dropping it, so a bank sync or patch dump no longer breaks.</li>
+        <li>Choosing a patch for one part no longer stops the other parts for a moment. Since 0.8.27 the plug-in sends the patch like the original: in small pieces on its own USB-MIDI cable, with the other parts' notes in between.</li>
+        <li>At every Play and loop restart the plug-in sends the song position like the original (since 0.8.27), so the arpeggiator and clock-synced LFOs restart on the beat.</li>
+        <li>At host sample rates other than 44.1 kHz the first notes after Play and after a render no longer come late and catch up over several seconds (since 0.8.27).</li>
         <li>The Virus drops the message right after a multi dump. The plug-in pauses after one, so new projects reset
         the synth reliably.</li>
         <li>Bank sync requests make the Virus play its notes late. The sync pauses while you play and continues in the gaps.</li>
@@ -680,7 +687,7 @@ def page_changelog_landing(releases):
 # the README's screenshots that the site shows too (copied at build time)
 SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png", "plugin-help-inactive.png",
                  "plugin-menus.png"]
-TESTS = 237 # unit tests in native/tests (vtitests), as of 2026-10-18 (round 0.8.26)
+TESTS = 262 # unit tests in native/tests (vtitests), as of 2026-10-19 (round 0.8.27)
 # line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
 COVERAGE, COVERAGE_DATE = "94 %", "16 Oct 2026"
 

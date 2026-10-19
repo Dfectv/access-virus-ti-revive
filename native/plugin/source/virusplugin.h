@@ -10,6 +10,12 @@
 #include "device/keepalive.h"
 #include "device/memsync.h"
 #include "device/sendbudget.h"
+#include "device/cablerule.h"
+#include "device/dumppacer.h"
+#include "device/startprogress.h"
+#include "device/transport.h"
+#include "device/sendguard.h"
+#include "device/stamprule.h"
 #include "device/offlinepace.h"
 #include "device/presencewatch.h"
 #include "device/stallwatch.h"
@@ -68,6 +74,8 @@ public:
     void wake_rt() { cv_.notify_one(); }
     std::atomic<int64_t> timeline{-1};
     bool busy() const { return queued_.load() > 0; } // non-realtime messages (state upload) still waiting
+    int queued() const { return queued_.load(); } // start-up messages and state still to go (the start page's ring)
+    bool dumping() const { return dump_pending_.load(); } // a dump in pieces: nothing else may go between them
     // USB control request through the broker (device descriptor / strings)
     int control(uint8_t rt, uint8_t req, uint16_t value, uint16_t index, uint8_t *data, uint16_t len)
     {
@@ -197,7 +205,12 @@ private:
     Slot rt_[RT_SLOTS];
     std::atomic<size_t> rt_w_{0}, rt_r_{0};
     int rt_run_ = 0; // real-time messages sent in a row (worker thread)
-    SendBudget budget_; // bytes of stamped traffic per second (the DSP's 2046-byte stamp queue, E238)
+    DumpPacer dump_;            // a single dump on cable 3 in pieces, events between them on cable 5 (E270)
+    HeldParams held_;           // automation that fell into a dump, sent when it is out (E274)
+    std::atomic<bool> dump_pending_{false}; // the dump counts as queued (busy()) until its last piece is out
+    SendBudget budget_; // bytes per second towards the DSP's 2046-byte stamp queue (E261)
+    std::atomic<int> blocked_{0}; // messages rule 2 forbids, dropped (sendguard.h); logged by the worker
+    int blocked_logged_ = 0;
     std::atomic<bool> stop_{false};
     bool open_ = false;
     AudioIn audio_;
@@ -294,7 +307,11 @@ public:
     }
     bool wait_until_quiet(); // the bank sync's before_request: waits while notes arrive (playing has priority)
     void wait_virus_ready(); // the bank sync thread at start-up / takeover: probe, then the sync marker (see .cpp)
-    void set_sync_progress(int v); // the original's start-up page: 0..126 shown, 127 hidden
+    void set_sync_progress(int v);   // the original's "Syncing memory" page: 0..126 shown, 127 hidden
+    void set_recall_progress(int v); // its "Starting up" page with the ring (startprogress.h)
+    // both at once: the layout shows "Starting up" only while InitialSyncProgress is 127 and "Syncing" only while
+    // RecallProgress is 127 - set one after the other, the editor would show for a moment in between (user, L4)
+    void set_start_pages(int recall, int sync);
     std::string category_name_(); // the selected category filter's name
     void set_search(const std::string &s);
     std::string search() { std::lock_guard<std::mutex> lk(values_mu_); return search_; }
@@ -349,6 +366,13 @@ public:
     // MIDI activity meters of the part strips (note-on velocity per MIDI channel, like the original's
     // "ShowMIDIActivityMeters"): tick_meters() decays them and returns the channels whose shown value changed (bits)
     int tick_meters(int step);
+    bool meters_pending() const // a meter still to show or decay (the editor skips its idle preloading then)
+    {
+        for (int ch = 0; ch < 16; ch++)
+            if (meter_shown_[ch] || meter_[ch].load(std::memory_order_relaxed))
+                return true;
+        return false;
+    }
     int meter(int channel) const { return channel >= 0 && channel < 16 ? meter_shown_[channel] : 0; }
     std::string live_text(const std::string &param);
     std::string remote_name(int t) const // REMOTE page list
@@ -496,6 +520,7 @@ private:
     void sync_banks(); // brings the bank cache up to date with the Virus (background thread)
     void load_rom_banks(); // ROM A.. from the user's firmware.bin for the connected model
     std::atomic<bool> syncing_{false};
+    std::atomic<bool> sync_expected_{false}; // a RAM bank has no cache file: the start-up reads it (sync page early)
     std::atomic<bool> starting_{false}; // start-up messages + state on their way: note-ons are held back
     // the Virus answered the readiness probe (wait_virus_ready): it has worked through the start-up messages and the
     // state, so the timeline may anchor and send the sync ping
@@ -548,6 +573,7 @@ private:
     double next_tick_ = 0;
     ActiveSensing fe_;  // FE every 300 ms on the timeline (the DSP's watchdog, E237)
     double tl_acc_ = 0; // fractional Virus frames of the timeline (host rates other than 44.1 kHz)
+    TransportWatch transport_; // Play and loop restarts: the original's F2 + 73 00 23 01 + 6F <part> 7F 00 (E275)
     double stat_acc_ = 0; // the same for the host-frames statistic
     int64_t stream_start_ = -1;
     // offline render (export, freeze): each block waits for the Virus' audio; the worker logs mode changes and timeouts

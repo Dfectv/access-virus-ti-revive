@@ -124,11 +124,35 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   getLatencySamples. No marker within 0.5 s: stamps stay ring-relative (old behaviour) and the ping is repeated up to
   3 times once USB 1/2 are quiet and the host is not playing. VTI_NATIVE_NO_PING = old behaviour, VTI_NATIVE_KLOG =
   log K per note.
+- The stamp clock in the firmware (2026-10-18, E245-E247): the TI2's two DSPs run one image; the master (a strap pin
+  read at reset) owns the clock, the slave takes it from the master's status word in the audio ring with a fixed
+  lead of 256 frames, and the master forwards channel messages to the slave the same way. The sync ping is parsed
+  by the DSP itself (page 0x73 parameter 0x22, value 0): both clocks go to 0 and the slave renders the one-sample
+  marker. Value 0x7E switches a continuous test signal on, 0x7F off (never sent by TI Revive). Stamps are compared
+  modulo 16384 with a signed window: up to 8191 frames ahead = future (honoured), up to 8192 behind = late (played
+  at once). Nothing outside the DSPs moves the clock - no host command, no USB condition. The F2 song position only
+  feeds the Virus' own tempo sync (arpeggiator, LFO, delay); the "without F2 the stamps are ignored" observation above
+  (2026-10-13) was the modular window with ring-relative stamps: about 44 % of sessions landed inside it (E247).
+  The Sync Information Event (`73 00 54 01`) is the DSP's own SysEx (E251): at a MIDI-clock tick whose newest
+  stamp is behind its clock, after ticks where stamps were ahead, it sends one event - "the lead is used up", one
+  per transition, not one per late note. Late stamps still play; the event asks for more lead, not for a resync.
 - Active Sensing (2026-10-18, firmware E237): the DSP arms a watchdog with the first FE it sees and releases every
   voice about a second after the last one. The original sends FE every 0.31 s (E025); the plug-in now sends one
-  every 300 ms on the timeline (keepalive.h), the first with the anchor's FE/F2 as before. Stamped bytes in flight
-  are bounded by the DSP's 2046-byte stamp queue (E238): the plug-in keeps them under 4 kB/s with bursts of 1000
-  bytes (sendbudget.h), far above musical rates.
+  every 300 ms on the timeline (keepalive.h), the first with the anchor's FE/F2 as before.
+- The stamp threshold and what the DSP parks (2026-10-19, E261/E262, corrects the first reading E238): a stamp at
+  most 1023 frames ahead of the DSP's clock is parsed at once and the voice starts at the stamp (the threshold is
+  the maximum per-voice scheduling delay); during a patch change the window shrinks for a moment. Only what is
+  further ahead is parked, up to the next F5, in the DSP's 2046-byte queue without a fill check. A stamp leaves the
+  plug-in A frames ahead of the newest ring frame and needs 512-768 frames to reach the DSP: on Linux/macOS
+  (A = 1024) nothing is parked, on Windows (A = 3072) about 30 ms of traffic are. The byte budget (sendbudget.h,
+  4 kB/s, bursts of 1000 bytes, far above musical rates) bounds what the DSP can park; unstamped SysEx on cable 2
+  (editor parameters, dumps, the state) is parked with a parked stamp but does not count: the USB link (~4.2 k packets/s, E231) parks at most ~400 bytes of it in 30 ms, and as a debt it made notes late after patch dumps (E266). Automation from
+  process() gets its own stamp at its block time (stamprule.h) so it lands where the host put it on every platform;
+  messages from other threads inherit the previous stamp. One F5 per stamp value per USB write: the DSP keeps the
+  current stamp for the bytes that follow, and an F5 per message would spend the whole budget on automation at the
+  250/s cap (E264). The multi header (page 0x72 parameters 0-3) and status
+  F4 are dropped before the wire (sendguard.h, rule 2). The 2026-10-13 stress hang (Linux, audio silent, MIDI
+  alive) is not explained by the queue; its mechanism is open.
 - The original reports a plug-in latency of 3840 + block size (4352 at 512, 4096 at 256; vtihost prints it).
   Experiments with the sync ping (S=5000, M=6441 = the original's F2 offset): ping stamped 3072 like the original ->
   honoured in 3/3 runs (K 10752-11322, ~6000 frames after sending); ping stamped on our timeline -> honoured 3/3, K

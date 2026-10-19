@@ -222,6 +222,7 @@ int main(int argc, char **argv)
     int wav_bus = 0; // the output bus that is measured and written (0 = Out 1)
     bool notes = false, editor = false, editor2 = false, stress = false, stress_notes = true, stress_params = true, scan = false;
     double stress_stop = 1e9;
+    double transport_at = -1, loop_bars = 0; // --transport / --loop: a playing DAW transport for process()
     double duplicate = 0; // --duplicate T: remove the first of two instances after T s
     double sc_sine = 0; // --sidechain-sine HZ: a sine (-6 dBFS) on the Sidechain bus (input bus 1)
     std::vector<std::pair<double, double>> aheads; // (at s, ms)
@@ -237,6 +238,7 @@ int main(int argc, char **argv)
     std::vector<Action> actions;
     double seconds = 1;
     double offline_at = -1; // --offline T
+    double offline_end = -1; // --offline-end T: back to real time (a DAW's render ends, playback follows)
     std::vector<std::pair<ParamID, double>> changes;
     double hold = -1; // --hold: note on at this time, never off
     struct TimedChange {
@@ -255,6 +257,10 @@ int main(int argc, char **argv)
             wav = argv[++i];
         else if (!strcmp(argv[i], "--wav-bus") && i + 1 < argc)
             wav_bus = std::max(0, atoi(argv[++i]) - 1);
+        else if (!strcmp(argv[i], "--transport") && i + 1 < argc) // play at 120 BPM from T s on (process context)
+            transport_at = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--loop") && i + 1 < argc) // with --transport: jump back to bar 1 every N bars
+            loop_bars = atof(argv[++i]);
         else if (!strcmp(argv[i], "--notes"))
             notes = true;
         else if (!strcmp(argv[i], "--hold") && i + 1 < argc)
@@ -315,6 +321,8 @@ int main(int argc, char **argv)
             sc_sine = atof(argv[++i]);
         else if (!strcmp(argv[i], "--offline") && i + 1 < argc)
             offline_at = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--offline-end") && i + 1 < argc)
+            offline_end = atof(argv[++i]);
         else if (!strcmp(argv[i], "--cid") && i + 1 < argc) // the class to load (32 hex digits as moduleinfo prints them)
             cid = argv[++i];
         else if (!strcmp(argv[i], "--seconds") && i + 1 < argc)
@@ -471,10 +479,25 @@ int main(int argc, char **argv)
     auto t_next = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point t_offline{};
     for (int b = 0; b < blocks; b++) {
-        const bool offline = offline_at >= 0 && b * (double)block / (double)rate >= offline_at;
+        const bool offline = offline_at >= 0 && b * (double)block / (double)rate >= offline_at &&
+                             (offline_end < 0 || b * (double)block / (double)rate < offline_end);
         if (offline && t_offline == std::chrono::steady_clock::time_point{})
             t_offline = std::chrono::steady_clock::now();
         data.processMode = offline ? kOffline : kRealtime;
+        static ProcessContext pctx{};
+        if (transport_at >= 0) { // a DAW transport: 120 BPM from transport_at on, looping every loop_bars bars
+            double t = b * (double)block / (double)rate;
+            pctx.sampleRate = rate;
+            pctx.tempo = 120.0;
+            pctx.state = ProcessContext::kTempoValid | ProcessContext::kProjectTimeMusicValid;
+            double qn = t >= transport_at ? (t - transport_at) * 2.0 : 0.0;
+            if (loop_bars > 0)
+                qn = std::fmod(qn, loop_bars * 4.0);
+            pctx.projectTimeMusic = qn;
+            if (t >= transport_at)
+                pctx.state |= ProcessContext::kPlaying;
+            data.processContext = &pctx;
+        }
         ev.clear();
         if (notes) { // C4 on at the start of every second, off at the half
             long f0 = (long)b * block, f1 = f0 + block;

@@ -1,12 +1,20 @@
-// sendbudget.h - a byte budget for the stamped MIDI traffic to the Virus (token bucket).
+// sendbudget.h - a byte budget for the MIDI traffic to the Virus' DSP (token bucket).
 //
-// Why: the Virus' DSP parks every stamped byte in a 2046-byte queue without a fill check until the stamp is due
-// (firmware, E235/E238). With the plug-in's lead of ~160 ms a burst of more than ~2000 bytes in that window wraps
-// the queue and corrupts the stream; the old stress test that hung the Virus (1000 parameter changes/s plus ~2750
-// notes/s) was 3.6 kB per window. Parameters are already limited (AutomationQueue, 250/s); this bounds everything
-// that leaves process() with a stamp: notes, controllers, clock. Musical use never comes near it (4 kB/s = 660
-// notes/s with their stamps, a burst of 1000 bytes = 160 simultaneous notes); a runaway host is delayed, not
-// dropped - stamps are absolute, so an event sent a few blocks later still sounds at its time.
+// Why: the Virus' DSP parses a stamped message at once when its stamp is within the threshold (up to 1023 frames
+// ahead of its clock; the voice then starts at the stamp) and otherwise parks everything up to the next stamp in a
+// 2046-byte queue without a fill check (firmware, E235/E261). Our stamps leave the plug-in A frames ahead of the
+// newest ring frame (A = 1024 on Linux/macOS: nothing is parked; A = 3072 on Windows: ~1400 frames = 30 ms are),
+// so on Windows more than ~2000 bytes within ~30 ms wrap the queue and corrupt the stream. Unstamped SysEx that
+// follows a parked stamp is parked with it (part dumps, the editor's parameters, the state), but it does NOT count:
+// the USB link into the Virus carries ~4.2 k packets/s (E231), so ~30 ms park at most ~400 bytes of it, and on
+// Linux/macOS nothing is parked. Counting it as a debt (round 0.8.27 T2) held the notes back for up to 250 ms after
+// each patch dump - behind the Virus' clock on Linux (lead ~23 ms), 4-10 sync events per Play (E266).
+// Parameters from automation are limited before this
+// (AutomationQueue, 250/s). Musical use never comes near the budget (4 kB/s = 660 notes/s with their stamps, a
+// burst of 1000 bytes = 160 simultaneous notes); a runaway host is delayed, not dropped - stamps are absolute, so an
+// event sent a few blocks later still sounds at its time. The old stress hang (1000 parameter changes/s plus
+// ~2750 notes/s, Linux) is NOT explained by this queue (nothing parked at A = 1024, E261); the budget stays as the
+// safe bound for what the DSP can park.
 #pragma once
 #include <cstdint>
 

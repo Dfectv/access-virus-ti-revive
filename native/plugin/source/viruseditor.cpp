@@ -1084,7 +1084,11 @@ public:
                 }
             } else if (plugin_->lcd_changed() && !partial_)
                 invalidRect(CRect(200, 470, 560, 512)); // the LCD only
-            else if (int changed = plugin_->tick_meters(2)) { // the original: -1 per ~25 ms idle tick; 2 per 50 ms
+            else if (!plugin_->meters_pending())
+                preload_step();
+            // the MIDI activity meters every tick, also while automation changes values each tick (they were the
+            // last branch above and froze while a host automated a parameter - user, W block)
+            if (int changed = plugin_->tick_meters(2)) { // the original: -1 per ~25 ms idle tick; 2 per 50 ms
                 // repaint only the changed meters, merged into one area (a repaint per meter made hosts sluggish)
                 if (meter_rects_.empty()) { // the VU sliders (one per part), top to bottom = part 1..16
                     for (auto &rc : renderer_.param_rects("Internal MIDI Standard Parameters/07 Volume"))
@@ -1102,8 +1106,7 @@ public:
                     }
                 if (!area.isEmpty())
                     invalidRect(area);
-            } else
-                preload_step();
+            }
         }, 50);
     }
 
@@ -1273,9 +1276,12 @@ public:
         }
         renderer_.render(canvas_);
         renderer_.deps = nullptr;
-        if (plugin_->sync_paused()) // under the sync page's progress bar (the original hides the LCD meanwhile)
+        // the sync page's notes, only while that page shows (since round 0.8.27 only when banks are really fetched;
+        // a bank check paused for playing drew them over the EASY page - user, W block)
+        const bool sync_page = plugin_->ui_value("VirusControl/InitialSyncProgress", -1) < 127;
+        if (sync_page && plugin_->sync_paused()) // under the sync page's progress bar (the original hides the LCD meanwhile)
             renderer_.status_text(canvas_, "FNT_LCD_5x7_Rot.png", "SYNC PAUSED WHILE YOU PLAY", 480, 290, 381, 12);
-        else if (int eta = plugin_->sync_eta(); eta >= 60) { // a first sync: tell how long, not "a couple of seconds"
+        else if (int eta = plugin_->sync_eta(); sync_page && eta >= 60) { // a first sync: tell how long, not "a couple of seconds"
             char t[64];
             snprintf(t, sizeof t, "READING THE VIRUS' BANKS: ABOUT %d MIN LEFT", (eta + 59) / 60);
             renderer_.status_text(canvas_, "FNT_LCD_5x7_Rot.png", t, 480, 290, 381, 12);

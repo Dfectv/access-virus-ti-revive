@@ -14,6 +14,7 @@
 #include "flashinfo.h"
 #include "ctrlguard.h"
 #include "owner.h"
+#include "ratelever.h"
 #include <errno.h>
 #include <pthread.h>
 #include <signal.h>
@@ -468,10 +469,17 @@ static void f5_report(const uint8_t *p, int len);
 static void f5_second(void);
 #endif
 
+static volatile int g_rate_lever; // the 44.1 kHz global was sent (E257): log the Virus' report of it
+
 static void on_rx(void *user, uint8_t ep, const uint8_t *data, int len)
 {
     (void)user;
     trace_rec(1, ep, data, len, NULL, 0);
+    if (g_rate_lever && ep == VTI_EP_MI04_IN) {
+        int v = vti_rate_report(data, len);
+        if (v >= 0)
+            blog("usbaudio: the Virus reports System Clock/Frequency = %s", v ? "48 kHz" : "44.1 kHz");
+    }
 #ifdef __APPLE__
     if (ep == VTI_EP_MI04_IN)
         vtimidi_rx(data, len);
@@ -820,8 +828,14 @@ static void *device_thread(void *unused)
             if (vla_rate_lost()) {
                 if (rate_tries < 3) {
                     rate_tries++;
-                    blog("usbaudio: the Virus sends 48 kHz packets - asking for 44.1 kHz again (%d/3): %s", rate_tries,
-                         vla_set_rate_again() ? "failed" : "accepted");
+                    // both masters of the rate (E257): SET_CUR on the endpoints and the panel's global parameter
+                    int r = vla_set_rate_again();
+                    uint8_t lever[16];
+                    int n = vti_pack_rate_44k1(lever, sizeof lever);
+                    int w = n > 0 ? vti_write(g_dev, VTI_EP_MI04_OUT, lever, n) : -1;
+                    g_rate_lever = 1;
+                    blog("usbaudio: the Virus sends 48 kHz packets - asking for 44.1 kHz again (%d/3): SET_CUR %s, "
+                         "global 73 00 10 00 -> %d", rate_tries, r ? "failed" : "accepted", w);
                 } else if (rate_tries++ == 3)
                     blog("usbaudio: the Virus stays at 48 kHz - its sound stays silent; switch it off and on");
             }

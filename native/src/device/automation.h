@@ -1,6 +1,8 @@
-// automation.h - the rate limit for host automation going to the Virus. A flood of parameter messages hangs the
-// Virus' audio until a power cycle (stress test: 1000/s together with dense notes), so process() coalesces the
-// changes per parameter (only the latest value waits) and sends at most `rate` per second, oldest parameter first.
+// automation.h - the rate limit for host automation going to the Virus. A flood of parameter messages hung the
+// Virus' audio until a power cycle (stress test 2026-10-13, Linux: 1000/s together with dense notes; the firmware
+// mechanism is still open - not the DSP's stamp queue, E261), so process() coalesces the changes per parameter (only
+// the latest value waits) and sends at most `rate` per second, oldest parameter first. Since round 0.8.27 each
+// change goes out with its own time stamp at the block time (stamprule.h) and within the byte budget (sendbudget.h).
 // Realtime safe: fixed ring, no allocation. The pending values live with the caller (one slot per parameter).
 #pragma once
 #include <algorithm>
