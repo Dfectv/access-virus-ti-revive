@@ -139,7 +139,8 @@ TI Revive (the Access plug-ins are removed with Access' own uninstaller).
 
 Requirements: an x86_64 Linux with systemd (Ubuntu 22.04 / Debian 12 or newer; tested: Ubuntu 26.04), a VST3 host
 (REAPER, Bitwig, Ardour, …), your own Access 64-bit `.msi` and, to unpack it, **msitools** (`sudo apt install
-msitools`) or Wine. Wine and yabridge are no longer needed for the plug-in.
+msitools`) or Wine. Wine and yabridge are no longer needed for the plug-in. The Control Center window needs gtkmm 3
+(Ubuntu 24.04+ `libgtkmm-3.0-1t64`, Fedora `gtkmm3.0`, Arch/CachyOS `gtkmm3`); `install.sh` names what is missing.
 
 1. Unpack `TI-Revive-<version>-linux.tar.gz` and run `./install.sh "/path/to/Virus TI Software Suite 5.1.7.00 64-bit.msi"`.
    It allows your user to use the Virus over USB (udev rule, asks for your password once), installs the TI Revive

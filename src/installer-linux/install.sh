@@ -60,9 +60,13 @@ Exec=$HOME/.local/bin/tirevive-control-center
 Terminal=false
 Categories=AudioVideo;Audio;Utility;
 EOF_DESKTOP
-if ldd "$HOME/.local/bin/tirevive-control-center" 2>/dev/null | grep -q "not found"; then
-    echo "NOTE: the Control Center app needs gtkmm 3 (Ubuntu 24.04+: sudo apt install libgtkmm-3.0-1t64, older Debian/Ubuntu: libgtkmm-3.0-1v5; Fedora: gtkmm3.0);"
-    echo "      the plug-in and tirevive-cc work without it."
+CC_MISSING=$(ldd "$HOME/.local/bin/tirevive-control-center" 2>/dev/null | awk '/not found/ {print $1}' | tr '\n' ' ')
+if [ -n "$CC_MISSING" ]; then
+    # issue #9 (Arch/CachyOS): without gtkmm the app closes at once ("spinning cursor, then gone")
+    echo "NOTE: the Control Center app needs gtkmm 3 - missing: $CC_MISSING"
+    echo "      Ubuntu 24.04+: sudo apt install libgtkmm-3.0-1t64 (older Debian/Ubuntu: libgtkmm-3.0-1v5);"
+    echo "      Fedora: sudo dnf install gtkmm3.0; Arch/CachyOS/Manjaro: sudo pacman -S gtkmm3."
+    echo "      The plug-in and tirevive-cc work without it."
 fi
 install -m 0644 "$HERE/systemd/tirevive-broker.socket" "$HERE/systemd/tirevive-broker.service" "$UNITS/"
 rm -f "$CONF/broker.token" # TI Revive 0.7: the TCP socket for the plug-in under Wine is gone
@@ -152,7 +156,9 @@ if [ -n "$MISSING" ]; then
     cat <<EOT
 WARNING: libraries the plug-in needs are missing: $MISSING
 Install them with your package manager (Ubuntu/Debian: libxcb-cursor0 libxcb-util1 libxkbcommon-x11-0 libcairo2
-libpango-1.0-0 libpangocairo-1.0-0 libfontconfig1), then rescan plug-ins.
+libpango-1.0-0 libpangocairo-1.0-0 libfontconfig1; Fedora: xcb-util-cursor xcb-util libxkbcommon-x11 cairo pango
+fontconfig; Arch/CachyOS/Manjaro: xcb-util-cursor xcb-util libxkbcommon-x11 cairo pango fontconfig), then rescan
+plug-ins.
 EOT
 fi
 
