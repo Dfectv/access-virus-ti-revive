@@ -24,10 +24,8 @@ TEST(transport_restart_on_play_and_on_a_jump)
 TEST(transport_messages_like_the_original)
 {
     auto m = transport_messages(17); // 17 sixteenths
-    CHECK(m.size() == 18);
+    CHECK(m.size() == 2); // F2 and the +1 tick; the 16 part messages are left out (E280)
     CHECK(m[0] == std::vector<uint8_t>({0xF2, 17, 0}));
     CHECK(m[1] == std::vector<uint8_t>({0xF0, 0x00, 0x20, 0x33, 0x01, 0x00, 0x73, 0x00, 0x23, 0x01, 0xF7}));
-    CHECK(m[2] == std::vector<uint8_t>({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x6F, 0x00, 0x7F, 0x00, 0xF7}));
-    CHECK(m[17] == std::vector<uint8_t>({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x6F, 0x0F, 0x7F, 0x00, 0xF7}));
     CHECK(transport_messages(200)[0] == std::vector<uint8_t>({0xF2, 200 & 0x7F, 200 >> 7}));
 }

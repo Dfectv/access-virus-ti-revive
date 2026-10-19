@@ -1188,9 +1188,14 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         const double tempo_qn = (data.processContext->state & ProcessContext::kTempoValid) ? data.processContext->tempo
                                                                                           : 120.0;
         const double ppq = data.processContext->projectTimeMusic;
-        if (transport_.update(playing, ppq, (double)block_frames / 44100.0 * tempo_qn / 60.0))
-            for (auto &m : transport_messages((int)std::max(0.0, std::floor(ppq * 4.0 + 1e-6))))
-                add(tl_, m.data(), (int)m.size());
+        if (transport_.update(playing, ppq, (double)block_frames / 44100.0 * tempo_qn / 60.0)) {
+            // F2 and the +1 tick; the original's 16 part messages (6F <part> 7F 00) are left out: on the device they
+            // delayed the next note by 29-37 ms, and they only concern parts that use the Atomizer (E280)
+            uint8_t f2[3];
+            transport_f2((int)std::max(0.0, std::floor(ppq * 4.0 + 1e-6)), f2);
+            add(tl_, f2, 3);
+            add(tl_, TRANSPORT_TICK, 11);
+        }
     }
     if (tl_valid_) { // MIDI clock at the host tempo (120 BPM without a process context), 24 ticks per quarter
         double tempo = data.processContext && (data.processContext->state & ProcessContext::kTempoValid)
@@ -1515,13 +1520,16 @@ void VirusPlugin::send_sidechain(ProcessData &data)
 }
 
 // host rate != 44.1 kHz: n output samples from the Virus frame `target` on, resampled. The read position moves on
-// smoothly and steers towards the target by at most 0.2 % in speed (a jump only on a large error), so the audio has
-// no clicks while it follows the timeline.
+// smoothly and steers towards the target by at most 0.2 % in speed while the error is small (the timeline's drift
+// steps), so the audio has no clicks; on a jump of the timeline it jumps too.
 void VirusPlugin::read_resampled(float **o1, float **o2, float **o3, int n, double ratio, int64_t newest,
                                  int64_t target)
 {
     double err = (double)target - rs_pos_;
-    if (!rs_valid_ || std::fabs(err) > 2048) {
+    // a jump beyond 128 frames (~3 ms): the timeline moved (anchor, marker, a burst) - follow it at once like the
+    // direct path; steering is for the timeline's drift steps of one frame per block (E280: 2048 left the first
+    // notes after a start ~9 ms late for ~7 s)
+    if (!rs_valid_ || std::fabs(err) > 128) {
         rs_pos_ = (double)target;
         rs_valid_ = true;
         err = 0;
