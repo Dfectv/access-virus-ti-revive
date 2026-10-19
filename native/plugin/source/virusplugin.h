@@ -11,6 +11,7 @@
 #include "device/memsync.h"
 #include "device/sendbudget.h"
 #include "device/cablerule.h"
+#include "device/dumppacer.h"
 #include "device/sendguard.h"
 #include "device/stamprule.h"
 #include "device/offlinepace.h"
@@ -71,6 +72,7 @@ public:
     void wake_rt() { cv_.notify_one(); }
     std::atomic<int64_t> timeline{-1};
     bool busy() const { return queued_.load() > 0; } // non-realtime messages (state upload) still waiting
+    bool dumping() const { return dump_pending_.load(); } // a dump in pieces: nothing else may go between them
     // USB control request through the broker (device descriptor / strings)
     int control(uint8_t rt, uint8_t req, uint16_t value, uint16_t index, uint8_t *data, uint16_t len)
     {
@@ -200,6 +202,8 @@ private:
     Slot rt_[RT_SLOTS];
     std::atomic<size_t> rt_w_{0}, rt_r_{0};
     int rt_run_ = 0; // real-time messages sent in a row (worker thread)
+    DumpPacer dump_;            // a single dump on cable 3 in pieces, events between them on cable 5 (E270)
+    std::atomic<bool> dump_pending_{false}; // the dump counts as queued (busy()) until its last piece is out
     SendBudget budget_; // bytes per second towards the DSP's 2046-byte stamp queue (E261)
     std::atomic<int> blocked_{0}; // messages rule 2 forbids, dropped (sendguard.h); logged by the worker
     int blocked_logged_ = 0;

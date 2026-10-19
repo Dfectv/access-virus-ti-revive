@@ -459,6 +459,38 @@ void DeviceOut::run()
             bool budget_ok = budget_.available(std::chrono::duration_cast<std::chrono::nanoseconds>(
                                                    now.time_since_epoch()).count()) >= 8;
             bool rt = r != rt_w_.load(std::memory_order_acquire) && !(rt_run_ >= 8 && !queue_.empty()) && budget_ok;
+            // a dump in pieces (dumppacer.h): the DAW's events go between the pieces, queued messages wait for its end
+            if (dump_.active() && !rt) {
+                const int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
+                std::vector<uint8_t> piece;
+                bool due = dump_.next(now_ns, piece);
+                int64_t wait = dump_.wait_ns(now_ns);
+                bool done = due && !dump_.active();
+                lk.unlock();
+                if (!due) {
+                    std::this_thread::sleep_for(std::chrono::nanoseconds(std::min<int64_t>(wait, 2000000)));
+                    continue;
+                }
+                bool wok = broker_.write(EP_PLUGIN_OUT, piece.data(), piece.size());
+                if (done && dump_pending_) {
+                    dump_pending_ = false;
+                    queued_--;
+                }
+                if (!wok) {
+                    lk.lock();
+                    dump_ = DumpPacer(); // the device is gone: the dump is resent with the state later
+                    if (dump_pending_) {
+                        dump_pending_ = false;
+                        queued_--;
+                    }
+                    lk.unlock();
+                    audio_ok_ = false;
+                    audio_.close();
+                    broker_.close();
+                    open_ = false;
+                }
+                continue;
+            }
             if ((held || !budget_ok) && !rt && queue_.empty()) {
                 lk.unlock();
                 std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -475,11 +507,18 @@ void DeviceOut::run()
                 stamp = sl.stamp;
                 rt_r_.store(r + 1, std::memory_order_release);
                 rt_run_++;
+                cable = dump_.event_cable(CABLE_PLUGIN); // cable 5 while a dump is in pieces (dumppacer.h)
             } else if (!queue_.empty()) {
                 rt_run_ = 0;
                 msg = std::move(queue_.front().msg);
                 cable = queued_cable(msg.data(), msg.size(), queue_.front().cable); // dumps: cable 3 (cablerule.h)
                 queue_.pop_front();
+                if (cable == 3 && msg.size() > 3 * (DumpPacer::PIECE / 4)) { // a dump: in pieces from the next round
+                    auto pk = usbmidi_pack(msg, cable);
+                    dump_.start(pk, std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count());
+                    dump_pending_ = true;
+                    continue;
+                }
                 pending_send_ = true; // counted down after the write, so busy() covers the transfer
             }
         }
@@ -2097,6 +2136,9 @@ bool VirusPlugin::wait_until_quiet()
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
+    // a dump in pieces (dumppacer.h): a request between its pieces would land in the host CPU's dump parse
+    while (!stop_warm_ && out_ && out_->dumping())
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
     if (shown) {
         sync_paused_ = false;
         ui_dirty_ = true;
