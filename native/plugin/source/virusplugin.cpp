@@ -2194,7 +2194,8 @@ bool VirusPlugin::wait_until_quiet()
     auto gap = [&] { return sync_paused_ms_ + (now_ms() - t0) >= 30000 ? 300 : 1500; };
     while (!stop_warm_ && now_ms() - last_note_ms_.load(std::memory_order_relaxed) < gap()) {
         if (!shown) {
-            set_lcd("Bank sync paused (playing)", std::string(), std::string(), std::string());
+            if (ui_value("VirusControl/InitialSyncProgress", -1) < 127) // only during a real sync, not a bank check
+                set_lcd("Bank sync paused (playing)", std::string(), std::string(), std::string());
             sync_paused_ = true;
             ui_dirty_ = true; // the note on the sync page
             shown = true;
