@@ -157,6 +157,14 @@ int DeviceOut::send_state(std::vector<std::vector<uint8_t>> records)
     return dropped;
 }
 
+// The Virus is gone or the broker write failed: readers on other threads (process(), the editor's diag report, the
+// reader's klog) finish their read first, then the ring is unmapped (audiogate.h; review 2026-10-19 H1).
+void DeviceOut::close_audio()
+{
+    audio_gate_.close();
+    audio_.close();
+}
+
 bool DeviceOut::send_rt(const uint8_t *msg, size_t n, int64_t stamp)
 {
     if (blocked_to_virus(msg, n)) { // rule 2 (sendguard.h); counted here, logged off the audio thread
@@ -179,7 +187,7 @@ bool DeviceOut::send_rt(const uint8_t *msg, size_t n, int64_t stamp)
 // the delay after sending. The ring holds only ~370 ms, so the audio is scanned as it arrives (up to 2 s per note).
 void DeviceOut::klog_check()
 {
-    if (!audio_ok_)
+    if (!audio_ok())
         return;
     const int64_t newest = audio_.newest_frame();
     for (size_t k = 0; k < klog_stamps_.size();) {
@@ -231,7 +239,7 @@ void DeviceOut::log(const char *fmt, ...)
 
 void DeviceOut::scan_audio()
 {
-    if (!audio_ok_)
+    if (!audio_ok())
         return;
     int64_t newest = audio_.newest_frame();
     if (newest < 0)
@@ -288,8 +296,7 @@ void DeviceOut::check_presence()
             on_waiting_(elsewhere);
     }
     auto lost = [this] {
-        audio_ok_ = false;
-        audio_.close();
+        close_audio();
     };
     auto arrived = [this] {
         // a new audio stream counts its frames from 0 again: the scan positions of the old one would keep
@@ -366,7 +373,8 @@ void DeviceOut::run()
                         fprintf(stderr, "klog rx ep %02x cable %d:", ep, cable);
                         for (auto x : m)
                             fprintf(stderr, " %02x", x);
-                        fprintf(stderr, " (newest %lld)\n", (long long)(audio_ok_ ? audio_.newest_frame() : -1));
+                        AudioGate::Use ring(audio_gate_); // the reader thread: the worker may unmap meanwhile
+                        fprintf(stderr, " (newest %lld)\n", (long long)(ring ? audio_.newest_frame() : -1));
                     }
                     if (ep == 0x86 && cable == 2 && panel_)
                         panel_(m);
@@ -404,14 +412,15 @@ void DeviceOut::run()
             }
             broker_.set_name("TI Revive Virus Control");
             open_ = broker_.open(err);
-            if (open_ && !audio_ok_) { // the owner starts the Virus audio stream (Linux: shm ring)
+            if (open_ && !audio_ok()) { // the owner starts the Virus audio stream (Linux: shm ring)
 #ifdef __APPLE__
                 int r = 1; // macOS: the plug-in reads the Virus' Core Audio input itself (the broker carries MIDI)
 #else
                 int r = broker_.audio(true);
 #endif
-                audio_ok_ = r == 1 && audio_.open();
-                fprintf(stderr, "Virus TI native: audio %s (%d)\n", audio_ok_ ? "streaming" : "not available", r);
+                if (r == 1 && audio_.open())
+                    audio_gate_.open();
+                fprintf(stderr, "Virus TI native: audio %s (%d)\n", audio_ok() ? "streaming" : "not available", r);
             }
             if (!open_) {
                 fprintf(stderr, "Virus TI native: %s\n", err.c_str());
@@ -520,7 +529,7 @@ void DeviceOut::run()
         // the stream stood still while time went on and runs on (macOS sleep pauses Core Audio, E207): the Virus'
         // stamp clock did not stop, so the anchor is off by the pause - a new timeline and sync ping, as after a
         // reconnect (process() re-anchors on the generation change)
-        if (audio_ok_ && stall_.update(audio_.newest_frame(),
+        if (audio_ok() && stall_.update(audio_.newest_frame(),
                                        std::chrono::duration_cast<std::chrono::milliseconds>(
                                            std::chrono::steady_clock::now().time_since_epoch()).count())) {
             log("Virus TI native: the Virus' audio stood still (sleep?) - set-up, state and a new timeline again\n");
@@ -531,12 +540,12 @@ void DeviceOut::run()
         check_presence();
         if ((env_stats() || diag_on_.load(std::memory_order_acquire)) && std::chrono::steady_clock::now() >= stats_next_) { // endurance tests
             stats_next_ = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-            int64_t newest = audio_ok_ ? audio_.newest_frame() : -1, pos = audio_ok_ ? audio_.position() : -1;
+            int64_t newest = audio_ok() ? audio_.newest_frame() : -1, pos = audio_ok() ? audio_.position() : -1;
             log("stats: audio %d drops %lld filled %lld distance %lld queued %d | marker %lld aligned blocks %lld, read "
                 "margin min %lld, timeline steps %lld, last sound %lld frames ago | host frames %lld / virus frames "
                 "%lld, anchors %lld, err %lld..%lld\n",
-                (int)audio_ok_.load(), (long long)(audio_ok_ ? audio_.drops() : -1),
-                (long long)(audio_ok_ ? audio_.filled() : -1),
+                (int)audio_ok(), (long long)(audio_ok() ? audio_.drops() : -1),
+                (long long)(audio_ok() ? audio_.filled() : -1),
                 (long long)(newest >= 0 && pos >= 0 ? newest - pos : -1), queued_.load(), (long long)marker.load(),
                 (long long)aligned_blocks.exchange(0), (long long)read_margin_min.exchange(INT64_MAX),
                 (long long)tl_steps.exchange(0), (long long)(newest - last_sound.load()), (long long)host_frames.exchange(0),
@@ -544,7 +553,7 @@ void DeviceOut::run()
                 (long long)err_min.exchange(INT64_MAX), (long long)err_max.exchange(INT64_MIN));
             stats_newest_ = newest;
             int pk[6];
-            if (audio_ok_ && audio_.raw_peaks(44100, pk)) // the last second per raw channel (0/1 in, 2/3 USB 1, 4/5 USB 2)
+            if (audio_ok() && audio_.raw_peaks(44100, pk)) // the last second per raw channel (0/1 in, 2/3 USB 1, 4/5 USB 2)
                 log("stats: raw peaks %d %d | %d %d | %d %d\n", pk[0], pk[1], pk[2], pk[3], pk[4], pk[5]);
             int64_t sc_f = sc_frames.exchange(0), sc_y = sc_yields.exchange(0);
             if (sc_f || sc_y)
@@ -556,15 +565,16 @@ void DeviceOut::run()
         }
         // the broker may refuse the audio start right after another session ended (stress test: every second
         // quick re-open had no sound): retry every 500 ms while connected without audio
-        if (!audio_ok_ && present_seen_ == 1 && std::chrono::steady_clock::now() >= audio_retry_) {
+        if (!audio_ok() && present_seen_ == 1 && std::chrono::steady_clock::now() >= audio_retry_) {
             audio_retry_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
 #ifdef __APPLE__
             int r = 1;
 #else
             int r = broker_.audio(true);
 #endif
-            audio_ok_ = r == 1 && audio_.open();
-            if (audio_ok_)
+            if (r == 1 && audio_.open())
+                audio_gate_.open();
+            if (audio_ok())
                 fprintf(stderr, "Virus TI native: audio streaming (retry)\n");
         }
         if (int b = blocked_.load(std::memory_order_relaxed); b != blocked_logged_) {
@@ -595,8 +605,7 @@ void DeviceOut::run()
                     dump_pending_ = false;
                     queued_--;
                 }
-                audio_ok_ = false;
-                audio_.close();
+                close_audio();
                 broker_.close();
                 open_ = false;
             }
@@ -617,7 +626,7 @@ void DeviceOut::run()
             bool from_process = st >= 0;
             if (st < 0)
                 st = timeline.load();
-            if (st < 0 && audio_ok_)
+            if (st < 0 && audio_ok())
                 st = audio_.newest_frame();
             int64_t raw = st;
             bool ping = m.size() == 11 && m[6] == 0x73 && m[8] == 0x22;
@@ -625,7 +634,7 @@ void DeviceOut::run()
                 st = st + lead.load() - mk; // ring frame st + lead on the Virus' stamp clock (0 at the marker)
             if (env_debug())
                 fprintf(stderr, "send %02x stamp %lld newest %lld\n", m[0], (long long)st,
-                        (long long)(audio_ok_ ? audio_.newest_frame() : -1));
+                        (long long)(audio_ok() ? audio_.newest_frame() : -1));
             if (st >= 0 && needs_stamp(m.data(), m.size(), from_process) && (ping || stamps.fresh(st))) {
                 auto t = usbmidi_pack({0xF5, (uint8_t)(st & 0x7F), (uint8_t)((st >> 7) & 0x7F)}, CABLE_TIME);
                 pk_.insert(pk_.end(), t.begin(), t.end());
@@ -633,7 +642,7 @@ void DeviceOut::run()
             auto ev = usbmidi_pack(m, cable);
             pk_.insert(pk_.end(), ev.begin(), ev.end());
             if (klog_ && st >= 0 && m.size() == 3 && (m[0] & 0xF0) == 0x90 && m[2] && klog_stamps_.size() < 64)
-                klog_stamps_.push_back({raw, audio_ok_ ? audio_.newest_frame() : -1, 0, 0});
+                klog_stamps_.push_back({raw, audio_ok() ? audio_.newest_frame() : -1, 0, 0});
         };
         pack(msg, stamp);
         // the rest of a block's events in the same write (one broker message instead of one per event); the
@@ -674,8 +683,7 @@ void DeviceOut::run()
             queued_--;
         }
         if (!ok) {
-            audio_ok_ = false;
-            audio_.close();
+            close_audio();
             broker_.close();
             open_ = false;
         }
@@ -1041,13 +1049,17 @@ void VirusPlugin::diag_report()
     int64_t due = diag_next_ms_.load();
     if (!diag_enabled() || now < due || !diag_next_ms_.compare_exchange_strong(due, now + 10000))
         return;
+    long long drops = -1; // the editor's timer or the worker: read under the audio gate (audiogate.h)
+    if (out_)
+        if (AudioGate::Use ring(out_->audio_gate()); ring)
+            drops = (long long)out_->audio().drops();
     if (FILE *f = fopen((own_cache_dir() + "/../diag.log").c_str(), "a")) {
         fprintf(f, "%ld s: draws full %ld partial %ld, draw time %ld ms, dirty ticks %ld, process calls %ld max %ld us,"
                    " over block time %ld, audio %d drops %lld, queued %d, host %.0f Hz block %d (largest %ld)\n",
                 (long)std::time(nullptr), diag.full_draws.exchange(0), diag.part_draws.exchange(0),
                 diag.draw_us.exchange(0) / 1000, diag.dirty_ticks.exchange(0), diag.process_calls.exchange(0),
                 diag.process_max_us.exchange(0), diag.process_over.exchange(0),
-                out_ ? (int)out_->audio_ready() : -1, (long long)(out_ && out_->audio_ready() ? out_->audio().drops() : -1),
+                out_ ? (int)out_->audio_ready() : -1, drops,
                 out_ ? (int)out_->busy() : -1, rate_, block_, diag.block_max.exchange(0));
         fclose(f);
     }
@@ -1081,7 +1093,7 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
     // the Virus timeline: block start = newest ring frame - S, continued by the block size, re-anchored on drift
     const int S = timing_s();
     const double ratio = 44100.0 / rate_; // Virus frames per host sample
-    int64_t newest = out_ && out_->audio_ready() ? out_->audio().newest_frame() : -1;
+    int64_t newest = ring_newest();
     if (out_ && out_->generation.load() != generation_seen_) { // the Virus came back: a new audio stream
         generation_seen_ = out_->generation.load();
         tl_valid_ = false;
@@ -1323,7 +1335,10 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         for (int32 c = 0; c < data.outputs[b].numChannels; c++)
             if (data.outputs[b].channelBuffers32 && data.outputs[b].channelBuffers32[c])
                 memset(data.outputs[b].channelBuffers32[c], 0, sizeof(float) * data.numSamples);
-    if (out_ && out_->audio_ready() && data.numOutputs >= 2 && data.outputs[0].numChannels >= 2 &&
+    // the ring stays mapped while this block reads it and feeds the sidechain (audiogate.h); never waits for the worker
+    static AudioGate no_device;
+    AudioGate::Use ring(out_ ? out_->audio_gate() : no_device);
+    if (ring && data.numOutputs >= 2 && data.outputs[0].numChannels >= 2 &&
         data.outputs[1].numChannels >= 2 && data.numSamples > 0) {
         float **o1 = data.outputs[0].channelBuffers32, **o2 = data.outputs[1].channelBuffers32;
         float **o3 = usb_io_.load(std::memory_order_relaxed) >= 1 && data.numOutputs >= 3 &&
@@ -1356,6 +1371,14 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         send_sidechain(data);
     }
     return kResultOk;
+}
+
+int64_t VirusPlugin::ring_newest()
+{
+    if (!out_)
+        return -1;
+    AudioGate::Use ring(out_->audio_gate());
+    return ring ? out_->audio().newest_frame() : -1;
 }
 
 // Offline render (export, freeze, offline bounce): the host calls process() as fast as it can, the Virus plays in real
@@ -1393,7 +1416,7 @@ void VirusPlugin::wait_offline(ProcessData &data, double ratio, int64_t &newest)
             waited = true;
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
-        newest = out_->audio_ready() ? out_->audio().newest_frame() : -1;
+        newest = ring_newest();
         if (out_->generation.load() != generation_seen_) { // the Virus connected meanwhile: its stream starts here
             generation_seen_ = out_->generation.load();
             tl_valid_ = false;
@@ -1411,7 +1434,7 @@ void VirusPlugin::wait_offline(ProcessData &data, double ratio, int64_t &newest)
     if (need < 0)
         return;
     const auto give_up = std::chrono::steady_clock::now() + std::chrono::seconds(1);
-    for (int64_t f = newest; f < need; f = out_->audio().newest_frame()) {
+    for (int64_t f = newest; f < need; f = ring_newest()) {
         if (f < 0 || std::chrono::steady_clock::now() > give_up) { // the stream stopped: no pacing until it is back
             pacer_.reset();
             offline_timeouts_.fetch_add(1, std::memory_order_relaxed);

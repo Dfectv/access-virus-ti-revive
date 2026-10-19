@@ -14,6 +14,7 @@
 #include "device/dumppacer.h"
 #include "device/startprogress.h"
 #include "device/transport.h"
+#include "device/audiogate.h"
 #include "device/sendguard.h"
 #include "device/stamprule.h"
 #include "device/offlinepace.h"
@@ -100,8 +101,10 @@ public:
     std::atomic<int> generation{0}; // +1 on every return of the Virus (process() re-anchors its timeline)
     StallWatch stall_;              // worker: the stream stood still and runs on (sleep) -> generation + 1
     bool connected() const { return broker_.device_present(); }
-    AudioIn &audio() { return audio_; } // read from process(); valid once audio_ready()
-    bool audio_ready() const { return audio_ok_; }
+    // read outside the worker only while holding an AudioGate::Use of audio_gate() (it may be unmapped otherwise)
+    AudioIn &audio() { return audio_; }
+    AudioGate &audio_gate() { return audio_gate_; }
+    bool audio_ready() const { return audio_gate_.is_open(); }
     // R5 sync marker (docs/protocol.md "Sync marker"): after the sync ping the Virus puts one non-zero sample on USB 2
     // where its 14-bit time stamp clock is 0, so a stamp s plays at the ring frame marker + s (mod 16384).
     // process() calls calibrate() with the ring frame of its ping; the worker finds the marker (-1 = searching or
@@ -214,7 +217,9 @@ private:
     std::atomic<bool> stop_{false};
     bool open_ = false;
     AudioIn audio_;
-    std::atomic<bool> audio_ok_{false};
+    AudioGate audio_gate_; // open while audio_ is mapped; closed (waiting for readers) before it is unmapped
+    bool audio_ok() const { return audio_gate_.is_open(); }
+    void close_audio();    // worker: no reader left, then unmap
     std::chrono::steady_clock::time_point audio_retry_{}; // next audio start attempt (worker thread)
     std::chrono::steady_clock::time_point stats_next_{};  // VTI_NATIVE_STATS output
     int64_t stats_newest_ = -1; // worker: the newest ring frame at the last stats line (per instance, issue #6)
@@ -585,6 +590,7 @@ private:
     std::atomic<int> offline_timeouts_{0};   // waits that gave up (the Virus stopped streaming)
     int offline_timeouts_reported_ = 0;      // worker
     void wait_offline(Steinberg::Vst::ProcessData &data, double ratio, int64_t &newest);
+    int64_t ring_newest(); // the newest frame of the Virus' ring, -1 without one (read under the audio gate)
     void report_offline();
     // the original's sync error page (E205): events from the Virus (broker rx thread), ticks and transport (worker)
     SyncAlert sync_alert_;
