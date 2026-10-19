@@ -219,7 +219,7 @@ for the Virus.
 
 **"A sync error occurred. Press Stop and Play to clear."** Like the original, the editor shows this when the Virus
 reports several notes in a row that arrived too late for their time stamp while your DAW plays. Stop and Play clears
-it. If it comes back, use a USB port the Virus does not share with other devices; the original gives the same advice. Known issue: on macOS, after an export, notes can come late until the Virus is switched off and on, and since 0.8.26 this message shows then (being worked on).
+it. If it comes back, use a USB port the Virus does not share with other devices; the original gives the same advice. On macOS, notes could come late after an export in 0.8.25 and 0.8.26; since 0.8.27 the plug-in fills the audio cycles Core Audio skips during an export, and in our tests the late notes did not come back.
 
 **Start playback slightly before the first note.** The plug-in sends notes to the Virus ahead of time to make up
 for the USB round trip; right at Play, notes in the first quarter second can come late or be skipped. This was the
@@ -257,6 +257,8 @@ same with Access' own driver.
 - **Export, freeze and offline bounce** work without a real-time render setting or a live recording: the plug-in
   renders at the pace of the Virus. The original refused offline renders.
 - **The original's sync error message**, shown when the Virus reports late notes while your DAW plays.
+- **The original's start-up page**: "Starting up" with its filling ring while a project opens; "Syncing memory with
+  Virus" only when the plug-in really reads banks from the Virus (since 0.8.27).
 - **One plug-in instance per synth.** Virus Control is designed that way (it controls all 16 parts);
   a second instance shows "Virus in use by another instance" and takes over when the first one is removed.
 - **Hearing the Virus**: with a part output set to *USB*, the audio comes through the plug-in track.
@@ -413,7 +415,7 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 - **Automation rate limit** (250 messages/s, coalesced per parameter): unthrottled parameter floods hung the Virus'
   audio until a power cycle within 4 minutes; with the limit a 4-minute full-load test (16 channels of notes + 32
   automation lanes) passes.
-- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 251 unit
+- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 262 unit
   tests run with every release build on Windows and Linux, plus two end-to-end tests on Linux in a virtual display
   (two editors of a duplicated track; the Control Center's window and close button).
 
@@ -428,6 +430,9 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 
 **Reliability fixes found with the Virus**
 
+- Choosing a patch for one part no longer stops the other parts for a moment. Since 0.8.27 the plug-in sends the patch like the original: in small pieces on its own USB-MIDI cable, with the other parts' notes in between. (E268-E271)
+- At every Play and loop restart the plug-in sends the song position like the original (since 0.8.27), so the arpeggiator and clock-synced LFOs restart on the beat. (E275)
+- At host sample rates other than 44.1 kHz the first notes after Play and after a render no longer come late and catch up over several seconds (since 0.8.27). (E279, E280)
 - The Virus releases every sounding note about a second after the last Active Sensing message it received. Since 0.8.26 the plug-in sends one every 300 ms, like the original; before, it sent one at the start only. (E237)
 - The Virus keeps time-stamped MIDI in a small buffer without an overflow check. Since 0.8.26 the plug-in keeps its time-stamped MIDI well under that buffer's limit; normal playing and automation never come near it. (E238)
 - When the Virus is busy for a moment, for example while you change a patch on its panel, it holds back what the computer sends. Since 0.8.26 the plug-in sends it again instead of dropping it, so a bank sync or patch dump no longer breaks. (E239)

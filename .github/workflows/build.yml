@@ -224,6 +224,27 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
+          **New in 0.8.27: patch changes while you play, like the original.** Choosing a patch for one part no longer
+          stops the other parts for a moment. We recorded what the original plug-in sends and do the same now: the patch
+          goes to the Virus in small pieces on its own USB-MIDI cable, and the notes of the other parts go on in between.
+          Automation that falls into a patch change waits for it instead of reaching only part of the Virus. Tested on
+          Linux (REAPER), macOS (Ableton Live 12) and Windows 11 (Ableton Live 11, in a VM).
+
+          **New in 0.8.27: the arpeggiator starts with the bar.** At every Play and loop restart the plug-in sends the
+          song position the way the original does, so the arpeggiator and clock-synced LFOs restart on the beat.
+
+          **New in 0.8.27: the original's start-up page.** While a project opens, the editor shows "Starting up" with
+          the original's ring that fills. "Syncing memory with Virus" only appears when the plug-in really reads banks
+          from the Virus; a start with a current bank cache no longer shows it.
+
+          **Also in 0.8.27:** at host sample rates other than 44.1 kHz the first notes after Play and after a render no
+          longer come late and catch up over several seconds. The MIDI activity meters of the parts work while the DAW
+          automates a parameter. Host automation is time-stamped with its block on every system. On Windows the plug-in now
+          has the protection against the Virus keeping the wrong sample rate after a wake that Linux got in 0.8.26.
+          On macOS the plug-in fills audio cycles that Core Audio skips during an export; the late notes after an export
+          seen in 0.8.25 and 0.8.26 did not come back in our 0.8.27 tests. The Linux installer names the libraries the
+          Control Center needs (gtkmm 3) for Ubuntu, Fedora and Arch.
+
           **New in 0.8.26: steadier MIDI, from the Virus' own firmware.** We read the Virus TI's firmware (the copy
           in your Access installer) to see how it handles MIDI from the computer, and fixed what did not match:
           notes are no longer cut a second after you press Play (the Virus stops every sounding note about a second
