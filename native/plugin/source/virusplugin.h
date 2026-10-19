@@ -12,6 +12,7 @@
 #include "device/sendbudget.h"
 #include "device/cablerule.h"
 #include "device/dumppacer.h"
+#include "device/startprogress.h"
 #include "device/sendguard.h"
 #include "device/stamprule.h"
 #include "device/offlinepace.h"
@@ -72,6 +73,7 @@ public:
     void wake_rt() { cv_.notify_one(); }
     std::atomic<int64_t> timeline{-1};
     bool busy() const { return queued_.load() > 0; } // non-realtime messages (state upload) still waiting
+    int queued() const { return queued_.load(); } // start-up messages and state still to go (the start page's ring)
     bool dumping() const { return dump_pending_.load(); } // a dump in pieces: nothing else may go between them
     // USB control request through the broker (device descriptor / strings)
     int control(uint8_t rt, uint8_t req, uint16_t value, uint16_t index, uint8_t *data, uint16_t len)
@@ -303,7 +305,8 @@ public:
     }
     bool wait_until_quiet(); // the bank sync's before_request: waits while notes arrive (playing has priority)
     void wait_virus_ready(); // the bank sync thread at start-up / takeover: probe, then the sync marker (see .cpp)
-    void set_sync_progress(int v); // the original's start-up page: 0..126 shown, 127 hidden
+    void set_sync_progress(int v);   // the original's "Syncing memory" page: 0..126 shown, 127 hidden
+    void set_recall_progress(int v); // its "Starting up" page with the ring (startprogress.h)
     std::string category_name_(); // the selected category filter's name
     void set_search(const std::string &s);
     std::string search() { std::lock_guard<std::mutex> lk(values_mu_); return search_; }

@@ -683,7 +683,8 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
         return kResultOk;
     }
     single_template_ = dev_.message("VirusTI_Singledump");
-    ui_state_["VirusControl/InitialSyncProgress"] = 127; // exists before the sync thread updates it
+    ui_state_["VirusControl/InitialSyncProgress"] = 127; // exist before the sync thread updates them
+    ui_state_["VirusControl/RecallProgress"] = 127;
     load_banks();
     load_remote_templates();
     if (ed_.load(files->get("editordevice.xml"), err) && layout_.load(files->get("editor.xml"), err))
@@ -861,9 +862,9 @@ tresult PLUGIN_API VirusPlugin::setActive(TBool state)
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     if (state && sync_ && !sync_started_.exchange(true)) {
-        // the start-up page from the first moment (the original shows it once, right away), not only after the
-        // start-up messages; sync_banks hides it when the check is done or cannot run
-        set_sync_progress(0);
+        // the "Starting up" page from the first moment (the original shows it once, right away), not only after the
+        // start-up messages; wait_virus_ready fills its ring and hides it when the Virus is ready
+        set_recall_progress(0);
         syncing_ = true;
         starting_ = true;
         sync_thread_ = std::thread([this] {
@@ -2127,6 +2128,13 @@ void VirusPlugin::set_sync_progress(int v)
         ui_dirty_ = true;
 }
 
+void VirusPlugin::set_recall_progress(int v)
+{
+    const std::string path = "VirusControl/RecallProgress";
+    if (ui_state_set(path, v))
+        ui_dirty_ = true;
+}
+
 bool VirusPlugin::wait_until_quiet()
 {
     // playing has priority: no dump request while notes arrive (the Virus delays notes behind requests, E144). After
@@ -2169,10 +2177,10 @@ void VirusPlugin::wait_virus_ready()
     if (!stop_warm_ && out_ && out_->waiting()) {
         // another instance owns the Virus (issue #6): this one starts up when it takes over, with the same start
         // page and note hold as a first start
-        set_sync_progress(127); // the "Virus unavailable" page instead of the start page
+        set_recall_progress(127); // the "Virus unavailable" page instead of the start page
         while (!stop_warm_ && out_->waiting())
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        set_sync_progress(0);
+        set_recall_progress(0);
         const int64_t t1 = now_ms();
         while (!stop_warm_ && !out_->connected() && now_ms() - t1 < 4000)
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -2180,8 +2188,17 @@ void VirusPlugin::wait_virus_ready()
     if (stop_warm_ || !out_ || !out_->connected()) { // no Virus: nothing to wait for (when it comes: after_reconnect)
         absent_at_start_ = !stop_warm_ && out_;
         ready_ = true;
+        set_recall_progress(127);
         return;
     }
+    // the ring of the "Starting up" page follows the start-up messages and the state on their way out
+    RecallMeter meter;
+    set_recall_progress(meter.update(out_->queued()));
+    while (!stop_warm_ && out_->connected() && out_->busy()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        set_recall_progress(meter.update(out_->queued()));
+    }
+    set_recall_progress(RecallMeter::SENT);
     probe_virus_ready();
     ready_ = true;
     // process() anchors now and sends the ping (0.5 s of stream, 1 s of silence); notes stay held until its marker
@@ -2189,6 +2206,7 @@ void VirusPlugin::wait_virus_ready()
     const int64_t tm = now_ms();
     while (!stop_warm_ && out_->marker.load() < 0 && now_ms() - tm < 3000)
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    set_recall_progress(127);
 }
 
 bool VirusPlugin::probe_virus_ready()
@@ -2262,13 +2280,16 @@ void VirusPlugin::sync_banks()
     load_rom_banks();
     sync_->before_request = [this] { return wait_until_quiet(); };
     const int64_t sync_t0 = now_ms();
-    // like the original: its start-up page ("Initializing Virus TI and syncing memory", VirusControl/
-    // InitialSyncProgress 0..126, shown since setActive) covers the editor until the sync is done; notes still play
-    // the original keeps "synchronising" on the Virus display while it syncs (74 01 7E 07 about once a second)
-    std::atomic<bool> rise{true};
-    std::thread riser([this, &rise] {
+    // like the original: its page "Syncing memory with Virus" (VirusControl/InitialSyncProgress 0..126) covers the
+    // editor while banks are fetched; notes still play. Only when a patch is really fetched (startprogress.h): the
+    // check of a current cache shows nothing. The original keeps "synchronising" on the Virus display while it
+    // syncs (74 01 7E 07 about once a second) - also only then
+    SyncPage page;
+    std::atomic<bool> rise{true}, fetching{false};
+    std::thread riser([this, &rise, &fetching] {
         while (rise) {
-            out_->send({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x74, 0x01, 0x7E, 0x07, 0xF7});
+            if (fetching)
+                out_->send({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x74, 0x01, 0x7E, 0x07, 0xF7});
             for (int i = 0; i < 10 && rise; i++)
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
@@ -2282,15 +2303,16 @@ void VirusPlugin::sync_banks()
                 for (size_t p = 0; p < 128 && p < it->second.size(); p++)
                     bank[p] = it->second[p];
         }
-        int n = sync_->sync_bank(b + 1, bank, [this, b, &bank, sync_t0](int p, bool fetched) {
-            set_sync_progress((b * 128 + p + 1) * 126 / 512);
+        int n = sync_->sync_bank(b + 1, bank, [this, b, &bank, sync_t0, &page, &fetching](int p, bool fetched) {
+            set_sync_progress(page.progress(b * 128 + p + 1, fetched));
+            fetching = page.shown();
             // remaining time at the pace so far (pauses for notes not counted): the original's start page promises
             // "a couple of seconds", but a first sync takes 8-9 minutes (issue #5)
             int done = b * 128 + p + 1;
             int64_t worked = now_ms() - sync_t0 - sync_paused_ms_;
             if (done >= 8 && worked > 0)
                 sync_eta_s_ = (int)((512 - done) * worked / done / 1000);
-            {
+            if (page.shown()) {
                 std::lock_guard<std::mutex> lk(values_mu_); // progress on the LCD
                 lcd_param_ = "Synchronizing " + bank_name(b);
                 lcd_value_ = std::to_string(p + 1) + " / 128";
@@ -2325,7 +2347,7 @@ void VirusPlugin::sync_banks()
     sync_eta_s_ = -1;
     set_sync_progress(127);
     out_->log("Virus TI native: bank sync done in %.1f s\n", (now_ms() - sync_t0) / 1000.0);
-    {
+    if (page.shown()) {
         std::lock_guard<std::mutex> lk(values_mu_);
         lcd_param_ = "Synchronization done";
         lcd_value_.clear();
