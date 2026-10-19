@@ -58,11 +58,13 @@ def main():
     if os.path.realpath(a.tree) == os.path.realpath(os.path.join(os.path.dirname(__file__), "..")):
         sys.exit("mutation.py: --tree must be a copy, not the working tree")
     build = ["cmake", "--build", a.build, "--target", "vtitests", "-j", str(os.cpu_count() or 4)]
-    tests = os.path.join(a.build, "bin", "Release", "vtitests")
+    if run(build, 1800) != 0:
+        sys.exit("mutation.py: the unmutated copy does not build")
+    tests = os.path.join(a.build, "bin", "Release", "vtitests")  # after the build: a fresh folder has none before
     if not os.path.exists(tests):
         tests = os.path.join(a.build, "vtitests")
-    if run(build, 1800) != 0 or run([tests], 600) != 0:
-        sys.exit("mutation.py: the unmutated copy does not build or its tests fail")
+    if run([tests], 600) != 0:
+        sys.exit("mutation.py: the unmutated copy's tests fail")
     results = []
     for f in a.files:
         path = os.path.join(a.tree, f)

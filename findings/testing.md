@@ -133,6 +133,11 @@ resetguard.h, 221 mutants, ~50 s each): **164 of 221 killed (74 %)**.
 | **sendbudget.h** | **17 %** | the MIDI byte budget (rule 2: flood protection) is barely checked by tests |
 | keepalive.h, broker.h, sidechain.h | 0-25 % | broker.h survivors are default member values |
 
-Next: tests for sendbudget.h first (flood protection), then usbmidi.h and stamprule.h:32; many `<` / `<=`
+**sendbudget.h after its new tests (2026-10-19):** 2 of 5 killed; the 3 survivors are equivalent (`now > last`
+vs `>=` adds 0 tokens at equal times, `tokens > burst` vs `>=` and `tokens < 0` vs `<=` give the same value at the
+boundary), so every mutant that changes behaviour is killed. One new test also found a real flaw (an earlier time
+was granted twice; harmless with steady_clock, fixed).
+
+Next:  then usbmidi.h and stamprule.h:32; many `<` / `<=`
 survivors mean a boundary value has no test. Some survivors may be equivalent (no behaviour change); check each
 before writing a test. Results: run.log / results.json of that run (scratch, not in git).
