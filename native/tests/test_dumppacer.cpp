@@ -19,10 +19,10 @@ TEST(dumppacer_splits_a_dump_into_paced_pieces)
     CHECK(p.active());
     std::vector<uint8_t> out;
     CHECK(p.next(0, out) && out.size() == 64);  // the first piece at once
-    CHECK(!p.next(5 * MS, out));                 // not before 6 ms
-    CHECK(p.next(6 * MS, out) && out.size() == 64);
+    CHECK(!p.next(9 * MS, out));                 // not before 10 ms
+    CHECK(p.next(10 * MS, out) && out.size() == 64);
     int pieces = 2;
-    for (int64_t t = 12 * MS; p.active(); t += 6 * MS)
+    for (int64_t t = 20 * MS; p.active(); t += 10 * MS)
         if (p.next(t, out))
             pieces++;
     CHECK(pieces == 11);        // 10 x 64 + 60
@@ -40,10 +40,10 @@ TEST(dumppacer_events_go_on_cable_5_while_a_dump_runs)
     std::vector<uint8_t> out;
     p.next(0, out);
     CHECK(p.event_cable(2) == 5);
-    p.next(6 * MS, out);
+    p.next(10 * MS, out);
     CHECK(!p.active());
     CHECK(p.event_cable(2) == 2);
-    CHECK(p.wait_ns(6 * MS) == 0);
+    CHECK(p.wait_ns(10 * MS) == 0);
 }
 
 TEST(dumppacer_says_how_long_to_wait)
@@ -52,6 +52,6 @@ TEST(dumppacer_says_how_long_to_wait)
     std::vector<uint8_t> pk(256, 0x34), out;
     p.start(pk, 0);
     p.next(0, out);
-    CHECK(p.wait_ns(2 * MS) == 4 * MS);
-    CHECK(p.wait_ns(7 * MS) == 0);
+    CHECK(p.wait_ns(2 * MS) == 8 * MS);
+    CHECK(p.wait_ns(11 * MS) == 0);
 }

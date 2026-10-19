@@ -1,7 +1,7 @@
 // dumppacer.h - a single dump on cable 3 goes out in pieces, with the DAW's events in between on cable 5.
 //
 // Why: the original writes a patch dump (524 bytes = 700 bytes of USB-MIDI packets) in pieces of 64 bytes, one
-// every 6-12 ms, and sends its notes, clock ticks and time stamps between them on cable 5 (capture of a patch change
+// every 6-12 ms (~130 ms per dump, also when the patches change fast; never two dumps at once), and sends its notes, clock ticks and time stamps between them on cable 5 (capture of a patch change
 // while another part plays, E270). Cable 3 reaches only the Virus' host CPU, which parses the dump byte by byte;
 // cable 2 would put a note's bytes into that parse (one parser for all cables but 5, E252), cable 5 goes to the DSPs
 // only. Written in one piece, the dump held the notes until the Virus had taken all of it, and the other parts
@@ -16,7 +16,7 @@ namespace vti {
 class DumpPacer {
 public:
     static constexpr size_t PIECE = 64;              // bytes per write (16 USB-MIDI packets), as the original
-    static constexpr int64_t GAP_NS = 6 * 1000000LL; // at least this long between two pieces
+    static constexpr int64_t GAP_NS = 10 * 1000000LL; // between two pieces: the original's average is ~11 ms
 
     bool active() const { return off_ < pk_.size(); }
     // the packed USB-MIDI bytes of a dump; the first piece is due at once
