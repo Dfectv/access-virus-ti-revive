@@ -204,7 +204,7 @@ private:
     static constexpr size_t RT_SLOTS = 1024;
     Slot rt_[RT_SLOTS];
     std::atomic<size_t> rt_w_{0}, rt_r_{0};
-    int rt_run_ = 0; // real-time messages sent in a row (worker thread)
+    EventRun rt_run_; // real-time messages sent in a row, the queue's turn after 8 (worker thread, dumppacer.h)
     DumpPacer dump_;            // a single dump on cable 3 in pieces, events between them on cable 5 (E270)
     HeldParams held_;           // automation that fell into a dump, sent when it is out (E274)
     std::atomic<bool> dump_pending_{false}; // the dump counts as queued (busy()) until its last piece is out

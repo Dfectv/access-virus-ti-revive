@@ -50,12 +50,30 @@ private:
     int64_t due_ = 0;
 };
 
+// The worker's fairness rule: after MAX events from process() in a row one queued message gets its turn, else dense
+// MIDI starves the queue. While a dump goes out in pieces the queue waits for its end, so each piece is that turn:
+// without it the events waited for the dump's last piece once MAX were sent (up to ~130 ms, late notes; review
+// 2026-10-19).
+class EventRun {
+public:
+    static constexpr int MAX = 8;
+    bool events_first(bool queue_empty) const { return run_ < MAX || queue_empty; }
+    void event() { run_++; }
+    void turn() { run_ = 0; } // a queued message or a piece of a dump went out
+
+private:
+    int run_ = 0;
+};
+
 // Parameter SysEx that falls into a dump waits for its end (at most ~140 ms): on cable 5 with the notes it would
 // reach only the DSPs, and the host CPU would keep the old value in its edit buffer (E274). Notes and other
-// channel messages are not held. Several changes of one parameter keep only the latest value, in first-arrival order.
+// channel messages are not held, nor other SysEx from process(): the sync ping needs its own raw stamp in its block
+// (the marker follows it) and the transport tick belongs to its F2. Several changes of one parameter keep only the
+// latest value, in first-arrival order.
 class HeldParams {
 public:
-    static bool held(const uint8_t *m, size_t n) { return n > 0 && m[0] == 0xF0; }
+    // a parameter of page A-E (6E..72), the pages stamprule.h stamps for automation
+    static bool held(const uint8_t *m, size_t n) { return n == 11 && m[0] == 0xF0 && m[6] >= 0x6E && m[6] <= 0x72; }
     void add(const std::vector<uint8_t> &m)
     {
         for (auto &h : list_)

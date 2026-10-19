@@ -78,3 +78,34 @@ TEST(dumppacer_holds_parameters_until_the_dump_is_out)
     CHECK(out[0] == cut2 && out[1] == reso && out[2] == other_part); // in first-arrival order, latest value
     CHECK(h.take().empty());
 }
+
+TEST(dumppacer_holds_only_parameter_pages)
+{
+    // the sync ping carries its own raw stamp (3072) and the marker follows it in the same block; the transport tick
+    // belongs to the F2 before it - neither may wait for the dump's end and lose its stamp (review 2026-10-19)
+    const uint8_t ping[] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x22, 0x00, 0xF7};
+    const uint8_t tick[] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x00, 0x73, 0x00, 0x23, 0x01, 0xF7};
+    const uint8_t page_a[] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x70, 0x00, 0x28, 0x10, 0xF7};
+    const uint8_t page_e[] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x72, 0x00, 0x05, 0x41, 0xF7};
+    const uint8_t page_b6e[] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x6E, 0x00, 0x05, 0x41, 0xF7};
+    CHECK(!HeldParams::held(ping, sizeof ping));
+    CHECK(!HeldParams::held(tick, sizeof tick));
+    CHECK(HeldParams::held(page_a, sizeof page_a));
+    CHECK(HeldParams::held(page_e, sizeof page_e));
+    CHECK(HeldParams::held(page_b6e, sizeof page_b6e));
+}
+
+TEST(dumppacer_a_piece_is_the_queues_turn)
+{
+    // after 8 events in a row a queued message gets its turn; while a dump goes out the queue waits for its end, so
+    // each piece is that turn - otherwise the events waited for the dump's last piece (up to ~130 ms, late notes)
+    EventRun run;
+    for (int i = 0; i < EventRun::MAX; i++) {
+        CHECK(run.events_first(false));
+        run.event();
+    }
+    CHECK(!run.events_first(false)); // the queue's turn
+    CHECK(run.events_first(true));   // nothing queued: events go on
+    run.turn();                      // a piece of a dump (or a queued message) went out
+    CHECK(run.events_first(false));
+}

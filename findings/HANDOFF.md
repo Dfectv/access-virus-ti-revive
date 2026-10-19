@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-19. CONTINUE HERE = **v0.8.27 released 2026-10-19** (tag v0.8.27 on merge 957c383, release CI run 39288097657 all green, 6 assets; a first tag push on the old main commit 0f297c4 (failed merge command) started run 39287940425, cancelled within a minute, all jobs cancelled, no release, tag deleted and set again on the merge; site rebuilt by hand, run 39288880734, live shows Download 0.8.27 / 262 tests / the start-up page). Round 0.8.27-2 checklist: Linux 10/10, Windows VM 7/7, Mac 8/8, real PC skipped (E278, E282, E283). New in 0.8.27: patch changes like the original (cable 3, 64-byte pieces, notes between on cable 5, automation held; E268-E271, E274), F2 + the +1 tick at Play/loop (E275; the 16 6F part messages left out, E280), start pages Starting up / Syncing only on a real sync (E273), first notes at 48 kHz (E279, E280), meters during automation and the sync note (E282), T1-T8 of the first pass (E261-E264). Test machines: Linux = release (install.sh, plug-in + broker = release); win11 VM = release (silent, test build uninstalled first, plug-in 16:48 UTC); Mac: release unpacked in ~/Downloads/TI-Revive-0.8.27-release-mac, the user runs the sudo installer (it has the third test build). Open: REAPER crash after a GUI render on Linux (E265/E277, REAPER's SWELL, deciding test not run); the Atomizer part messages (E276) if an Atomizer user reports; real PC timing._
+_Last updated: 2026-10-19. CONTINUE HERE = **round 0.8.28 started (branch round-0.8.28): review fixes for the dump pacing, see below.** Before: **v0.8.27 released 2026-10-19** (tag v0.8.27 on merge 957c383, release CI run 39288097657 all green, 6 assets; a first tag push on the old main commit 0f297c4 (failed merge command) started run 39287940425, cancelled within a minute, all jobs cancelled, no release, tag deleted and set again on the merge; site rebuilt by hand, run 39288880734, live shows Download 0.8.27 / 262 tests / the start-up page). Round 0.8.27-2 checklist: Linux 10/10, Windows VM 7/7, Mac 8/8, real PC skipped (E278, E282, E283). New in 0.8.27: patch changes like the original (cable 3, 64-byte pieces, notes between on cable 5, automation held; E268-E271, E274), F2 + the +1 tick at Play/loop (E275; the 16 6F part messages left out, E280), start pages Starting up / Syncing only on a real sync (E273), first notes at 48 kHz (E279, E280), meters during automation and the sync note (E282), T1-T8 of the first pass (E261-E264). Test machines: Linux = release (install.sh, plug-in + broker = release); win11 VM = release (silent, test build uninstalled first, plug-in 16:48 UTC); Mac: release unpacked in ~/Downloads/TI-Revive-0.8.27-release-mac, the user runs the sudo installer (it has the third test build). Open: REAPER crash after a GUI render on Linux (E265/E277, REAPER's SWELL, deciding test not run); the Atomizer part messages (E276) if an Atomizer user reports; real PC timing._
 39131364441 green, 6 assets; site rebuilt by hand, run 39131769375, live shows 0.8.25 / 220 tests / original VST3
 projects). New: original VST3 projects open (second class with the original's id, E221-E223; VST2 not), Revert to /
 Recently Used (E220), Create Empty Library (E217), Windows 10 menu look (E219), plug-in version 0.8.25. Test machines:
@@ -12,6 +12,22 @@ third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac 
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
 Evidence: [evidence.md](evidence.md) (E001-E244), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
+
+## Round 0.8.28 (branch round-0.8.28, collecting; started 2026-10-19)
+
+1. **C++ review of round 0.8.27 (2026-10-19), fixes - built and unit-tested on Linux only, NOT on hardware.**
+   (a) The worker's "8 events, then one queued message" rule starved the DAW's events during a dump in pieces: the
+   counter only reset when a queued message was popped, which never happens while a dump runs, so once 8 events had
+   gone and more was queued, notes and clock waited for the dump's last piece (up to ~130 ms per dump; state uploads,
+   fast patch changes). Now `EventRun` (dumppacer.h): each piece is the queue's turn. (b) `HeldParams::held()` held
+   every SysEx from process() during a dump, also the sync ping (it lost its raw 3072 stamp, the marker would be
+   wrong until the next anchor) and the transport tick; now only parameter pages 6E-72 (as stamprule.h). (c)
+   vtiusbaudio.c: the SET_CUR retry always asks both endpoints (the `||` skipped IN when OUT failed); an unchecked
+   malloc in the MI_00 open (cppcheck). Tests: 266 unit tests pass (2 new in test_dumppacer.cpp, the held test failed
+   first); gui_duplicate_editors failed once and passed twice on rerun (flaky, unrelated). Windows broker
+   cross-built. Not changed: the broker's rate-lever tries reset only when audio stops (both platforms, as
+   intended); 10 older clang-tidy warnings in virusplugin.cpp outside the round. Static tools now on this PC:
+   clang-tidy, cppcheck.
 
 ## Round 0.8.27 (branch round-0.8.27, collecting; started 2026-10-18 evening)
 

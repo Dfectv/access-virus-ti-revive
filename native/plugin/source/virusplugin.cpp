@@ -460,14 +460,16 @@ void DeviceOut::run()
             // stamped traffic within the budget (sendbudget.h): a flood waits here, a few blocks at most
             bool budget_ok = budget_.available(std::chrono::duration_cast<std::chrono::nanoseconds>(
                                                    now.time_since_epoch()).count()) >= 8;
-            bool rt = r != rt_w_.load(std::memory_order_acquire) && !(rt_run_ >= 8 && !queue_.empty()) && budget_ok;
+            bool rt = r != rt_w_.load(std::memory_order_acquire) && rt_run_.events_first(queue_.empty()) && budget_ok;
             // a dump in pieces (dumppacer.h): the DAW's events go between the pieces, queued messages wait for its end
             // the piece is written below, after the regular work of each round (idle work, audio scan, stall watch,
             // presence): skipping that for a whole state's dumps (~2 s) made the stall watch see a sleep (E272)
             if (dump_.active() && !rt) {
                 const int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
-                if (dump_.next(now_ns, piece))
+                if (dump_.next(now_ns, piece)) {
                     piece_last = !dump_.active();
+                    rt_run_.turn(); // the queue's turn while it waits for the dump (EventRun, dumppacer.h)
+                }
                 else
                     piece_wait_ns = std::max<int64_t>(dump_.wait_ns(now_ns), 1);
             } else {
@@ -486,7 +488,7 @@ void DeviceOut::run()
                     msg.assign(sl.data, sl.data + sl.len);
                     stamp = sl.stamp;
                     rt_r_.store(r + 1, std::memory_order_release);
-                    rt_run_++;
+                    rt_run_.event();
                     cable = dump_.event_cable(CABLE_PLUGIN); // cable 5 while a dump is in pieces (dumppacer.h)
                     if (dump_.active() && HeldParams::held(msg.data(), msg.size())) { // automation: after the dump
                         held_.add(msg);
@@ -494,7 +496,7 @@ void DeviceOut::run()
                         stamp = -1;
                     }
                 } else if (!queue_.empty()) {
-                    rt_run_ = 0;
+                    rt_run_.turn();
                     msg = std::move(queue_.front().msg);
                     cable = queued_cable(msg.data(), msg.size(), queue_.front().cable); // dumps: cable 3 (cablerule.h)
                     queue_.pop_front();
@@ -639,13 +641,13 @@ void DeviceOut::run()
                 std::chrono::duration_cast<std::chrono::nanoseconds>(
                     std::chrono::steady_clock::now().time_since_epoch()).count())));
             for (size_t r = rt_r_.load(std::memory_order_relaxed);
-                 r != rt_w_.load(std::memory_order_acquire) && pk_.size() < cap && !(rt_run_ >= 8 && !queue_.empty());
+                 r != rt_w_.load(std::memory_order_acquire) && pk_.size() < cap && rt_run_.events_first(queue_.empty());
                  r = rt_r_.load(std::memory_order_relaxed)) {
                 const Slot &sl = rt_[r % RT_SLOTS];
                 msg.assign(sl.data, sl.data + sl.len);
                 int64_t st = sl.stamp;
                 rt_r_.store(r + 1, std::memory_order_release);
-                rt_run_++;
+                rt_run_.event();
                 if (dump_.active() && HeldParams::held(msg.data(), msg.size())) { // automation: after the dump
                     held_.add(msg);
                     continue;
