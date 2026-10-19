@@ -63,8 +63,9 @@ static int open_dev(dev *d)
     if (SetupDiEnumDeviceInterfaces(di, NULL, &GUID_MI00, 0, &id)) {
         DWORD need = 0;
         SetupDiGetDeviceInterfaceDetailW(di, &id, NULL, 0, &need, NULL);
-        SP_DEVICE_INTERFACE_DETAIL_DATA_W *dd = malloc(need);
-        if (dd) // need is 0 or the allocation failed: no path, the caller falls back to WASAPI
+        // the size query failed (need too small for the struct) or no memory: no path, the caller falls back to WASAPI
+        SP_DEVICE_INTERFACE_DETAIL_DATA_W *dd = need >= sizeof *dd ? malloc(need) : NULL;
+        if (dd)
             dd->cbSize = sizeof *dd;
         if (dd && SetupDiGetDeviceInterfaceDetailW(di, &id, dd, need, NULL, NULL)) {
             d->file = CreateFileW(dd->DevicePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,

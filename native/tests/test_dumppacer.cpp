@@ -97,15 +97,36 @@ TEST(dumppacer_holds_only_parameter_pages)
 
 TEST(dumppacer_a_piece_is_the_queues_turn)
 {
-    // after 8 events in a row a queued message gets its turn; while a dump goes out the queue waits for its end, so
-    // each piece is that turn - otherwise the events waited for the dump's last piece (up to ~130 ms, late notes)
+    // after 8 events in a row the queue side gets its turn - but only when it can go now: a due piece while a dump
+    // runs, else a queued message that is not held. Otherwise the events waited for something that could not go
+    // (the next piece up to 10 ms, the hold after a multi dump up to 250 ms; review 2026-10-19)
     EventRun run;
     for (int i = 0; i < EventRun::MAX; i++) {
-        CHECK(run.events_first(false));
+        CHECK(run.events_first(true));
         run.event();
     }
-    CHECK(!run.events_first(false)); // the queue's turn
-    CHECK(run.events_first(true));   // nothing queued: events go on
-    run.turn();                      // a piece of a dump (or a queued message) went out
-    CHECK(run.events_first(false));
+    CHECK(!run.events_first(true)); // the queue's turn
+    CHECK(run.events_first(false)); // the queue cannot go: events go on
+    run.turn();                     // a piece of a dump (or a queued message) went out
+    CHECK(run.events_first(true));
+}
+
+TEST(dumppacer_queue_ready_only_when_it_can_go)
+{
+    DumpPacer p;
+    CHECK(!queue_ready(p, 0, true, false));  // nothing queued
+    CHECK(queue_ready(p, 0, false, false));  // a queued message
+    CHECK(!queue_ready(p, 0, false, true));  // held after a multi dump
+    std::vector<uint8_t> pk(256, 0x34), out;
+    p.start(pk, 0);
+    CHECK(queue_ready(p, 0, false, false));  // the first piece is due
+    p.next(0, out);
+    CHECK(!queue_ready(p, 5 * MS, false, false)); // the next piece is not due: the queue waits for the dump anyway
+    CHECK(queue_ready(p, 10 * MS, true, false));  // due, also with nothing else queued
+}
+
+TEST(dumppacer_holds_only_access_parameters)
+{
+    const uint8_t foreign[] = {0xF0, 0x00, 0x20, 0x29, 0x01, 0x10, 0x70, 0x00, 0x28, 0x10, 0xF7}; // not 00 20 33
+    CHECK(!HeldParams::held(foreign, sizeof foreign));
 }

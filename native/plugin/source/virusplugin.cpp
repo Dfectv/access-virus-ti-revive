@@ -458,19 +458,19 @@ void DeviceOut::run()
             auto now = std::chrono::steady_clock::now();
             bool held = now < queue_hold_until_;
             // stamped traffic within the budget (sendbudget.h): a flood waits here, a few blocks at most
-            bool budget_ok = budget_.available(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                                   now.time_since_epoch()).count()) >= 8;
-            bool rt = r != rt_w_.load(std::memory_order_acquire) && rt_run_.events_first(queue_.empty()) && budget_ok;
+            const int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
+            bool budget_ok = budget_.available(now_ns) >= 8;
+            // after 8 events the queue side's turn, only when it can go now (a due piece, a queued message not held)
+            const bool q_ready = queue_ready(dump_, now_ns, queue_.empty(), held);
+            bool rt = r != rt_w_.load(std::memory_order_acquire) && rt_run_.events_first(q_ready) && budget_ok;
             // a dump in pieces (dumppacer.h): the DAW's events go between the pieces, queued messages wait for its end
             // the piece is written below, after the regular work of each round (idle work, audio scan, stall watch,
             // presence): skipping that for a whole state's dumps (~2 s) made the stall watch see a sleep (E272)
             if (dump_.active() && !rt) {
-                const int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
                 if (dump_.next(now_ns, piece)) {
                     piece_last = !dump_.active();
                     rt_run_.turn(); // the queue's turn while it waits for the dump (EventRun, dumppacer.h)
-                }
-                else
+                } else
                     piece_wait_ns = std::max<int64_t>(dump_.wait_ns(now_ns), 1);
             } else {
                 if ((held || !budget_ok) && !rt && queue_.empty()) {
@@ -637,11 +637,12 @@ void DeviceOut::run()
         if (stamp >= 0 && !pending_send_) {
             std::lock_guard<std::mutex> lk(mu_);
             // one write holds at most the budget's balance (sendbudget.h): the rest of a flood goes in later rounds
-            size_t cap = std::min<size_t>(3072, (size_t)std::max(0, budget_.available(
-                std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    std::chrono::steady_clock::now().time_since_epoch()).count())));
+            const auto now = std::chrono::steady_clock::now();
+            const int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
+            size_t cap = std::min<size_t>(3072, (size_t)std::max(0, budget_.available(now_ns)));
+            const bool q_ready = queue_ready(dump_, now_ns, queue_.empty(), now < queue_hold_until_);
             for (size_t r = rt_r_.load(std::memory_order_relaxed);
-                 r != rt_w_.load(std::memory_order_acquire) && pk_.size() < cap && rt_run_.events_first(queue_.empty());
+                 r != rt_w_.load(std::memory_order_acquire) && pk_.size() < cap && rt_run_.events_first(q_ready);
                  r = rt_r_.load(std::memory_order_relaxed)) {
                 const Slot &sl = rt_[r % RT_SLOTS];
                 msg.assign(sl.data, sl.data + sl.len);
