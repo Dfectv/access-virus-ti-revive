@@ -478,7 +478,7 @@ void DeviceOut::run()
             } else if (!queue_.empty()) {
                 rt_run_ = 0;
                 msg = std::move(queue_.front().msg);
-                cable = queue_.front().cable;
+                cable = queued_cable(msg.data(), msg.size(), queue_.front().cable); // dumps: cable 3 (cablerule.h)
                 queue_.pop_front();
                 pending_send_ = true; // counted down after the write, so busy() covers the transfer
             }

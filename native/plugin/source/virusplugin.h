@@ -10,6 +10,7 @@
 #include "device/keepalive.h"
 #include "device/memsync.h"
 #include "device/sendbudget.h"
+#include "device/cablerule.h"
 #include "device/sendguard.h"
 #include "device/stamprule.h"
 #include "device/offlinepace.h"
