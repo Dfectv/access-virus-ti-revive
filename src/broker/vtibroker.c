@@ -16,6 +16,7 @@
 #include "flashinfo.h"
 #include "ctrlguard.h"
 #include "owner.h"
+#include "ratelever.h"
 #include "vtipipe_io.h"
 #include "vtiaudioshm.h"
 #include "../wrapper/vtiusbaudio.h"
@@ -456,11 +457,18 @@ static void obs_status(int dev_open) // once a second (device thread)
     LeaveCriticalSection(&g_cs_clients);
 }
 
+static volatile LONG g_rate_lever; // the 44.1 kHz global was sent (E257): log the Virus' report of it
+
 static void on_rx(void *user, uint8_t ep, const uint8_t *data, int len)
 {
     (void)user;
     if (g_verbose)
         blog("rx ep%02x %d bytes", ep, len);
+    if (g_rate_lever && ep == VTI_EP_MI04_IN) {
+        int v = vti_rate_report(data, len);
+        if (v >= 0)
+            blog("usbaudio: the Virus reports System Clock/Frequency = %s", v ? "48 kHz" : "44.1 kHz");
+    }
     broadcast(VTIMSG_RX, &ep, 1, data, len);
     obs_traffic(1, ep, data, len, NULL, 0);
 }
@@ -532,6 +540,23 @@ static DWORD WINAPI device_thread(LPVOID unused)
                 broadcast(VTIMSG_STATE, &st, 4, NULL, 0);
             }
         }
+        // the Virus left 44.1 kHz while streaming (E175/E241): the stream sends it silent packets of its size and
+        // repeats SET_CUR; here the second master of the rate, the panel's global parameter (E257), a few times
+        static int rate_tries;
+        if (g_dev && g_audio_running) {
+            if (vua_rate_lost()) {
+                if (rate_tries < 3) {
+                    rate_tries++;
+                    uint8_t lever[16];
+                    int n = vti_pack_rate_44k1(lever, sizeof lever);
+                    int w = n > 0 ? vti_write(g_dev, VTI_EP_MI04_OUT, lever, n) : -1;
+                    g_rate_lever = 1;
+                    blog("usbaudio: the Virus sends 48 kHz packets - global 73 00 10 00 (44.1 kHz) sent (%d/3) -> %d",
+                         rate_tries, w);
+                }
+            }
+        } else
+            rate_tries = 0;
         int open = g_dev != NULL;
         LeaveCriticalSection(&g_cs_dev);
         static ULONGLONG last_status;

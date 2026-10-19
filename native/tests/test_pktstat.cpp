@@ -1,6 +1,7 @@
 // The USB audio IN packet statistics (E175): sizes of the packets the Virus sends, and when the stream leaves and
 // re-enters the 44.1 kHz range for longer than the short 48 kHz phase right after SET_CUR. Hardware-free.
 #include "check.h"
+#include <cstring>
 extern "C" {
 #include "pktstat.h"
 }
@@ -78,4 +79,30 @@ TEST(pktstat_rate_lost_only_for_48k_runs)
     for (int i = 0; i < 300; i++) // the short 48 kHz phase right after SET_CUR is not "lost"
         vti_pktstat_add(&u, 48);
     CHECK(!vti_pktstat_rate_lost(&u));
+}
+
+// E257 (round 0.8.27, T6): the global "System Clock/Frequency = 44.1 kHz" the broker sends next to the SET_CUR
+// retry, and the Virus' report of that parameter when it arrives.
+extern "C" {
+#include "ratelever.h"
+}
+
+TEST(ratelever_packs_the_global_on_cable_2)
+{
+    uint8_t out[16];
+    CHECK(vti_pack_rate_44k1(out, 15) == -1);
+    CHECK(vti_pack_rate_44k1(out, sizeof out) == 16);
+    const uint8_t want[16] = {0x24, 0xF0, 0x00, 0x20, 0x24, 0x33, 0x01, 0x10,
+                              0x24, 0x73, 0x00, 0x10, 0x26, 0x00, 0xF7, 0x00};
+    CHECK(memcmp(out, want, 16) == 0);
+}
+
+TEST(ratelever_finds_the_report)
+{
+    const uint8_t rx[] = {0x2B, 0xB0, 0x01, 0x40, 0x24, 0xF0, 0x00, 0x20, 0x24, 0x33, 0x01, 0x10,
+                          0x24, 0x73, 0x00, 0x10, 0x26, 0x01, 0xF7, 0x00};
+    CHECK(vti_rate_report(rx, sizeof rx) == 1);
+    const uint8_t other[] = {0x24, 0xF0, 0x00, 0x20, 0x24, 0x33, 0x01, 0x10, 0x24, 0x73, 0x00, 0x54, 0x26, 0x01, 0xF7, 0x00};
+    CHECK(vti_rate_report(other, sizeof other) == -1); // the sync information event
+    CHECK(vti_rate_report(rx, 12) == -1);               // cut off before the value
 }

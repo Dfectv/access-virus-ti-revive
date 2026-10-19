@@ -142,8 +142,12 @@ void vua_set_out(vua_out_fn fn, void *user)
     g_out = fn;
 }
 
-// Queue one OUT packet of `frames` frames: audio from the vua_set_out source, or silence.
-static int send_out(dev *d, unsigned frames)
+static volatile LONG g_rate_lost; // seconds of 48 kHz packets seen (E241); read and cleared by vua_rate_lost()
+
+LONG vua_rate_lost(void) { return InterlockedExchange(&g_rate_lost, 0); }
+
+// Queue one OUT packet of `frames` frames: audio from the vua_set_out source, or silence (`silent`, or no source).
+static int send_out(dev *d, unsigned frames, int silent)
 {
     unsigned s = d->wnext;
     if (d->wbusy[s]) { // reap the oldest slot (it was queued NW packets = NW ms ago, long done)
@@ -154,7 +158,7 @@ static int send_out(dev *d, unsigned frames)
     }
     ULONG len = frames * OUT_CH * 2;
     vua_out_fn out = g_out;
-    if (out)
+    if (out && !silent)
         out((int16_t *)(d->outbuf + s * OUT_PKT), frames, g_out_user);
     else
         memset(d->outbuf + s * OUT_PKT, 0, len);
@@ -248,7 +252,7 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
         d.wov[i].hEvent = CreateEventA(NULL, TRUE, FALSE, NULL);
     // OUT lead-in with the nominal 44.1 kHz pattern (44 x 9, 45; the driver's InitFramePattern), then mirror.
     for (int i = 0; i < OUT_LEAD; i++, d.pattern++)
-        send_out(&d, d.pattern % 10 ? 44 : 45);
+        send_out(&d, d.pattern % 10 ? 44 : 45, 0);
     ULONG now = 0;
     LARGE_INTEGER ts;
     WinUsb_GetCurrentFrameNumber(d.h2, &now, &ts);
@@ -261,7 +265,7 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
     static int16_t pcm[NP * (IN_PKT / 2)];
     uint64_t total = 0, errs = 0, gaps = 0, next_log = VUA_RATE * 60;
     vti_pktstat ps = {0}; // packet sizes as sent, before the repair (E175)
-    int cur = 0;
+    int cur = 0, rate_tries = 0;
     rc = 0;
     while (*running) {
         DWORD n = 0;
@@ -294,8 +298,24 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
                     LOG("usbaudio: packets out of the 44.1 kHz range since %llu ms after the start (last: %u frames, "
                         "%lu bytes, status 0x%lx) - replaced with silence", (unsigned long long)ps.bad_since, f,
                         p->Length, (unsigned long)p->Status);
-                else if (ev < 0)
+                else if (ev < 0) {
                     LOG("usbaudio: packets back in range at %llu ms after the start", (unsigned long long)ps.packets);
+                    rate_tries = 0;
+                }
+                // the Virus left 44.1 kHz (E241: after a wake, a replug): once per second of 48 kHz packets ask for
+                // the rate again, three times; the broker's device thread adds the panel's global (vua_rate_lost)
+                if (vti_pktstat_rate_lost(&ps) && ps.bad_run % VTI_PKT_BAD_RUN == 0) {
+                    if (rate_tries < 3) {
+                        rate_tries++;
+                        int r = set_rate(d.h1, EP_OUT, VUA_RATE) || set_rate(d.h2, EP_IN, VUA_RATE);
+                        LOG("usbaudio: the Virus sends 48 kHz packets - asking for 44.1 kHz again (%d/3): SET_CUR %s",
+                            rate_tries, r ? "failed" : "accepted");
+                    } else if (rate_tries++ == 3)
+                        LOG("usbaudio: the Virus stays at 48 kHz - its sound stays silent; switch it off and on");
+                    InterlockedIncrement(&g_rate_lost);
+                }
+                int silent;
+                unsigned of = vti_pkt_out(f, nominal, &silent); // a 48 kHz packet: the same size, silent (E241)
                 if (f < 43 || f > 46) {
                     // Lost packet, or still 48 kHz right after SET_CUR (~0.3 s of 48/49-frame packets): substitute
                     // the nominal pattern value with silence, like the driver's PGFramePatternObserver "repair".
@@ -307,7 +327,7 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
                     memcpy(pcm + frames * IN_CH, base + p->Offset, f * IN_CH * 2);
                 }
                 frames += f;
-                send_out(&d, f); // mirror the synth's frame count towards it
+                send_out(&d, of, silent); // mirror the synth's packet towards it
             }
             total += frames;
             in(pcm, frames, user);
@@ -317,7 +337,7 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
             if (errs <= 20)
                 LOG("usbaudio: IN read %d failed (error %lu), repaired with silence", cur, GetLastError());
             for (unsigned k = 0; k < NP; k++)
-                send_out(&d, (d.pattern + k) % 10 ? 44 : 45); // the same counts fill_silence uses
+                send_out(&d, (d.pattern + k) % 10 ? 44 : 45, 0); // the same counts fill_silence uses
             total += fill_silence(&d, pcm, NP, in, user);
         }
         if (submit_read(&d, cur)) {

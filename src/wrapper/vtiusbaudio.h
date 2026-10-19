@@ -17,3 +17,7 @@ void vua_set_out(vua_out_fn fn, void *user);
 // Stream until *running becomes 0. Returns -1 at once if the WinUSB audio function (MI_00) is not present or
 // cannot be opened (the caller then uses WASAPI), 0 after a normal stop, 1 after a setup/stream error.
 int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log);
+
+// Seconds of 48 kHz packets the stream saw since the last call (E241; the stream itself repeats SET_CUR): the
+// broker sends the panel's global parameter "System Clock/Frequency = 44.1 kHz" for each (ratelever.h).
+LONG vua_rate_lost(void);
