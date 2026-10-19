@@ -59,7 +59,8 @@ The installed plug-in in `nativehost` (no DAW), C4 at the start of every second 
 
 Items: H1 cold start of the broker (LC1 without the power cycle), H2 two reopens after the broker's idle exit
 (LC2), H3 export, a stop and playback after it (LC3), H5 with `--sleep` a 45 s suspend while playing (LC5; needs
-sudo for `rtcwake`, the user runs it). Not covered: LC4 (Virus off and on; a switchable mains plug would make
+sudo for `rtcwake`, the user runs it), H6 the broker killed while playing (reconnect, set-up, marker, notes on the
+grid from 34 s on; E284). Not covered: LC4 (Virus off and on; a switchable mains plug would make
 it scriptable), REAPER/PipeWire, the editor. Limits from clean runs on the TI Desktop, 2026-10-19: jitter
 0.02-0.26 ms, max 1.4 ms off the grid, drift -31..+1 ppm, first note after 5-8 s.
 
