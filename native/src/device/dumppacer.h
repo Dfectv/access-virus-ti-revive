@@ -50,4 +50,35 @@ private:
     int64_t due_ = 0;
 };
 
+// Parameter SysEx that falls into a dump waits for its end (at most ~140 ms): on cable 5 with the notes it would
+// reach only the DSPs, and the host CPU would keep the old value in its edit buffer (E274). Notes and other
+// channel messages are not held. Several changes of one parameter keep only the latest value, in first-arrival order.
+class HeldParams {
+public:
+    static bool held(const uint8_t *m, size_t n) { return n > 0 && m[0] == 0xF0; }
+    void add(const std::vector<uint8_t> &m)
+    {
+        for (auto &h : list_)
+            if (same_param(h, m)) {
+                h = m;
+                return;
+            }
+        list_.push_back(m);
+    }
+    std::vector<std::vector<uint8_t>> take()
+    {
+        std::vector<std::vector<uint8_t>> out;
+        out.swap(list_);
+        return out;
+    }
+    bool empty() const { return list_.empty(); }
+
+private:
+    static bool same_param(const std::vector<uint8_t> &a, const std::vector<uint8_t> &b)
+    {
+        return a.size() == 11 && b.size() == 11 && a[6] == b[6] && a[7] == b[7] && a[8] == b[8];
+    }
+    std::vector<std::vector<uint8_t>> list_;
+};
+
 } // namespace vti

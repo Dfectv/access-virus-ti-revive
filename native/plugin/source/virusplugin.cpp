@@ -488,6 +488,11 @@ void DeviceOut::run()
                     rt_r_.store(r + 1, std::memory_order_release);
                     rt_run_++;
                     cable = dump_.event_cable(CABLE_PLUGIN); // cable 5 while a dump is in pieces (dumppacer.h)
+                    if (dump_.active() && HeldParams::held(msg.data(), msg.size())) { // automation: after the dump
+                        held_.add(msg);
+                        msg.clear();
+                        stamp = -1;
+                    }
                 } else if (!queue_.empty()) {
                     rt_run_ = 0;
                     msg = std::move(queue_.front().msg);
@@ -567,6 +572,14 @@ void DeviceOut::run()
                 dump_pending_ = false;
                 queued_--;
             }
+            if (piece_last && !held_.empty()) { // automation held during the dump goes first now (cable 2)
+                auto held = held_.take();
+                std::lock_guard<std::mutex> lk(mu_);
+                for (auto it = held.rbegin(); it != held.rend(); ++it) {
+                    queue_.push_front({std::move(*it), false, CABLE_PLUGIN});
+                    queued_++;
+                }
+            }
             if (!wok) {
                 {
                     std::lock_guard<std::mutex> lk(mu_);
@@ -633,6 +646,10 @@ void DeviceOut::run()
                 int64_t st = sl.stamp;
                 rt_r_.store(r + 1, std::memory_order_release);
                 rt_run_++;
+                if (dump_.active() && HeldParams::held(msg.data(), msg.size())) { // automation: after the dump
+                    held_.add(msg);
+                    continue;
+                }
                 pack(msg, st);
             }
         }

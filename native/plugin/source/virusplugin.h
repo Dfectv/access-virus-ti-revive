@@ -205,6 +205,7 @@ private:
     std::atomic<size_t> rt_w_{0}, rt_r_{0};
     int rt_run_ = 0; // real-time messages sent in a row (worker thread)
     DumpPacer dump_;            // a single dump on cable 3 in pieces, events between them on cable 5 (E270)
+    HeldParams held_;           // automation that fell into a dump, sent when it is out (E274)
     std::atomic<bool> dump_pending_{false}; // the dump counts as queued (busy()) until its last piece is out
     SendBudget budget_; // bytes per second towards the DSP's 2046-byte stamp queue (E261)
     std::atomic<int> blocked_{0}; // messages rule 2 forbids, dropped (sendguard.h); logged by the worker

@@ -55,3 +55,26 @@ TEST(dumppacer_says_how_long_to_wait)
     CHECK(p.wait_ns(2 * MS) == 8 * MS);
     CHECK(p.wait_ns(11 * MS) == 0);
 }
+
+TEST(dumppacer_holds_parameters_until_the_dump_is_out)
+{
+    // automation (parameter SysEx from process()) that falls into a dump would go on cable 5 with the notes and
+    // reach only the DSPs - the host CPU would not store the value (E274); it waits for the dump's end instead,
+    // the latest value per parameter
+    HeldParams h;
+    const std::vector<uint8_t> cut1 = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x70, 0x00, 0x28, 0x10, 0xF7};
+    const std::vector<uint8_t> cut2 = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x70, 0x00, 0x28, 0x20, 0xF7};
+    const std::vector<uint8_t> reso = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x70, 0x00, 0x29, 0x30, 0xF7};
+    const std::vector<uint8_t> other_part = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x70, 0x01, 0x28, 0x40, 0xF7};
+    CHECK(HeldParams::held(cut1.data(), cut1.size()));
+    const uint8_t note[] = {0x90, 60, 100};
+    CHECK(!HeldParams::held(note, 3)); // notes go between the pieces
+    h.add(cut1);
+    h.add(reso);
+    h.add(cut2); // replaces cut1
+    h.add(other_part);
+    auto out = h.take();
+    CHECK(out.size() == 3);
+    CHECK(out[0] == cut2 && out[1] == reso && out[2] == other_part); // in first-arrival order, latest value
+    CHECK(h.take().empty());
+}
