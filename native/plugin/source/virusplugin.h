@@ -214,6 +214,9 @@ private:
     std::atomic<bool> dump_pending_{false}; // the dump counts as queued (busy()) until its last piece is out
     SendBudget budget_; // bytes per second towards the DSP's 2046-byte stamp queue (E261)
     std::atomic<int> blocked_{0}; // messages rule 2 forbids, dropped (sendguard.h); logged by the worker
+    std::atomic<int> rt_lost_{0};        // events process() could not queue (ring full); logged by the worker
+    std::atomic<bool> rt_lost_off_{false}; // a note-off was among them: the worker sends all notes off
+    int rt_lost_logged_ = 0;
     int blocked_logged_ = 0;
     std::atomic<bool> stop_{false};
     bool open_ = false;

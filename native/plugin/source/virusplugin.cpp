@@ -203,8 +203,14 @@ bool DeviceOut::send_rt(const uint8_t *msg, size_t n, int64_t stamp)
         return true;
     }
     size_t w = rt_w_.load(std::memory_order_relaxed);
-    if (n > sizeof rt_[0].data || w - rt_r_.load(std::memory_order_acquire) >= RT_SLOTS)
+    if (n > sizeof rt_[0].data || w - rt_r_.load(std::memory_order_acquire) >= RT_SLOTS) {
+        // full (a runaway host while the budget holds the flood back): counted, and a lost note-off is answered with
+        // all notes off by the worker - it would leave a note hanging (review 2026-10-19)
+        rt_lost_.fetch_add(1, std::memory_order_relaxed);
+        if (n >= 3 && ((msg[0] & 0xF0) == 0x80 || ((msg[0] & 0xF0) == 0x90 && msg[2] == 0)))
+            rt_lost_off_.store(true, std::memory_order_relaxed);
         return false;
+    }
     Slot &s = rt_[w % RT_SLOTS];
     s.len = (uint8_t)n;
     s.stamp = stamp;
@@ -620,6 +626,15 @@ void DeviceOut::run()
                 b - blocked_logged_);
             blocked_logged_ = b;
         }
+        if (int lost = rt_lost_.load(std::memory_order_relaxed); lost != rt_lost_logged_) {
+            log("Virus TI native: %d event(s) lost, the queue from process() was full\n", lost - rt_lost_logged_);
+            rt_lost_logged_ = lost;
+        }
+        if (rt_lost_off_.exchange(false, std::memory_order_relaxed))
+            for (uint8_t ch = 0; ch < 16; ch++) { // a note-off was among them: nothing may keep sounding
+                send({(uint8_t)(0xB0 | ch), 64, 0});
+                send({(uint8_t)(0xB0 | ch), 123, 0});
+            }
         if (!piece.empty()) { // a piece of a dump (dumppacer.h)
             bool wok = broker_.write(EP_PLUGIN_OUT, piece.data(), piece.size());
             if (piece_last && dump_pending_) {
