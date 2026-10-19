@@ -138,9 +138,7 @@ std::unique_ptr<PopupWindow> PopupWindow::create(CFrame *editor, const NativeRec
     if (!frame->open(reinterpret_cast<void *>((uintptr_t)win->win_), PlatformType::kX11EmbedWindowID, config)) {
         frame->forget();
         content->forget();
-        xcb_destroy_window(c, win->win_);
-        xcb_flush(c);
-        return nullptr;
+        return nullptr; // ~X11PopupWindow destroys win_ (destroying it here too gave a BadWindow error)
     }
     win->frame_ = frame;
     if (scale != 1.0)
@@ -171,7 +169,9 @@ bool popup_screen(CFrame *editor, CPoint at, double content_scale, PopupScreen &
     // the work area of the monitor at the anchor (workarea.h): _NET_WORKAREA alone is one box around all monitors
     const NativeRect screen{0, 0, scr->width_in_pixels, scr->height_in_pixels};
     const auto desk = cardinals(c, scr->root, "_NET_CURRENT_DESKTOP", 1);
-    const uint32_t d = desk.empty() ? 0 : desk[0];
+    // a desktop number from the root window as is: 0xFFFFFFFF wrapped 4 * (d + 1) to 0 and the read below went far
+    // out of bounds (review 2026-10-19); no window manager has more than a few dozen
+    const uint32_t d = desk.empty() || desk[0] > 1023 ? 0 : desk[0];
     const auto net = cardinals(c, scr->root, "_NET_WORKAREA", 4 * (d + 1)); // x, y, w, h per desktop
     const auto box = net.size() >= 4 * (d + 1) ? parse_work_areas(net.data() + 4 * d, 4) : std::vector<NativeRect>{};
     const NativeRect desktop = box.empty() ? screen : box[0];
