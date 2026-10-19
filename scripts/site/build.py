@@ -210,7 +210,10 @@ def page_landing(latest, releases, sums):
                    "Unpack and run <code>./install.sh \"/path/to/Virus TI Software Suite 64-bit.msi\"</code>; it "
                    "asks for your password once (udev rule).",
                    "For steady audio join the real-time group (<code>sudo usermod -aG pipewire $USER</code>, log "
-                   "out and in), then rescan plug-ins."])
+                   "out and in), then rescan plug-ins.",
+                   "The Control Center window needs gtkmm 3 (Ubuntu 24.04+ <code>libgtkmm-3.0-1t64</code>, Fedora "
+                   "<code>gtkmm3.0</code>, Arch/CachyOS <code>gtkmm3</code>); <code>install.sh</code> names what is "
+                   "missing."])
     return f"""
 <section class="hero">
   <div class="wrap">
@@ -680,7 +683,7 @@ def page_changelog_landing(releases):
 # the README's screenshots that the site shows too (copied at build time)
 SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png", "plugin-help-inactive.png",
                  "plugin-menus.png"]
-TESTS = 237 # unit tests in native/tests (vtitests), as of 2026-10-18 (round 0.8.26)
+TESTS = 251 # unit tests in native/tests (vtitests), as of 2026-10-19 (round 0.8.27)
 # line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
 COVERAGE, COVERAGE_DATE = "94 %", "16 Oct 2026"
 
