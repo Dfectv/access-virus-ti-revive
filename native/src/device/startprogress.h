@@ -28,6 +28,7 @@ struct RecallMeter {
 struct SyncPage {
     bool on = false;
     bool shown() const { return on; }
+    void expect() { on = true; } // a bank without a cache file: it will be read, show the page from the start
     int progress(int done, bool fetched) // done = patches checked so far (of 512)
     {
         if (fetched)

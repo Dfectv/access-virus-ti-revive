@@ -27,3 +27,14 @@ TEST(startprogress_sync_page_only_when_fetching)
     CHECK(s.progress(302, false) == 302 * 126 / 512); // and it stays until the sync is done
     CHECK(s.progress(512, false) == 126);
 }
+
+TEST(startprogress_sync_page_at_once_when_a_bank_is_missing)
+{
+    // a bank without a cache file is read in full: the page follows "Starting up" directly, without showing the
+    // editor for the moment the bank check takes (user, L4)
+    SyncPage s;
+    s.expect();
+    CHECK(s.shown());
+    CHECK(s.progress(0, false) == 0);
+    CHECK(s.progress(256, false) == 63);
+}

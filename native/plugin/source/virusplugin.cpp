@@ -2205,10 +2205,13 @@ void VirusPlugin::wait_virus_ready()
     if (!stop_warm_ && out_ && out_->waiting()) {
         // another instance owns the Virus (issue #6): this one starts up when it takes over, with the same start
         // page and note hold as a first start
-        set_recall_progress(127); // the "Virus unavailable" page instead of the start page
+        set_recall_progress(127); // the "Virus unavailable" page instead of the start pages
+        set_sync_progress(127);
         while (!stop_warm_ && out_->waiting())
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         set_recall_progress(0);
+        if (sync_expected_)
+            set_sync_progress(0);
         const int64_t t1 = now_ms();
         while (!stop_warm_ && !out_->connected() && now_ms() - t1 < 4000)
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -2293,6 +2296,18 @@ void VirusPlugin::sync_banks()
     // until the Virus is ready it works through the start-up messages and the state and plays notes up to 1.6 s late
     // (E144), so note-ons are held back; from then on notes play, and the sync pauses while they arrive (dump requests
     // delay the Virus' notes by ~130 ms and the sync stalls - measured 2026-10-14)
+    // a RAM bank without a cache file is read in full: its "Syncing memory" page follows "Starting up" directly (the
+    // layout shows it only once RecallProgress is done), without the editor in between (user, L4)
+    bool sync_expected = false;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        for (int b = 0; b < 4; b++)
+            if (banks_.find(b) == banks_.end() || banks_[b].empty())
+                sync_expected = true;
+    }
+    sync_expected_ = sync_expected;
+    if (sync_expected)
+        set_sync_progress(0);
     wait_virus_ready();
     starting_ = false;
     if (stop_warm_ || !out_ || !out_->connected()) { // no Virus: no sync, the editor as usual
@@ -2313,7 +2328,9 @@ void VirusPlugin::sync_banks()
     // check of a current cache shows nothing. The original keeps "synchronising" on the Virus display while it
     // syncs (74 01 7E 07 about once a second) - also only then
     SyncPage page;
-    std::atomic<bool> rise{true}, fetching{false};
+    if (sync_expected)
+        page.expect();
+    std::atomic<bool> rise{true}, fetching{page.shown()};
     std::thread riser([this, &rise, &fetching] {
         while (rise) {
             if (fetching)

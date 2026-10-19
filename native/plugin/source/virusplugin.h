@@ -510,6 +510,7 @@ private:
     void sync_banks(); // brings the bank cache up to date with the Virus (background thread)
     void load_rom_banks(); // ROM A.. from the user's firmware.bin for the connected model
     std::atomic<bool> syncing_{false};
+    std::atomic<bool> sync_expected_{false}; // a RAM bank has no cache file: the start-up reads it (sync page early)
     std::atomic<bool> starting_{false}; // start-up messages + state on their way: note-ons are held back
     // the Virus answered the readiness probe (wait_virus_ready): it has worked through the start-up messages and the
     // state, so the timeline may anchor and send the sync ping
