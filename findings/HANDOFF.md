@@ -37,8 +37,12 @@ Evidence: [evidence.md](evidence.md) (E001-E244), protocol: [spec.md](spec.md); 
    and is shared by needs_stamp and HeldParams. (c) vtiusbaudio.c: no malloc below the struct size (malloc(0) +
    cbSize write). (d) HeldParams::add with find_if (cppcheck). Result: cppcheck clean on the changed files,
    clang-tidy (bugprone/performance/analyzer) nothing on the changed lines; 266 unit tests pass (3 new, failed first).
-   gui_duplicate_editors: fails only in the first ctest right after a build (3x), 13 other runs pass - the flake
-   already noted in round 0.8.22, older than this code.
+   gui_duplicate_editors: failed only in the first ctest right after a build (4x) - the flake of round 0.8.22.
+3. **gui_duplicate_editors flake fixed (test only).** Cause, reproduced with full CPU load (1/1 failed): the waiting
+   instance tries to take over every 2 s, and the first one's teardown after the removal at 3 s takes longer on a
+   busy machine; with --seconds 6 the next try fell after the end. Now --seconds 10 (7 s after the removal): 5/5
+   pass under full load, also the first run after a build. The test talks to the real broker when one runs (here:
+   the Virus connected, "device connected" in its log).
 
 ## Round 0.8.27 (branch round-0.8.27, collecting; started 2026-10-18 evening)
 

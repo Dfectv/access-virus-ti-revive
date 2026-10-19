@@ -16,7 +16,9 @@ duplicate)
     # REAPER crashed at a duplicated track: the second editor freed the first one's run loop adapter, and the host
     # called a freed handler. The duplicate must also take over the Virus when the original goes.
     plugin=$(cd "$2" && pwd) # the VST3 loader names the library after the bundle folder: no "/../.."
-    timeout 90 xvfb-run -a "$1" "$plugin" --editor --editor2 --duplicate 3 --seconds 6 >"$out" 2>&1
+    # 7 s after the removal: a waiting instance tries to take over every 2 s, and the first one's teardown takes
+    # longer on a busy machine - with 3 s the try fell after the end right after a build (4 of ~20 runs)
+    timeout 90 xvfb-run -a "$1" "$plugin" --editor --editor2 --duplicate 3 --seconds 10 >"$out" 2>&1
     rc=$?
     if [ $rc -ne 0 ] && grep -q "no display or no editor" "$out" && grep -q "cannot read .*Access Music" "$out"; then
         cat "$out"
