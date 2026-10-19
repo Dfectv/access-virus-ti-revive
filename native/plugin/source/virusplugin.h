@@ -220,6 +220,7 @@ private:
     AudioGate audio_gate_; // open while audio_ is mapped; closed (waiting for readers) before it is unmapped
     bool audio_ok() const { return audio_gate_.is_open(); }
     void close_audio();    // worker: no reader left, then unmap
+    void lose_broker();    // worker: the broker connection is gone; drop the dump, close, reopen in the next round
     std::chrono::steady_clock::time_point audio_retry_{}; // next audio start attempt (worker thread)
     std::chrono::steady_clock::time_point stats_next_{};  // VTI_NATIVE_STATS output
     int64_t stats_newest_ = -1; // worker: the newest ring frame at the last stats line (per instance, issue #6)

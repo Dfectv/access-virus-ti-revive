@@ -508,3 +508,40 @@ TEST(broker_fake_server)
     SKIP("the fake broker uses Unix sockets");
 }
 #endif
+
+// Review 2026-10-19 (H3): when the broker went away (crash, update, socket activation restart) the reader thread
+// ended with "Virus not present" only, the worker never wrote, so it never noticed and never reconnected. The
+// connection's end must be visible.
+TEST(broker_connection_end_is_visible)
+{
+    FakeBroker fb;
+    Broker b;
+    b.set_endpoint(fb.path);
+    std::string err;
+    CHECK(b.open(err));
+    CHECK(b.connected());
+    fb.stop(); // the broker process is gone
+    CHECK(eventually([&] { return !b.connected(); }));
+    CHECK(!b.device_present());
+    b.close();
+    CHECK(!b.connected());
+}
+
+// Review 2026-10-19: a control reply longer than the caller's buffer was copied in full (the caller's stack
+// buffer overflowed); it is clamped to len, and the result says how much is in the buffer.
+TEST(broker_control_reply_clamped_to_the_buffer)
+{
+    FakeBroker fb;
+    fb.on_control = [](const Bytes &) { return Bytes(64, 0x5A); };
+    Broker b;
+    b.set_endpoint(fb.path);
+    std::string err;
+    CHECK(b.open(err));
+    uint8_t buf[16];
+    memset(buf, 0, sizeof buf);
+    int r = b.control(0x80, 6, 0x0100, 0, buf, 8, 1000); // asks for 8, the broker answers 64
+    CHECK(r == 8);
+    CHECK(buf[7] == 0x5A);
+    CHECK(buf[8] == 0 && buf[15] == 0); // nothing past len
+    b.close();
+}

@@ -157,6 +157,26 @@ int DeviceOut::send_state(std::vector<std::vector<uint8_t>> records)
     return dropped;
 }
 
+// The broker connection is lost (a failed write, or the broker went away; review 2026-10-19 H3: the second case was
+// never noticed, so the plug-in stayed on "No Virus" until the project was reopened). A dump in pieces and the
+// automation held for it are dropped (the state goes out again when the Virus is back; leftover pieces would go out
+// without their header, review M2), then the loop opens the broker again.
+void DeviceOut::lose_broker()
+{
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        dump_ = DumpPacer();
+        held_.take();
+    }
+    if (dump_pending_) {
+        dump_pending_ = false;
+        queued_--;
+    }
+    close_audio();
+    broker_.close();
+    open_ = false;
+}
+
 // The Virus is gone or the broker write failed: readers on other threads (process(), the editor's diag report, the
 // reader's klog) finish their read first, then the ring is unmapped (audiogate.h; review 2026-10-19 H1).
 void DeviceOut::close_audio()
@@ -304,6 +324,7 @@ void DeviceOut::check_presence()
         scanned_ = -1;
         marker_skip_ = -1;
         last_sound = -1;
+        pings_out_ = 0; // a ping of the old stream gets no marker in the new one (its 5 s timeout fired too early)
         generation++;
         // the Virus' OS version for PATCH UTILITY > INFO, read like the original at plug-in start, before the
         // memory sync: the broker's fixed read-only flash sequence (flashinfo.h, E026/E040), ~2 s once per open
@@ -441,6 +462,11 @@ void DeviceOut::run()
         // there - written into the void, a Virus switched on later never got them; events from process() (notes)
         // are dropped, they would play late
         if (!broker_.device_present()) {
+            if (!broker_.connected()) { // the broker itself went away (crash, update, restart): open it again above
+                log("Virus TI native: the connection to the TI Revive broker ended - reconnecting\n");
+                lose_broker();
+                continue;
+            }
             rt_r_.store(rt_w_.load(std::memory_order_acquire), std::memory_order_release);
             if (idle_)
                 idle_();
@@ -596,19 +622,8 @@ void DeviceOut::run()
                     queued_++;
                 }
             }
-            if (!wok) {
-                {
-                    std::lock_guard<std::mutex> lk(mu_);
-                    dump_ = DumpPacer(); // the device is gone; the state goes out again when it is back
-                }
-                if (dump_pending_) {
-                    dump_pending_ = false;
-                    queued_--;
-                }
-                close_audio();
-                broker_.close();
-                open_ = false;
-            }
+            if (!wok)
+                lose_broker();
             continue;
         }
         if (piece_wait_ns > 0) { // the next piece is not due yet and nothing else is waiting
@@ -682,11 +697,8 @@ void DeviceOut::run()
             pending_send_ = false;
             queued_--;
         }
-        if (!ok) {
-            close_audio();
-            broker_.close();
-            open_ = false;
-        }
+        if (!ok)
+            lose_broker();
     }
 }
 
@@ -817,6 +829,9 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
     out_->on_device([this](bool present) { // worker thread
         out_->log("Virus TI native: device %s\n", present ? (device_seen_ ? "reconnected" : "connected") : "disconnected");
         if (!present) {
+            // not ready until the return's probe: a new audio stream can start before the state goes out again (a
+            // broker reconnect: 3 s of flash read in between), and an anchor and sync ping on it would go unanswered
+            ready_ = false;
             set_lcd("Virus disconnected", std::string(), std::string(), std::string());
             return;
         }

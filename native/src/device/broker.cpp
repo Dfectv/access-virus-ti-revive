@@ -310,8 +310,10 @@ int Broker::control(uint8_t rt, uint8_t req, uint16_t value, uint16_t index, uin
     int32_t r = -1;
     if (rep.size() >= 4)
         memcpy(&r, rep.data(), 4);
-    if (r > 0 && (rt & 0x80))
-        memcpy(data, rep.data() + 4, std::min<size_t>((size_t)r, rep.size() - 4));
+    if (r > 0 && (rt & 0x80)) { // never more than the caller's buffer, whatever the broker says (review 2026-10-19)
+        r = (int32_t)std::min({(size_t)r, (size_t)len, rep.size() - 4});
+        memcpy(data, rep.data() + 4, (size_t)r);
+    }
     return r;
 }
 

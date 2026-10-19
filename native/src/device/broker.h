@@ -25,6 +25,9 @@ public:
     bool open(std::string &error);
     void close();
     bool device_present() const { return present_; }
+    // the connection to the broker is up (its reader runs): false after the broker went away (crash, update, restart)
+    // - device_present() is false then too, but only this says that a new open() is needed
+    bool connected() const { return !reader_done_; }
     // how often the Virus became present (STATE 1 after anything else): a gone-and-back faster than the caller polls
     // device_present() still changes it (E212: the broker reopened the Virus 0.27 s after a wake)
     uint32_t device_arrivals() const { return arrivals_; }
@@ -50,7 +53,8 @@ public:
     void on_state(StateHandler h) { state_ = std::move(h); }
 
     bool write(uint8_t ep, const uint8_t *data, size_t len);
-    // USB control request through the broker; returns bytes transferred or -1. `data` in/out.
+    // USB control request through the broker; returns bytes transferred or -1. `data` in/out; a reply never writes
+    // more than len bytes into it.
     int control(uint8_t request_type, uint8_t request, uint16_t value, uint16_t index, uint8_t *data, uint16_t len,
                 int timeout_ms = 3000);
 
