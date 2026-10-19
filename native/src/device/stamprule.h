@@ -30,4 +30,20 @@ inline bool needs_stamp(const uint8_t *m, size_t n, bool from_process)
     return from_process && m[6] >= 0x6E && m[6] <= 0x72 && n == 11; // a parameter page A-E, from automation
 }
 
+// One F5 per stamp value within one USB write: the DSP keeps the current stamp for every byte that follows it
+// (E261), so the events of a block share one F5. Each F5 is a 4-byte packet that counts against the 4 kB/s
+// budget (sendbudget.h): with one per message, automation at the 250/s cap alone filled the budget and the notes
+// and the readiness probe starved behind it (hardware run 2026-10-19). A new StampRun per write: what the DSP
+// saw in between is not tracked. The sync ping is exempt (its stamp is raw, the marker logic needs its own F5).
+struct StampRun {
+    int64_t last = -1;
+    bool fresh(int64_t st)
+    {
+        if (st == last)
+            return false;
+        last = st;
+        return true;
+    }
+};
+
 } // namespace vti

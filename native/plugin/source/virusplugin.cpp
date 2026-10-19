@@ -547,6 +547,7 @@ void DeviceOut::run()
         // (docs/protocol.md "timing"); process() stamps its events (and, since 0.8.27, its automation: stamprule.h),
         // other threads use the latest timeline position
         pk_.clear();
+        StampRun stamps; // one F5 per stamp value in this write (stamprule.h)
         auto pack = [&](const std::vector<uint8_t> &m, int64_t st) {
             bool from_process = st >= 0;
             if (st < 0)
@@ -560,7 +561,7 @@ void DeviceOut::run()
             if (env_debug())
                 fprintf(stderr, "send %02x stamp %lld newest %lld\n", m[0], (long long)st,
                         (long long)(audio_ok_ ? audio_.newest_frame() : -1));
-            if (st >= 0 && needs_stamp(m.data(), m.size(), from_process)) {
+            if (st >= 0 && needs_stamp(m.data(), m.size(), from_process) && (ping || stamps.fresh(st))) {
                 auto t = usbmidi_pack({0xF5, (uint8_t)(st & 0x7F), (uint8_t)((st >> 7) & 0x7F)}, CABLE_TIME);
                 pk_.insert(pk_.end(), t.begin(), t.end());
             }

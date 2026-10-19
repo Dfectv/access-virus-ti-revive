@@ -46,3 +46,17 @@ TEST(stamprule_dumps_and_requests_never)
     CHECK(!stamped({0xF7}, true));
     CHECK(!stamped({}, true));
 }
+
+TEST(stamprule_one_stamp_per_value_within_a_write)
+{
+    // the DSP keeps the current stamp for every byte that follows it (E261), so a block's events share one F5:
+    // 16 B instead of 12 B per automation message at the 250/s cap is the whole 4 kB/s budget (hardware run
+    // 2026-10-19: notes and the probe starved behind stamped automation)
+    StampRun run;
+    CHECK(run.fresh(100));
+    CHECK(!run.fresh(100)); // the same block: no second F5
+    CHECK(run.fresh(101));
+    CHECK(run.fresh(100));  // back to an earlier value: the DSP's current stamp moved, so it is stamped again
+    StampRun next;          // every USB write starts fresh (the DSP got other traffic in between)
+    CHECK(next.fresh(100));
+}

@@ -148,7 +148,9 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   4 kB/s, bursts of 1000 bytes, far above musical rates) bounds what the DSP can park; unstamped SysEx on cable 2
   (editor parameters, dumps, the state) is parked with a parked stamp and counts as a bounded debt. Automation from
   process() gets its own stamp at its block time (stamprule.h) so it lands where the host put it on every platform;
-  messages from other threads inherit the previous stamp. The multi header (page 0x72 parameters 0-3) and status
+  messages from other threads inherit the previous stamp. One F5 per stamp value per USB write: the DSP keeps the
+  current stamp for the bytes that follow, and an F5 per message would spend the whole budget on automation at the
+  250/s cap (E264). The multi header (page 0x72 parameters 0-3) and status
   F4 are dropped before the wire (sendguard.h, rule 2). The 2026-10-13 stress hang (Linux, audio silent, MIDI
   alive) is not explained by the queue; its mechanism is open.
 - The original reports a plug-in latency of 3840 + block size (4352 at 512, 4096 at 256; vtihost prints it).
