@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-18. CONTINUE HERE = **v0.8.26 released 2026-10-18** (tag v0.8.26, release CI run 39155327343 green, 6 assets; merge ea6a286 on main; site rebuilt by hand, run 39155767115, live shows Download 0.8.26 / 237 tests / the firmware findings). New: Active Sensing every 300 ms (E237), stamped-MIDI budget (E238), broker write retry (E239), Linux 48 kHz after wake protection (E241, unexercised on hardware), Linux menus per monitor (E227); firmware analysis E228-E236. Checklist W8EcFqru6zvxirJGJY2c36: Linux, VM, Mac all pass, real PC skipped. Test machines: win11 VM = release (silent, 0.8.26c uninstalled first); Linux: release unpacked in work/builds/v0.8.26/x, install.sh stopped at the udev step (sudo needs a terminal; the Virus was on the Mac) - user runs it once; broker binary already equals the release; Mac offline: release zip in work/builds/v0.8.26, push + sudo installer next time (it has 0.8.26c or 0.8.25 from the A/B). Next round: the Mac export clock shift (E243/E244, known issue in the release notes), E241 fix on hardware, E175 watch, LC3 crash watch. **Round 0.8.27 started (branch round-0.8.27, 2026-10-18 evening): firmware loose ends closed (E245-E250), Mac export cause found = the macOS IOProc lost Core Audio cycles (E249), fix gapfill.h untested on the Mac - see below.**_
+_Last updated: 2026-10-19. CONTINUE HERE = **v0.8.26 released 2026-10-18** (tag v0.8.26, release CI run 39155327343 green, 6 assets; merge ea6a286 on main; site rebuilt by hand, run 39155767115, live shows Download 0.8.26 / 237 tests / the firmware findings). New: Active Sensing every 300 ms (E237), stamped-MIDI budget (E238), broker write retry (E239), Linux 48 kHz after wake protection (E241, unexercised on hardware), Linux menus per monitor (E227); firmware analysis E228-E236. Checklist W8EcFqru6zvxirJGJY2c36: Linux, VM, Mac all pass, real PC skipped. Test machines: win11 VM = release (silent, 0.8.26c uninstalled first); Linux: release unpacked in work/builds/v0.8.26/x, install.sh stopped at the udev step (sudo needs a terminal; the Virus was on the Mac) - user runs it once; broker binary already equals the release; Mac offline: release zip in work/builds/v0.8.26, push + sudo installer next time (it has 0.8.26c or 0.8.25 from the A/B). Next round: the Mac export clock shift (E243/E244, known issue in the release notes), E241 fix on hardware, E175 watch, LC3 crash watch. **Round 0.8.27 started (branch round-0.8.27, 2026-10-18 evening): firmware loose ends closed (E245-E250), Mac export cause found = the macOS IOProc lost Core Audio cycles (E249), fix gapfill.h untested on the Mac - see below.**_
 39131364441 green, 6 assets; site rebuilt by hand, run 39131769375, live shows 0.8.25 / 220 tests / original VST3
 projects). New: original VST3 projects open (second class with the original's id, E221-E223; VST2 not), Revert to /
 Recently Used (E220), Create Empty Library (E217), Windows 10 menu look (E219), plug-in version 0.8.25. Test machines:
@@ -66,6 +66,44 @@ Evidence: [evidence.md](evidence.md) (E001-E244), protocol: [spec.md](spec.md); 
    multi arrays; only the current part is restored from the power-off snapshot at 0x4B00 - the exact trigger of
    "all 16 Init" is the one residual that only hardware could show, and rule 2 forbids that test. Firmware analysis
    is complete; next = testing (CI build, Mac export check, the 0x10 lever), not today.
+
+6. **Firmware findings challenged against the code (2026-10-19 morning, assessment, no code change yet).** Checked
+   E228-E260 against the send path (virusplugin.cpp pack/send thread), keepalive.h, sendbudget.h, the ping, the
+   three gap fillers and the DSP listing. Holds: cable routing, write retry, modular window vs our lead, FE every
+   300 ms, ping value 0 only, no F4 anywhere, sync-event meaning. Does not hold: E238's residency (the stamp leaves
+   the plug-in A frames ahead of the newest ring frame, not the whole lead; the DSP parks only what is beyond the
+   threshold: Linux/macOS A=1024 -> ~300-500 frames ahead, nothing parked; Windows A=3072 -> ~2400 ahead, ~1400
+   parked = 30 ms); the 2026-10-13 stress hang (Linux, MIDI still answering) is therefore unexplained again. New from
+   the listing: within the threshold the stamp is stored as the current stamp (0x55904) and the note-on handler
+   0x53337 copies it into the voice's start slot X:$54145 - the threshold is the max per-voice delay, not "play
+   now"; threshold = 1023 only while the counter X:$5412e is 0 (what it counts: open). Gaps found: unstamped
+   messages (parameter SysEx, part dumps on patch change, CC resets, the resume state) inherit the previous stamp
+   and are not counted by the budget (Windows: parked, 2 patch changes + a burst ~ the 2046 wrap); no explicit
+   guard against 72 00 03; the Windows streamer lacks the E241 handling; E248's "host blocks on the port" vs
+   E230/E233 "no ready check" contradict; E245's slave clock +256 raises a two-part timing question.
+   **Tasks (order agreed 2026-10-19; TDD, local Linux build + user smoke test first, CI after):**
+   - [ ] T1 docs: E261 = threshold semantics (parsed now, scheduled by the stamp), residency geometry per platform,
+         E238 correction (budget kept, "quantitative match" withdrawn), E248 vs E230 contradiction, two failure
+         modes (stress hang: host alive; E241: panel dead); fix protocol.md, sendbudget.h and automation.h comments.
+   - [ ] T2 code: the send budget counts queued cable-2 bytes too (DeviceOut: take() after a queued write), so the
+         burst bound covers everything the DSP can park; unit test.
+   - [ ] T3 code: parameter SysEx from process() (automation) gets its own F5 at the block time like notes - same
+         timing on all platforms instead of inheriting the previous stamp; factor the "needs a stamp" rule into a
+         header with a unit test. Queued messages keep inheriting (a "late" stamp would set X:$55868 = clock-1 and
+         can raise a sync event, E251).
+   - [ ] T4 code: explicit guard in DeviceOut::send (or the encoder): drop page 0x72 parameters 0-6 ("Original
+         Bank/Patch", multi name) with one log line; unit test; rule 2 becomes enforced, not assumed.
+   - [ ] T5 broker (Windows): the E241 handling of the Linux broker in src/wrapper/vtiusbaudio.c too (silent
+         same-size OUT packets while 48 kHz packets arrive, SET_CUR again, pktstat.h); mingw build; test on the VM.
+   - [ ] T6 broker (Linux + Windows): the E257 lever - global 73 00 10 00 next to the SET_CUR retry, read back with
+         the global request; tests; hardware check in the next round (E175/E241 state needed to exercise it).
+   - [ ] T7 static: what X:$5412e counts (0x5435a reset, 0x544b3 ++, 0x5457d --) and the threshold formula from
+         the setting X:$54a2c (0x54b1e) - fixes the numbers in T1; docs only.
+   - [ ] T8 static: host-port write with or without a ready check (bank00 0x605b/0x6113/0x6270 vs E248) - docs.
+   - [ ] T9 hardware (next test round): same note on two parts, onset offset (E245: slave clock +256); Windows
+         automation timing with and without T3; Mac export with gapfill ("filled" > 0, K equal); E241 fix on wake.
+   - [ ] T10 optional: stamp the retry ping timeline-relative (today absolute 3072: up to 186 ms in the queue);
+         an adaptive answer to the Sync Information Event (raise A or re-ping) - deferred until T9 says it matters.
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
 
