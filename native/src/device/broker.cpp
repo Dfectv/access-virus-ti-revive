@@ -235,7 +235,10 @@ static void os_release(intptr_t fd)
 
 bool Broker::open(std::string &error)
 {
-    fd_ = os_connect(endpoint_, error);
+    {
+        std::lock_guard<std::mutex> g(wr_); // senders on other threads see the handle whole (review 2026-10-19 M7)
+        fd_ = os_connect(endpoint_, error);
+    }
     if (fd_ < 0)
         return false;
     uint32_t ver = VTI_PROTO_VERSION;
@@ -261,6 +264,12 @@ void Broker::close()
         }
     if (reader_.joinable())
         reader_.join();
+    // under the write lock: a control() or write() of another thread (sync thread, editor) never writes to a released
+    // or reused handle (review 2026-10-19 M7); woken first, so a write stuck on a broker that stopped reading fails
+    // instead of holding the lock
+    if (fd_ >= 0)
+        os_wake(fd_);
+    std::lock_guard<std::mutex> g(wr_);
     if (fd_ >= 0) {
         os_release(fd_);
         fd_ = -1;
@@ -269,10 +278,12 @@ void Broker::close()
 
 bool Broker::send(uint16_t type, const void *a, size_t alen, const void *b, size_t blen)
 {
-    if (fd_ < 0 || alen + blen > VTIMSG_MAX)
+    if (alen + blen > VTIMSG_MAX)
         return false;
     vtimsg h{type, (uint16_t)(alen + blen)};
     std::lock_guard<std::mutex> g(wr_);
+    if (fd_ < 0) // checked under the lock that close() takes
+        return false;
     return io_all(fd_, &h, sizeof h, true) && (!alen || io_all(fd_, (void *)a, alen, true)) &&
            (!blen || io_all(fd_, (void *)b, blen, true));
 }

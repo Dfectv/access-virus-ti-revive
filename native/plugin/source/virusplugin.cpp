@@ -99,6 +99,9 @@ DeviceOut::~DeviceOut()
     stop_ = true;
     cv_.notify_all();
     worker_.join();
+    // the broker's reader thread calls panel_, reply_ and reads audio_, which are destroyed before broker_ (members
+    // go in reverse order): stop it first (review 2026-10-19 M5)
+    broker_.close();
     release_owner(); // a waiting instance takes over within ~2 s (start-up messages, state, a new sync ping)
 }
 
@@ -163,6 +166,16 @@ int DeviceOut::send_state(std::vector<std::vector<uint8_t>> records)
 // without their header, review M2), then the loop opens the broker again.
 void DeviceOut::lose_broker()
 {
+    drop_dump();
+    close_audio();
+    broker_.close();
+    open_ = false;
+}
+
+// A dump in pieces and the automation held for it, when the Virus or the broker went away: the state goes out again
+// when it is back, and the remaining pieces would go out without their header (review 2026-10-19 M2).
+void DeviceOut::drop_dump()
+{
     {
         std::lock_guard<std::mutex> lk(mu_);
         dump_ = DumpPacer();
@@ -172,9 +185,6 @@ void DeviceOut::lose_broker()
         dump_pending_ = false;
         queued_--;
     }
-    close_audio();
-    broker_.close();
-    open_ = false;
 }
 
 // The Virus is gone or the broker write failed: readers on other threads (process(), the editor's diag report, the
@@ -316,6 +326,7 @@ void DeviceOut::check_presence()
             on_waiting_(elsewhere);
     }
     auto lost = [this] {
+        drop_dump();
         close_audio();
     };
     auto arrived = [this] {
@@ -797,6 +808,12 @@ tresult PLUGIN_API VirusPlugin::initialize(FUnknown *context)
         out_->set_diag_path(own_cache_dir() + "/../diag.log");
     out_->on_panel([this](const std::vector<uint8_t> &m) { panel_message(m); });
     out_->on_idle([this] {
+        if (int lay = sc_layout_.load(std::memory_order_relaxed); lay >= 0 && lay != sc_layout_seen_) {
+            sc_layout_seen_ = lay; // process() stores it, the worker logs a change once
+            const int layout = lay / 4, n_in = layout / 10000, bus = layout / 100 % 100 - 1, ch = layout % 100;
+            out_->log("Virus TI native: sidechain from input bus %d of %d passed, %d channel(s) (active: %d %d)\n",
+                      bus, n_in, ch, lay / 2 % 2, lay % 2);
+        }
         drain_param_updates();
         load_reported_presets();
         report_offline();
@@ -1362,12 +1379,14 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
                          ? data.outputs[2].channelBuffers32
                          : nullptr;
         float *l3 = o3 ? o3[0] : nullptr, *r3 = o3 ? o3[1] : nullptr;
-        if (o1 && o2 && resampling())
+        // a host may pass a bus with null channel pointers (an inactive output): every one is checked (review M8)
+        const bool stereo = o1 && o2 && o1[0] && o1[1] && o2[0] && o2[1];
+        if (stereo && resampling())
             read_resampled(o1, o2, o3, data.numSamples, ratio, newest,
                            tl_valid_ && out_->marker.load() >= 0
                                ? block_start + lead() - latency_frames()
                                : newest - std::max<int64_t>(2 * block_frames + 256, 768) - Resampler::HALF);
-        else if (o1 && o2)
+        else if (stereo)
         {
             if (tl_valid_ && out_->marker.load() >= 0) { // stamp-aligned: an event of this block sounds latency() later
                 int64_t pos = block_start + lead() - latency_frames();
@@ -1542,12 +1561,12 @@ void VirusPlugin::send_sidechain(ProcessData &data)
     if (ch >= 1) {
         l = data.inputs[bus].channelBuffers32[0];
         r = ch >= 2 ? data.inputs[bus].channelBuffers32[1] : l; // mono: both sides
+        if (!r) // a null second channel pointer (review M8)
+            r = l;
     }
-    if (int layout = data.numInputs * 10000 + (bus + 1) * 100 + ch; layout != sc_layout_seen_) {
-        sc_layout_seen_ = layout; // a change of the host's bus layout, logged once (not per block)
-        out_->log("Virus TI native: sidechain from input bus %d of %d passed, %d channel(s) (active: %d %d)\n", bus,
-                  (int)data.numInputs, ch, (int)in_active_[0], (int)in_active_[1]);
-    }
+    // a change of the host's bus layout, logged by the worker (no formatting or file I/O here: review M4)
+    sc_layout_.store(((data.numInputs * 10000 + (bus + 1) * 100 + ch) * 2 + (int)in_active_[0]) * 2 + (int)in_active_[1],
+                     std::memory_order_relaxed);
     if (int pk = (int)(sidechain_peak(l, r, n) * 32767.0f); pk > out_->sc_in_peak.load(std::memory_order_relaxed))
         out_->sc_in_peak.store(pk, std::memory_order_relaxed);
     const int64_t q = audio.out_queued();

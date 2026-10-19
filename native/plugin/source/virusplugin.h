@@ -221,6 +221,7 @@ private:
     AudioGate audio_gate_; // open while audio_ is mapped; closed (waiting for readers) before it is unmapped
     bool audio_ok() const { return audio_gate_.is_open(); }
     void close_audio();    // worker: no reader left, then unmap
+    void drop_dump();      // worker: the Virus or the broker went away mid-dump
     void lose_broker();    // worker: the broker connection is gone; drop the dump, close, reopen in the next round
     std::chrono::steady_clock::time_point audio_retry_{}; // next audio start attempt (worker thread)
     std::chrono::steady_clock::time_point stats_next_{};  // VTI_NATIVE_STATS output
@@ -619,7 +620,8 @@ private:
     int64_t sc_seen_ = -1;        // the write position at the last block (another writer moves it)
     int64_t sc_hold_ = 0;         // host frames to stay out after another writer was seen
     bool in_active_[2] = {false, false}; // input buses "Dummy In", "Sidechain" activated by the host
-    int sc_layout_seen_ = -1;      // the last logged (numInputs, bus, channels) - logged when it changes
+    std::atomic<int> sc_layout_{-1}; // process(): the host's sidechain layout (numInputs, bus, channels, active flags)
+    int sc_layout_seen_ = -1;        // worker: the last logged one - logged when it changes
     void send_sidechain(Steinberg::Vst::ProcessData &data);
     double rs_pos_ = 0;
     bool rs_valid_ = false;
