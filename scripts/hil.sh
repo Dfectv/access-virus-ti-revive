@@ -3,7 +3,7 @@
 # nativehost (no DAW), C4 every second on part 1, Out 1 recorded and checked by hil_check.py against the grid and
 # the plug-in's log. Covers LC1 (cold start of the broker), LC2 (reopen after the broker's idle exit, twice), LC3
 # (export, paced to the Virus, playback after it), with --power LC4 (Virus off and on) and with --sleep LC5
-# (suspend with the plug-in loaded). Not covered: a DAW's behaviour (REAPER, PipeWire), the editor.
+# (suspend with the plug-in loaded), H6 the broker killed while playing. Not covered: a DAW's behaviour (REAPER, PipeWire), the editor.
 #   scripts/hil.sh [--plugin PATH.vst3] [--host nativehost] [--out DIR] [--sleep] [--power CMD]
 # --power CMD (or TIREVIVE_POWER): a command that switches the Virus' mains with "off" / "on" as its argument
 # (e.g. a script calling a switchable plug's local API); then H4 = LC4 runs too. Not tried with a real plug yet.
@@ -99,6 +99,14 @@ if [ -n "$power" ]; then
     # the Virus boots (~10 s), the plug-in sets up again: judged from 25 s after switching on
     if wait $pid; then check H4 --seconds 75 --sleep --from 55; else fail H4; fi
 fi
+
+# the broker exits while the plug-in plays (a crash, an update, a restart; systemd starts it again on the next
+# connect): the plug-in reconnects, sets up the Virus again and plays on (review 2026-10-19 H3)
+say "H6 broker killed at 20 s while playing, playback to 60 s"
+run H6 60 & pid=$!
+sleep 20; pkill -TERM -x vtibroker
+# judged from 34 s on: reconnect, flash read (~3 s), state and probe (~4 s), marker
+if wait $pid; then check H6 --seconds 60 --from 34; else fail H6; fi
 
 if [ $sleep_test = 1 ]; then
     say "H5 suspend for 45 s with the plug-in playing (LC5)"

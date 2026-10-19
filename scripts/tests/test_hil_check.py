@@ -67,6 +67,11 @@ class Grid(unittest.TestCase):
         r = hil_check.grid(on, 1.0, 54.0, gaps=[(36.0, 40.0)])
         self.assertEqual(r["missing"], 1)
 
+    def test_start_counts_from_since(self):
+        # H6: judged from 34 s on, the first judged note at 34.05 s is on time
+        r = hil_check.grid([34.05 + k for k in range(26)], 1.0, 60.0, since=34.0)
+        self.assertIn(("start: first note within 12 s", True), [(n, ok) for n, ok, _ in hil_check.grid_verdicts(r)])
+
     def test_silence_fails(self):
         r = hil_check.grid([], 1.0, 20.0)
         self.assertFalse(all(ok for _, ok, _ in hil_check.grid_verdicts(r)))

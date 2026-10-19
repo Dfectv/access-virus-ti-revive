@@ -28,7 +28,7 @@ def grid(onsets, period, duration, since=0.0, gaps=()):
     everything before that time (a suspend and the catch-up after the wake). Grid slots inside gaps ((from, to) in s:
     a planned pause without notes) are not counted as lost."""
     r = {"count": 0, "first_s": None, "last_s": None, "missing": 0, "offgrid": 0, "maxdev_ms": 0.0,
-         "jitter_ms": 0.0, "drift_ppm": 0.0, "duration": duration, "period": period}
+         "jitter_ms": 0.0, "drift_ppm": 0.0, "duration": duration, "period": period, "since": since}
     onsets = [t for t in onsets if t >= since]
     if not onsets:
         return r
@@ -61,8 +61,9 @@ def grid_verdicts(r):
     """(name, ok, detail) per check of a grid() result"""
     first = r["first_s"]
     return [
-        ("start: first note within %g s" % FIRST_NOTE_S, first is not None and first <= FIRST_NOTE_S,
-         "first note at %s s" % ("-" if first is None else "%.2f" % first)),
+        ("start: first note within %g s" % FIRST_NOTE_S, first is not None and first <= r["since"] + FIRST_NOTE_S,
+         "first note at %s s%s" % ("-" if first is None else "%.2f" % first,
+                                   " (judged from %g s)" % r["since"] if r["since"] else "")),
         ("notes: none lost", r["count"] > 0 and r["missing"] == 0, "%d notes, %d lost" % (r["count"], r["missing"])),
         ("notes: no extra notes", r["offgrid"] == 0, "%d sounds off the grid" % r["offgrid"]),
         ("timing: every note within %g ms of the grid" % MAX_DEV_MS, r["count"] > 1 and r["maxdev_ms"] <= MAX_DEV_MS,
