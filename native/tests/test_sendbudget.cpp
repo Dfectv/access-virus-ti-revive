@@ -54,28 +54,3 @@ TEST(sendbudget_idle_does_not_accumulate)
     b.rate = 0;                                       // unlimited (VTI_NATIVE_MIDI_RATE=0)
     CHECK(b.available(1) >= 100000);
 }
-
-// Round 0.8.27 (T2): queued SysEx on cable 2 (part dumps, parameter changes from the editor, the state) sits in
-// the same DSP queue once it follows a stamp that is beyond the threshold (E261), so it counts against the budget
-// too - but as a debt capped at one burst: a 100 kB state send must not silence the notes for 25 s afterwards.
-TEST(sendbudget_queued_bytes_are_a_bounded_debt)
-{
-    SendBudget b;
-    b.available(0);
-    b.take_queued(520); // one part dump
-    CHECK(b.available(0) == 480);
-    b.take_queued(520); // a second one: the stamped burst right after both is gone
-    CHECK(b.available(0) == 0);
-    b.take_queued(100000); // a whole state send
-    CHECK(b.available(0) == 0);
-    SendBudget c; // the debt is at most one burst: 250 ms later it is paid, 500 ms later the burst is back
-
-    c.available(0);
-    c.take_queued(100000);
-    CHECK(c.available(250000000LL) == 0);  // 1000 bytes of debt, 1000 earned
-    CHECK(c.available(500000000LL) == 1000); // and the burst is back
-    SendBudget d;
-    d.rate = 0; // unlimited (tests): no debt either
-    d.take_queued(100000);
-    CHECK(d.available(1) >= 100000);
-}

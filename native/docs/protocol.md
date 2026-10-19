@@ -146,7 +146,7 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   plug-in A frames ahead of the newest ring frame and needs 512-768 frames to reach the DSP: on Linux/macOS
   (A = 1024) nothing is parked, on Windows (A = 3072) about 30 ms of traffic are. The byte budget (sendbudget.h,
   4 kB/s, bursts of 1000 bytes, far above musical rates) bounds what the DSP can park; unstamped SysEx on cable 2
-  (editor parameters, dumps, the state) is parked with a parked stamp and counts as a bounded debt. Automation from
+  (editor parameters, dumps, the state) is parked with a parked stamp but does not count: the USB link (~4.2 k packets/s, E231) parks at most ~400 bytes of it in 30 ms, and as a debt it made notes late after patch dumps (E266). Automation from
   process() gets its own stamp at its block time (stamprule.h) so it lands where the host put it on every platform;
   messages from other threads inherit the previous stamp. One F5 per stamp value per USB write: the DSP keeps the
   current stamp for the bytes that follow, and an F5 per message would spend the whole budget on automation at the

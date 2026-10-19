@@ -591,10 +591,8 @@ void DeviceOut::run()
             }
         }
         bool ok = broker_.write(EP_PLUGIN_OUT, pk_.data(), pk_.size());
-        if (stamp >= 0) // stamped traffic counts against the budget (sendbudget.h)
+        if (stamp >= 0) // stamped traffic counts against the budget; queued SysEx does not (sendbudget.h, E266)
             budget_.take((int)pk_.size());
-        else if (cable == CABLE_PLUGIN) // queued SysEx on the DSP's cable is parked with a parked stamp: a bounded debt
-            budget_.take_queued((int)pk_.size());
         if (msg.size() > 7 && msg[0] == 0xF0 && msg[6] == 0x11) { // a multi dump (11 00 00 ...)
             static const int pause = getenv("VTI_NATIVE_MULTI_PAUSE") ? atoi(getenv("VTI_NATIVE_MULTI_PAUSE")) : 250;
             queue_hold_until_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(pause);
