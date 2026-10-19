@@ -25,6 +25,7 @@ extern char **environ;
 #include "access/library.h"
 #include "cc/diag.h"
 #include "editor/helptext.h"
+#include "editor/dragsend.h"
 #include "editor/popupmenu.h"
 #include "popupwindow.h"
 #include "editor/upscale.h"
@@ -1361,6 +1362,7 @@ public:
             return;
         }
         drag_ = h;
+        drag_sent_.reset();
         plugin_->take_changed(); // start collecting the changes of this drag
         drag_y_ = event.mousePosition.y;
         drag_x_ = event.mousePosition.x;
@@ -1478,8 +1480,8 @@ public:
                     if (std::abs(EditorRenderer::arp_step_width(len) - want) <
                         std::abs(EditorRenderer::arp_step_width(best) - want))
                         best = len;
-                plugin_->ui_set("Arpeggiator User Pattern/Step " + std::to_string(arp_length_drag_ + 1) + " Length",
-                                drag_.part, best);
+                drag_set("Arpeggiator User Pattern/Step " + std::to_string(arp_length_drag_ + 1) + " Length",
+                         drag_.part, best);
             } else
                 arp_set_velocity(drag_, event.mousePosition);
             invalid();
@@ -1517,7 +1519,7 @@ public:
             delta = (drag_y_ - event.mousePosition.y) * (hi - lo) / std::max(1.0, (double)(e.h - hh));
         }
         int v = (int)std::lround(drag_value_ + delta);
-        plugin_->ui_set(param, drag_.part, std::max(lo, std::min(hi, v)));
+        drag_set(param, drag_.part, std::max(lo, std::min(hi, v)));
         // repaint only the control and the LCD (bottom info panel); value-dependent layouts change on release
         if (drag_rects_.empty())
             drag_rects_ = shown_rects(param);
@@ -1714,6 +1716,12 @@ private:
         }
     }
     int arp_length_drag_ = -1; // ArpEdit: step whose length is dragged
+    DragSend drag_sent_;       // a drag sends a value once, not on every mouse move (dragsend.h)
+    void drag_set(const std::string &path, int part, int value)
+    {
+        if (drag_sent_.changed(path, part, value))
+            plugin_->ui_set(path, part, value);
+    }
     // ArpEdit: the step under the mouse gets the velocity of the mouse height (bars grow from the bottom row)
     void arp_set_velocity(const Hit &h, const CPoint &p)
     {
@@ -1721,7 +1729,7 @@ private:
         int cx, bottom;
         EditorRenderer::arp_step_geometry(*h.element, h.x, h.y, step, cx, bottom);
         int vel = std::max(0, std::min(127, bottom - (int)p.y));
-        plugin_->ui_set("Arpeggiator User Pattern/Step " + std::to_string(step + 1) + " Velocity", h.part, vel);
+        drag_set("Arpeggiator User Pattern/Step " + std::to_string(step + 1) + " Velocity", h.part, vel);
         invalid();
     }
     int edit_part_ = 0;
