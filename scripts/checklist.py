@@ -17,7 +17,8 @@ Spec (JSON): {"round": "0.8.20", "lead": "...", "rules": ["..."],
 Texts may contain HTML (<code>, <b>); keep them short.
 "core": "core.json" in a round spec puts the core items (same every round: cold start, reopen, export, Virus off/on,
 sleep) in front of the round's own items in each section with the same id, and the core rules before its rules;
-about 60-90 minutes per system in all.
+about 60-90 minutes per system in all. "core_items": ["LC1", ...] keeps only these core items; scripts/risk.py
+writes it from the round's changed files (risk classes, findings/testing.md).
 """
 import html
 import json
@@ -222,7 +223,8 @@ def with_core(spec, spec_path):
         return spec
     with open(os.path.join(os.path.dirname(spec_path), spec["core"]), encoding="utf-8") as f:
         core = json.load(f)
-    items = {s["id"]: s["items"] for s in core["sections"]}
+    keep = spec.get("core_items")  # scripts/risk.py: only the core items the round's changes need
+    items = {s["id"]: [it for it in s["items"] if keep is None or it["id"] in keep] for s in core["sections"]}
     spec["rules"] = core.get("rules", []) + spec.get("rules", [])
     for s in spec["sections"]:
         s["items"] = items.get(s["id"], []) + s.get("items", [])

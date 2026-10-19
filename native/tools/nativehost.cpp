@@ -477,12 +477,15 @@ int main(int argc, char **argv)
     float peak = 0;
     int blocks = (int)(seconds * rate / block);
     auto t_next = std::chrono::steady_clock::now();
-    std::chrono::steady_clock::time_point t_offline{};
+    std::chrono::steady_clock::time_point t_offline{}, t_offline_end{};
     for (int b = 0; b < blocks; b++) {
         const bool offline = offline_at >= 0 && b * (double)block / (double)rate >= offline_at &&
                              (offline_end < 0 || b * (double)block / (double)rate < offline_end);
         if (offline && t_offline == std::chrono::steady_clock::time_point{})
             t_offline = std::chrono::steady_clock::now();
+        if (!offline && t_offline != std::chrono::steady_clock::time_point{} &&
+            t_offline_end == std::chrono::steady_clock::time_point{})
+            t_offline_end = std::chrono::steady_clock::now(); // --offline-end: the render is over
         data.processMode = offline ? kOffline : kRealtime;
         static ProcessContext pctx{};
         if (transport_at >= 0) { // a DAW transport: 120 BPM from transport_at on, looping every loop_bars bars
@@ -756,8 +759,9 @@ int main(int argc, char **argv)
             std::this_thread::sleep_until(t_next);
     }
     if (offline_at >= 0 && t_offline != std::chrono::steady_clock::time_point{}) {
-        double wall = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_offline).count();
-        double audio = seconds - offline_at;
+        bool ended = t_offline_end != std::chrono::steady_clock::time_point{};
+        double wall = std::chrono::duration<double>((ended ? t_offline_end : std::chrono::steady_clock::now()) - t_offline).count();
+        double audio = (ended ? offline_end : seconds) - offline_at;
         printf("offline part: %.2f s of audio in %.2f s wall time (%.2fx)\n", audio, wall, wall > 0 ? audio / wall : 0.0);
     }
     if (wav) {

@@ -192,6 +192,12 @@ if(PWSH_EXECUTABLE)
     set_tests_properties(installer_scripts PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
 endif()
 
+# the test tooling's Python scripts (risk classes -> checklist items, findings/testing.md); skipped without Python 3
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_FOUND)
+    add_test(NAME scripts_py COMMAND ${Python3_EXECUTABLE} -I -m unittest discover -s ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/tests)
+endif()
+
 # compiler warnings for our own sources (E13; not for the SDK, VSTGUI or pugixml): -Wall -Wextra with GCC/Clang,
 # MSVC keeps its default /W3. VTI_WERROR (CI on Linux) turns them into errors, so new ones fail the build.
 option(VTI_WERROR "treat warnings in our own sources as errors" OFF)
