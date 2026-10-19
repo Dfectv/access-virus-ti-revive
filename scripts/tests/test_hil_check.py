@@ -54,6 +54,19 @@ class Grid(unittest.TestCase):
         self.assertEqual((r["missing"], r["offgrid"]), (0, 0))
         self.assertTrue(all(ok for n, ok, _ in hil_check.grid_verdicts(r) if not n.startswith("start")))
 
+    def test_a_planned_pause_is_not_lost_notes(self):
+        # H3: export until 36 s, stopped until 40 s (no notes), then playback again
+        on = [8.05 + k for k in range(28)] + [40.05 + k for k in range(14)]
+        r = hil_check.grid(on, 1.0, 54.0, gaps=[(36.0, 40.0)])
+        self.assertEqual(r["missing"], 0)
+        r = hil_check.grid(on, 1.0, 54.0)
+        self.assertEqual(r["missing"], 4)
+
+    def test_a_note_lost_outside_the_pause_still_counts(self):
+        on = [8.05 + k for k in range(28)] + [40.05 + k for k in range(14) if k != 3]
+        r = hil_check.grid(on, 1.0, 54.0, gaps=[(36.0, 40.0)])
+        self.assertEqual(r["missing"], 1)
+
     def test_silence_fails(self):
         r = hil_check.grid([], 1.0, 20.0)
         self.assertFalse(all(ok for _, ok, _ in hil_check.grid_verdicts(r)))

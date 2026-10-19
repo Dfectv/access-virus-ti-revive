@@ -4,6 +4,7 @@
 // --wav-bus N the output bus N instead (1..3, e.g. 3 = Out 3 = USB 3).
 // --offline T: from T s on the blocks are offline (processMode kOffline) and sent as fast as the plug-in takes them,
 // like a DAW's export; the wall time of that part is printed (the plug-in paces it to the Virus: ~1x).
+// --offline-end T: real time again from T s on; --notes-off A:B: no --notes in [A, B) s (stopped after the render).
 // --hold T: C4 on at T s and held to the end; --param-at T:ID=NORM: a parameter change at T s (repeatable) - e.g. to
 // hear whether the Virus applies a change to a held note.
 // --cid HEX: load that class (e.g. the original Access id D9909FB45F730543AC5397BE8958CD31, E221), else the first.
@@ -241,6 +242,7 @@ int main(int argc, char **argv)
     double offline_end = -1; // --offline-end T: back to real time (a DAW's render ends, playback follows)
     std::vector<std::pair<ParamID, double>> changes;
     double hold = -1; // --hold: note on at this time, never off
+    double notes_off_from = -1, notes_off_to = -1; // --notes-off A:B: no --notes in [A, B) s (a DAW stopped after a render)
     struct TimedChange {
         double t;
         ParamID id;
@@ -263,6 +265,8 @@ int main(int argc, char **argv)
             loop_bars = atof(argv[++i]);
         else if (!strcmp(argv[i], "--notes"))
             notes = true;
+        else if (!strcmp(argv[i], "--notes-off") && i + 1 < argc)
+            sscanf(argv[++i], "%lf:%lf", &notes_off_from, &notes_off_to);
         else if (!strcmp(argv[i], "--hold") && i + 1 < argc)
             hold = atof(argv[++i]);
         else if (!strcmp(argv[i], "--param-at") && i + 1 < argc) {
@@ -505,7 +509,7 @@ int main(int argc, char **argv)
         if (notes) { // C4 on at the start of every second, off at the half
             long f0 = (long)b * block, f1 = f0 + block;
             for (long t = (f0 / (rate / 2)) * (rate / 2); t < f1; t += (rate / 2))
-                if (t >= f0) {
+                if (t >= f0 && !(t >= notes_off_from * rate && t < notes_off_to * rate)) {
                     Event e{};
                     e.sampleOffset = (int32)(t - f0);
                     if ((t / (rate / 2)) % 2 == 0) {

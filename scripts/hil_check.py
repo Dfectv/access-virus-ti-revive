@@ -3,7 +3,7 @@
 
 nativehost plays C4 at the start of every second (--notes) through the plug-in and records Out 1; this script checks
 the recording against that grid and the plug-in's log lines (stderr) against a clean start:
-  python3 -I scripts/hil_check.py --log RUN.err [--wav RUN.wav --seconds 20] [--offline RUN.out] [--sleep --from T]
+  python3 -I scripts/hil_check.py --log RUN.err [--wav RUN.wav --seconds 20] [--offline RUN.out] [--sleep --from T] [--gap A:B]
 Exit 0 when every check passes, 1 otherwise. The limits come from clean runs on the TI Desktop (2026-10-19:
 jitter 0.02 ms, max 1.5 ms off the grid, drift -3..-31 ppm, first note after 5-8 s).
 """
@@ -22,10 +22,11 @@ MAX_JITTER_MS = 1.0
 MAX_DRIFT_PPM = 100.0
 
 
-def grid(onsets, period, duration, since=0.0):
+def grid(onsets, period, duration, since=0.0, gaps=()):
     """onsets (s) against a grid of one note per period: notes lost, extra sounds, deviation, jitter, drift.
     Sounds before the first two notes a period apart are ignored (a release tail of the run before), and with since
-    everything before that time (a suspend and the catch-up after the wake)."""
+    everything before that time (a suspend and the catch-up after the wake). Grid slots inside gaps ((from, to) in s:
+    a planned pause without notes) are not counted as lost."""
     r = {"count": 0, "first_s": None, "last_s": None, "missing": 0, "offgrid": 0, "maxdev_ms": 0.0,
          "jitter_ms": 0.0, "drift_ppm": 0.0, "duration": duration, "period": period}
     onsets = [t for t in onsets if t >= since]
@@ -41,7 +42,8 @@ def grid(onsets, period, duration, since=0.0):
     notes = [t for t in on if t >= start]
     r["offgrid"] = sum(1 for t, d in zip(onsets, dev) if t > start and abs(d) >= ON_GRID_S)
     ks = [round((t - start) / period) for t in notes]
-    r.update(count=len(notes), first_s=start, last_s=notes[-1], missing=ks[-1] + 1 - len(set(ks)))
+    paused = sum(1 for k in range(ks[-1] + 1) if any(a <= start + k * period < b for a, b in gaps))
+    r.update(count=len(notes), first_s=start, last_s=notes[-1], missing=ks[-1] + 1 - paused - len(set(ks)))
     if len(notes) >= 2:
         n = len(notes)
         sk, st = sum(ks), sum(notes)
@@ -103,12 +105,14 @@ def main():
     ap.add_argument("--offline", help="nativehost stdout of an --offline run")
     ap.add_argument("--sleep", action="store_true", help="the run included a suspend")
     ap.add_argument("--from", dest="since", type=float, default=0.0, help="judge only the notes from this time on")
+    ap.add_argument("--gap", action="append", default=[], help="A:B - a planned pause without notes (s)")
     a = ap.parse_args()
     with open(a.log, encoding="utf-8", errors="replace") as f:
         checks = log_verdicts(f.read(), a.sleep)
     if a.wav:
         x, rate = timing_analysis.read_wav(a.wav)
-        checks += grid_verdicts(grid(timing_analysis.onsets(x, rate), 1.0, a.seconds, a.since))
+        checks += grid_verdicts(grid(timing_analysis.onsets(x, rate), 1.0, a.seconds, a.since,
+                                    [tuple(float(v) for v in g.split(":")) for g in a.gap]))
     if a.offline:
         with open(a.offline, encoding="utf-8", errors="replace") as f:
             checks += offline_verdicts(f.read())
