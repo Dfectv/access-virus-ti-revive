@@ -141,6 +141,10 @@ void DeviceOut::send(std::vector<uint8_t> msg, uint8_t cable)
 
 int DeviceOut::send_state(std::vector<std::vector<uint8_t>> records)
 {
+    // the records come from the host's project file: rule 2 and well-formed messages apply to them too (sendguard.h)
+    if (size_t bad = drop_unsendable(records))
+        log("Virus TI native: state: dropped %zu record(s) that rule 2 forbids or that are not one complete message\n",
+            bad);
     std::lock_guard<std::mutex> lk(mu_);
     size_t before = queue_.size();
     queue_.erase(std::remove_if(queue_.begin(), queue_.end(), [](const Queued &q) { return q.state; }), queue_.end());
