@@ -251,3 +251,23 @@ TEST(memsync_concurrent_transacts_both_get_their_reply)
     CHECK(a.size() == 524 && a[7] == 0 && a[8] == 0);
     CHECK(b.size() == 524 && b[7] == 1 && b[8] == 5);
 }
+
+// The plug-in's terminate() waited for a request in flight (review 2026-10-19 M6): the readiness probe up to 10 s, a
+// bank sync request 3 x 3 s plus 1.5 s pauses. cancel() ends the waiting at once, also for later requests.
+TEST(memsync_cancel_ends_a_waiting_request_at_once)
+{
+    MemorySync sync([](const Bytes &) { return true; }); // the Virus never answers
+    std::thread stopper([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        sync.cancel();
+    });
+    auto t0 = std::chrono::steady_clock::now();
+    Dump r = sync.transact({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x30, 0x00, 0x00, 0xF7}, {0x10, 0x00, 0x00}, 10000, 3);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+    stopper.join();
+    CHECK(r.empty());
+    CHECK(ms < 1000);
+    t0 = std::chrono::steady_clock::now();
+    CHECK(sync.transact({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x39, 0x01, 0xF7}, {0x14, 0x01}, 10000, 3).empty());
+    CHECK(std::chrono::steady_clock::now() - t0 < std::chrono::milliseconds(100));
+}

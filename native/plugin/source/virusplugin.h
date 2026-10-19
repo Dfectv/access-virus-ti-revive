@@ -519,6 +519,7 @@ private:
     // the Virus came back (switched off and on, replugged): the readiness probe and note hold of a first start again
     // (worker thread: the sender thread itself must not wait for the probe's reply)
     std::thread reconnect_thread_;
+    std::mutex reconnect_mu_; // after_reconnect() starts reconnect_thread_, terminate() joins it: never both at once
     std::atomic<bool> reconnect_busy_{false}, reconnect_again_{false};
     std::atomic<bool> absent_at_start_{false}; // the start-up check found no Virus: its first appearance waits too
     void after_reconnect();

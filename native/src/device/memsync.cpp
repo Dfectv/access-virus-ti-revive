@@ -98,6 +98,8 @@ Dump MemorySync::transact(const Dump &request, const std::vector<uint8_t> &match
     for (int t = 0; t < tries; t++) {
         {
             std::lock_guard<std::mutex> lk(mu_);
+            if (cancelled_)
+                return {};
             inbox_.clear();
         }
         if (!send_(request))
@@ -108,14 +110,21 @@ Dump MemorySync::transact(const Dump &request, const std::vector<uint8_t> &match
             for (auto &m : inbox_)
                 if (m.size() >= 6 + match.size() && std::equal(match.begin(), match.end(), m.begin() + 6))
                     return m;
-            if (cv_.wait_until(lk, until) == std::cv_status::timeout)
+            if (cancelled_ || cv_.wait_until(lk, until) == std::cv_status::timeout || cancelled_)
                 break;
         }
         // let a late/truncated reply drain before the next attempt (overlapping requests confuse the Virus)
-        lk.unlock();
-        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        if (cv_.wait_for(lk, std::chrono::milliseconds(1500), [this] { return cancelled_; }))
+            return {};
     }
     return {};
+}
+
+void MemorySync::cancel()
+{
+    std::lock_guard<std::mutex> lk(mu_);
+    cancelled_ = true;
+    cv_.notify_all();
 }
 
 std::vector<int> MemorySync::bank_info(int bank)

@@ -98,9 +98,10 @@ DeviceOut::~DeviceOut()
 {
     stop_ = true;
     cv_.notify_all();
+    broker_.close(); // wakes a worker stuck in a write to a broker that stopped reading (review 2026-10-19 M6)
     worker_.join();
-    // the broker's reader thread calls panel_, reply_ and reads audio_, which are destroyed before broker_ (members
-    // go in reverse order): stop it first (review 2026-10-19 M5)
+    // again: the worker may have reconnected in between. The reader thread calls panel_, reply_ and reads audio_,
+    // which are destroyed before broker_ (members go in reverse order), so it stops here (review M5)
     broker_.close();
     release_owner(); // a waiting instance takes over within ~2 s (start-up messages, state, a new sync ping)
 }
@@ -903,10 +904,17 @@ std::vector<std::vector<uint8_t>> VirusPlugin::startup_messages() const
 tresult PLUGIN_API VirusPlugin::terminate()
 {
     stop_warm_ = true;
+    if (sync_)
+        sync_->cancel(); // a request in flight ends now, not after its timeout (review 2026-10-19 M6)
     if (sync_thread_.joinable())
-        sync_thread_.join(); // stop_warm_ also cancels the bank sync between two requests (<= ~1 s)
-    if (reconnect_thread_.joinable())
-        reconnect_thread_.join(); // a readiness probe after a reconnect: at most its 10 s timeout
+        sync_thread_.join();
+    {
+        // the worker starts a reconnect thread in after_reconnect(): under the same lock, and not after stop_warm_,
+        // so none starts after this join (a joinable std::thread destroyed = std::terminate; review M6)
+        std::lock_guard<std::mutex> g(reconnect_mu_);
+        if (reconnect_thread_.joinable())
+            reconnect_thread_.join();
+    }
     out_.reset();
     return SingleComponentEffect::terminate();
 }
@@ -2353,6 +2361,9 @@ void VirusPlugin::resend_to_virus()
 void VirusPlugin::after_reconnect()
 {
     if (!sync_)
+        return;
+    std::lock_guard<std::mutex> g(reconnect_mu_); // terminate() joins under it
+    if (stop_warm_)
         return;
     ready_ = false;
     starting_ = true;
