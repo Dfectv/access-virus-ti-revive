@@ -129,6 +129,10 @@ void DeviceOut::send(std::vector<uint8_t> msg)
 
 void DeviceOut::send(std::vector<uint8_t> msg, uint8_t cable)
 {
+    if (blocked_to_virus(msg.data(), msg.size())) { // rule 2 (sendguard.h): never on the wire
+        blocked_.fetch_add(1, std::memory_order_relaxed);
+        return;
+    }
     std::lock_guard<std::mutex> lk(mu_);
     queue_.push_back({std::move(msg), false, cable});
     queued_++;
@@ -151,6 +155,10 @@ int DeviceOut::send_state(std::vector<std::vector<uint8_t>> records)
 
 bool DeviceOut::send_rt(const uint8_t *msg, size_t n, int64_t stamp)
 {
+    if (blocked_to_virus(msg, n)) { // rule 2 (sendguard.h); counted here, logged off the audio thread
+        blocked_.fetch_add(1, std::memory_order_relaxed);
+        return true;
+    }
     size_t w = rt_w_.load(std::memory_order_relaxed);
     if (n > sizeof rt_[0].data || w - rt_r_.load(std::memory_order_acquire) >= RT_SLOTS)
         return false;
@@ -528,12 +536,19 @@ void DeviceOut::run()
             if (audio_ok_)
                 fprintf(stderr, "Virus TI native: audio streaming (retry)\n");
         }
+        if (int b = blocked_.load(std::memory_order_relaxed); b != blocked_logged_) {
+            log("Virus TI native: dropped %d message(s) rule 2 forbids (multi header 72 xx 00-03 or F4; sendguard.h)\n",
+                b - blocked_logged_);
+            blocked_logged_ = b;
+        }
         if (msg.empty())
             continue;
         // channel messages and clock ticks carry a time stamp: F5 lo hi on cable 5 = the frame on the Virus timeline
-        // (docs/protocol.md "timing"); process() stamps its events, other threads use the latest timeline position
+        // (docs/protocol.md "timing"); process() stamps its events (and, since 0.8.27, its automation: stamprule.h),
+        // other threads use the latest timeline position
         pk_.clear();
         auto pack = [&](const std::vector<uint8_t> &m, int64_t st) {
+            bool from_process = st >= 0;
             if (st < 0)
                 st = timeline.load();
             if (st < 0 && audio_ok_)
@@ -545,8 +560,7 @@ void DeviceOut::run()
             if (env_debug())
                 fprintf(stderr, "send %02x stamp %lld newest %lld\n", m[0], (long long)st,
                         (long long)(audio_ok_ ? audio_.newest_frame() : -1));
-            if (st >= 0 && ((m[0] >= 0x80 && m[0] < 0xF0) || m[0] == 0xF8 || m[0] == 0xFE || m[0] == 0xF2 ||
-                            (m.size() == 11 && m[6] == 0x73 && m[8] == 0x22))) {
+            if (st >= 0 && needs_stamp(m.data(), m.size(), from_process)) {
                 auto t = usbmidi_pack({0xF5, (uint8_t)(st & 0x7F), (uint8_t)((st >> 7) & 0x7F)}, CABLE_TIME);
                 pk_.insert(pk_.end(), t.begin(), t.end());
             }
@@ -576,8 +590,10 @@ void DeviceOut::run()
             }
         }
         bool ok = broker_.write(EP_PLUGIN_OUT, pk_.data(), pk_.size());
-        if (stamp >= 0) // stamped traffic counts against the budget; queued dumps go to the host CPU, not the DSP queue
+        if (stamp >= 0) // stamped traffic counts against the budget (sendbudget.h)
             budget_.take((int)pk_.size());
+        else if (cable == CABLE_PLUGIN) // queued SysEx on the DSP's cable is parked with a parked stamp: a bounded debt
+            budget_.take_queued((int)pk_.size());
         if (msg.size() > 7 && msg[0] == 0xF0 && msg[6] == 0x11) { // a multi dump (11 00 00 ...)
             static const int pause = getenv("VTI_NATIVE_MULTI_PAUSE") ? atoi(getenv("VTI_NATIVE_MULTI_PAUSE")) : 250;
             queue_hold_until_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(pause);

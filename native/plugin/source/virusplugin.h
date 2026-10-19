@@ -10,6 +10,8 @@
 #include "device/keepalive.h"
 #include "device/memsync.h"
 #include "device/sendbudget.h"
+#include "device/sendguard.h"
+#include "device/stamprule.h"
 #include "device/offlinepace.h"
 #include "device/presencewatch.h"
 #include "device/stallwatch.h"
@@ -197,7 +199,9 @@ private:
     Slot rt_[RT_SLOTS];
     std::atomic<size_t> rt_w_{0}, rt_r_{0};
     int rt_run_ = 0; // real-time messages sent in a row (worker thread)
-    SendBudget budget_; // bytes of stamped traffic per second (the DSP's 2046-byte stamp queue, E238)
+    SendBudget budget_; // bytes per second towards the DSP's 2046-byte stamp queue (E261)
+    std::atomic<int> blocked_{0}; // messages rule 2 forbids, dropped (sendguard.h); logged by the worker
+    int blocked_logged_ = 0;
     std::atomic<bool> stop_{false};
     bool open_ = false;
     AudioIn audio_;

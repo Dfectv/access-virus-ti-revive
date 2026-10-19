@@ -1,0 +1,48 @@
+// Which messages to the Virus get their own F5 time stamp (stamprule.h, round 0.8.27 T3): everything the DSP
+// schedules (channel messages, clock, Active Sensing, song position, the sync ping) and, new, a parameter SysEx
+// that process() sends for host automation - so it lands at its block time on every platform instead of
+// inheriting the previous stamp (on Windows up to ~1400 frames apart). Queued messages (editor, state, dumps)
+// keep inheriting: a "late" stamp on them would move the DSP's newest-stamp register and can raise a Sync
+// Information Event (E251).
+#include "check.h"
+#include "device/stamprule.h"
+
+using namespace vti;
+
+static bool stamped(std::initializer_list<uint8_t> m, bool from_process)
+{
+    std::vector<uint8_t> v(m);
+    return needs_stamp(v.data(), v.size(), from_process);
+}
+
+TEST(stamprule_channel_and_system_realtime)
+{
+    CHECK(stamped({0x90, 60, 100}, true));
+    CHECK(stamped({0x80, 60, 0}, false)); // a note from another thread (all notes off) still needs its stamp
+    CHECK(stamped({0xB0, 1, 64}, true));
+    CHECK(stamped({0xE0, 0, 64}, true));
+    CHECK(stamped({0xF8}, true));
+    CHECK(stamped({0xFE}, true));
+    CHECK(stamped({0xF2, 0, 0}, true));
+    CHECK(stamped({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x22, 0x00, 0xF7}, true)); // the sync ping
+    CHECK(stamped({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x22, 0x00, 0xF7}, false));
+}
+
+TEST(stamprule_parameter_sysex_only_from_process)
+{
+    const std::initializer_list<uint8_t> cutoff = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x70, 0x00, 0x28, 0x40, 0xF7};
+    CHECK(stamped(cutoff, true));   // automation: stamped at its block time
+    CHECK(!stamped(cutoff, false)); // the editor's knob: inherits
+    CHECK(stamped({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x72, 0x03, 0x25, 0x40, 0xF7}, true)); // a part parameter
+    CHECK(stamped({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x6E, 0x00, 0x10, 0x01, 0xF7}, true)); // page C
+}
+
+TEST(stamprule_dumps_and_requests_never)
+{
+    CHECK(!stamped({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x10, 0x00, 0x00, 0x00, 0xF7}, true)); // a single dump
+    CHECK(!stamped({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x30, 0x01, 0x05, 0xF7}, true));       // a request
+    CHECK(!stamped({0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7}, true));                               // identity request
+    CHECK(!stamped({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x10, 0x00, 0xF7}, true)); // a global: host CPU
+    CHECK(!stamped({0xF7}, true));
+    CHECK(!stamped({}, true));
+}

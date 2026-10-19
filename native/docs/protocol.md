@@ -138,9 +138,19 @@ On close the original resets globals (73 00 3B/3A/3C/7A).
   per transition, not one per late note. Late stamps still play; the event asks for more lead, not for a resync.
 - Active Sensing (2026-10-18, firmware E237): the DSP arms a watchdog with the first FE it sees and releases every
   voice about a second after the last one. The original sends FE every 0.31 s (E025); the plug-in now sends one
-  every 300 ms on the timeline (keepalive.h), the first with the anchor's FE/F2 as before. Stamped bytes in flight
-  are bounded by the DSP's 2046-byte stamp queue (E238): the plug-in keeps them under 4 kB/s with bursts of 1000
-  bytes (sendbudget.h), far above musical rates.
+  every 300 ms on the timeline (keepalive.h), the first with the anchor's FE/F2 as before.
+- The stamp threshold and what the DSP parks (2026-10-19, E261/E262, corrects the first reading E238): a stamp at
+  most 1023 frames ahead of the DSP's clock is parsed at once and the voice starts at the stamp (the threshold is
+  the maximum per-voice scheduling delay); during a patch change the window shrinks for a moment. Only what is
+  further ahead is parked, up to the next F5, in the DSP's 2046-byte queue without a fill check. A stamp leaves the
+  plug-in A frames ahead of the newest ring frame and needs 512-768 frames to reach the DSP: on Linux/macOS
+  (A = 1024) nothing is parked, on Windows (A = 3072) about 30 ms of traffic are. The byte budget (sendbudget.h,
+  4 kB/s, bursts of 1000 bytes, far above musical rates) bounds what the DSP can park; unstamped SysEx on cable 2
+  (editor parameters, dumps, the state) is parked with a parked stamp and counts as a bounded debt. Automation from
+  process() gets its own stamp at its block time (stamprule.h) so it lands where the host put it on every platform;
+  messages from other threads inherit the previous stamp. The multi header (page 0x72 parameters 0-3) and status
+  F4 are dropped before the wire (sendguard.h, rule 2). The 2026-10-13 stress hang (Linux, audio silent, MIDI
+  alive) is not explained by the queue; its mechanism is open.
 - The original reports a plug-in latency of 3840 + block size (4352 at 512, 4096 at 256; vtihost prints it).
   Experiments with the sync ping (S=5000, M=6441 = the original's F2 offset): ping stamped 3072 like the original ->
   honoured in 3/3 runs (K 10752-11322, ~6000 frames after sending); ping stamped on our timeline -> honoured 3/3, K
