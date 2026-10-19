@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <set>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -68,6 +69,13 @@ public:
     // 2 s the first time.
     int flash_info(std::vector<uint8_t> &out, int timeout_ms = 8000);
 
+    // control replies received and not yet taken (unit tests)
+    size_t pending_replies() const
+    {
+        std::lock_guard<std::mutex> g(ctl_);
+        return replies_.size();
+    }
+
 private:
     intptr_t fd_ = -1; // POSIX socket / Windows pipe HANDLE (overlapped)
     int audio_reply_ = 0;
@@ -80,9 +88,11 @@ private:
     mutable std::mutex info_mu_;
     ObserveHandler observe_;
     std::thread reader_;
-    std::mutex wr_, ctl_;
+    std::mutex wr_;
+    mutable std::mutex ctl_;
     std::condition_variable ctl_cv_;
     std::map<uint32_t, std::vector<uint8_t>> replies_; // seq -> i32 result + data
+    std::set<uint32_t> waiting_;                       // seqs a control() still waits for
     uint32_t seq_ = 0;
     std::atomic<bool> present_{false}, elsewhere_{false}, stop_{false}, reader_done_{true};
     std::atomic<uint32_t> arrivals_{0};

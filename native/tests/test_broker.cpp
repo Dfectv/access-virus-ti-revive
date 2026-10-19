@@ -545,3 +545,29 @@ TEST(broker_control_reply_clamped_to_the_buffer)
     CHECK(buf[8] == 0 && buf[15] == 0); // nothing past len
     b.close();
 }
+
+// Review 2026-10-19 (low): a control reply that came after control() gave up was kept in replies_ for good. Only
+// replies someone still waits for are kept.
+TEST(broker_late_control_reply_is_not_kept)
+{
+    FakeBroker fb;
+    fb.answer_control = false;
+    Broker b;
+    b.set_endpoint(fb.path);
+    std::string err;
+    CHECK(b.open(err));
+    uint8_t buf[8];
+    CHECK(b.control(0x80, 6, 0x0100, 0, buf, 8, 100) == -1); // no answer within 100 ms
+    auto reqs = fb.messages(VTIMSG_CONTROL);
+    CHECK(reqs.size() == 1);
+    if (!reqs.empty()) { // the late answer to that request
+        Bytes r(reqs[0].data.begin(), reqs[0].data.begin() + 4);
+        Bytes res = FakeBroker::u32(8);
+        r.insert(r.end(), res.begin(), res.end());
+        r.insert(r.end(), 8, 0x11);
+        fb.reply(VTIMSG_CONTROL_REPLY, r);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    CHECK(b.pending_replies() == 0);
+    b.close();
+}

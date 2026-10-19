@@ -133,6 +133,8 @@ void DeviceOut::send(std::vector<uint8_t> msg)
 
 void DeviceOut::send(std::vector<uint8_t> msg, uint8_t cable)
 {
+    if (msg.empty()) // nothing to write, and the worker's write accounting (pending_send_) expects bytes
+        return;
     if (blocked_to_virus(msg.data(), msg.size())) { // rule 2 (sendguard.h): never on the wire
         blocked_.fetch_add(1, std::memory_order_relaxed);
         return;
@@ -3049,8 +3051,14 @@ void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
         }
         auto it = ids_.find({c.path, c.part});
         if (it != ids_.end()) {
+            // the latest value per parameter: bounded by the parameter count even when the host does not call
+            // process() for a while (review 2026-10-19: it grew with every knob move)
             std::lock_guard<std::mutex> lk(pending_mu_);
-            pending_.push_back({it->second, c.value / 127.0});
+            auto same = std::find_if(pending_.begin(), pending_.end(), [&](const auto &pc) { return pc.first == it->second; });
+            if (same != pending_.end())
+                same->second = c.value / 127.0;
+            else
+                pending_.push_back({it->second, c.value / 127.0});
         }
     }
 }

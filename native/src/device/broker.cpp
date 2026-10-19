@@ -307,14 +307,20 @@ int Broker::control(uint8_t rt, uint8_t req, uint16_t value, uint16_t index, uin
     {
         std::lock_guard<std::mutex> g(ctl_);
         seq = ++seq_;
+        waiting_.insert(seq); // only replies someone waits for are kept (a late one is dropped)
     }
     memcpy(hdr, &seq, 4);
     hdr[4] = rt, hdr[5] = req, hdr[6] = value & 0xff, hdr[7] = value >> 8, hdr[8] = index & 0xff,
     hdr[9] = index >> 8, hdr[10] = len & 0xff, hdr[11] = len >> 8;
-    if (!send(VTIMSG_CONTROL, hdr, 12, (rt & 0x80) ? nullptr : data, (rt & 0x80) ? 0 : len))
+    if (!send(VTIMSG_CONTROL, hdr, 12, (rt & 0x80) ? nullptr : data, (rt & 0x80) ? 0 : len)) {
+        std::lock_guard<std::mutex> g(ctl_);
+        waiting_.erase(seq);
         return -1;
+    }
     std::unique_lock<std::mutex> l(ctl_);
-    if (!ctl_cv_.wait_for(l, std::chrono::milliseconds(timeout_ms), [&] { return replies_.count(seq) > 0; }))
+    const bool got = ctl_cv_.wait_for(l, std::chrono::milliseconds(timeout_ms), [&] { return replies_.count(seq) > 0; });
+    waiting_.erase(seq);
+    if (!got)
         return -1;
     auto rep = std::move(replies_[seq]);
     replies_.erase(seq);
@@ -417,7 +423,8 @@ void Broker::read_loop()
                 uint32_t seq;
                 memcpy(&seq, buf.data(), 4);
                 std::lock_guard<std::mutex> g(ctl_);
-                replies_[seq].assign(buf.begin() + 4, buf.begin() + h.len);
+                if (waiting_.count(seq)) // control() gave up on it: dropped, not kept for good
+                    replies_[seq].assign(buf.begin() + 4, buf.begin() + h.len);
                 ctl_cv_.notify_all();
             }
             break;
