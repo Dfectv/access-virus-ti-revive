@@ -1123,6 +1123,7 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             out_->anchors.fetch_add(1, std::memory_order_relaxed);
             tl_valid_ = true;
             anchored_ = true; // FE + song position at the new anchor, like the original's start
+            rs_valid_ = false; // the resampled output jumps with the timeline, like the direct one (E279)
             if (!env_no_ping())
                 out_->calibrate(newest, new_stream); // the marker follows the ping sent in this block
         } else if (tl_valid_ && out_->marker.load() >= 0 && std::llabs(err) > 512) {
@@ -1131,6 +1132,9 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             tl_ += err;
             next_tick_ += (double)err;
             out_->anchors.fetch_add(1, std::memory_order_relaxed);
+            // the resampled output (host rate != 44.1 kHz) jumps too: steering at 0.2 % took >10 s for the ~1000
+            // frames after a render in REAPER - notes late, then catching up (user, L3; E279)
+            rs_valid_ = false;
         } else if (tl_valid_ && std::llabs(err) > 256) {
             tl_ += err > 0 ? 1 : -1;
             next_tick_ += err > 0 ? 1 : -1;

@@ -238,6 +238,7 @@ int main(int argc, char **argv)
     std::vector<Action> actions;
     double seconds = 1;
     double offline_at = -1; // --offline T
+    double offline_end = -1; // --offline-end T: back to real time (a DAW's render ends, playback follows)
     std::vector<std::pair<ParamID, double>> changes;
     double hold = -1; // --hold: note on at this time, never off
     struct TimedChange {
@@ -320,6 +321,8 @@ int main(int argc, char **argv)
             sc_sine = atof(argv[++i]);
         else if (!strcmp(argv[i], "--offline") && i + 1 < argc)
             offline_at = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--offline-end") && i + 1 < argc)
+            offline_end = atof(argv[++i]);
         else if (!strcmp(argv[i], "--cid") && i + 1 < argc) // the class to load (32 hex digits as moduleinfo prints them)
             cid = argv[++i];
         else if (!strcmp(argv[i], "--seconds") && i + 1 < argc)
@@ -476,7 +479,8 @@ int main(int argc, char **argv)
     auto t_next = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point t_offline{};
     for (int b = 0; b < blocks; b++) {
-        const bool offline = offline_at >= 0 && b * (double)block / (double)rate >= offline_at;
+        const bool offline = offline_at >= 0 && b * (double)block / (double)rate >= offline_at &&
+                             (offline_end < 0 || b * (double)block / (double)rate < offline_end);
         if (offline && t_offline == std::chrono::steady_clock::time_point{})
             t_offline = std::chrono::steady_clock::now();
         data.processMode = offline ? kOffline : kRealtime;
