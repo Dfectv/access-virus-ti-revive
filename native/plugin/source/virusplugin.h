@@ -15,6 +15,7 @@
 #include "device/startprogress.h"
 #include "device/transport.h"
 #include "device/audiogate.h"
+#include "device/hostmidi.h"
 #include "device/sendguard.h"
 #include "device/stamprule.h"
 #include "device/offlinepace.h"

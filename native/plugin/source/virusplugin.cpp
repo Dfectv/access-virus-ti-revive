@@ -1232,9 +1232,9 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
         }
     }
     if (tl_valid_) { // MIDI clock at the host tempo (120 BPM without a process context), 24 ticks per quarter
-        double tempo = data.processContext && (data.processContext->state & ProcessContext::kTempoValid)
-                           ? data.processContext->tempo
-                           : 120.0;
+        double tempo = clock_tempo(data.processContext && (data.processContext->state & ProcessContext::kTempoValid)
+                                       ? data.processContext->tempo
+                                       : 120.0); // 0 or negative made this loop endless (hostmidi.h)
         double per_tick = 44100.0 * 60.0 / (tempo * 24.0);
         static const uint8_t f8 = 0xF8;
         while (next_tick_ < (double)(tl_ + block_frames)) {
@@ -1256,10 +1256,10 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             if (id >= MIDI_MAP_BASE) { // channel aftertouch / pitch bend of channel (id - base) / 0x1000
                 uint8_t ch = (uint8_t)(((id - MIDI_MAP_BASE) >> 12) & 15);
                 if ((id & 0xFFF) == 0x80) {
-                    uint8_t m[2] = {(uint8_t)(0xD0 | ch), (uint8_t)std::lround(v * 127)};
+                    uint8_t m[2] = {(uint8_t)(0xD0 | ch), data7(v)}; // data bytes always < 0x80 (hostmidi.h)
                     add(at(offset), m, 2);
                 } else {
-                    int pb = (int)std::lround(v * 16383);
+                    int pb = bend14(v);
                     uint8_t m[3] = {(uint8_t)(0xE0 | ch), (uint8_t)(pb & 0x7F), (uint8_t)(pb >> 7)};
                     add(at(offset), m, 3);
                 }
@@ -1305,15 +1305,15 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
                 continue; // the Virus is still busy with the start-up messages and the state (notes would be late)
             if (e.type == Event::kNoteOnEvent) {
                 last_note_ms_.store(now_ms(), std::memory_order_relaxed);
-                uint8_t m[3] = {(uint8_t)(0x90 | (e.noteOn.channel & 15)), (uint8_t)e.noteOn.pitch,
-                                (uint8_t)std::max(1L, std::lround(e.noteOn.velocity * 127))};
+                uint8_t m[3] = {(uint8_t)(0x90 | (e.noteOn.channel & 15)), note7(e.noteOn.pitch),
+                                std::max<uint8_t>(1, data7(e.noteOn.velocity))};
                 add(at(e.sampleOffset), m, 3);
                 auto &mt = meter_[e.noteOn.channel & 15]; // MIDI activity meter: the highest velocity, decays in tick_meters
                 if (mt.load(std::memory_order_relaxed) < m[2])
                     mt.store(m[2], std::memory_order_relaxed);
             } else if (e.type == Event::kNoteOffEvent) {
-                uint8_t m[3] = {(uint8_t)(0x80 | (e.noteOff.channel & 15)), (uint8_t)e.noteOff.pitch,
-                                (uint8_t)std::lround(e.noteOff.velocity * 127)};
+                uint8_t m[3] = {(uint8_t)(0x80 | (e.noteOff.channel & 15)), note7(e.noteOff.pitch),
+                                data7(e.noteOff.velocity)};
                 add(at(e.sampleOffset), m, 3);
             }
         }
