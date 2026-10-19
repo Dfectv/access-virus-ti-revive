@@ -54,3 +54,36 @@ TEST(sendbudget_idle_does_not_accumulate)
     b.rate = 0;                                       // unlimited (VTI_NATIVE_MIDI_RATE=0)
     CHECK(b.available(1) >= 100000);
 }
+
+// Mutation run 2026-10-19 (findings/testing.md): 1 of 6 mutants killed. The refill after a drained budget, a send
+// larger than the balance and a clock that goes back were not pinned down by any test.
+TEST(sendbudget_refills_at_the_rate_after_a_drain)
+{
+    SendBudget b;
+    CHECK(b.available(0) == 1000); // time 0 is a real time like any other
+    b.take(1000);
+    CHECK(b.available(0) == 0);
+    CHECK(b.available(250000000) == 1000); // 250 ms at 4000 B/s = 1000 bytes
+    b.take(1000);
+    CHECK(b.available(250000000 + 100000000) == 400); // 100 ms later: 400 bytes
+}
+
+TEST(sendbudget_debt_is_paid_before_more_goes_out)
+{
+    SendBudget b;
+    b.available(0);
+    b.take(1500); // one write larger than the balance (a 524-byte dump is never split): 500 bytes of debt
+    CHECK(b.available(0) == 0);
+    CHECK(b.available(100000000) == 0);  // 100 ms pay 400 of the 500
+    CHECK(b.available(150000000) == 100); // 150 ms: 600 - 500
+}
+
+TEST(sendbudget_clock_going_back_adds_nothing)
+{
+    SendBudget b;
+    b.available(1000000000);
+    b.take(1000);
+    CHECK(b.available(500000000) == 0);  // an earlier time (a clock step): no tokens, none taken away
+    CHECK(b.available(1000000000) == 0); // back at the last time: still nothing
+    CHECK(b.available(1100000000) == 400);
+}
