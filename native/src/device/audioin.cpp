@@ -19,6 +19,7 @@ extern "C" {
 #ifdef __linux__
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #endif
 #ifdef __APPLE__
@@ -195,6 +196,13 @@ bool AudioIn::open(const char *linux_name)
     int fd = shm_open(linux_name ? linux_name : name, O_RDWR, 0);
     if (fd < 0)
         return false;
+    // the broker's ring: ours and whole. One made by another user, or shorter than the layout (reading its header
+    // raised SIGBUS in the host), is not used (review 2026-10-19 H4)
+    struct stat st;
+    if (fstat(fd, &st) != 0 || st.st_uid != getuid() || st.st_size < (off_t)sizeof(vti_audio_shm)) {
+        ::close(fd);
+        return false;
+    }
     void *p = mmap(nullptr, sizeof(vti_audio_shm), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     ::close(fd);
     if (p == MAP_FAILED)

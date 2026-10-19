@@ -219,6 +219,24 @@ static intptr_t os_connect(const std::string &endpoint, std::string &error)
             ::close(fd);
         return -1;
     }
+    // the socket lives in /tmp: only a broker of this user is talked to - another user could have made the path
+    // first and feed the plug-in what it likes (review 2026-10-19 H4)
+    uid_t peer = (uid_t)-1;
+#ifdef __APPLE__
+    gid_t gid;
+    if (getpeereid(fd, &peer, &gid) != 0)
+        peer = (uid_t)-1;
+#else
+    ucred cr{};
+    socklen_t cl = sizeof cr;
+    if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &cr, &cl) == 0)
+        peer = cr.uid;
+#endif
+    if (peer != getuid()) {
+        error = std::string("the TI Revive broker socket ") + sa.sun_path + " belongs to another user";
+        ::close(fd);
+        return -1;
+    }
     return fd;
 }
 

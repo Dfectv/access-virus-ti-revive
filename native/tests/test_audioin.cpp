@@ -70,6 +70,20 @@ TEST(audioin_open_checks_the_ring)
     a.close(); // twice is harmless
 }
 
+// Review 2026-10-19 (H4): a ring someone else created, or one too small, was mapped as is - reading the header of a
+// zero-length object raised SIGBUS in the host. Owner and size are checked before mapping.
+TEST(audioin_refuses_a_ring_too_small)
+{
+    std::string name = "/vtitests-audio-empty-" + std::to_string(getpid());
+    int fd = shm_open(name.c_str(), O_RDWR | O_CREAT | O_EXCL, 0600); // zero length
+    CHECK(fd >= 0);
+    if (fd >= 0)
+        ::close(fd);
+    AudioIn a;
+    CHECK(!a.open(name.c_str()));
+    shm_unlink(name.c_str());
+}
+
 TEST(audioin_read_at_maps_usb1_usb2)
 {
     Ring r;
