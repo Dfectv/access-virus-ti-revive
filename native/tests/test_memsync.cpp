@@ -208,3 +208,46 @@ TEST(memsync_bank_file_round_trip)
     CHECK(!load_bank_file(write("short.bin", {'M', 'I', 'D', 'I', 0, 1, 8, 0, 0, 0, 2, 0x0C, 0xF0}), none));
     fs::remove_all(dir);
 }
+
+// Two threads with requests at once (review 2026-10-19, hardware test of the broker reconnect): the bank sync was
+// still running when the readiness probe went out, and the probe waited its full 10 s ("Virus ready after 11.5 s
+// (no reply to the probe)"). The Virus does not answer requests that overlap: of 16 single dump requests sent back to
+// back only the first (truncated) and the last were answered (E145). The fake Virus here answers only the latest
+// open request. Requests go one at a time now, so both get their reply.
+TEST(memsync_concurrent_transacts_both_get_their_reply)
+{
+    MemorySync *self = nullptr;
+    std::mutex mu;
+    std::vector<std::thread> answers;
+    int latest = 0; // requests seen; a reply goes out only if no newer request came meanwhile
+    MemorySync sync([&](const Bytes &req) {
+        std::lock_guard<std::mutex> g(mu);
+        const int n = ++latest;
+        answers.emplace_back([&self, &mu, &latest, n, req] {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            {
+                std::lock_guard<std::mutex> g2(mu);
+                if (latest != n) // overlapped by a newer request: this one is lost (E145)
+                    return;
+            }
+            self->feed(fake_single(req[7], req[8], 1));
+        });
+        return true;
+    });
+    self = &sync;
+    Dump a, b;
+    std::thread probe([&] { a = sync.transact({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x30, 0x00, 0x00, 0xF7}, {0x10, 0x00, 0x00}, 1000, 1); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(30)); // the probe's request is out, its reply not yet
+    std::thread bank([&] { b = sync.transact({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x30, 0x01, 0x05, 0xF7}, {0x10, 0x01, 0x05}, 1000, 1); });
+    probe.join();
+    bank.join();
+    std::vector<std::thread> done;
+    {
+        std::lock_guard<std::mutex> g(mu);
+        done.swap(answers); // joined outside: they take mu themselves
+    }
+    for (auto &t : done)
+        t.join();
+    CHECK(a.size() == 524 && a[7] == 0 && a[8] == 0);
+    CHECK(b.size() == 524 && b[7] == 1 && b[8] == 5);
+}

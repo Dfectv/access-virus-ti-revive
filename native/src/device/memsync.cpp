@@ -92,6 +92,9 @@ void MemorySync::feed(const std::vector<uint8_t> &m)
 
 Dump MemorySync::transact(const Dump &request, const std::vector<uint8_t> &match, int timeout_ms, int tries)
 {
+    // one request at a time, also across threads: the readiness probe after a reconnect met a bank sync still
+    // running, the Virus answered only the newer request (E145) and the probe waited 10 s (review 2026-10-19)
+    std::lock_guard<std::mutex> one(tx_mu_);
     for (int t = 0; t < tries; t++) {
         {
             std::lock_guard<std::mutex> lk(mu_);

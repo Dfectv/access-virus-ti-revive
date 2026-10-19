@@ -54,6 +54,7 @@ private:
     std::function<bool(const std::vector<uint8_t> &)> send_;
     int dev_;
     std::mutex mu_;
+    std::mutex tx_mu_; // one request at a time: the Virus drops replies to requests that overlap (E145)
     std::condition_variable cv_;
     std::vector<Dump> inbox_;
 };
