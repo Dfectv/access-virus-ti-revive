@@ -459,10 +459,10 @@ void DeviceOut::run()
             bool held = now < queue_hold_until_;
             // stamped traffic within the budget (sendbudget.h): a flood waits here, a few blocks at most
             const int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
-            bool budget_ok = budget_.available(now_ns) >= 8;
+            const bool budget_ok = budget_.available(now_ns) >= 8;
             // after 8 events the queue side's turn, only when it can go now (a due piece, a queued message not held)
             const bool q_ready = queue_ready(dump_, now_ns, queue_.empty(), held);
-            bool rt = r != rt_w_.load(std::memory_order_acquire) && rt_run_.events_first(q_ready) && budget_ok;
+            const bool rt = r != rt_w_.load(std::memory_order_acquire) && rt_run_.events_first(q_ready) && budget_ok;
             // a dump in pieces (dumppacer.h): the DAW's events go between the pieces, queued messages wait for its end
             // the piece is written below, after the regular work of each round (idle work, audio scan, stall watch,
             // presence): skipping that for a whole state's dumps (~2 s) made the stall watch see a sleep (E272)
@@ -639,7 +639,7 @@ void DeviceOut::run()
             // one write holds at most the budget's balance (sendbudget.h): the rest of a flood goes in later rounds
             const auto now = std::chrono::steady_clock::now();
             const int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
-            size_t cap = std::min<size_t>(3072, (size_t)std::max(0, budget_.available(now_ns)));
+            const size_t cap = std::min<size_t>(3072, (size_t)std::max(0, budget_.available(now_ns)));
             const bool q_ready = queue_ready(dump_, now_ns, queue_.empty(), now < queue_hold_until_);
             for (size_t r = rt_r_.load(std::memory_order_relaxed);
                  r != rt_w_.load(std::memory_order_acquire) && pk_.size() < cap && rt_run_.events_first(q_ready);
