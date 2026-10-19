@@ -284,8 +284,11 @@ void DeviceOut::scan_audio()
     if (scanned_ < 0 || newest - scanned_ > 16384 - 2048)
         scanned_ = std::max<int64_t>(0, newest - 4096); // first call / fell behind: the ring holds 16384 frames
     int64_t from = marker_from_.load();
-    while (scanned_ < newest) {
-        int n = (int)std::min<int64_t>(1024, newest - scanned_);
+    // a frame is judged once the 66 after it are there: the marker check below reads frames f+2..f+65, which past
+    // the newest frame are not written yet (review 2026-10-19: a marker could be judged on them)
+    const int64_t until = newest - 66;
+    while (scanned_ < until) {
+        int n = (int)std::min<int64_t>(1024, until - scanned_);
         float l1[1024], r1[1024], l2[1024], r2[1024];
         audio_.read_at(l1, r1, l2, r2, n, scanned_);
         for (int i = 0; i < n; i++) {
