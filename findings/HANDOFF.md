@@ -104,6 +104,13 @@ Evidence: [evidence.md](evidence.md) (E001-E244), protocol: [spec.md](spec.md); 
          automation timing with and without T3; Mac export with gapfill ("filled" > 0, K equal); E241 fix on wake.
    - [ ] T10 optional: stamp the retry ping timeline-relative (today absolute 3072: up to 186 ms in the queue);
          an adaptive answer to the Sync Information Event (raise A or re-ping) - deferred until T9 says it matters.
+7. **Issue #9 (2026-10-19, Reddit report, CachyOS/Arch, reporter not named):** plug-in loads but silent, Control
+   Center closes at once. Assessment without logs: the Control Center binary needs gtkmm 3 (direct NEEDED: libgtkmm-3.0,
+   glibmm-2.4, libsigc-2.0), not installed on Arch desktops -> loader abort = "spinning cursor, then gone";
+   install.sh's hint names only apt/Fedora packages. Silence: usual first-install list (replug after the udev rule,
+   E175, E135, Snow E115, PulseAudio). Reply posted on Reddit with the log commands. To do in this round: Arch package
+   names (gtkmm3; xcb-util-cursor, libxkbcommon-x11, ...) in install.sh, README-linux.txt and the README; install.sh
+   prints the missing library names. Follow up when the logs arrive.
 
 ## Round 0.8.26 (branch round-0.8.26, collecting; started 2026-10-18)
 
