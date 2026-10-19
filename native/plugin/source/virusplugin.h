@@ -309,6 +309,9 @@ public:
     void wait_virus_ready(); // the bank sync thread at start-up / takeover: probe, then the sync marker (see .cpp)
     void set_sync_progress(int v);   // the original's "Syncing memory" page: 0..126 shown, 127 hidden
     void set_recall_progress(int v); // its "Starting up" page with the ring (startprogress.h)
+    // both at once: the layout shows "Starting up" only while InitialSyncProgress is 127 and "Syncing" only while
+    // RecallProgress is 127 - set one after the other, the editor would show for a moment in between (user, L4)
+    void set_start_pages(int recall, int sync);
     std::string category_name_(); // the selected category filter's name
     void set_search(const std::string &s);
     std::string search() { std::lock_guard<std::mutex> lk(values_mu_); return search_; }

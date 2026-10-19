@@ -2156,6 +2156,16 @@ void VirusPlugin::set_sync_progress(int v)
         ui_dirty_ = true;
 }
 
+void VirusPlugin::set_start_pages(int recall, int sync)
+{
+    {
+        std::lock_guard<std::mutex> lk(ui_state_mu_);
+        ui_state_["VirusControl/RecallProgress"] = recall;
+        ui_state_["VirusControl/InitialSyncProgress"] = sync;
+    }
+    ui_dirty_ = true;
+}
+
 void VirusPlugin::set_recall_progress(int v)
 {
     const std::string path = "VirusControl/RecallProgress";
@@ -2206,12 +2216,9 @@ void VirusPlugin::wait_virus_ready()
         // another instance owns the Virus (issue #6): this one starts up when it takes over, with the same start
         // page and note hold as a first start
         set_recall_progress(127); // the "Virus unavailable" page instead of the start pages
-        set_sync_progress(127);
         while (!stop_warm_ && out_->waiting())
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         set_recall_progress(0);
-        if (sync_expected_)
-            set_sync_progress(0);
         const int64_t t1 = now_ms();
         while (!stop_warm_ && !out_->connected() && now_ms() - t1 < 4000)
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -2237,7 +2244,10 @@ void VirusPlugin::wait_virus_ready()
     const int64_t tm = now_ms();
     while (!stop_warm_ && out_->marker.load() < 0 && now_ms() - tm < 3000)
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    set_recall_progress(127);
+    if (sync_expected_)
+        set_start_pages(127, 0); // straight to "Syncing memory"
+    else
+        set_recall_progress(127);
 }
 
 bool VirusPlugin::probe_virus_ready()
@@ -2296,18 +2306,19 @@ void VirusPlugin::sync_banks()
     // until the Virus is ready it works through the start-up messages and the state and plays notes up to 1.6 s late
     // (E144), so note-ons are held back; from then on notes play, and the sync pauses while they arrive (dump requests
     // delay the Virus' notes by ~130 ms and the sync stalls - measured 2026-10-14)
-    // a RAM bank without a cache file is read in full: its "Syncing memory" page follows "Starting up" directly (the
-    // layout shows it only once RecallProgress is done), without the editor in between (user, L4)
+    // a RAM bank without a cache file is read in full: its "Syncing memory" page follows "Starting up" directly,
+    // without the editor in between (user, L4)
     bool sync_expected = false;
     {
         std::lock_guard<std::mutex> lk(banks_mu_);
-        for (int b = 0; b < 4; b++)
-            if (banks_.find(b) == banks_.end() || banks_[b].empty())
+        for (int b = 0; b < 4; b++) { // no cache file, or one an interrupted sync left with gaps
+            auto it = banks_.find(b);
+            if (it == banks_.end() || it->second.size() < 128 ||
+                std::any_of(it->second.begin(), it->second.end(), [](const std::vector<uint8_t> &p) { return p.empty(); }))
                 sync_expected = true;
+        }
     }
-    sync_expected_ = sync_expected;
-    if (sync_expected)
-        set_sync_progress(0);
+    sync_expected_ = sync_expected; // wait_virus_ready switches from "Starting up" to "Syncing" in one step
     wait_virus_ready();
     starting_ = false;
     if (stop_warm_ || !out_ || !out_->connected()) { // no Virus: no sync, the editor as usual
