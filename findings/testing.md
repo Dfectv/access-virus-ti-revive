@@ -120,4 +120,19 @@ Results: see "Mutation runs" below; a surviving mutant gets a test (or a note wh
 
 ## Mutation runs
 
-(filled in by the runs)
+**2026-10-19, first run** (copy of b7b9ed0^, 19 headers of native/src/device plus the broker's ctrlguard.h and
+resetguard.h, 221 mutants, ~50 s each): **164 of 221 killed (74 %)**.
+
+| File | Killed | Note |
+|---|---|---|
+| sendguard.h, ctrlguard.h, presencewatch.h | 100 % | the rule-2 guards are pinned down |
+| dumppacer.h, cablerule.h, stamprule.h | 91-93 % | 4 survivors in stamprule.h:32 (`\|\|` to `&&`) |
+| offlinepace.h, automation.h, resetguard.h | 71-80 % | boundaries (`>=` vs `>`) not tested |
+| stallwatch.h, usbmidi.h, startprogress.h | 57-69 % | usbmidi.h: packet length bounds (25-32) and the SysEx end (52) |
+| transport.h, gapfill.h, resampler.h | 43-50 % | resampler.h: index arithmetic (63-65) and bounds |
+| **sendbudget.h** | **17 %** | the MIDI byte budget (rule 2: flood protection) is barely checked by tests |
+| keepalive.h, broker.h, sidechain.h | 0-25 % | broker.h survivors are default member values |
+
+Next: tests for sendbudget.h first (flood protection), then usbmidi.h and stamprule.h:32; many `<` / `<=`
+survivors mean a boundary value has no test. Some survivors may be equivalent (no behaviour change); check each
+before writing a test. Results: run.log / results.json of that run (scratch, not in git).
