@@ -112,7 +112,11 @@ Evidence: [evidence.md](evidence.md) (E001-E244), protocol: [spec.md](spec.md); 
    - [x] T8 static: E262 (3) - FUN_605b/6113/6270 are plain stores to BOTH host ports (0x00xx and 0x01xx) with
          interrupts off, no ready check, no wait: the host CPU cannot block there; E248's chain withdrawn, E230/E233
          stand; E241's dead panel = the host CPU itself stopped (open).
-   - [ ] T9 hardware (next test round): same note on two parts, onset offset (E245: slave clock +256); Windows
+   - [x] E263 (2026-10-19, static, no task number): the two DSPs' work split - both parse the whole stream, a note
+         runs on the DSP whose identity matches bit 6 of its slot index, the master hands slave notes over through
+         the ring command 0x123456 with the start stamp minus 256 frames. Prediction for T9: equal onsets if the
+         slave's +256 clock and the ring path cancel; a ~256-frame offset would reveal the split.
+   - [ ] T9 hardware (next test round): same note on two parts, onset offset (E245: slave clock +256; E263); Windows
          automation timing with and without T3; Mac export with gapfill ("filled" > 0, K equal); E241 fix on wake;
          the T5/T6 path if the 48 kHz state shows up. Plus the user's crash smoke test of this dev build (Linux).
    - [ ] T10 optional: stamp the retry ping timeline-relative (today absolute 3072: up to 186 ms in the queue);
@@ -1045,7 +1049,7 @@ plug-in in ~/.vst3 is 0.8.3 (moduleinfo).
 | macOS 14.4+ | native plug-in (VST3 + AUv2, universal, no Rosetta since 0.8.1), broker, Control Center app | `-mac.zip` (pkg + setup scripts) | native/docs/architecture.md, design-macos*.md |
 | Linux | native plug-in (VST3), native broker owns the whole Virus (MIDI + iso audio), Control Center app | `-linux.tar.gz` (install.sh) | native/docs/architecture.md, design-linux.md |
 
-Latest release: **v0.8.18** (2026-10-16, full project recall E174, "No Virus TI" page E173, help reasons; earlier: v0.8.10 reconnect + absent start + two DAWs on Windows, E163/E166; 0.8.9: the third USB output, E159; 0.8.8: soft knobs on the Virus change the sound, E154; 0.8.7: presets chosen on the Virus + soft knobs, E150/E152; 0.8.6: start-up waits for the Virus, E149; 0.8.5: one plug-in instance per process, issue #6). The 0.8.x
+Latest release: **v0.8.26** (2026-10-18; the rounds 0.8.19-0.8.26 are in the sections above; 0.8.18 of 2026-10-16: full project recall E174, "No Virus TI" page E173, help reasons; earlier: v0.8.10 reconnect + absent start + two DAWs on Windows, E163/E166; 0.8.9: the third USB output, E159; 0.8.8: soft knobs on the Virus change the sound, E154; 0.8.7: presets chosen on the Virus + soft knobs, E150/E152; 0.8.6: start-up waits for the Virus, E149; 0.8.5: one plug-in instance per process, issue #6). The 0.8.x
 releases are summarised in the sections above; 0.7.x and older in [HANDOFF-history.md](HANDOFF-history.md).
 Virus TI Snow: works with the native plug-in per user reports (macOS, 0.8.3+, USB 3 and soft knobs with 0.8.20, E188; issue #4 closed 2026-10-17); v0.7.4 stays available for Windows.
 
