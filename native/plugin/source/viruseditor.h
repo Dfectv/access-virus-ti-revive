@@ -18,8 +18,10 @@ class VirusPlugin;
 class VirusEditor : public Steinberg::Vst::VSTGUIEditor, public Steinberg::IPlugViewContentScaleSupport {
 public:
     explicit VirusEditor(VirusPlugin *plugin);
+    ~VirusEditor() override;
     bool PLUGIN_API open(void *parent, const VSTGUI::PlatformType &platformType) override;
     void PLUGIN_API close() override;
+    Steinberg::tresult PLUGIN_API removed() override;
 
     // IPlugViewContentScaleSupport: the host's display scale
     Steinberg::tresult PLUGIN_API setContentScaleFactor(ScaleFactor factor) override;

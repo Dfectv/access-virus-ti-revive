@@ -1052,6 +1052,13 @@ public:
         renderer_.osc_waves = plugin_->osc_waves();
         // device changes (knobs on the Virus, automation) repaint the view
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) {
+            if (!remove_later_.empty()) // text edits that ended outside event handling (remove_edit)
+                if (auto *f = getFrame()) {
+                    for (auto *te : remove_later_)
+                        if (f->isChild(te)) // compares the pointer, never touches a removed view
+                            f->removeView(te);
+                    remove_later_.clear();
+                }
 #if SMTG_OS_LINUX
             keep_runloop(); // a new instance's setHostContext may have replaced it (E183)
 #endif
@@ -1570,8 +1577,7 @@ public:
             else // a REMOTE page field: saved with the templates and sent like the original's
                 plugin_->set_remote_text(edit_param_, t);
             edit_param_.clear();
-            if (auto *f = getFrame()) // remove the edit field after the current event
-                f->doAfterEventProcessing([f, te]() { f->removeView(te); });
+            remove_edit(te); // after the current event
             invalid();
         }
     }
@@ -1581,10 +1587,20 @@ public:
     {
         te->unregisterTextEditListener(this);
         editing_search_ = false;
-        if (auto *f = getFrame())
-            f->doAfterEventProcessing([f, te]() { f->removeView(te); });
+        remove_edit(te);
         invalid();
     }
+
+    // A text edit removes itself after the event that ended it. Outside the frame's event handling (a native Win32 or
+    // Cocoa edit may commit or lose the focus there) doAfterEventProcessing refuses, and removing it at once inside
+    // its own callback is unsafe: the 50 ms timer removes it then (review 2026-10-19; before, it stayed).
+    void remove_edit(CTextEdit *te)
+    {
+        auto *f = getFrame();
+        if (f && !f->doAfterEventProcessing([f, te]() { f->removeView(te); }))
+            remove_later_.push_back(te);
+    }
+    std::vector<CTextEdit *> remove_later_;
 
 private:
     // help mode ("?"): frames around the explained controls, a note for the one under the mouse (or clicked)
@@ -2244,10 +2260,18 @@ bool PLUGIN_API VirusEditor::open(void *parent, const PlatformType &platformType
     X11::FrameConfig cfg;
     if (auto lf = getPlatformFactory().asLinuxFactory())
         cfg.runLoop = lf->getRunLoop();
-    frame->open(parent, platformType, cfg.runLoop ? &cfg : nullptr);
+    if (!cfg.runLoop || !frame->open(parent, platformType, &cfg)) { // no run loop or no window: no editor
+        frame->forget();                                              // (server_bitmap needs the platform frame)
+        frame = nullptr;
+        return false;
+    }
     open_frames++;
 #else
-    frame->open(parent, platformType);
+    if (!frame->open(parent, platformType)) {
+        frame->forget();
+        frame = nullptr;
+        return false;
+    }
 #endif
     frame->addView(new EditorCanvasView(plugin_, size, this));
     if (zoom() != 1.0) { // the host already got the scaled size from getSize()
@@ -2258,14 +2282,34 @@ bool PLUGIN_API VirusEditor::open(void *parent, const PlatformType &platformType
     return true;
 }
 
+VirusEditor::~VirusEditor()
+{
+    close(); // a host that releases the view without removed(): the frame, its 50 ms timer and open_frames go too
+}
+
+Steinberg::tresult PLUGIN_API VirusEditor::removed()
+{
+#if SMTG_OS_LINUX
+    keep_runloop(); // the SDK stops its timer before close(): through the adapter that registered it (E183)
+#endif
+    return VSTGUIEditor::removed();
+}
+
 void PLUGIN_API VirusEditor::close()
 {
     if (frame) {
+#if SMTG_OS_LINUX
+        keep_runloop(); // first: the menu frames and the frame unregister their handlers through the adapter that
+                        // registered them (E183; review 2026-10-19: the menu frames went before this)
+#endif
         PopupView::close_windows(frame); // an open menu's own frames go first
 #if SMTG_OS_LINUX
-        keep_runloop(); // the frame unregisters its handlers through the adapter that registered them
         if (--open_frames == 0)
             x11_last_frame_closing();
+        else if (ref) { // `ref` may live on this editor's window: the next pixmap is made on a remaining one
+            cairo_surface_destroy(ref);
+            ref = nullptr;
+        }
 #endif
         frame->forget();
         frame = nullptr;
