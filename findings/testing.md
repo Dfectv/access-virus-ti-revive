@@ -138,6 +138,6 @@ vs `>=` adds 0 tokens at equal times, `tokens > burst` vs `>=` and `tokens < 0` 
 boundary), so every mutant that changes behaviour is killed. One new test also found a real flaw (an earlier time
 was granted twice; harmless with steady_clock, fixed).
 
-Next:  then usbmidi.h and stamprule.h:32; many `<` / `<=`
+Next: usbmidi.h and stamprule.h:32; many `<` / `<=`
 survivors mean a boundary value has no test. Some survivors may be equivalent (no behaviour change); check each
 before writing a test. Results: run.log / results.json of that run (scratch, not in git).
