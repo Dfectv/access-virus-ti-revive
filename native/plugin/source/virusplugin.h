@@ -366,6 +366,13 @@ public:
     // MIDI activity meters of the part strips (note-on velocity per MIDI channel, like the original's
     // "ShowMIDIActivityMeters"): tick_meters() decays them and returns the channels whose shown value changed (bits)
     int tick_meters(int step);
+    bool meters_pending() const // a meter still to show or decay (the editor skips its idle preloading then)
+    {
+        for (int ch = 0; ch < 16; ch++)
+            if (meter_shown_[ch] || meter_[ch].load(std::memory_order_relaxed))
+                return true;
+        return false;
+    }
     int meter(int channel) const { return channel >= 0 && channel < 16 ? meter_shown_[channel] : 0; }
     std::string live_text(const std::string &param);
     std::string remote_name(int t) const // REMOTE page list
