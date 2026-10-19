@@ -1,7 +1,7 @@
 {
- "round": "0.8.27",
+ "round": "0.8.27-2",
  "core": "core.json",
- "lead": "Test build 0.8.27 (CI run 39230793499). New in this round, from checking the firmware findings against the code: (1) host automation gets its own time stamp at its block time, so it lands where the DAW put it, above all on Windows; one stamp per block keeps the byte budget for the notes (E261, E264); (2) a patch change or project load while playing counts against the byte budget as a bounded debt (E261); (3) the plug-in never sends the multi header parameters 0-3 or status F4 (rule 2, issue #7); (4) on Windows the audio streamer gets the Linux protection against the 48 kHz state after a wake, and both brokers also send the Virus' own 44.1 kHz setting next to the retry (E241, E257); (5) the macOS audio input fills skipped Core Audio cycles with silence, the cause of the late notes after a Mac export (E249); (6) the Linux installer names missing Control Center libraries (issue #9). The short smoke test was skipped on purpose, so the core items run on every system. The real PC is last and optional. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "lead": "Second test build of 0.8.27 (CI run 39263694834). New since the first pass, all from comparing TI Revive with the original plug-in's own USB traffic and the Virus' firmware: (1) a patch change sends the dump like the original: on its own cable, in small pieces, with the notes of the other parts going on in between, so they no longer stop for a moment (E268-E271); (2) automation that falls into a patch change waits for it instead of reaching only part of the Virus (E274); (3) at Play and at every loop restart the plug-in sends the song position set the original sends, so the arpeggiator and clock-synced LFOs restart with the bar (E275); (4) the original's start-up page \"Starting up\" with the filling ring, and the \"Syncing memory\" page only when banks are really read (E273). Plus the round's earlier changes (automation timing, rule-2 guard, Windows 48 kHz protection, Mac export gaps). Because the send path changed, every item runs again, the core items too. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
  "rules": [
   "Never store a patch on the Virus: patch changes in this round only load patches into the edit buffer.",
   "Order: Linux first (the Virus is on this PC), then the Windows 11 VM, then macOS, then the real PC if you want it. Close the DAW before the Virus moves."
@@ -12,8 +12,8 @@
    "title": "Linux",
    "where": "REAPER via pw-jack, Virus on this PC",
    "prep": [
-    "Claude installs 0.8.27 from the CI run (replaces the dev build in ~/.vst3 and the broker) and checks that install.sh reports no missing library. Logging is on. Restart REAPER if it was open.",
-    "Timing project: the 16th-note clip (<code>native/tools/timing-16ths-120bpm.mid</code>) on part 1, a short percussive patch."
+    "Claude installs the CI build (replaces the dev build in ~/.vst3 and the broker). Logging is on. Start REAPER under gdb if you like (command in the chat of the first pass).",
+    "Timing project: the 16th-note clip (<code>native/tools/timing-16ths-120bpm.mid</code>) on part 1. For L1 and L3 use a <b>dry, short patch</b>: no delay, no arpeggiator, short decay, so every note is a clear hit Claude can measure."
    ],
    "notes": [
     "Exports in REAPER: File &gt; Render, Source Master mix, Render speed <b>Full-speed offline</b>, into <code>work/timing/</code> with the item's name.",
@@ -24,7 +24,7 @@
      "id": "L1",
      "title": "Two parts play the same note at the same time",
      "steps": [
-      "Load the same short percussive patch on part 1 and part 2. Set part 1's output to USB 1 and part 2's output to USB 2.",
+      "Load the same dry, short patch on part 1 and part 2. Set part 1's output to USB 1 and part 2's output to USB 2.",
       "Copy the 16th-note clip to a second MIDI track on channel 2.",
       "Route the plug-in's Out 1 and Out 2 to two tracks and render them as stems to <code>work/timing/L1-out1.wav</code> and <code>work/timing/L1-out2.wav</code>."
      ],
@@ -43,11 +43,29 @@
      "id": "L3",
      "title": "Patch change while playing",
      "steps": [
-      "Add a second track that plays the 16th-note clip on part 2 (any patch).",
-      "Loop bars 1-4. While it plays, pick a different patch for part 1 from LOAD about five times, a few seconds apart.",
-      "Record the plug-in's output into an audio track while you do it, and save the take as <code>work/timing/L3.wav</code>."
+      "Part 1 on USB 1, part 2 on USB 2 (as in L1). Part 2: a dry, short patch playing the 16th-note clip on channel 2.",
+      "On the \"Out 2\" track: right-click the record-arm button, <b>Record: output (stereo)</b>, arm it.",
+      "Loop bars 1-4, record, and while it plays switch part 1's patch from LOAD quickly, about ten times. Stop after about 30 s."
      ],
-     "expect": "part 2 keeps playing in time through every patch change (at most a short gap on part 1 itself), no sync error page. Claude measures part 2's notes in the file."
+     "expect": "part 2 plays through every patch change without a gap. Claude measures part 2's notes in the take (no late or missing note) and the Virus' sync reports per Play."
+    },
+    {
+     "id": "L4",
+     "title": "Start-up pages",
+     "steps": [
+      "Close and reopen the project with the editor open; watch the editor while it starts.",
+      "Then close REAPER, Claude sets one RAM bank's cache aside, open the project again and watch."
+     ],
+     "expect": "first: \"Starting up\" with a ring that fills, then the editor, no \"Syncing memory\" page. Second: after \"Starting up\" the \"Syncing memory with Virus\" page while that bank is read."
+    },
+    {
+     "id": "L5",
+     "title": "Arpeggiator restarts with the bar",
+     "steps": [
+      "Part 1: a patch with the arpeggiator on, clock-synced (Arp Clock in note values), and a held chord in bars 1-2 of a looped clip.",
+      "Press Play from bar 1 a few times, and let the 2-bar loop run several times."
+     ],
+     "expect": "the arpeggio starts on the same step at every Play and every loop restart, in time with the bar."
     }
    ]
   },
@@ -56,7 +74,7 @@
    "title": "Windows 11 VM",
    "where": "win11 VM, Ableton Live 11, Virus attached by Claude",
    "prep": [
-    "Claude installs 0.8.27 silently and attaches the Virus (ask in the chat).",
+    "Claude installs the CI build silently (uninstalls the first 0.8.27 build first) and attaches the Virus (ask in the chat).",
     "Timing set: the 16th-note clip on part 1, a short percussive patch."
    ],
    "notes": [
@@ -80,6 +98,15 @@
       "Loop bars 1-4. While it plays, pick a different patch for part 1 from LOAD about five times, a few seconds apart."
      ],
      "expect": "part 2 keeps playing in time through every patch change, no sync error page."
+    },
+    {
+     "id": "W3",
+     "title": "Arpeggiator restarts with the bar",
+     "steps": [
+      "Part 1: an arpeggiator patch (clock-synced), a held chord in a 2-bar loop.",
+      "Play from bar 1 a few times; let the loop run."
+     ],
+     "expect": "the arpeggio starts on the same step at every Play and loop restart."
     }
    ]
   },
@@ -88,7 +115,7 @@
    "title": "macOS",
    "where": "MacBook Air M3, Ableton Live 12",
    "prep": [
-    "Claude pushes the package; install with <code>sudo installer -pkg \"$HOME/Downloads/TI-Revive-0.8.27-mac/TI-Revive-0.8.27-mac/TI Revive.pkg\" -target /</code>. Virus on the Mac.",
+    "Claude pushes the package; install with <code>sudo installer -pkg \"$HOME/Downloads/TI-Revive-0.8.27-mac/TI-Revive-0.8.27-mac/TI Revive.pkg\" -target /</code> (Claude gives the exact path). Virus on the Mac.",
     "Claude puts <code>diag.on</code> and <code>klog.on</code> in the plug-in's folder and renames the old diag.log.",
     "Timing set: the 16th-note clip on part 1, a short percussive patch."
    ],
@@ -113,6 +140,14 @@
       "Play it once and listen; then export to <code>~/Downloads/M2.wav</code>."
      ],
      "expect": "the filter moves audibly while every note plays, no sync error page. Claude measures the file."
+    },
+    {
+     "id": "M3",
+     "title": "Patch change while playing",
+     "steps": [
+      "Part 2 plays a dry 16th-note clip; switch part 1's patch quickly about ten times while it plays."
+     ],
+     "expect": "part 2 plays through without a gap."
     }
    ]
   },
@@ -121,7 +156,7 @@
    "title": "Real Windows PC (optional, last)",
    "where": "this PC booted into Windows, one self-contained session",
    "prep": [
-    "Install TI-Revive-0.8.27-setup.exe from the CI run's artifacts (Claude says where to get it before you reboot). Logging on: an empty file diag.on in the plug-in's folder."
+    "Install TI-Revive-0.8.27-setup.exe from CI run 39263694834 (Claude says where to get it before you reboot). Logging on: an empty file diag.on in the plug-in's folder."
    ],
    "items": [
     {
