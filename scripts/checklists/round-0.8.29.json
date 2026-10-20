@@ -1,0 +1,82 @@
+{
+ "round": "0.8.29",
+ "core": "core.json",
+ "core_items": [
+  "WC1",
+  "WC3",
+  "MC1",
+  "MC3"
+ ],
+ "lead": "Test build 0.8.29 (CI run 39441322803). A small round: an aborted bank sync is now named in the log and no longer shown as done, the wave table check of the classic oscillator display works with the macOS and Windows compiler settings, and hil.sh really sleeps. Linux cold start, reopen and export run automated on the Virus (hil.sh); the items below are what a machine cannot check. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "rules": [
+  "Never store a patch on the Virus; do not press STORE.",
+  "Order: Linux first (the Virus is on this PC), then the Windows 11 VM, then macOS. Close the DAW before the Virus moves."
+ ],
+ "sections": [
+  {
+   "id": "linux",
+   "title": "Linux",
+   "where": "REAPER via pw-jack, Virus on this PC",
+   "prep": [
+    "Already installed by Claude: the CI build in <code>~/.vst3</code> and the broker (same files as the CI package).",
+    "Claude runs hil.sh (cold, reopen, export) on this build before you start; LC5 (sleep) runs with <code>--sleep</code> when you start it (sudo)."
+   ],
+   "items": [
+    {
+     "id": "L1",
+     "title": "Bank sync at start-up",
+     "steps": [
+      "With an empty cache or after the Virus was off, open a project with the plug-in and wait until the start page is gone."
+     ],
+     "expect": "the Virus' display says the synchronization is done; Claude checks that the log says 'bank sync done in N s'."
+    }
+   ]
+  },
+  {
+   "id": "vm",
+   "title": "Windows 11 VM",
+   "where": "win11 VM, Ableton Live 11, Virus attached by Claude",
+   "prep": [
+    "Already installed by Claude: setup.exe /quiet over 0.8.28 (entries 0.8.29, same plug-in file as the CI MSI).",
+    "Ask Claude to attach the Virus to the VM (it stops the Linux broker first)."
+   ],
+   "items": [
+    {
+     "id": "W1",
+     "title": "Classic oscillator display",
+     "steps": [
+      "Open the editor's oscillator page and choose a few classic waves (saw, pulse, a few wave table entries) on oscillator 1 and 2."
+     ],
+     "expect": "the wave picture follows the choice and looks like a normal wave, no empty or broken drawing."
+    }
+   ]
+  },
+  {
+   "id": "mac",
+   "title": "macOS",
+   "where": "MacBook Air M3, Ableton Live 12",
+   "prep": [
+    "Claude pushes the package when the Mac is awake; install with <code>sudo installer -pkg \"$HOME/Downloads/TI-Revive-0.8.29-mac/TI-Revive-0.8.29-mac/TI Revive.pkg\" -target /</code>. Virus on the Mac.",
+    "Claude puts <code>diag.on</code> in the plug-in's folder and renames the old diag.log."
+   ],
+   "items": [
+    {
+     "id": "M1",
+     "title": "Classic oscillator display",
+     "steps": [
+      "Open the editor's oscillator page and choose a few classic waves (saw, pulse, a few wave table entries) on oscillator 1 and 2."
+     ],
+     "expect": "the wave picture follows the choice and looks like a normal wave, no empty or broken drawing."
+    },
+    {
+     "id": "M2",
+     "title": "Bank sync at start-up",
+     "steps": [
+      "With an empty cache or after the Virus was off, open a project with the plug-in and wait until the start page is gone."
+     ],
+     "expect": "the Virus' display says the synchronization is done; Claude checks that the log says 'bank sync done in N s'."
+    }
+   ]
+  }
+ ]
+}
