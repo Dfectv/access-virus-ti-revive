@@ -34,6 +34,18 @@ LRESULT CALLBACK popup_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     }
 }
 
+// A DLL's window classes stay registered after it is unloaded; the class goes when the plug-in DLL detaches (a static
+// object's destructor), so a reload at another address does not meet a class whose window procedure is gone.
+struct ClassUnregister {
+    bool registered = false;
+    ~ClassUnregister()
+    {
+        if (registered)
+            UnregisterClassW(kClass, module_instance());
+    }
+};
+static ClassUnregister class_unregister;
+
 bool register_class()
 {
     static bool done = false;
@@ -45,7 +57,9 @@ bool register_class()
     wc.hInstance = module_instance();
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.lpszClassName = kClass;
-    done = RegisterClassExW(&wc) != 0 || GetLastError() == ERROR_CLASS_ALREADY_EXISTS;
+    const bool ours = RegisterClassExW(&wc) != 0;
+    class_unregister.registered = ours;
+    done = ours || GetLastError() == ERROR_CLASS_ALREADY_EXISTS;
     return done;
 }
 

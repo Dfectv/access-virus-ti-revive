@@ -5,11 +5,14 @@
 # Release; the version is taken from the tag. No builds on branch pushes or pull requests. By hand, to check the
 # packages of a branch before a tag: gh workflow run build --ref <branch> -f version=0.0.1 - builds and uploads the
 # packages as artifacts only (the release job needs a tag).
+# A tag v<major>.<minor>.<build>-rc<n> (e.g. v0.8.28-rc1) makes a pre-release for testers (findings/testing.md): the
+# packages carry the plain version (MSI versions must be numeric), the release is marked pre-release, the website
+# skips it (scripts/site/build.py).
 name: build
 
 on:
   push:
-    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+    tags: ['v[0-9]+.[0-9]+.[0-9]+', 'v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+']
   workflow_dispatch:
     inputs:
       version:
@@ -31,7 +34,9 @@ jobs:
       - name: Install mingw-w64 and libusb (Linux probe)
         run: sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update && sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y --no-install-recommends gcc-mingw-w64-x86-64 libusb-1.0-0-dev pkg-config make
       - name: Build # the broker for the MSI (0.8: the classic wrapper and the research tools are not shipped)
-        run: make -C src/broker VERSION="${VERSION:-${GITHUB_REF_NAME#v}}" # reported to the plug-in (INFO box)
+        run: | # the version is reported to the plug-in (INFO box); a pre-release tag's -rcN is left out
+          v="${VERSION:-${GITHUB_REF_NAME#v}}"
+          make -C src/broker VERSION="${v%%-rc*}"
       - uses: actions/upload-artifact@v7
         with:
           name: binaries
@@ -91,7 +96,7 @@ jobs:
         run: |
           # tag v1.2.3 -> 1.2.3 (MSI versions must be numeric)
           if ($env:VERSION -match '^\d+\.\d+\.\d+$') { $v = $env:VERSION }
-          elseif ($env:GITHUB_REF -match '^refs/tags/v(\d+\.\d+\.\d+)$') { $v = $Matches[1] } else { throw "not a version tag: $env:GITHUB_REF" }
+          elseif ($env:GITHUB_REF -match '^refs/tags/v(\d+\.\d+\.\d+)(-rc\d+)?$') { $v = $Matches[1] } else { throw "not a version tag: $env:GITHUB_REF" }
           "version=$v" >> $env:GITHUB_OUTPUT
           "MSI version $v"
       - name: Install WiX 5
@@ -131,7 +136,7 @@ jobs:
       - name: Build
         run: |
           v="${VERSION:-${GITHUB_REF_NAME#v}}"
-          bash repo/scripts/mac-build-release.sh repo "$v" "$PWD/out"
+          bash repo/scripts/mac-build-release.sh repo "${v%%-rc*}" "$PWD/out"
       - uses: actions/upload-artifact@v7
         with:
           name: TI-Revive-mac
@@ -182,7 +187,9 @@ jobs:
       - name: Install build tools
         run: sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update && sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y --no-install-recommends make curl bzip2
       - name: Build
-        run: NATIVE_PREBUILT="$PWD/native-linux/TI Revive Virus Control.vst3" NATIVE_CC="$PWD/native-linux/tirevive-cc" NATIVE_CCAPP="$PWD/native-linux/TIReviveControlCenter" bash scripts/linux-build-release.sh "$PWD" "${VERSION:-${GITHUB_REF_NAME#v}}" "$PWD/out"
+        run: |
+          v="${VERSION:-${GITHUB_REF_NAME#v}}"
+          NATIVE_PREBUILT="$PWD/native-linux/TI Revive Virus Control.vst3" NATIVE_CC="$PWD/native-linux/tirevive-cc" NATIVE_CCAPP="$PWD/native-linux/TIReviveControlCenter" bash scripts/linux-build-release.sh "$PWD" "${v%%-rc*}" "$PWD/out"
       - uses: actions/upload-artifact@v7
         with:
           name: TI-Revive-linux
@@ -223,6 +230,14 @@ jobs:
           **TI Revive $v** - Total Integration for the Access Virus TI without the old Access drivers, now with the
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
+
+          **New in 0.8.28: a review of the whole send path.** The plug-in guards the values a host sends (velocity,
+          pitch bend, tempo; on Windows and macOS a NaN value got through before), sends one message per value while
+          you drag a knob, and keeps its audio ring safe while the Virus goes away. When the broker restarts, the
+          plug-in reconnects on its own. Popup menus and text fields close cleanly on every system; the patch name's
+          text now fits its field on macOS. On Linux, the log names the cause when a USB hub leaves too little
+          bandwidth for the Virus' audio. Tested on Linux (REAPER), macOS (Ableton Live 12) and Windows 11 (Ableton
+          Live 11, in a VM).
 
           **New in 0.8.27: patch changes while you play, like the original.** Choosing a patch for one part no longer
           stops the other parts for a moment. We recorded what the original plug-in sends and do the same now: the patch
@@ -446,9 +461,15 @@ jobs:
           Not affiliated with Access Music or Kemper. Contains no Access software. See the
           [README](https://github.com/$GITHUB_REPOSITORY#readme) for how it works, limitations and uninstall.
           EOF_NOTES
+          pre=
+          if [[ "$v" == *-rc* ]]; then # a pre-release for testers: its own note on top, marked pre-release
+            pre=--prerelease
+            { printf '%s\n\n' "**Pre-release for testers.** Please test with a disposable project and report with the \"Test report\" issue template. The packages carry version ${v%%-rc*}: on Windows, uninstall this pre-release before installing the final ${v%%-rc*}."
+              cat notes.md; } > notes-pre.md && mv notes-pre.md notes.md
+          fi
           # LGPL: the source of the libusb the macOS/Linux brokers link statically goes with every release
           curl -fsSL https://github.com/libusb/libusb/releases/download/v1.0.30/libusb-1.0.30.tar.bz2 -o out/libusb-1.0.30.tar.bz2
           echo "fea36f34f9156400209595e300840767ab1a385ede1dc7ee893015aea9c6dbaf  out/libusb-1.0.30.tar.bz2" | sha256sum -c -
           gh release create "$GITHUB_REF_NAME" out/TI-Revive-*-setup.exe out/TI-Revive-*.msi out/TI-Revive-*-mac.zip \
             out/TI-Revive-*-linux.tar.gz repo/scripts/tirevive-usbinfo.ps1 out/libusb-1.0.30.tar.bz2 \
-            --repo "$GITHUB_REPOSITORY" --title "TI Revive $v" --notes-file notes.md
+            --repo "$GITHUB_REPOSITORY" --title "TI Revive $v" --notes-file notes.md $pre

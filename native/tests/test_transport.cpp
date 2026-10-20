@@ -29,3 +29,13 @@ TEST(transport_messages_like_the_original)
     CHECK(m[1] == std::vector<uint8_t>({0xF0, 0x00, 0x20, 0x33, 0x01, 0x00, 0x73, 0x00, 0x23, 0x01, 0xF7}));
     CHECK(transport_messages(200)[0] == std::vector<uint8_t>({0xF2, 200 & 0x7F, 200 >> 7}));
 }
+
+// Mutation run 2026-10-20: a host whose first block already plays from bar 1, and the tolerance itself
+TEST(transport_first_block_playing_and_the_tolerance)
+{
+    TransportWatch w;
+    CHECK(w.update(true, 0.0, 0.25)); // the first block plays at 0: a start, though ppq 0 is where nothing was
+    TransportWatch c;
+    c.update(true, -0.25, 0.25);      // a count-in: the next block is due at 0
+    CHECK(!c.update(true, 0.01, 0.25)); // off by exactly 0.01 quarter: still rounding
+}

@@ -32,6 +32,8 @@ Good to know
 - Any sample rate works (the Virus runs at 44.1 kHz; the plug-in converts). JACK through PipeWire works well
   ("pw-jack reaper"); avoid PulseAudio as the DAW's audio system.
 - The plug-in reports its latency to the DAW, so recorded and played notes line up with the grid.
+- Notes and knobs work but no audio over USB (log: "usbaudio: alternate setting 1 failed", kernel log:
+  "Not enough bandwidth"): connect the Virus directly to the computer, not through a USB hub.
 - While TI Revive uses the Virus, Linux cannot use it as a normal sound card; it is handed back automatically when
   the plug-in is closed (about 30 seconds later).
 - One DAW at a time uses the Virus; the plug-in in a second one shows "Virus unavailable". The Control Center works

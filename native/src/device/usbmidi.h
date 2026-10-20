@@ -39,6 +39,16 @@ class UsbMidiParser {
 public:
     using Handler = std::function<void(uint8_t ep, int cable, const std::vector<uint8_t> &msg)>;
     explicit UsbMidiParser(Handler h) : h_(std::move(h)) {}
+    static constexpr size_t MAX_SYSEX = 65536; // the Virus' largest message is a 524-byte single dump
+
+    // bytes of SysEx waiting for their end (all cables)
+    size_t pending_bytes() const
+    {
+        size_t n = 0;
+        for (auto &kv : sysex_)
+            n += kv.second.size();
+        return n;
+    }
 
     void feed(uint8_t ep, const uint8_t *d, size_t len)
     {
@@ -50,6 +60,15 @@ public:
             auto &buf = sysex_[ep << 4 | cable];
             const uint8_t *b = d + i + 1;
             if (cin == 4 || (cin >= 5 && cin <= 7 && (!buf.empty() || b[0] == 0xF0))) {
+                // F0 starts a new message: a SysEx cut off before it (broker gone, Virus off) is dropped, not glued
+                // in front (the readiness probe's reply after a broker reconnect, review 2026-10-19); a part without
+                // its start, or one past MAX_SYSEX, is skipped until the next F0
+                if (b[0] == 0xF0)
+                    buf.clear();
+                else if (buf.empty() || buf.size() + 3 > MAX_SYSEX) {
+                    buf.clear();
+                    continue;
+                }
                 buf.insert(buf.end(), b, b + CIN_LEN[cin]);
                 if (cin != 4) {
                     h_(ep, cable, buf);

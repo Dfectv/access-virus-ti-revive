@@ -62,3 +62,16 @@ TEST(stallwatch_starting_stream_is_no_stall)
     CHECK(!w.update(882, 9000));  // now running, then standing still (sleep)
     CHECK(w.update(1323, 9010));  // that one is reported
 }
+
+// Mutation run 2026-10-20: a stream whose counter starts at frame 0, and the limit itself
+TEST(stallwatch_stream_from_frame_zero_and_the_limit)
+{
+    StallWatch w;
+    w.update(0, 0);
+    w.update(441, 10);                                      // running from frame 0
+    CHECK(w.update(882, 10 + StallWatch::LIMIT_MS));        // stood still exactly LIMIT_MS: a stall
+    StallWatch v;
+    v.update(1000, 0);
+    v.update(1441, 10);
+    CHECK(!v.update(1882, 10 + StallWatch::LIMIT_MS - 1)); // 1 ms less: a hiccup
+}

@@ -14,6 +14,8 @@
 #include "device/dumppacer.h"
 #include "device/startprogress.h"
 #include "device/transport.h"
+#include "device/audiogate.h"
+#include "device/hostmidi.h"
 #include "device/sendguard.h"
 #include "device/stamprule.h"
 #include "device/offlinepace.h"
@@ -100,8 +102,10 @@ public:
     std::atomic<int> generation{0}; // +1 on every return of the Virus (process() re-anchors its timeline)
     StallWatch stall_;              // worker: the stream stood still and runs on (sleep) -> generation + 1
     bool connected() const { return broker_.device_present(); }
-    AudioIn &audio() { return audio_; } // read from process(); valid once audio_ready()
-    bool audio_ready() const { return audio_ok_; }
+    // read outside the worker only while holding an AudioGate::Use of audio_gate() (it may be unmapped otherwise)
+    AudioIn &audio() { return audio_; }
+    AudioGate &audio_gate() { return audio_gate_; }
+    bool audio_ready() const { return audio_gate_.is_open(); }
     // R5 sync marker (docs/protocol.md "Sync marker"): after the sync ping the Virus puts one non-zero sample on USB 2
     // where its 14-bit time stamp clock is 0, so a stamp s plays at the ring frame marker + s (mod 16384).
     // process() calls calibrate() with the ring frame of its ping; the worker finds the marker (-1 = searching or
@@ -204,17 +208,24 @@ private:
     static constexpr size_t RT_SLOTS = 1024;
     Slot rt_[RT_SLOTS];
     std::atomic<size_t> rt_w_{0}, rt_r_{0};
-    int rt_run_ = 0; // real-time messages sent in a row (worker thread)
+    EventRun rt_run_; // real-time messages sent in a row, the queue's turn after 8 (worker thread, dumppacer.h)
     DumpPacer dump_;            // a single dump on cable 3 in pieces, events between them on cable 5 (E270)
     HeldParams held_;           // automation that fell into a dump, sent when it is out (E274)
     std::atomic<bool> dump_pending_{false}; // the dump counts as queued (busy()) until its last piece is out
     SendBudget budget_; // bytes per second towards the DSP's 2046-byte stamp queue (E261)
     std::atomic<int> blocked_{0}; // messages rule 2 forbids, dropped (sendguard.h); logged by the worker
+    std::atomic<int> rt_lost_{0};        // events process() could not queue (ring full); logged by the worker
+    std::atomic<bool> rt_lost_off_{false}; // a note-off was among them: the worker sends all notes off
+    int rt_lost_logged_ = 0;
     int blocked_logged_ = 0;
     std::atomic<bool> stop_{false};
     bool open_ = false;
     AudioIn audio_;
-    std::atomic<bool> audio_ok_{false};
+    AudioGate audio_gate_; // open while audio_ is mapped; closed (waiting for readers) before it is unmapped
+    bool audio_ok() const { return audio_gate_.is_open(); }
+    void close_audio();    // worker: no reader left, then unmap
+    void drop_dump();      // worker: the Virus or the broker went away mid-dump
+    void lose_broker();    // worker: the broker connection is gone; drop the dump, close, reopen in the next round
     std::chrono::steady_clock::time_point audio_retry_{}; // next audio start attempt (worker thread)
     std::chrono::steady_clock::time_point stats_next_{};  // VTI_NATIVE_STATS output
     int64_t stats_newest_ = -1; // worker: the newest ring frame at the last stats line (per instance, issue #6)
@@ -253,6 +264,12 @@ public:
     // editor support (viruseditor.cpp)
     const AccessFiles &files() const { return *files_; }
     const EditorLayout &layout() const { return layout_; }
+    // the editor's open and close in the log: REAPER's crash after a render needs the editor open (E287)
+    void editor_event(const char *what)
+    {
+        if (out_)
+            out_->log("Virus TI native: editor %s\n", what);
+    }
     // the classic oscillator display's waves (E180), read from the binary on the first editor open, not at
     // initialize (plug-in scans stay fast); UI thread only
     const std::vector<float> &osc_waves()
@@ -511,6 +528,7 @@ private:
     // the Virus came back (switched off and on, replugged): the readiness probe and note hold of a first start again
     // (worker thread: the sender thread itself must not wait for the probe's reply)
     std::thread reconnect_thread_;
+    std::mutex reconnect_mu_; // after_reconnect() starts reconnect_thread_, terminate() joins it: never both at once
     std::atomic<bool> reconnect_busy_{false}, reconnect_again_{false};
     std::atomic<bool> absent_at_start_{false}; // the start-up check found no Virus: its first appearance waits too
     void after_reconnect();
@@ -585,6 +603,7 @@ private:
     std::atomic<int> offline_timeouts_{0};   // waits that gave up (the Virus stopped streaming)
     int offline_timeouts_reported_ = 0;      // worker
     void wait_offline(Steinberg::Vst::ProcessData &data, double ratio, int64_t &newest);
+    int64_t ring_newest(); // the newest frame of the Virus' ring, -1 without one (read under the audio gate)
     void report_offline();
     // the original's sync error page (E205): events from the Virus (broker rx thread), ticks and transport (worker)
     SyncAlert sync_alert_;
@@ -611,7 +630,8 @@ private:
     int64_t sc_seen_ = -1;        // the write position at the last block (another writer moves it)
     int64_t sc_hold_ = 0;         // host frames to stay out after another writer was seen
     bool in_active_[2] = {false, false}; // input buses "Dummy In", "Sidechain" activated by the host
-    int sc_layout_seen_ = -1;      // the last logged (numInputs, bus, channels) - logged when it changes
+    std::atomic<int> sc_layout_{-1}; // process(): the host's sidechain layout (numInputs, bus, channels, active flags)
+    int sc_layout_seen_ = -1;        // worker: the last logged one - logged when it changes
     void send_sidechain(Steinberg::Vst::ProcessData &data);
     double rs_pos_ = 0;
     bool rs_valid_ = false;

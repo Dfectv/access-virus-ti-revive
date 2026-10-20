@@ -4,6 +4,7 @@
 // --wav-bus N the output bus N instead (1..3, e.g. 3 = Out 3 = USB 3).
 // --offline T: from T s on the blocks are offline (processMode kOffline) and sent as fast as the plug-in takes them,
 // like a DAW's export; the wall time of that part is printed (the plug-in paces it to the Virus: ~1x).
+// --offline-end T: real time again from T s on; --notes-off A:B: no --notes in [A, B) s (stopped after the render).
 // --hold T: C4 on at T s and held to the end; --param-at T:ID=NORM: a parameter change at T s (repeatable) - e.g. to
 // hear whether the Virus applies a change to a held note.
 // --cid HEX: load that class (e.g. the original Access id D9909FB45F730543AC5397BE8958CD31, E221), else the first.
@@ -241,6 +242,7 @@ int main(int argc, char **argv)
     double offline_end = -1; // --offline-end T: back to real time (a DAW's render ends, playback follows)
     std::vector<std::pair<ParamID, double>> changes;
     double hold = -1; // --hold: note on at this time, never off
+    double notes_off_from = -1, notes_off_to = -1; // --notes-off A:B: no --notes in [A, B) s (a DAW stopped after a render)
     struct TimedChange {
         double t;
         ParamID id;
@@ -263,6 +265,8 @@ int main(int argc, char **argv)
             loop_bars = atof(argv[++i]);
         else if (!strcmp(argv[i], "--notes"))
             notes = true;
+        else if (!strcmp(argv[i], "--notes-off") && i + 1 < argc)
+            sscanf(argv[++i], "%lf:%lf", &notes_off_from, &notes_off_to);
         else if (!strcmp(argv[i], "--hold") && i + 1 < argc)
             hold = atof(argv[++i]);
         else if (!strcmp(argv[i], "--param-at") && i + 1 < argc) {
@@ -477,12 +481,21 @@ int main(int argc, char **argv)
     float peak = 0;
     int blocks = (int)(seconds * rate / block);
     auto t_next = std::chrono::steady_clock::now();
-    std::chrono::steady_clock::time_point t_offline{};
+    std::chrono::steady_clock::time_point t_offline{}, t_offline_end{};
     for (int b = 0; b < blocks; b++) {
         const bool offline = offline_at >= 0 && b * (double)block / (double)rate >= offline_at &&
                              (offline_end < 0 || b * (double)block / (double)rate < offline_end);
         if (offline && t_offline == std::chrono::steady_clock::time_point{})
             t_offline = std::chrono::steady_clock::now();
+        if (!offline && t_offline != std::chrono::steady_clock::time_point{} &&
+            t_offline_end == std::chrono::steady_clock::time_point{})
+        {
+            // --offline-end: the render is over. The first real-time block comes one block period after the last
+            // offline one, like a device callback; called at once it ran a block ahead and its first note was
+            // ~12 ms late (E286)
+            std::this_thread::sleep_for(std::chrono::microseconds((long long)block * 1000000 / rate));
+            t_offline_end = t_next = std::chrono::steady_clock::now();
+        }
         data.processMode = offline ? kOffline : kRealtime;
         static ProcessContext pctx{};
         if (transport_at >= 0) { // a DAW transport: 120 BPM from transport_at on, looping every loop_bars bars
@@ -502,7 +515,7 @@ int main(int argc, char **argv)
         if (notes) { // C4 on at the start of every second, off at the half
             long f0 = (long)b * block, f1 = f0 + block;
             for (long t = (f0 / (rate / 2)) * (rate / 2); t < f1; t += (rate / 2))
-                if (t >= f0) {
+                if (t >= f0 && !(t >= notes_off_from * rate && t < notes_off_to * rate)) {
                     Event e{};
                     e.sampleOffset = (int32)(t - f0);
                     if ((t / (rate / 2)) % 2 == 0) {
@@ -756,8 +769,9 @@ int main(int argc, char **argv)
             std::this_thread::sleep_until(t_next);
     }
     if (offline_at >= 0 && t_offline != std::chrono::steady_clock::time_point{}) {
-        double wall = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_offline).count();
-        double audio = seconds - offline_at;
+        bool ended = t_offline_end != std::chrono::steady_clock::time_point{};
+        double wall = std::chrono::duration<double>((ended ? t_offline_end : std::chrono::steady_clock::now()) - t_offline).count();
+        double audio = (ended ? offline_end : seconds) - offline_at;
         printf("offline part: %.2f s of audio in %.2f s wall time (%.2fx)\n", audio, wall, wall > 0 ? audio / wall : 0.0);
     }
     if (wav) {

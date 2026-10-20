@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <set>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -25,6 +26,9 @@ public:
     bool open(std::string &error);
     void close();
     bool device_present() const { return present_; }
+    // the connection to the broker is up (its reader runs): false after the broker went away (crash, update, restart)
+    // - device_present() is false then too, but only this says that a new open() is needed
+    bool connected() const { return !reader_done_; }
     // how often the Virus became present (STATE 1 after anything else): a gone-and-back faster than the caller polls
     // device_present() still changes it (E212: the broker reopened the Virus 0.27 s after a wake)
     uint32_t device_arrivals() const { return arrivals_; }
@@ -50,7 +54,8 @@ public:
     void on_state(StateHandler h) { state_ = std::move(h); }
 
     bool write(uint8_t ep, const uint8_t *data, size_t len);
-    // USB control request through the broker; returns bytes transferred or -1. `data` in/out.
+    // USB control request through the broker; returns bytes transferred or -1. `data` in/out; a reply never writes
+    // more than len bytes into it.
     int control(uint8_t request_type, uint8_t request, uint16_t value, uint16_t index, uint8_t *data, uint16_t len,
                 int timeout_ms = 3000);
 
@@ -64,6 +69,13 @@ public:
     // 2 s the first time.
     int flash_info(std::vector<uint8_t> &out, int timeout_ms = 8000);
 
+    // control replies received and not yet taken (unit tests)
+    size_t pending_replies() const
+    {
+        std::lock_guard<std::mutex> g(ctl_);
+        return replies_.size();
+    }
+
 private:
     intptr_t fd_ = -1; // POSIX socket / Windows pipe HANDLE (overlapped)
     int audio_reply_ = 0;
@@ -76,9 +88,11 @@ private:
     mutable std::mutex info_mu_;
     ObserveHandler observe_;
     std::thread reader_;
-    std::mutex wr_, ctl_;
+    std::mutex wr_;
+    mutable std::mutex ctl_;
     std::condition_variable ctl_cv_;
     std::map<uint32_t, std::vector<uint8_t>> replies_; // seq -> i32 result + data
+    std::set<uint32_t> waiting_;                       // seqs a control() still waits for
     uint32_t seq_ = 0;
     std::atomic<bool> present_{false}, elsewhere_{false}, stop_{false}, reader_done_{true};
     std::atomic<uint32_t> arrivals_{0};

@@ -54,3 +54,40 @@ TEST(resampler_unity_step)
         worst = std::max(worst, (double)std::fabs(out[i] - src[50 + i]));
     CHECK(worst < 1e-3);
 }
+
+// Mutation run 2026-10-20: frames_needed is exactly the range process() reads (more = latency the ring must cover,
+// less = reads past the data), and process() writes n outputs, not n + 1. NaN marks every frame outside the range:
+// one read of it makes an output NaN (also with a tap weight of 0).
+TEST(resampler_reads_exactly_frames_needed)
+{
+    Resampler r;
+    for (double step : {44100.0 / 48000, 1.0, 44100.0 / 96000}) {
+        r.setup(step);
+        for (double pos : {500.0, 500.37, 500.999}) {
+            const int n = 64, G = 64;
+            int64_t first;
+            int count;
+            Resampler::frames_needed(pos, step, n, first, count);
+            std::vector<float> buf((size_t)count + 2 * G, NAN);
+            for (int i = 0; i < count; i++)
+                buf[(size_t)(G + i)] = 0.25f;
+            float out[n + 1];
+            out[n] = 7.0f;
+            r.process(buf.data() + G, first, pos, step, out, n);
+            bool finite = true;
+            for (int i = 0; i < n; i++)
+                finite = finite && std::isfinite(out[i]);
+            CHECK(finite);       // nothing outside the range was read
+            CHECK(out[n] == 7.0f); // nothing written past n
+            for (int edge : {G, G + count - 1}) { // the first and the last frame of the range are both read
+                buf[(size_t)edge] = NAN;
+                r.process(buf.data() + G, first, pos, step, out, n);
+                bool nan = false;
+                for (int i = 0; i < n; i++)
+                    nan = nan || std::isnan(out[i]);
+                CHECK(nan);
+                buf[(size_t)edge] = 0.25f;
+            }
+        }
+    }
+}

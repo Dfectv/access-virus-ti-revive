@@ -31,9 +31,11 @@ struct SendBudget {
     {
         if (rate <= 0)
             return 1 << 20;
-        if (last_ns >= 0 && now_ns > last_ns)
-            tokens += (double)(now_ns - last_ns) * 1e-9 * rate;
-        last_ns = now_ns;
+        if (now_ns > last_ns) { // an earlier time (not with steady_clock) neither adds nor counts twice later
+            if (last_ns >= 0)
+                tokens += (double)(now_ns - last_ns) * 1e-9 * rate;
+            last_ns = now_ns;
+        }
         if (tokens > burst)
             tokens = burst;
         return tokens < 0 ? 0 : (int)tokens;

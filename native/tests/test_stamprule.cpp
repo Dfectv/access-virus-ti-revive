@@ -47,6 +47,18 @@ TEST(stamprule_dumps_and_requests_never)
     CHECK(!stamped({}, true));
 }
 
+// Ping-shaped messages that are not the Access ping (mutation run 2026-10-20: each header check of the Access
+// SysEx could be weakened without a test noticing): a stamp on them would put an F5 in front of foreign data.
+TEST(stamprule_only_the_access_header_gets_the_ping_stamp)
+{
+    CHECK(!stamped({0xF0, 0x01, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x22, 0x00, 0xF7}, false)); // manufacturer 01..
+    CHECK(!stamped({0xF0, 0x00, 0x21, 0x33, 0x01, 0x10, 0x73, 0x00, 0x22, 0x00, 0xF7}, false)); // 00 21 ..
+    CHECK(!stamped({0xF0, 0x00, 0x20, 0x34, 0x01, 0x10, 0x73, 0x00, 0x22, 0x00, 0xF7}, false)); // 00 20 34
+    CHECK(!stamped({0xF4, 0x00, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x22, 0x00, 0xF7}, false)); // not a SysEx
+    const uint8_t ping[] = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x22, 0x00, 0xF7};
+    CHECK(!needs_stamp(ping, 10, false)); // shorter than a parameter message: its bytes past n are not read
+}
+
 TEST(stamprule_one_stamp_per_value_within_a_write)
 {
     // the DSP keeps the current stamp for every byte that follows it (E261), so a block's events share one F5:

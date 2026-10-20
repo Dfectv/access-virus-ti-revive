@@ -7,9 +7,12 @@
 // only. Written in one piece, the dump held the notes until the Virus had taken all of it, and the other parts
 // stopped for a moment (E269). Queued messages wait until the dump is out (they go on cable 2).
 #pragma once
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+
+#include "stamprule.h"
 
 namespace vti {
 
@@ -50,20 +53,45 @@ private:
     int64_t due_ = 0;
 };
 
+// The worker's fairness rule: after MAX events from process() in a row the queue side gets its turn, else dense MIDI
+// starves the queue - but only when it can go now (queue_ready). A dump in pieces is the queue's turn piece by
+// piece. Asking only "is something queued" made the events wait for what could not go: for a dump's last piece
+// (~130 ms), the next piece (10 ms) or the hold after a multi dump (250 ms) - late notes (review 2026-10-19).
+class EventRun {
+public:
+    static constexpr int MAX = 8;
+    bool events_first(bool queue_ready) const { return run_ < MAX || !queue_ready; }
+    void event() { run_++; }
+    void turn() { run_ = 0; } // a queued message or a piece of a dump went out
+
+private:
+    int run_ = 0;
+};
+
+// the queue side can go now: while a dump runs its next piece is due (queued messages wait for its end), else a
+// queued message that is not held (after a multi dump the Virus sets up its parts)
+inline bool queue_ready(const DumpPacer &dump, int64_t now_ns, bool queue_empty, bool held)
+{
+    return dump.active() ? dump.wait_ns(now_ns) == 0 : !queue_empty && !held;
+}
+
 // Parameter SysEx that falls into a dump waits for its end (at most ~140 ms): on cable 5 with the notes it would
 // reach only the DSPs, and the host CPU would keep the old value in its edit buffer (E274). Notes and other
-// channel messages are not held. Several changes of one parameter keep only the latest value, in first-arrival order.
+// channel messages are not held, nor other SysEx from process(): the sync ping needs its own raw stamp in its block
+// (the marker follows it) and the transport tick belongs to its F2. Several changes of one parameter keep only the
+// latest value, in first-arrival order.
 class HeldParams {
 public:
-    static bool held(const uint8_t *m, size_t n) { return n > 0 && m[0] == 0xF0; }
+    // a parameter of page A-E, the messages stamprule.h stamps for automation
+    static bool held(const uint8_t *m, size_t n) { return access_param(m, n); }
     void add(const std::vector<uint8_t> &m)
     {
-        for (auto &h : list_)
-            if (same_param(h, m)) {
-                h = m;
-                return;
-            }
-        list_.push_back(m);
+        auto same = [&](const std::vector<uint8_t> &h) { return same_param(h, m); };
+        auto it = std::find_if(list_.begin(), list_.end(), same);
+        if (it != list_.end())
+            *it = m;
+        else
+            list_.push_back(m);
     }
     std::vector<std::vector<uint8_t>> take()
     {

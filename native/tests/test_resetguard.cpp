@@ -58,3 +58,12 @@ TEST(resetguard_ignores_symlinks)
     unlink(link.c_str());
     unlink(target.c_str());
 }
+
+// Mutation run 2026-10-20: two brokers ending within the same second (E136's case) - the second reset is skipped
+TEST(resetguard_same_second)
+{
+    std::string p = stamp_path("same");
+    CHECK(vti_reset_guard(p.c_str(), 2000, 5) == 1);
+    CHECK(vti_reset_guard(p.c_str(), 2000, 5) == 0);
+    unlink(p.c_str());
+}

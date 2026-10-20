@@ -110,3 +110,18 @@ TEST(automation_respects_event_room)
     s.block(0);
     CHECK_EQ(s.total - before, 10);
 }
+
+// Mutation run 2026-10-20: a full queue refuses the next parameter instead of overwriting the oldest
+TEST(automation_full_queue_refuses)
+{
+    auto q = std::make_unique<AutomationQueue>(250.0);
+    bool all = true;
+    for (int i = 0; i < AutomationQueue::MAX; i++)
+        all = all && q->push((uint32_t)i);
+    CHECK(all);
+    CHECK(!q->push(99999));
+    uint32_t first = 0xFFFFFFFF;
+    q->refill(44100, 44100);
+    q->drain(1, [&](uint32_t id) { first = id; return true; });
+    CHECK_EQ(first, 0u); // the oldest is still there
+}

@@ -25,6 +25,8 @@ extern char **environ;
 #include "access/library.h"
 #include "cc/diag.h"
 #include "editor/helptext.h"
+#include "editor/dragsend.h"
+#include "editor/textfield.h"
 #include "editor/popupmenu.h"
 #include "popupwindow.h"
 #include "editor/upscale.h"
@@ -1051,6 +1053,13 @@ public:
         renderer_.osc_waves = plugin_->osc_waves();
         // device changes (knobs on the Virus, automation) repaint the view
         timer_ = makeOwned<CVSTGUITimer>([this](CVSTGUITimer *) {
+            if (!remove_later_.empty()) // text edits that ended outside event handling (remove_edit)
+                if (auto *f = getFrame()) {
+                    for (auto *te : remove_later_)
+                        if (f->isChild(te)) // compares the pointer, never touches a removed view
+                            f->removeView(te);
+                    remove_later_.clear();
+                }
 #if SMTG_OS_LINUX
             keep_runloop(); // a new instance's setHostContext may have replaced it (E183)
 #endif
@@ -1361,6 +1370,7 @@ public:
             return;
         }
         drag_ = h;
+        drag_sent_.reset();
         plugin_->take_changed(); // start collecting the changes of this drag
         drag_y_ = event.mousePosition.y;
         drag_x_ = event.mousePosition.x;
@@ -1478,8 +1488,8 @@ public:
                     if (std::abs(EditorRenderer::arp_step_width(len) - want) <
                         std::abs(EditorRenderer::arp_step_width(best) - want))
                         best = len;
-                plugin_->ui_set("Arpeggiator User Pattern/Step " + std::to_string(arp_length_drag_ + 1) + " Length",
-                                drag_.part, best);
+                drag_set("Arpeggiator User Pattern/Step " + std::to_string(arp_length_drag_ + 1) + " Length",
+                         drag_.part, best);
             } else
                 arp_set_velocity(drag_, event.mousePosition);
             invalid();
@@ -1517,7 +1527,7 @@ public:
             delta = (drag_y_ - event.mousePosition.y) * (hi - lo) / std::max(1.0, (double)(e.h - hh));
         }
         int v = (int)std::lround(drag_value_ + delta);
-        plugin_->ui_set(param, drag_.part, std::max(lo, std::min(hi, v)));
+        drag_set(param, drag_.part, std::max(lo, std::min(hi, v)));
         // repaint only the control and the LCD (bottom info panel); value-dependent layouts change on release
         if (drag_rects_.empty())
             drag_rects_ = shown_rects(param);
@@ -1568,8 +1578,7 @@ public:
             else // a REMOTE page field: saved with the templates and sent like the original's
                 plugin_->set_remote_text(edit_param_, t);
             edit_param_.clear();
-            if (auto *f = getFrame()) // remove the edit field after the current event
-                f->doAfterEventProcessing([f, te]() { f->removeView(te); });
+            remove_edit(te); // after the current event
             invalid();
         }
     }
@@ -1579,10 +1588,20 @@ public:
     {
         te->unregisterTextEditListener(this);
         editing_search_ = false;
-        if (auto *f = getFrame())
-            f->doAfterEventProcessing([f, te]() { f->removeView(te); });
+        remove_edit(te);
         invalid();
     }
+
+    // A text edit removes itself after the event that ended it. Outside the frame's event handling (a native Win32 or
+    // Cocoa edit may commit or lose the focus there) doAfterEventProcessing refuses, and removing it at once inside
+    // its own callback is unsafe: the 50 ms timer removes it then (review 2026-10-19; before, it stayed).
+    void remove_edit(CTextEdit *te)
+    {
+        auto *f = getFrame();
+        if (f && !f->doAfterEventProcessing([f, te]() { f->removeView(te); }))
+            remove_later_.push_back(te);
+    }
+    std::vector<CTextEdit *> remove_later_;
 
 private:
     // help mode ("?"): frames around the explained controls, a note for the one under the mouse (or clicked)
@@ -1714,6 +1733,12 @@ private:
         }
     }
     int arp_length_drag_ = -1; // ArpEdit: step whose length is dragged
+    DragSend drag_sent_;       // a drag sends a value once, not on every mouse move (dragsend.h)
+    void drag_set(const std::string &path, int part, int value)
+    {
+        if (drag_sent_.changed(path, part, value))
+            plugin_->ui_set(path, part, value);
+    }
     // ArpEdit: the step under the mouse gets the velocity of the mouse height (bars grow from the bottom row)
     void arp_set_velocity(const Hit &h, const CPoint &p)
     {
@@ -1721,7 +1746,7 @@ private:
         int cx, bottom;
         EditorRenderer::arp_step_geometry(*h.element, h.x, h.y, step, cx, bottom);
         int vel = std::max(0, std::min(127, bottom - (int)p.y));
-        plugin_->ui_set("Arpeggiator User Pattern/Step " + std::to_string(step + 1) + " Velocity", h.part, vel);
+        drag_set("Arpeggiator User Pattern/Step " + std::to_string(step + 1) + " Velocity", h.part, vel);
         invalid();
     }
     int edit_part_ = 0;
@@ -1980,8 +2005,9 @@ private:
         te->setBackColor(CColor(255, 255, 255, 255)); // the original: white field, system font
         te->setFontColor(CColor(0, 0, 0, 255));
         te->setFrameColor(CColor(255, 255, 255, 255));
-        if (!param.empty()) { // the REMOTE page's fields are 10-13 px high: a font that fits, the text from the left
-            te->setFont(makeOwned<CFontDesc>(kSystemFont->getName(), std::max(7.0, r.getHeight() - 1)));
+        // a font that fits the field: the patch name's is 10 px high, 12 pt overflowed it on macOS (textfield.h)
+        te->setFont(makeOwned<CFontDesc>(kSystemFont->getName(), text_field_font(r.getHeight())));
+        if (!param.empty()) { // the REMOTE page's fields (10-13 px): the text from the left
             te->setHoriAlign(kLeftText);
             te->setTextInset(CPoint(1, 0));
         }
@@ -2236,10 +2262,18 @@ bool PLUGIN_API VirusEditor::open(void *parent, const PlatformType &platformType
     X11::FrameConfig cfg;
     if (auto lf = getPlatformFactory().asLinuxFactory())
         cfg.runLoop = lf->getRunLoop();
-    frame->open(parent, platformType, cfg.runLoop ? &cfg : nullptr);
+    if (!cfg.runLoop || !frame->open(parent, platformType, &cfg)) { // no run loop or no window: no editor
+        frame->forget();                                              // (server_bitmap needs the platform frame)
+        frame = nullptr;
+        return false;
+    }
     open_frames++;
 #else
-    frame->open(parent, platformType);
+    if (!frame->open(parent, platformType)) {
+        frame->forget();
+        frame = nullptr;
+        return false;
+    }
 #endif
     frame->addView(new EditorCanvasView(plugin_, size, this));
     if (zoom() != 1.0) { // the host already got the scaled size from getSize()
@@ -2247,17 +2281,38 @@ bool PLUGIN_API VirusEditor::open(void *parent, const PlatformType &platformType
         frame->setZoom(zoom());
         resizing_ = false;
     }
+    plugin_->editor_event("opened");
     return true;
+}
+
+VirusEditor::~VirusEditor()
+{
+    close(); // a host that releases the view without removed(): the frame, its 50 ms timer and open_frames go too
+}
+
+Steinberg::tresult PLUGIN_API VirusEditor::removed()
+{
+#if SMTG_OS_LINUX
+    keep_runloop(); // the SDK stops its timer before close(): through the adapter that registered it (E183)
+#endif
+    return VSTGUIEditor::removed();
 }
 
 void PLUGIN_API VirusEditor::close()
 {
     if (frame) {
+#if SMTG_OS_LINUX
+        keep_runloop(); // first: the menu frames and the frame unregister their handlers through the adapter that
+                        // registered them (E183; review 2026-10-19: the menu frames went before this)
+#endif
         PopupView::close_windows(frame); // an open menu's own frames go first
 #if SMTG_OS_LINUX
-        keep_runloop(); // the frame unregisters its handlers through the adapter that registered them
         if (--open_frames == 0)
             x11_last_frame_closing();
+        else if (ref) { // `ref` may live on this editor's window: the next pixmap is made on a remaining one
+            cairo_surface_destroy(ref);
+            ref = nullptr;
+        }
 #endif
         frame->forget();
         frame = nullptr;
@@ -2265,6 +2320,7 @@ void PLUGIN_API VirusEditor::close()
         if (open_frames == 0)
             pinned_runloop = nullptr; // nothing registered any more: the next editor sets up a fresh one
 #endif
+        plugin_->editor_event("closed");
     }
 }
 

@@ -52,6 +52,38 @@ TEST(usbmidi_sysex_every_length)
     }
 }
 
+// Mutation run 2026-10-20: the lowest status byte and the unused bytes of a packet were not pinned down.
+TEST(usbmidi_note_off_is_a_channel_message)
+{
+    auto pk = usbmidi_pack({0x80, 60, 0}, 2);
+    CHECK(pk.size() == 4 && pk[0] == 0x28); // code index 8, not a system message
+}
+
+// A packet's unused bytes are 0; packing must not read past the message (here: spare capacity holding 0x55)
+TEST(usbmidi_pack_pads_with_zero_not_with_bytes_past_the_message)
+{
+    for (Bytes msg : {Bytes{0xF0, 0x11, 0x22, 0xF7}, Bytes{0xF0, 0x11, 0x22, 0x33, 0xF7}, Bytes{0xD3}, Bytes{0xD3, 77},
+                      Bytes{0xF8}, Bytes{0xF3, 0x05}}) {
+        Bytes v = msg;
+        const size_t n = v.size();
+        v.insert(v.end(), {0x55, 0x55, 0x55});
+        v.resize(n);
+        for (uint8_t b : usbmidi_pack(v, 2))
+            CHECK(b != 0x55);
+    }
+}
+
+// MIDI lets real-time bytes appear inside a SysEx (USB-MIDI: code index F on the same cable); they are their own
+// message and leave the SysEx whole. A single-byte system common message (code index 5) outside a SysEx is delivered.
+TEST(usbmidi_real_time_inside_sysex_and_single_byte_common)
+{
+    Bytes pk = {0x24, 0xF0, 0x00, 0x20, 0x2F, 0xF8, 0, 0, 0x26, 0x33, 0xF7, 0, 0x25, 0xF6, 0, 0};
+    auto m = parse(pk);
+    CHECK_EQ(m.size(), 3u);
+    CHECK(m.size() == 3 && m[0].second == Bytes{0xF8} && m[1].second == (Bytes{0xF0, 0x00, 0x20, 0x33, 0xF7}) &&
+          m[2].second == Bytes{0xF6});
+}
+
 TEST(usbmidi_interleaved_cables)
 {
     Bytes a = {0xF0, 1, 2, 3, 4, 5, 0xF7}, b = {0xF0, 9, 8, 7, 6, 0xF7};
@@ -75,4 +107,32 @@ TEST(usbmidi_empty_packets_ignored)
     Bytes pk(16, 0); // zero padding as some hosts/controllers send it
     CHECK(parse(pk).empty());
     CHECK(usbmidi_pack({}, 2).empty());
+}
+
+// A SysEx cut off in the middle (the broker went away, the Virus switched off: review 2026-10-19) left its bytes in
+// the parser, and the next SysEx on that cable was glued onto them - the readiness probe's reply after a broker
+// reconnect was never recognised (11.5 s "no reply to the probe", TI Desktop, hardware test). A new F0 starts a new
+// message; the cut-off part is dropped.
+TEST(usbmidi_cut_off_sysex_does_not_glue_onto_the_next)
+{
+    Bytes cut = usbmidi_pack({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x30, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0xF7}, 3);
+    cut.resize(8); // only the first two packets (6 bytes, no end) arrived
+    Bytes next = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x22, 0x00, 0xF7};
+    Bytes all = cut;
+    auto pk = usbmidi_pack(next, 3);
+    all.insert(all.end(), pk.begin(), pk.end());
+    auto out = parse(all);
+    CHECK(out.size() == 1);
+    CHECK(!out.empty() && out[0].second == next);
+}
+
+// Review 2026-10-19 (M9): a stream of SysEx packets that never ends must not grow without bound.
+TEST(usbmidi_endless_sysex_is_bounded)
+{
+    UsbMidiParser p([](uint8_t, int, const Bytes &) {});
+    Bytes start = {0x34, 0xF0, 0x00, 0x20}, more = {0x34, 0x01, 0x02, 0x03};
+    p.feed(0x86, start.data(), start.size());
+    for (int i = 0; i < 100000; i++) // 300 kB without F7
+        p.feed(0x86, more.data(), more.size());
+    CHECK(p.pending_bytes() <= UsbMidiParser::MAX_SYSEX);
 }

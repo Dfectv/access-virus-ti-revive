@@ -43,3 +43,47 @@ TEST(sendguard_everything_else_passes)
     CHECK(!blocked({0xF5, 0x00, 0x00}));
     CHECK(!blocked({}));
 }
+
+// A project's state goes to the Virus record by record (VirusPlugin::send_state). The records come from the host's
+// project file, so the guard must apply to them too (review 2026-10-19: send_state queued them unchecked), and a
+// record that is not one complete message (a damaged file) must not reach the wire either.
+static std::vector<uint8_t> v(std::initializer_list<uint8_t> m) { return std::vector<uint8_t>(m); }
+
+TEST(sendguard_state_records_like_a_real_project_pass)
+{
+    // what real project states hold (work/projcompat: 19 SysEx, 224 controllers)
+    std::vector<std::vector<uint8_t>> recs = {
+        v({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x09, 0x00, 0xF7}),
+        v({0xB3, 0x07, 0x64}),
+        v({0xC0, 0x05}),
+        v({0xE0, 0x00, 0x40})};
+    CHECK(drop_unsendable(recs) == 0);
+    CHECK(recs.size() == 4);
+}
+
+TEST(sendguard_state_drops_what_rule_2_forbids)
+{
+    std::vector<std::vector<uint8_t>> recs = {
+        v({0xB0, 0x07, 0x64}),
+        v({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x72, 0x00, 0x03, 0x05, 0xF7}), // Original Patch (issue #7)
+        v({0xF4, 0x01, 0x02}),
+        v({0xB1, 0x07, 0x64})};
+    CHECK(drop_unsendable(recs) == 2);
+    CHECK(recs.size() == 2);
+    CHECK(recs[0][0] == 0xB0 && recs[1][0] == 0xB1); // order kept
+}
+
+TEST(sendguard_state_drops_records_that_are_not_one_message)
+{
+    std::vector<std::vector<uint8_t>> recs = {
+        v({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x73, 0x00, 0x09}), // SysEx without F7
+        v({0xF0, 0x00, 0x20, 0x90, 0x01, 0xF7}),                    // a status byte inside a SysEx
+        v({0xB0, 0x07}),                                            // controller one byte short
+        v({0xB0, 0x07, 0x64, 0x01}),                                // one byte too many
+        v({0x90, 0x3C, 0x80}),                                      // data byte >= 0x80
+        v({0x07, 0x64, 0x00}),                                      // no status byte
+        v({0xF8}),                                                  // real time: not a state record
+        v({})};
+    CHECK(drop_unsendable(recs) == 8);
+    CHECK(recs.empty());
+}

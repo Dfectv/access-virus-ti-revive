@@ -16,7 +16,9 @@ duplicate)
     # REAPER crashed at a duplicated track: the second editor freed the first one's run loop adapter, and the host
     # called a freed handler. The duplicate must also take over the Virus when the original goes.
     plugin=$(cd "$2" && pwd) # the VST3 loader names the library after the bundle folder: no "/../.."
-    timeout 90 xvfb-run -a "$1" "$plugin" --editor --editor2 --duplicate 3 --seconds 6 >"$out" 2>&1
+    # 7 s after the removal: a waiting instance tries to take over every 2 s, and the first one's teardown takes
+    # longer on a busy machine - with 3 s the try fell after the end right after a build (4 of ~20 runs)
+    timeout 90 xvfb-run -a "$1" "$plugin" --editor --editor2 --duplicate 3 --seconds 10 >"$out" 2>&1
     rc=$?
     if [ $rc -ne 0 ] && grep -q "no display or no editor" "$out" && grep -q "cannot read .*Access Music" "$out"; then
         cat "$out"
@@ -25,6 +27,9 @@ duplicate)
     fi
     [ $rc -eq 0 ] || fail "nativehost exited with $rc"
     grep -q "this one takes over the Virus" "$out" || fail "the duplicate did not take over"
+    # the editor's open and close are in the log (E287: REAPER crashes only with the editor open)
+    [ "$(grep -c "editor opened" "$out")" -ge 2 ] || fail "the two editors' opening is not logged"
+    grep -q "editor closed" "$out" || fail "the first editor's close is not logged"
     ;;
 ccclose)
     # the app crashed on closing (its timer outlived VSTGUI's platform layer), and its window kept the size it was

@@ -35,6 +35,9 @@ public:
     // One request/reply round trip: sends `request` (a SysEx), waits for a SysEx reply whose bytes 6..8 equal
     // `match` (prefix). Retries `tries` times with `timeout_ms` each. Empty result on failure.
     Dump transact(const Dump &request, const std::vector<uint8_t> &match, int timeout_ms = 3000, int tries = 3);
+    // Ends a waiting transact() at once and makes every later one return empty right away (the plug-in's
+    // terminate(): it waited up to 10 s for a request in flight, review 2026-10-19 M6).
+    void cancel();
 
     // Bank info of RAM bank 1..4: 128 fingerprints, or empty.
     std::vector<int> bank_info(int bank);
@@ -54,8 +57,10 @@ private:
     std::function<bool(const std::vector<uint8_t> &)> send_;
     int dev_;
     std::mutex mu_;
+    std::mutex tx_mu_; // one request at a time: the Virus drops replies to requests that overlap (E145)
     std::condition_variable cv_;
     std::vector<Dump> inbox_;
+    bool cancelled_ = false; // under mu_
 };
 
 } // namespace vti

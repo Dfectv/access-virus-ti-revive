@@ -14,6 +14,12 @@
 
 namespace vti {
 
+// an Access parameter message of page A-E: F0 00 20 33 01 <dev> 6E..72 <part> <param> <value> F7
+inline bool access_param(const uint8_t *m, size_t n)
+{
+    return n == 11 && m[0] == 0xF0 && m[1] == 0x00 && m[2] == 0x20 && m[3] == 0x33 && m[6] >= 0x6E && m[6] <= 0x72;
+}
+
 // m = a complete MIDI message; from_process = sent by process() with the stamp of its block
 inline bool needs_stamp(const uint8_t *m, size_t n, bool from_process)
 {
@@ -27,7 +33,7 @@ inline bool needs_stamp(const uint8_t *m, size_t n, bool from_process)
         return false;
     if (m[6] == 0x73 && m[8] == 0x22) // the sync ping: stamped like the original (3072)
         return true;
-    return from_process && m[6] >= 0x6E && m[6] <= 0x72 && n == 11; // a parameter page A-E, from automation
+    return from_process && access_param(m, n); // a parameter page A-E, from automation
 }
 
 // One F5 per stamp value within one USB write: the DSP keeps the current stamp for every byte that follows it

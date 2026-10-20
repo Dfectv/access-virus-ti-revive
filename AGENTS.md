@@ -39,6 +39,7 @@ The findings are free to use elsewhere; the maintainers would be happy about a m
 | `findings/evidence.md` | numbered observations E001.. with source and confidence — search here first |
 | `findings/claims.md` | community claims and how they were checked |
 | `findings/design*.md` | design per platform (Windows, macOS bridge, Linux, MIDI ports) |
+| `findings/testing.md` | testing strategy: risk classes per path (`scripts/risk.py`), the automated hardware run (`scripts/hil.sh`), checklist rotation, mutation score |
 | `findings/HANDOFF.md` | the maintainers' working log: current state, open problems, next steps |
 | `native/` | **the plug-in since 0.8.0**: "TI Revive Virus Control" (VST3, all platforms) and the Windows ASIO driver "TI Revive Virus Audio"; `native/docs/architecture.md`, `native/docs/protocol.md` (timing, stamp clock), `native/docs/formats.md` |
 | `src/broker/` | device access + broker: owns the Virus' USB interfaces, serves plug-in clients (WinUSB on Windows, libusb on macOS/Linux) |
@@ -74,6 +75,9 @@ The findings are free to use elsewhere; the maintainers would be happy about a m
   `cmake -S native -B build-native && cmake --build build-native && ctest --test-dir build-native` (MSVC on Windows,
   Xcode on macOS; see `native/README.md`). Never commit Access files: the plug-in loads them at runtime.
 - CI (`.github/workflows/build.yml`) builds releases only on version tags; build locally for PRs.
+- Test rounds: `python3 scripts/risk.py --round X.Y.Z` says which core checklist items the changes need (risk class
+  A/B/C per path, `scripts/checklists/risk.json`); `scripts/hil.sh` runs the Linux ones on the real Virus
+  (`findings/testing.md`). A new folder needs a rule in `risk.json` (a unit test checks it).
 - Without the hardware you can still: build, run the static checks you have, and reason from logs. Say that you did
   exactly that.
 

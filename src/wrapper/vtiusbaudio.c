@@ -63,9 +63,11 @@ static int open_dev(dev *d)
     if (SetupDiEnumDeviceInterfaces(di, NULL, &GUID_MI00, 0, &id)) {
         DWORD need = 0;
         SetupDiGetDeviceInterfaceDetailW(di, &id, NULL, 0, &need, NULL);
-        SP_DEVICE_INTERFACE_DETAIL_DATA_W *dd = malloc(need);
-        dd->cbSize = sizeof *dd;
-        if (SetupDiGetDeviceInterfaceDetailW(di, &id, dd, need, NULL, NULL)) {
+        // the size query failed (need too small for the struct) or no memory: no path, the caller falls back to WASAPI
+        SP_DEVICE_INTERFACE_DETAIL_DATA_W *dd = need >= sizeof *dd ? malloc(need) : NULL;
+        if (dd)
+            dd->cbSize = sizeof *dd;
+        if (dd && SetupDiGetDeviceInterfaceDetailW(di, &id, dd, need, NULL, NULL)) {
             d->file = CreateFileW(dd->DevicePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
                                   NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
             if (d->file == INVALID_HANDLE_VALUE)
@@ -307,7 +309,9 @@ int vua_run(volatile LONG *running, vua_in_fn in, void *user, vua_log_fn log)
                 if (vti_pktstat_rate_lost(&ps) && ps.bad_run % VTI_PKT_BAD_RUN == 0) {
                     if (rate_tries < 3) {
                         rate_tries++;
-                        int r = set_rate(d.h1, EP_OUT, VUA_RATE) || set_rate(d.h2, EP_IN, VUA_RATE);
+                        // both endpoints every time: a failed OUT request must not skip the IN one
+                        int r_out = set_rate(d.h1, EP_OUT, VUA_RATE), r_in = set_rate(d.h2, EP_IN, VUA_RATE);
+                        int r = r_out || r_in;
                         LOG("usbaudio: the Virus sends 48 kHz packets - asking for 44.1 kHz again (%d/3): SET_CUR %s",
                             rate_tries, r ? "failed" : "accepted");
                     } else if (rate_tries++ == 3)

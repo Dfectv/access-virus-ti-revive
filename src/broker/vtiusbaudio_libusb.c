@@ -233,10 +233,16 @@ int vla_start(libusb_context *ctx, libusb_device_handle *h, vla_in_fn in, vla_ou
             return -1;
         }
     }
-    if (libusb_set_interface_alt_setting(h, 1, 1) || libusb_set_interface_alt_setting(h, 2, 1)) {
-        vti_log("usbaudio: alternate setting 1 failed");
-        vla_stop();
-        return -1;
+    for (int i = 1; i <= 2; i++) { // the streaming interfaces: the host controller reserves their bandwidth here
+        int r = libusb_set_interface_alt_setting(h, i, 1);
+        if (r) {
+            // behind a USB hub the kernel can refuse it ("Not enough bandwidth for altsetting 1", issue #9, E285)
+            vti_log("usbaudio: alternate setting 1 of interface %d failed: %s - if the kernel log (journalctl -k) says "
+                    "'Not enough bandwidth', connect the Virus directly to the computer, not through a USB hub",
+                    i, libusb_error_name(r));
+            vla_stop();
+            return -1;
+        }
     }
     set_rate(EP_OUT, VLA_RATE);
     set_rate(EP_IN, VLA_RATE);

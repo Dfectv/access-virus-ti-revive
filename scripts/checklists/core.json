@@ -10,7 +10,7 @@
    "id": "linux",
    "items": [
     {
-     "id": "LC1",
+     "id": "LC1", "key": "cold",
      "title": "Core: cold start",
      "steps": [
       "REAPER closed. Switch the Virus off, wait 5 s, switch it on, wait for its normal screen.",
@@ -19,7 +19,7 @@
      "expect": "plays in time; the log has \"Virus ready after\" and \"sync marker at frame\", and no \"audio stood still\" line."
     },
     {
-     "id": "LC2",
+     "id": "LC2", "key": "reopen",
      "title": "Core: reopen after the broker's idle exit (twice)",
      "steps": [
       "Close REAPER, wait 60 s (<code>pgrep -a vtibroker</code> must show no broker), open the project, play about 10 s.",
@@ -28,7 +28,7 @@
      "expect": "both reopens play in time, no noise, no hang, no doubled notes."
     },
     {
-     "id": "LC3",
+     "id": "LC3", "key": "export",
      "title": "Core: export",
      "steps": [
       "Render the timing project with Full-speed offline to <code>work/timing/LC3.wav</code>. (After a wake, REAPER via PipeWire may need Preferences &gt; Audio &gt; Device re-applied, E211.)"
@@ -36,7 +36,7 @@
      "expect": "the export takes about as long as the clip; Claude measures the file (all notes on the grid)."
     },
     {
-     "id": "LC4",
+     "id": "LC4", "key": "power",
      "title": "Core: Virus off and on while the project is open",
      "steps": [
       "Stopped, plug-in loaded: switch the Virus off, wait 10 s, switch it on, wait for its normal screen.",
@@ -45,7 +45,7 @@
      "expect": "the plug-in shows the Virus again within a few seconds and plays in time."
     },
     {
-     "id": "LC5",
+     "id": "LC5", "key": "sleep",
      "title": "Core: sleep with the plug-in loaded",
      "steps": [
       "Run <code>systemctl suspend</code>.",
@@ -60,7 +60,7 @@
    "id": "vm",
    "items": [
     {
-     "id": "WC1",
+     "id": "WC1", "key": "cold",
      "title": "Core: cold start",
      "steps": [
       "Ableton closed. Switch the Virus off, wait 5 s, switch it on, wait for its normal screen.",
@@ -69,7 +69,7 @@
      "expect": "plays in time; the log has \"Virus ready after\" and \"sync marker at frame\", and no \"audio stood still\" line."
     },
     {
-     "id": "WC2",
+     "id": "WC2", "key": "reopen",
      "title": "Core: reopen after the broker's idle exit (twice)",
      "steps": [
       "Close Ableton, wait 60 s (Task Manager must show no broker), open the project, play about 10 s.",
@@ -78,7 +78,7 @@
      "expect": "both reopens play in time, no noise, no hang, no doubled notes."
     },
     {
-     "id": "WC3",
+     "id": "WC3", "key": "export",
      "title": "Core: export",
      "steps": [
       "File &gt; Export Audio/Video, the Virus track, to <code>WC3.wav</code> on the Desktop (the VM can drop notes, E141)."
@@ -86,7 +86,7 @@
      "expect": "the export takes about as long as the clip; Claude measures the file (all notes on the grid)."
     },
     {
-     "id": "WC4",
+     "id": "WC4", "key": "power",
      "title": "Core: Virus off and on while the project is open",
      "steps": [
       "Stopped, plug-in loaded: switch the Virus off, wait 10 s, switch it on, wait for its normal screen.",
@@ -100,7 +100,7 @@
    "id": "win",
    "items": [
     {
-     "id": "BC1",
+     "id": "BC1", "key": "cold",
      "title": "Core: cold start",
      "steps": [
       "Ableton closed. Switch the Virus off, wait 5 s, switch it on, wait for its normal screen.",
@@ -109,7 +109,7 @@
      "expect": "plays in time; the log has \"Virus ready after\" and \"sync marker at frame\", and no \"audio stood still\" line."
     },
     {
-     "id": "BC2",
+     "id": "BC2", "key": "reopen",
      "title": "Core: reopen after the broker's idle exit (twice)",
      "steps": [
       "Close Ableton, wait 60 s (Task Manager &gt; Details, <code>vtibroker.exe</code> must show no broker), open the project, play about 10 s.",
@@ -118,7 +118,7 @@
      "expect": "both reopens play in time, no noise, no hang, no doubled notes."
     },
     {
-     "id": "BC3",
+     "id": "BC3", "key": "export",
      "title": "Core: export",
      "steps": [
       "File &gt; Export Audio/Video, the Virus track, to <code>C:\\tirevive-test\\BC3.wav</code>."
@@ -126,7 +126,7 @@
      "expect": "the export takes about as long as the clip; Claude measures the file (all notes on the grid)."
     },
     {
-     "id": "BC4",
+     "id": "BC4", "key": "power",
      "title": "Core: Virus off and on while the project is open",
      "steps": [
       "Stopped, plug-in loaded: switch the Virus off, wait 10 s, switch it on, wait for its normal screen.",
@@ -135,7 +135,7 @@
      "expect": "the plug-in shows the Virus again within a few seconds and plays in time."
     },
     {
-     "id": "BC5",
+     "id": "BC5", "key": "sleep",
      "title": "Core: sleep with the plug-in loaded",
      "steps": [
       "Start &gt; Power &gt; Sleep.",
@@ -150,7 +150,7 @@
    "id": "mac",
    "items": [
     {
-     "id": "MC1",
+     "id": "MC1", "key": "cold",
      "title": "Core: cold start",
      "steps": [
       "Ableton closed. Switch the Virus off, wait 5 s, switch it on, wait for its normal screen.",
@@ -159,7 +159,7 @@
      "expect": "plays in time; the log has \"Virus ready after\" and \"sync marker at frame\", and no \"audio stood still\" line."
     },
     {
-     "id": "MC2",
+     "id": "MC2", "key": "reopen",
      "title": "Core: reopen after the broker's idle exit (twice)",
      "steps": [
       "Close Ableton, wait 60 s (<code>pgrep -a vtibroker</code> must show no broker), open the project, play about 10 s.",
@@ -168,7 +168,7 @@
      "expect": "both reopens play in time, no noise, no hang, no doubled notes."
     },
     {
-     "id": "MC3",
+     "id": "MC3", "key": "export",
      "title": "Core: export",
      "steps": [
       "File &gt; Export Audio/Video to <code>~/Downloads/MC3.wav</code>."
@@ -176,7 +176,7 @@
      "expect": "the export takes about as long as the clip; Claude measures the file (all notes on the grid)."
     },
     {
-     "id": "MC4",
+     "id": "MC4", "key": "power",
      "title": "Core: Virus off and on while the project is open",
      "steps": [
       "Stopped, plug-in loaded: switch the Virus off, wait 10 s, switch it on, wait for its normal screen.",
@@ -185,7 +185,7 @@
      "expect": "the plug-in shows the Virus again within a few seconds and plays in time."
     },
     {
-     "id": "MC5",
+     "id": "MC5", "key": "sleep",
      "title": "Core: sleep with the plug-in loaded",
      "steps": [
       "Apple menu &gt; Sleep (or close the lid).",

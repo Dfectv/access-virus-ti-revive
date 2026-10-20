@@ -219,6 +219,24 @@ static intptr_t os_connect(const std::string &endpoint, std::string &error)
             ::close(fd);
         return -1;
     }
+    // the socket lives in /tmp: only a broker of this user is talked to - another user could have made the path
+    // first and feed the plug-in what it likes (review 2026-10-19 H4)
+    uid_t peer = (uid_t)-1;
+#ifdef __APPLE__
+    gid_t gid;
+    if (getpeereid(fd, &peer, &gid) != 0)
+        peer = (uid_t)-1;
+#else
+    ucred cr{};
+    socklen_t cl = sizeof cr;
+    if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &cr, &cl) == 0)
+        peer = cr.uid;
+#endif
+    if (peer != getuid()) {
+        error = std::string("the TI Revive broker socket ") + sa.sun_path + " belongs to another user";
+        ::close(fd);
+        return -1;
+    }
     return fd;
 }
 
@@ -235,7 +253,10 @@ static void os_release(intptr_t fd)
 
 bool Broker::open(std::string &error)
 {
-    fd_ = os_connect(endpoint_, error);
+    {
+        std::lock_guard<std::mutex> g(wr_); // senders on other threads see the handle whole (review 2026-10-19 M7)
+        fd_ = os_connect(endpoint_, error);
+    }
     if (fd_ < 0)
         return false;
     uint32_t ver = VTI_PROTO_VERSION;
@@ -261,6 +282,12 @@ void Broker::close()
         }
     if (reader_.joinable())
         reader_.join();
+    // under the write lock: a control() or write() of another thread (sync thread, editor) never writes to a released
+    // or reused handle (review 2026-10-19 M7); woken first, so a write stuck on a broker that stopped reading fails
+    // instead of holding the lock
+    if (fd_ >= 0)
+        os_wake(fd_);
+    std::lock_guard<std::mutex> g(wr_);
     if (fd_ >= 0) {
         os_release(fd_);
         fd_ = -1;
@@ -269,10 +296,12 @@ void Broker::close()
 
 bool Broker::send(uint16_t type, const void *a, size_t alen, const void *b, size_t blen)
 {
-    if (fd_ < 0 || alen + blen > VTIMSG_MAX)
+    if (alen + blen > VTIMSG_MAX)
         return false;
     vtimsg h{type, (uint16_t)(alen + blen)};
     std::lock_guard<std::mutex> g(wr_);
+    if (fd_ < 0) // checked under the lock that close() takes
+        return false;
     return io_all(fd_, &h, sizeof h, true) && (!alen || io_all(fd_, (void *)a, alen, true)) &&
            (!blen || io_all(fd_, (void *)b, blen, true));
 }
@@ -296,22 +325,30 @@ int Broker::control(uint8_t rt, uint8_t req, uint16_t value, uint16_t index, uin
     {
         std::lock_guard<std::mutex> g(ctl_);
         seq = ++seq_;
+        waiting_.insert(seq); // only replies someone waits for are kept (a late one is dropped)
     }
     memcpy(hdr, &seq, 4);
     hdr[4] = rt, hdr[5] = req, hdr[6] = value & 0xff, hdr[7] = value >> 8, hdr[8] = index & 0xff,
     hdr[9] = index >> 8, hdr[10] = len & 0xff, hdr[11] = len >> 8;
-    if (!send(VTIMSG_CONTROL, hdr, 12, (rt & 0x80) ? nullptr : data, (rt & 0x80) ? 0 : len))
+    if (!send(VTIMSG_CONTROL, hdr, 12, (rt & 0x80) ? nullptr : data, (rt & 0x80) ? 0 : len)) {
+        std::lock_guard<std::mutex> g(ctl_);
+        waiting_.erase(seq);
         return -1;
+    }
     std::unique_lock<std::mutex> l(ctl_);
-    if (!ctl_cv_.wait_for(l, std::chrono::milliseconds(timeout_ms), [&] { return replies_.count(seq) > 0; }))
+    const bool got = ctl_cv_.wait_for(l, std::chrono::milliseconds(timeout_ms), [&] { return replies_.count(seq) > 0; });
+    waiting_.erase(seq);
+    if (!got)
         return -1;
     auto rep = std::move(replies_[seq]);
     replies_.erase(seq);
     int32_t r = -1;
     if (rep.size() >= 4)
         memcpy(&r, rep.data(), 4);
-    if (r > 0 && (rt & 0x80))
-        memcpy(data, rep.data() + 4, std::min<size_t>((size_t)r, rep.size() - 4));
+    if (r > 0 && (rt & 0x80)) { // never more than the caller's buffer, whatever the broker says (review 2026-10-19)
+        r = (int32_t)std::min<size_t>({(size_t)r, (size_t)len, rep.size() - 4}); // <size_t>: windows.h's min macro
+        memcpy(data, rep.data() + 4, (size_t)r);
+    }
     return r;
 }
 
@@ -404,7 +441,8 @@ void Broker::read_loop()
                 uint32_t seq;
                 memcpy(&seq, buf.data(), 4);
                 std::lock_guard<std::mutex> g(ctl_);
-                replies_[seq].assign(buf.begin() + 4, buf.begin() + h.len);
+                if (waiting_.count(seq)) // control() gave up on it: dropped, not kept for good
+                    replies_[seq].assign(buf.begin() + 4, buf.begin() + h.len);
                 ctl_cv_.notify_all();
             }
             break;
