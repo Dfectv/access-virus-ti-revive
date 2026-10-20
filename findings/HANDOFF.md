@@ -51,6 +51,8 @@ a library load, then the same with a dev build that writes byte 10 = 0x20 like t
 with pnputil from the extracted MSI, drivers only, no updater; WinUSB packages removed; snapshot pre-access-driver-2
 before): the original also steps through the Virus' RAM slots on +/- after a library patch (user: "It never switched
 the preset on the library"). Not a TI Revive bug; no code change. Reply to the reporter: user.
+Web text the user found ("Allow hardware control over the librarian patches") checked: not in the 5.1.7 DLL or
+manuals (E292). VM: win10 running with the Virus attached - close Live, detach, shut down, start the broker socket.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
