@@ -1,7 +1,7 @@
 ; vti_winusb.inf - bind the inbox, Microsoft-signed WinUSB driver to the Virus TI interfaces:
 ; MI_03 (EP 0x05/0x85) and MI_04 (EP 0x06/0x86) for MIDI, see findings/spec.md, and the USB audio function
 ; MI_00 (interfaces 0..2, EP 0x01 OUT / 0x82 IN), streamed by the plug-in itself like the Access driver did
-; (src/wrapper/vtiusbaudio.c, findings E075). No kernel code of our own is installed.
+; (src/broker/vtiusbaudio.c, findings E075). No kernel code of our own is installed.
 ; The catalog (vti_winusb.cat) is generated and signed at install time (scripts/vm-winusb-install.ps1).
 
 [Version]
