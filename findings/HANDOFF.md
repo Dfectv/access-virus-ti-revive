@@ -34,6 +34,19 @@ setState 245 records, part 1 "Envy", state sent (244 messages), Virus ready 2.0 
 The four test libraries were removed from the Mac's ~/Documents/Access Music/Virus TI/Patches afterwards
 (My Patches.mid, New Library.mid kept). Reply to the reporter sent by the user 2026-10-20 (Reddit).
 NEXT: wait for version, model/OS, where the libraries come from, LOAD vs project recall, one affected .mid file. No evidence entry until there is data.
+**Update 2026-10-20 evening:** reporter: "it seems to be fine today" (silent libraries not reproducible on their side
+either; closed unless it returns). New report from them: a personal library patch loaded in the browser, then
+program +/- on the Virus -> the next RAM/ROM preset is loaded, not the next library patch; "the original software
+didn't work this way". Ours: load_reported_presets loads (Bank, Patch) as the Virus reports them from the bank cache.
+Static (REA/Ghidra, Virus Control.dll 5.1.7 x64, sha256 a622f9a2..): the original does the same on a report -
+0x180083ae0 looks up (Multi Part Bank + 1, Patch) via 0x18008daa0, which only walks the repository's numbered banks
+(the Virus' RAM/ROM, CVirusBank); listener offsets in 0x180081980 are object offsets - 0x10 (ccd98/ccda0 = Multi Part
+Bank/Patch at ccda8/ccdb0 in 0x18006ed70). So any difference must come from the Virus: before sending a library
+patch the original sets byte 10 (Single Patchmanagement/Flags) = 0x20 and leaves bytes 11/12; a RAM/ROM patch gets
+00/bank/index (E156). We send library bytes 10..12 as in the file. Hypothesis (LOW, untested): with flag 0x20 the
+Virus' +/- does not step its RAM/ROM bank (or reports differently). Not checked: the firmware's handling of the
+flag; what the Virus reports on +/- in either case. Next (needs the user + TI2): read-only observer while +/- after
+a library load, then the same with a dev build that writes byte 10 = 0x20 like the original.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
