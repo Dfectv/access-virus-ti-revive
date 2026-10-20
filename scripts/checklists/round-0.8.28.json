@@ -1,0 +1,135 @@
+{
+ "round": "0.8.28",
+ "core": "core.json",
+ "core_items": [
+  "LC4",
+  "LC5",
+  "WC1",
+  "WC3",
+  "MC1",
+  "MC2",
+  "MC3",
+  "MC4",
+  "MC5"
+ ],
+ "lead": "Test build 0.8.28 (CI run 39383301539). This round is the result of a code review and new tests, not new features: the send path guards host values (velocity, pitch bend, tempo; on Windows and macOS a NaN slipped through before), the editor sends one message per value while you drag, text edits close cleanly, popup menus are safer on Linux and Windows, the audio ring cannot be unmapped under a reader, and the plug-in reconnects when the broker goes away. Linux cold start, reopen, export and broker restart passed automated on the Virus (hil.sh, all pass); the items below are what a machine cannot check. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "rules": [
+  "Never store a patch on the Virus: a rename in this round only changes the edit buffer; do not press STORE.",
+  "Order: Linux first (the Virus is on this PC), then the Windows 11 VM, then macOS. Close the DAW before the Virus moves."
+ ],
+ "sections": [
+  {
+   "id": "linux",
+   "title": "Linux",
+   "where": "REAPER via pw-jack, Virus on this PC",
+   "prep": [
+    "Already installed by Claude: the CI build in <code>~/.vst3</code> and the broker (same files as the CI package).",
+    "Logging: create <code>~/.local/share/virus-ti-native/diag.on</code> if it is not there.",
+    "LC5 (sleep) is by hand this time: the automated run needs your sudo and was not run."
+   ],
+   "items": [
+    {
+     "id": "L1",
+     "title": "A fast editor drag",
+     "steps": [
+      "Hold a long note (or play the 16th clip) on part 1 with an open, bright patch.",
+      "In the editor, drag the Cutoff knob quickly from one end to the other and back, five times; then do the same with Resonance."
+     ],
+     "expect": "the sound follows the knob smoothly while you drag, notes keep playing, the Virus never stops reacting, no sync error page."
+    },
+    {
+     "id": "L2",
+     "title": "Popup menus",
+     "steps": [
+      "Open a few popup menus in the editor (a patch name's menu, a value menu, the PATCH UTILITY menus) and close them with Esc, with a click outside, and by choosing an entry.",
+      "Open one menu, switch to another virtual desktop and back, then close it."
+     ],
+     "expect": "every menu opens and closes, nothing stays on screen, no crash."
+    },
+    {
+     "id": "L3",
+     "title": "Close the first of two instances (duplicated track)",
+     "steps": [
+      "Duplicate the track with the plug-in; the copy shows \"Virus unavailable\".",
+      "Open both editors, then remove the plug-in from the FIRST track (or delete the first track)."
+     ],
+     "expect": "the second instance takes the Virus within a few seconds, its editor works and plays; REAPER does not crash or hang."
+    },
+    {
+     "id": "L4",
+     "title": "REAPER crash after a GUI render (E265/E277): the deciding test",
+     "steps": [
+      "(a) Render the timing project from REAPER's render dialog with the plug-in's editor CLOSED, three times; close the render dialog each time.",
+      "(b) A new project with only ReaSynth (no TI Revive), the same render length, rendered from the dialog three times."
+     ],
+     "expect": "the earlier crashes came 6-12 s after a render with the editor open. Note for each render whether REAPER crashed: a crash in (b) means REAPER's own window layer, none in (a) points at the open editor."
+    }
+   ]
+  },
+  {
+   "id": "vm",
+   "title": "Windows 11 VM",
+   "where": "win11 VM, Ableton Live 11, Virus attached by Claude",
+   "prep": [
+    "Already installed by Claude: setup.exe /quiet over 0.8.27 (entries 0.8.28, same plug-in file as the CI MSI).",
+    "Ask Claude to attach the Virus to the VM (it stops the Linux broker first)."
+   ],
+   "items": [
+    {
+     "id": "W1",
+     "title": "Rename a patch (text edit)",
+     "steps": [
+      "Open the part's patch name field, type a new name and press Enter.",
+      "Open it again, type something and click somewhere else in the editor instead of Enter; once more and switch to another window (Alt-Tab) while the field is open.",
+      "Close the editor and open it again."
+     ],
+     "expect": "each time the field closes, the name shows as typed (the Virus' display too), the editor keeps reacting, no crash on close or reopen."
+    },
+    {
+     "id": "W2",
+     "title": "Popup menus, then remove and add the plug-in (Win32 popups)",
+     "steps": [
+      "Open and close a few popup menus in the editor (Esc, click outside, an entry).",
+      "Remove the plug-in from the track, add it again, open a popup menu again. Repeat once."
+     ],
+     "expect": "menus work after every reload, nothing stays on screen, Live does not crash. First real test of this fix (it was only compile-checked)."
+    },
+    {
+     "id": "W3",
+     "title": "A fast editor drag",
+     "steps": [
+      "As L1: drag Cutoff and Resonance quickly back and forth while notes play."
+     ],
+     "expect": "the sound follows smoothly, notes keep playing, no sync error page."
+    }
+   ]
+  },
+  {
+   "id": "mac",
+   "title": "macOS",
+   "where": "MacBook Air M3, Ableton Live 12",
+   "prep": [
+    "Claude pushes the package when the Mac is awake; install with <code>sudo installer -pkg \"$HOME/Downloads/TI-Revive-0.8.28-mac/TI-Revive-0.8.28-mac/TI Revive.pkg\" -target /</code>. Virus on the Mac.",
+    "Claude puts <code>diag.on</code> in the plug-in's folder and renames the old diag.log."
+   ],
+   "items": [
+    {
+     "id": "M1",
+     "title": "Rename a patch (text edit)",
+     "steps": [
+      "As W1: Enter, a click elsewhere, and Cmd-Tab to another app while the field is open; then close and reopen the editor."
+     ],
+     "expect": "the field closes each time with the typed name, the editor keeps reacting, no crash."
+    },
+    {
+     "id": "M2",
+     "title": "A fast editor drag",
+     "steps": [
+      "As L1: drag Cutoff and Resonance quickly back and forth while notes play."
+     ],
+     "expect": "the sound follows smoothly, notes keep playing, no sync error page."
+    }
+   ]
+  }
+ ]
+}
