@@ -45,7 +45,10 @@ NEXT: wait for version, model/OS, where the libraries come from, LOAD vs project
    rejected (NaN check failed first under -ffast-math). Same pass: test_resampler's NaN marker test used
    std::isnan/isfinite and failed under g++ -ffast-math (18 checks; MSVC /fp:fast keeps them, so Windows CI was green);
    now a bit check (test only). Built and tested on Linux: normal build ctest 5/5, a -ffast-math build of vtitests
-   304 tests 0 failed. Not on hardware (no device path touched).
+   304 tests 0 failed. Not on hardware (no device path touched). C++ review 2026-10-20 (evening): the sine row
+   (row 0) is now bit-checked too (finite_at for all 64 rows, test: NaN in row 0 rejected), size_t widening
+   fixed (clang-tidy clean on the function), test_resampler flag renamed to no_nan. Linux build + ctest 5/5; this
+   came AFTER the CI test build 39441322803, so the release build differs from the tested one in find_osc_waves.
 
 2. **E289: "bank sync done" after an aborted sync (fixed, test first).** The bank loop stops at the first bank whose
    sync_bank returns < 0 (-1 no answer, -2 closed while syncing), but the line after the loop always logged "bank

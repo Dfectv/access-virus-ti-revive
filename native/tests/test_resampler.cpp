@@ -84,10 +84,10 @@ TEST(resampler_reads_exactly_frames_needed)
             float out[n + 1];
             out[n] = 7.0f;
             r.process(buf.data() + G, first, pos, step, out, n);
-            bool finite = true;
+            bool no_nan = true;
             for (int i = 0; i < n; i++)
-                finite = finite && !nan_bits(out[i]);
-            CHECK(finite);       // nothing outside the range was read
+                no_nan = no_nan && !nan_bits(out[i]);
+            CHECK(no_nan);       // nothing outside the range was read
             CHECK(out[n] == 7.0f); // nothing written past n
             for (int edge : {G, G + count - 1}) { // the first and the last frame of the range are both read
                 buf[(size_t)edge] = NAN;
