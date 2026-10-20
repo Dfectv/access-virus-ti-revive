@@ -2447,6 +2447,7 @@ void VirusPlugin::sync_banks()
     // check of a current cache shows nothing. The original keeps "synchronising" on the Virus display while it
     // syncs (74 01 7E 07 about once a second) - also only then
     SyncPage page;
+    int result = 0; // the last bank's sync_bank result: < 0 = the sync stopped there
     if (sync_expected)
         page.expect();
     std::atomic<bool> rise{true}, fetching{page.shown()};
@@ -2495,6 +2496,7 @@ void VirusPlugin::sync_banks()
         out_->log("Virus TI native: RAM %c sync: %d fetched\n", 'A' + b, n); // also diag.log: the sync's duration
         if (n == -2 && !dir.empty()) // closed while syncing: keep what was fetched, the next start continues
             save_bank_file(dir + "/RAM " + (char)('A' + b), bank);
+        result = n;
         if (n < 0)
             break;
         {
@@ -2510,10 +2512,10 @@ void VirusPlugin::sync_banks()
     syncing_ = false;
     sync_eta_s_ = -1;
     set_sync_progress(127);
-    out_->log("Virus TI native: bank sync done in %.1f s\n", (now_ms() - sync_t0) / 1000.0);
+    out_->log("Virus TI native: bank sync %s in %.1f s\n", sync_end(result), (now_ms() - sync_t0) / 1000.0);
     if (page.shown()) {
         std::lock_guard<std::mutex> lk(values_mu_);
-        lcd_param_ = "Synchronization done";
+        lcd_param_ = result < 0 ? "" : "Synchronization done";
         lcd_value_.clear();
         lcd_orig_.clear();
     }
