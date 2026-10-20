@@ -38,6 +38,22 @@ $p = Start-Process msiexec.exe -ArgumentList "/i `"$copy`" /qn /norestart /l*v `
 "msiexec exit code: $($p.ExitCode) (0 = ok, 3010 = ok/reboot)"
 Select-String -Path $log -Pattern 'InstallDrivers|UpdateFirmware|InstallRunOnceEntry|Installation success|Installation failed|return value 3' |
     Select-Object -Last 10 | ForEach-Object { $_.Line }
+# The MSI's own driver step fails silently here (DIFx e0000242): /qn cannot show Windows' "install software from
+# Kemper GmbH?" prompt. Trust the catalogs' signer (what that prompt's "always trust" does) and add the three
+# drivers from the installed folders with pnputil. Checked on win10ref 2026-10-20: all three catalogs Valid.
+$dir = 'C:\Program Files\Access Music\Virus TI'
+$store = New-Object System.Security.Cryptography.X509Certificates.X509Store('TrustedPublisher', 'LocalMachine')
+$store.Open('ReadWrite')
+foreach ($d in 'Usbdriver\VirusUSB', 'Audiodriver\vtiaudio', 'Mididriver\vtimidi') {
+    $sig = Get-AuthenticodeSignature "$dir\$d.cat"
+    "$d.cat: $($sig.Status) $($sig.SignerCertificate.Subject)"
+    if ($sig.Status -ne 'Valid') { throw "catalog $d.cat is not validly signed" }
+    $store.Add($sig.SignerCertificate)
+}
+$store.Close()
+foreach ($d in 'Usbdriver\VirusUSB', 'Audiodriver\vtiaudio', 'Mididriver\vtimidi') {
+    pnputil /add-driver "$dir\$d.inf" /install | Out-String
+}
 # the RunOnce key must not start anything Access-related at the next logon
 Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce', 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce' -ErrorAction SilentlyContinue |
     Format-List | Out-String

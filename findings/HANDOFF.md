@@ -72,6 +72,11 @@ vti. Ableton 11.3.43 zip + web installer copied from win11 to work/vm-transfer/ 
 Plan: install -> SSH -> Access suite (Virus NOT attached) -> user installs/authorises Live -> snapshot ref-clean ->
 one attach. The old win10 VM stays until win10ref works (user decides). Virus checked on Linux after the VM crashes:
 tirevive-cc info OS 5.1.7.00, RAM A-D answer (libvirt left /dev/bus/usb node root:root; user ran udevadm trigger).
+win10ref state 2026-10-20 ~22:00: Windows 10 Pro 19045 de-DE installed unattended, SSH ok; Access suite 5.1.7 via
+install-access-reference.ps1 (exit 0, UpdateFirmware + InstallRunOnceEntry skipped; no Access Run/RunOnce/task).
+The MSI's DIFx driver step failed silently (e0000242, publisher not trusted - /qn cannot show the prompt): the
+Kemper signer (catalogs Valid) put into LocalMachine\TrustedPublisher, then pnputil /add-driver for VirusUSB,
+vtiaudio, vtimidi - now part of the script. Virus not attached yet. Next: Live 11 (user), snapshot ref-clean, attach.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
