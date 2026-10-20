@@ -57,6 +57,13 @@ Workaround the user confirmed in the original (2026-10-20): Browser page, a RAM 
 drag library patches into its slots, then +/- on the Virus steps through them. TI Revive: one browser only
 (Browser 0), browser drag goes onto part strips only; per patch: load + SAVE into a RAM slot (store_patch). Feature
 gap (not scheduled): second browser + drop onto a RAM slot - look up the original's layout/behaviour first (REA, VM).
+Recording attempt of that drag (2026-10-20 ~21:31-21:45): Virus Control showed "No Virus TI connected" after a
+Live restart (stale WinUSB devnodes removed with pnputil /remove-device, did not help before a VM reboot); the user
+power-cycled the Virus, reattach -> two bug checks 0x139 (param 3, list corruption) in the VM at 21:41/21:42 host time
+(minidumps 102026-5062-01, 102026-4203-01); after the reboot Control Center showed a wrong model / old firmware / OS
+unknown although the Virus' USB identity was normal (Access Music / Virus TI / bcd 0x0300). Captures orig-libdrag-1/-2
+and screenshots in work/libdrag/ hold no drag (not connected). Next time: dual-boot PC or a clean VM boot with one
+attach; never power-cycle the Virus while it is in the VM.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
