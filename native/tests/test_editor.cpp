@@ -348,7 +348,7 @@ TEST(editor_render_browser)
     Rig g;
     g.r->bank_patch = [](int bank, int program) { return "B" + std::to_string(bank) + "P" + std::to_string(program); };
     g.r->browser_match = [](int, int program) { return program % 2 == 0; };
-    g.r->selected[0] = 5;
+    g.r->selected[0] = {5};
     g.r->render(g.canvas);
     auto &c = g.canvas;
     // 128 entries: program digits (filled pixels) and names; odd programs dimmed

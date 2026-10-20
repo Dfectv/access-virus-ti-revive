@@ -96,6 +96,17 @@ onto a RAM slot in TI Revive (TDD; store path like store_patch, cache update, ru
 Step 6 done: Live restart in win10ref connects again (the old VM's 'not connected after restart' was not a 2nd-session
 rule - probably the screenshot loop / driver state). Virus detached, win10ref off; RAM A checked on Linux after a power
 cycle (13 changed programs, dropped names in place; work/libdrag/ramcheck). Broker socket started again.
+**Round 0.8.29 item 7: browser drop onto RAM (E294), dev build 2026-10-20 ~23:00, NOT tested by the user yet.**
+Correction: TI Revive already had both browser panes (Browser 0/1); missing were drop + undo + menu. New
+native/src/model/bankdrop.h (BankDrop: consecutive slots, cut at 128, only bytes 7/8 + checksums new, one-level
+undo, refused when an overwritten slot is not cached; BrowserSelection: click / Shift range / Ctrl toggle) + 7 tests
+(312 total, ctest 5/5). Plug-in: drop_to_ram (sources upgraded like a load; refused while the bank sync runs),
+undo_drop, send_ram_writes (dumps + cache + cache file); store_patch and a sync that fetched changes forget the undo.
+Editor: multi-selection framed, drop onto a RAM slot of the OTHER pane, right-click browser menu (Undo works;
+Download bank / Sort / Delete selection greyed). Not verified with the original: drop into the same pane (ignored),
+ROM/library targets (no drop), Ctrl selections with gaps (ascending order), older library formats (upgraded first).
+Installed: ~/.vst3 = this dev build (sha a3d67ecf..), previous in ~/.vst3-backup/0.8.29-before-drop. NEXT: user smoke
+test in REAPER (Linux), then risk.py / checklist item, CI.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 

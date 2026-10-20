@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <vector>
 #include <map>
+#include <set>
 #include <string>
 
 namespace vti {
@@ -120,7 +121,7 @@ public:
     std::vector<std::array<int, 4>> param_rects(const std::string &param) const;
     // the browser entry (program 0..127) under a point inside a PatchBrowser hit, or -1
     static int browser_entry(const Hit &h, int x, int y);
-    std::map<int, int> selected; // bank -> selected program in the browser (drawn inverted)
+    std::map<int, std::set<int>> selected; // bank -> selected programs in the browser (framed)
     std::string value_text(const std::string &param, int v) const;
     std::vector<std::pair<int, std::string>> menu_entries(const std::string &param) const; // (value, text), menu order
 

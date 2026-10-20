@@ -1330,6 +1330,12 @@ public:
                 return;
             }
         }
+        // right-click on a browser entry: the original's browser menu (E294 (4))
+        if (event.buttonState.isRight() && !help_ && h.element && h.element->type == "PatchBrowser") {
+            browser_menu(h, event.mousePosition);
+            event.consumed = true;
+            return;
+        }
         // right-click where there is no control: the editor's size (the original has no such setting)
         if (event.buttonState.isRight() && (!h.element || h.element->get("Parameter").empty())) {
             size_menu(event.mousePosition);
@@ -1397,13 +1403,17 @@ public:
             event.consumed = true;
             return;
         }
-        if (e.type == "PatchBrowser") { // click selects, double click loads into the current part
+        // click selects (Shift: a range, Ctrl: one more), double click loads into the current part; the selection
+        // may be dragged onto a part strip or a RAM slot of the other pane (E294)
+        if (e.type == "PatchBrowser") {
             int prog = EditorRenderer::browser_entry(h, (int)event.mousePosition.x, (int)event.mousePosition.y);
             int bank = plugin_->ui_value(e.get("Parameter"), -1);
             if (prog >= 0) {
-                dnd_bank_ = bank, dnd_prog_ = prog; // may be dragged onto a part strip
-                renderer_.selected[bank] = prog;
-                if (event.clickCount >= 2)
+                const bool shift = event.modifiers.has(ModifierKey::Shift), ctrl = event.modifiers.has(ModifierKey::Control);
+                dnd_bank_ = bank, dnd_prog_ = prog;
+                browser_sel_[bank].press(prog, shift, ctrl);
+                show_selection(bank);
+                if (event.clickCount >= 2 && !shift && !ctrl)
                     plugin_->load_patch_remembered(bank, prog, plugin_->ui_value(plugin_->layout().frame_parameter, -1));
                 invalid();
             }
@@ -1544,16 +1554,24 @@ public:
 
     void onMouseUpEvent(MouseUpEvent &event) override
     {
-        if (dnd_ && drag_.element) { // dropped: onto a part strip (the part panel, x < 192)?
+        const bool dragged = dnd_;
+        if (dnd_ && drag_.element) { // dropped: onto a part strip (the part panel, x < 192) or a browser slot?
             if (auto *f = getFrame())
                 f->setCursor(kCursorDefault);
-            Hit t = renderer_.hit_test((int)event.mousePosition.x, (int)event.mousePosition.y);
+            const int x = (int)event.mousePosition.x, y = (int)event.mousePosition.y;
+            Hit t = renderer_.hit_test(x, y);
             bool strip = t.element && event.mousePosition.x < 192 && t.part >= 0 && t.part < 16;
             if (strip && drag_.element->type == "NameEdit")
                 plugin_->copy_part(drag_.part, t.part);
             else if (strip && dnd_prog_ >= 0)
                 plugin_->load_patch_remembered(dnd_bank_, dnd_prog_, t.part);
+            else if (dnd_prog_ >= 0 && t.element && t.element->type == "PatchBrowser" && t.element != drag_.element)
+                drop_on_browser(t, x, y);
             dnd_ = false;
+        }
+        if (drag_.element && drag_.element->type == "PatchBrowser" && dnd_prog_ >= 0) {
+            browser_sel_[dnd_bank_].release(dnd_prog_, dragged);
+            show_selection(dnd_bank_);
         }
         drag_ = {};
         drag_rects_.clear();
@@ -2133,6 +2151,43 @@ private:
     VirusPlugin *plugin_;
     VirusEditor *editor_;
 
+    // the selection of a bank as the renderer frames it
+    void show_selection(int bank)
+    {
+        auto items = browser_sel_[bank].items();
+        renderer_.selected[bank] = std::set<int>(items.begin(), items.end());
+    }
+
+    // the dragged selection dropped on a slot of the other pane: written into the slots from there on when that pane
+    // shows a RAM bank (the original, E294); ROM, libraries and the search results take no drop
+    void drop_on_browser(const Hit &t, int x, int y)
+    {
+        const int bank = plugin_->ui_value(t.element->get("Parameter"), -1), slot = EditorRenderer::browser_entry(t, x, y);
+        if (bank < 0 || bank > 3 || slot < 0)
+            return;
+        auto programs = browser_sel_[dnd_bank_].items();
+        if (programs.empty())
+            programs = {dnd_prog_};
+        plugin_->drop_to_ram(dnd_bank_, programs, bank, slot);
+    }
+
+    // the original's browser menu (E294 (4)): RAM/ROM "Undo last operation", "Download entire bank from Virus TI",
+    // "Sort alphabetically"; a library has "Delete selection" in the middle. Only the undo is done so far
+    void browser_menu(const Hit &h, const CPoint &where)
+    {
+        const int bank = plugin_->ui_value(h.element->get("Parameter"), -1);
+        std::vector<vti::PopupItem> items;
+        items.push_back({"Undo last operation", plugin_->can_undo_drop()});
+        items.push_back({bank >= VirusPlugin::LIB_BASE && bank != VirusPlugin::SEARCH_BANK ? "Delete selection"
+                                                                                        : "Download entire bank from Virus TI",
+                         false});
+        items.push_back({"Sort alphabetically", false});
+        show_popup(std::move(items), -1, 0, where, [this](const std::vector<int> &path) {
+            if (!path.empty() && path.front() == 0 && plugin_->undo_drop())
+                invalid();
+        });
+    }
+
     void size_menu(const CPoint &where)
     {
         static const double sizes[] = {1.0, 1.25, 1.5, 1.75, 2.0};
@@ -2162,6 +2217,7 @@ private:
     double drag_y_ = 0, drag_x_ = 0;
     bool dnd_ = false;             // a patch is being dragged
     int dnd_bank_ = 0, dnd_prog_ = -1;
+    std::map<int, vti::BrowserSelection> browser_sel_; // bank -> its selection in the browser panes
     int drag_value_ = 0;
 };
 

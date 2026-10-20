@@ -2502,6 +2502,8 @@ void VirusPlugin::sync_banks()
         {
             std::lock_guard<std::mutex> lk(banks_mu_);
             banks_[b].assign(bank.begin(), bank.end());
+            if (n > 0)
+                drop_.forget(); // the Virus' RAM changed elsewhere: an undo could write over it
         }
         if (!dir.empty())
             save_bank_file(dir + "/RAM " + (char)('A' + b), bank);
@@ -2712,12 +2714,97 @@ bool VirusPlugin::store_patch(int part, int bank, int program)
         b[program] = d;
         for (int p = 0; p < 128; p++)
             cache[p] = b[p];
+        drop_.forget(); // an undo of an earlier drop must not write over this store
     }
     std::string dir = own_cache_dir();
     if (!dir.empty()) {
         std::error_code ec;
         std::filesystem::create_directories(dir, ec);
         save_bank_file(dir + "/RAM " + (char)('A' + bank), cache);
+    }
+    ui_dirty_ = true;
+    return true;
+}
+
+bool VirusPlugin::drop_to_ram(int src_bank, const std::vector<int> &programs, int bank, int slot)
+{
+    if (syncing_.load()) { // the sync writes its read of the bank back at its end: it would undo the drop's cache
+        if (out_)
+            out_->log("Virus TI native: drop onto RAM %c refused, bank sync running\n", 'A' + std::max(0, bank));
+        return false;
+    }
+    std::vector<BankDrop::Write> w;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto src = banks_.find(src_bank), dst = banks_.find(bank);
+        if (src == banks_.end() || dst == banks_.end())
+            return false;
+        std::vector<BankDrop::Patch> sources;
+        for (int p : programs)
+            if (p >= 0 && p < (int)src->second.size() && !src->second[p].empty()) {
+                sources.push_back(src->second[p]);
+                RemoteDevice::upgrade_single(sources.back()); // older library formats, as a load does
+            }
+        w = drop_.drop(sources, bank, slot, dst->second);
+    }
+    if (w.empty()) {
+        if (out_)
+            out_->log("Virus TI native: drop of %d patch(es) onto RAM %c %d refused (RAM bank not synced?)\n",
+                      (int)programs.size(), 'A' + std::max(0, std::min(3, bank)), slot + 1);
+        return false;
+    }
+    if (out_)
+        out_->log("Virus TI native: %d patch(es) dropped onto RAM %c from %d\n", (int)w.size(), 'A' + bank, slot + 1);
+    return send_ram_writes(w);
+}
+
+bool VirusPlugin::can_undo_drop()
+{
+    std::lock_guard<std::mutex> lk(banks_mu_);
+    return drop_.can_undo();
+}
+
+bool VirusPlugin::undo_drop()
+{
+    std::vector<BankDrop::Write> w;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        w = drop_.take_undo();
+    }
+    if (w.empty())
+        return false;
+    if (out_)
+        out_->log("Virus TI native: undo of the last drop, %d slot(s) of RAM %c\n", (int)w.size(), 'A' + w[0].bank);
+    return send_ram_writes(w);
+}
+
+// one single dump per slot, in order (the original: one after the other, no reply, E294); the dump pacer spaces
+// them on cable 3 like any dump. Then the cache and its file, like a SAVE.
+bool VirusPlugin::send_ram_writes(const std::vector<BankDrop::Write> &w)
+{
+    if (out_)
+        for (auto &x : w)
+            out_->send(x.dump);
+    std::set<int> touched;
+    std::map<int, Bank> caches;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        for (auto &x : w) {
+            auto &b = banks_[x.bank];
+            b.resize(128);
+            b[x.slot] = x.dump;
+            touched.insert(x.bank);
+        }
+        for (int bank : touched)
+            for (int p = 0; p < 128; p++)
+                caches[bank][p] = banks_[bank][p];
+    }
+    std::string dir = own_cache_dir();
+    if (!dir.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+        for (auto &c : caches)
+            save_bank_file(dir + "/RAM " + (char)('A' + c.first), c.second);
     }
     ui_dirty_ = true;
     return true;

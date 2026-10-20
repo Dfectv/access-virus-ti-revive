@@ -21,6 +21,7 @@
 #include "device/offlinepace.h"
 #include "device/presencewatch.h"
 #include "device/stallwatch.h"
+#include "model/bankdrop.h"
 #include "model/patchhistory.h"
 #include "model/syncalert.h"
 #include "device/resampler.h"
@@ -298,6 +299,11 @@ public:
     bool load_dump(std::vector<uint8_t> d, int part);    // a single dump into a part's edit buffer
     bool rename_part(int part, const std::string &name); // the part's patch name (10 characters) -> dump + Virus
     bool store_patch(int part, int bank, int program);   // the part's patch into a RAM slot of the Virus (+ cache)
+    // browser drag and drop onto a RAM slot of the other pane (E294): `programs` of `src_bank` into RAM `bank` from
+    // `slot` on, like the original; false = nothing sent (no RAM target, not synced, bank sync running)
+    bool drop_to_ram(int src_bank, const std::vector<int> &programs, int bank, int slot);
+    bool can_undo_drop();
+    bool undo_drop(); // "Undo last operation": writes back what the last drop overwrote
     // the part's patch into a personal library (slot = position, == size: append) - writes the library file
     bool store_to_library(int part, int library, int slot);
     // the original's "Create Empty Library" (E217): an empty library file at the path chosen in the save dialog
@@ -609,6 +615,8 @@ private:
     SyncAlert sync_alert_;
     std::mutex history_mu_;
     PatchHistory history_; // per part: Revert to / Recently Used (E220), this session only
+    BankDrop drop_;        // the last browser drop onto RAM, for its undo (banks_mu_)
+    bool send_ram_writes(const std::vector<BankDrop::Write> &w); // dumps into RAM slots + cache + cache files
     std::vector<uint8_t> part_dump(int part); // the part's patch as it is now (edits included)
     std::mutex sync_alert_mu_;
     std::atomic<bool> host_playing_{false}; // audio thread -> worker
