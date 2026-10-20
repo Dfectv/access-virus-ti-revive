@@ -83,6 +83,14 @@ NEXT: wait for version, model/OS, where the libraries come from, LOAD vs project
    choice) the docs diff went to main alone as 1efad04 (README + build.py only); its push ran site run 39434812956,
    green, live page checked (FAQ entry, Download 0.8.28). The 0.8.29 merge will see the same text on both sides.
 
+5. **Dead code cleanup (2026-10-20, /ecc:refactor-clean).** cppcheck unusedFunction + style over native/ (src,
+   plugin, ccapp, asio, au, tools) and src/broker, every hit grep-checked against production code and tests. Removed:
+   SkinPage::set_status (native/ccapp/skinpage.cpp, no caller anywhere). Kept on purpose: ~80 false positives
+   (members/statics/per-platform), the test-only API (RemoteTemplates knob_behaviour/set_knob_behaviour, help_count,
+   broker on_state/pending_bytes/pending_replies/set_endpoint), the ASIO Dll* exports and ASIO struct members (ABI).
+   Not covered: Python scripts (no vulture/pyflakes installed), src/wrapper (reference only). Linux build + ctest
+   5/5; Windows/macOS not built. Like item 1, this came after CI test build 39441322803 (Control Center binary differs).
+
 ## Round 0.8.28 (branch round-0.8.28, collecting; started 2026-10-19)
 
 1. **C++ review of round 0.8.27 (2026-10-19), fixes - built and unit-tested on Linux only, NOT on hardware.**
