@@ -70,9 +70,11 @@ NEXT: wait for version, model/OS, where the libraries come from, LOAD vs project
    next cursor update crashes (SWELL_SetCursor -> gdk_window_set_cursor, the E265 stack). Caught 3x under gdb
    (work/timing/e287-watch.py, X focus logger e287-focuslog.c, ping watcher e287-pingwatch.c; all git-ignored) and
    **reproduced with ReaSynth only, TI Revive not loaded** (user clicked into the terminal during the render).
-   Workaround for users: stay in REAPER until the render window has closed. Still open: the two freezes of the same
-   session (13:46 killed by GNOME, 13:59:50 4 s; no stack, the ping watcher never caught one) and a report to Cockos
-   (draft with the user; outward-facing, not sent). No plug-in change.
+   Workaround for users: stay in REAPER until the render window has closed - now in the README ("Good to know"), the
+   site's FAQ (build.py; site NOT rebuilt) and README-linux.txt. The two freezes of the same session (13:46, 13:59:50)
+   have no stack; the user is sure they were the same situation (not measured). Cockos report: paste-ready draft at
+   https://claude.ai/artifact/Vm7LSR65pJUDGLNBXgMRu1 (the user posts it on the Cockos forum; not posted yet). No
+   plug-in change.
 
 ## Round 0.8.28 (branch round-0.8.28, collecting; started 2026-10-19)
 
