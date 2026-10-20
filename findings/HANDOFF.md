@@ -93,7 +93,9 @@ library patches the user dragged in earlier with the original (survived a power 
 single dump to (bank, slot) per patch, file bytes 10..12 unchanged, no read-back, multi-drop fills consecutive slots;
 +/- on the Virus then plays them from the original's RAM cache. NEXT (feature, option 1): second browser pane + drop
 onto a RAM slot in TI Revive (TDD; store path like store_patch, cache update, rule 2: only user-dropped stores).
-Still to do tonight: step 6 (Live restart in win10ref: does the 2nd session connect?), then detach + VM off.
+Step 6 done: Live restart in win10ref connects again (the old VM's 'not connected after restart' was not a 2nd-session
+rule - probably the screenshot loop / driver state). Virus detached, win10ref off; RAM A checked on Linux after a power
+cycle (13 changed programs, dropped names in place; work/libdrag/ramcheck). Broker socket started again.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
