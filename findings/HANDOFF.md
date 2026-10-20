@@ -47,6 +47,10 @@ patch the original sets byte 10 (Single Patchmanagement/Flags) = 0x20 and leaves
 Virus' +/- does not step its RAM/ROM bank (or reports differently). Not checked: the firmware's handling of the
 flag; what the Virus reports on +/- in either case. Next (needs the user + TI2): read-only observer while +/- after
 a library load, then the same with a dev build that writes byte 10 = 0x20 like the original.
+**Resolved 2026-10-20 ~21:20 (E292):** tested the original in the win10 VM (Access driver 2.9.66 reinstalled there
+with pnputil from the extracted MSI, drivers only, no updater; WinUSB packages removed; snapshot pre-access-driver-2
+before): the original also steps through the Virus' RAM slots on +/- after a library patch (user: "It never switched
+the preset on the library"). Not a TI Revive bug; no code change. Reply to the reporter: user.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
