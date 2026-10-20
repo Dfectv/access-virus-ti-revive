@@ -13,7 +13,7 @@ win11 VM = release (silent, 0.8.25c uninstalled first, plug-in 13:27 UTC); Linux
 unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo installer; real PC still 0.8.24 (0.8.25b setup
 in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
 third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
-original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
+original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md). Enforced since 2026-10-20: the Stop hook .claude/hooks/handoff-check.sh (registered in the git-ignored .claude/settings.local.json) blocks the end of a turn while commits sit after the last HANDOFF commit (test: scripts/tests/test_handoff_hook.py).
 Evidence: [evidence.md](evidence.md) (E001-E291), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
