@@ -97,8 +97,12 @@ NEXT: wait for version, model/OS, where the libraries come from, LOAD vs project
    the 90 native files in compile_commands.json (Linux build, tests included): one hit, AudioIn::mac_ "not used",
    a false positive (all uses under __APPLE__); no change. Windows/macOS-only code is not seen by this pass. cppcheck
    on src/wrapper: 58 hits, nothing to remove (46 VST3/COM/ASIO ABI struct members, 10 DLL/host entry points, and
-   vua_set_out/vua_rate_lost, which the Windows broker calls - see item 6). Linux build + ctest 5/5; Windows/macOS
-   not built. Like item 1, this came after CI test build 39441322803 (Control Center binary differs).
+   vua_set_out/vua_rate_lost, which the Windows broker calls - see item 6). cppcheck on src/mac/bridge (C++ mode,
+   VST3 SDK headers; the .mm files grep-checked): nothing to remove (6 BridgeCore/Conn members used by its methods,
+   45 hits in the SDK). Found there: AGENTS.md still described the 0.7.x Mac path (bridge = the Audio Unit,
+   mac-build-bridge.sh = the development build) - fixed to match README and mac-build-release.sh (since 0.8.0 the
+   native plug-in is the VST3 and the AU; src/mac/* is reference only, risk.json class A is right there). Linux
+   build + ctest 5/5; Windows/macOS not built. Like item 1, this came after CI test build 39441322803 (Control Center binary differs).
 
 6. **vtiusbaudio.c/.h moved from src/wrapper to src/broker (2026-10-20).** Found by the item 5 scan: the shipped
    Windows broker (src/broker/Makefile, vtibroker.exe) compiled ../wrapper/vtiusbaudio.c - the WinUSB audio streaming
