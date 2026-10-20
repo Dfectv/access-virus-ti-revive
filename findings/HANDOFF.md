@@ -89,6 +89,11 @@ task for screenshots inside the guest: `VM=win10ref scripts/vm.sh ps 'Start-Sche
 Original's BROWSER page (screenshot 2026-10-20): two panes - upper with path dropdown, up/down, CATEGORY, search; lower
 "Virus TI2 (Virus TI2 Desktop)/RAM A" with dropdown and up/down only; 8x16 entries each. RAM A slots 1-3 hold
 library patches the user dragged in earlier with the original (survived a power cycle).
+**Verified 2026-10-20 ~22:35 (E294):** the original's library -> RAM drag works as the web text said: drop = one
+single dump to (bank, slot) per patch, file bytes 10..12 unchanged, no read-back, multi-drop fills consecutive slots;
++/- on the Virus then plays them from the original's RAM cache. NEXT (feature, option 1): second browser pane + drop
+onto a RAM slot in TI Revive (TDD; store path like store_patch, cache update, rule 2: only user-dropped stores).
+Still to do tonight: step 6 (Live restart in win10ref: does the 2nd session connect?), then detach + VM off.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
