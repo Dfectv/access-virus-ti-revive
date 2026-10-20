@@ -39,3 +39,20 @@ TEST(keepalive_resync_bounds_backlog_and_future)
         n += fe.run(end, emit);
     CHECK(n == 1);
 }
+
+// Mutation run 2026-10-20: the boundaries - an FE due exactly at the block's end belongs to the next block, one due
+// exactly a period after it is not moved
+TEST(keepalive_boundaries)
+{
+    ActiveSensing fe;
+    std::vector<int64_t> at;
+    auto emit = [&](int64_t t) { at.push_back(t); };
+    fe.reset(2000);
+    CHECK(fe.run(2000, emit) == 0);    // due at the end: not in this block
+    CHECK(fe.run(2512, emit) == 1);    // but in the next one, at its time
+    CHECK(at.size() == 1 && at[0] == 2000);
+    ActiveSensing f2;
+    f2.reset(1000 + f2.period);
+    CHECK(f2.run(1000, emit) == 0);
+    CHECK(f2.next == 1000 + f2.period); // exactly a period ahead: kept
+}

@@ -150,7 +150,22 @@ mutants. 7 are equivalent: dumppacer.h:37 and :46 (same value at the boundary), 
 `>= 0` gives 0 both ways), audiogate.h:39 (the constructor always sets `ok_`), usbmidi.h:27 `< 0xF0` (F0 is taken by
 the branch above) and usbmidi.h:68 (a SysEx buffer is always a multiple of 3 long there, so the +3 boundary is never
 met). **Result: 103 of 110 killed (94 %), every surviving mutant equivalent.** The first run's survivor list was
-lost with its scratch folder; batch 2 (the smaller headers) follows.
+lost with its scratch folder.
+
+**2026-10-20, second run, batch 2** (same copy plus batch 1's tests: offlinepace.h, automation.h, stallwatch.h,
+startprogress.h, transport.h, resampler.h, keepalive.h, sidechain.h, the broker's resetguard.h; 64 mutants): 38 killed
+(59 %). Of the 26 survivors 14 were missing tests, now added and all killed in a rerun: resetguard - a second reset
+in the same second is skipped (E136's case, the most important gap); resampler - frames_needed is exactly the range
+process() reads (NaN outside it, both edges read) and process() writes n outputs, not n + 1; stallwatch - a stream
+from frame 0 and exactly LIMIT_MS; transport - a first block that already plays at 0 and exactly the 0.01 tolerance;
+keepalive - an FE due exactly at the block end, and one exactly a period ahead; automation - a full queue refuses
+instead of overwriting the oldest. 10 are equivalent: offlinepace.h:34, startprogress.h:19/21/38, keepalive.h:27 (the
+same value at the boundary), stallwatch.h:41 and sidechain.h:41 (initial values the first call or setup() overwrites),
+resetguard.h:19 (`fd > 0`: fd 0 only with stdin closed), resampler.h:32 (the Kaiser window's value at its edge,
+~1e-5 of a tap) and :73 (a 41st Bessel term). 2 change only memory past the filter table (resampler.h:28/36 write a
+0 one float past its end at the last phase): a unit test cannot see that, a sanitizer build would (not run).
+**Result: 52 of 64 killed (81 %); all behaviour-changing mutants killed.** Both batches together: 155 of 174 killed
+(89 %), 17 equivalent, 2 sanitizer-only.
 
 Note: several survivors were reads past a message's end (usbmidi_pack); a plain unit test sees them only when the
 bytes past the end are known, so the test leaves a marker in the vector's spare capacity.
