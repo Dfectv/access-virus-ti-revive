@@ -5,6 +5,7 @@
 #pragma once
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <vector>
 
 namespace vti {

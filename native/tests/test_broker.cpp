@@ -502,12 +502,6 @@ TEST(cc_backup_ram)
     CHECK(cc::default_backup_dir().find("Backups") != std::string::npos);
     b.close();
 }
-#else
-TEST(broker_fake_server)
-{
-    SKIP("the fake broker uses Unix sockets");
-}
-#endif
 
 // Review 2026-10-19 (H3): when the broker went away (crash, update, socket activation restart) the reader thread
 // ended with "Virus not present" only, the worker never wrote, so it never noticed and never reconnected. The
@@ -571,3 +565,9 @@ TEST(broker_late_control_reply_is_not_kept)
     CHECK(b.pending_replies() == 0);
     b.close();
 }
+#else
+TEST(broker_fake_server)
+{
+    SKIP("the fake broker uses Unix sockets");
+}
+#endif
