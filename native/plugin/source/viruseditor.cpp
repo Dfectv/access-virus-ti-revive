@@ -26,6 +26,7 @@ extern char **environ;
 #include "cc/diag.h"
 #include "editor/helptext.h"
 #include "editor/dragsend.h"
+#include "editor/textfield.h"
 #include "editor/popupmenu.h"
 #include "popupwindow.h"
 #include "editor/upscale.h"
@@ -2004,8 +2005,9 @@ private:
         te->setBackColor(CColor(255, 255, 255, 255)); // the original: white field, system font
         te->setFontColor(CColor(0, 0, 0, 255));
         te->setFrameColor(CColor(255, 255, 255, 255));
-        if (!param.empty()) { // the REMOTE page's fields are 10-13 px high: a font that fits, the text from the left
-            te->setFont(makeOwned<CFontDesc>(kSystemFont->getName(), std::max(7.0, r.getHeight() - 1)));
+        // a font that fits the field: the patch name's is 10 px high, 12 pt overflowed it on macOS (textfield.h)
+        te->setFont(makeOwned<CFontDesc>(kSystemFont->getName(), text_field_font(r.getHeight())));
+        if (!param.empty()) { // the REMOTE page's fields (10-13 px): the text from the left
             te->setHoriAlign(kLeftText);
             te->setTextInset(CPoint(1, 0));
         }
