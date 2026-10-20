@@ -64,6 +64,14 @@ power-cycled the Virus, reattach -> two bug checks 0x139 (param 3, list corrupti
 unknown although the Virus' USB identity was normal (Access Music / Virus TI / bcd 0x0300). Captures orig-libdrag-1/-2
 and screenshots in work/libdrag/ hold no drag (not connected). Next time: dual-boot PC or a clean VM boot with one
 attach; never power-cycle the Virus while it is in the VM.
+**New reference VM `win10ref` (user, 2026-10-20 ~22:00):** fresh Windows 10 Pro (de-DE, Windows_10.iso) only for the
+original 5.1.7 with the Access drivers; scripts/win10ref/ (create-vm.sh: q35, legacy BIOS, 8 GB, 80 GB SATA, e1000e;
+autounattend.xml from win11's, MBR; make-unattend-iso.sh; install-access-reference.ps1 = MSI copy with only
+ConnectDevicesDialog/InstallRunOnceEntry/ApplyOptimization/UpdateFirmware off, drivers stay). vm.sh: VM=win10ref, user
+vti. Ableton 11.3.43 zip + web installer copied from win11 to work/vm-transfer/ (sha256 65d3bc8f.. same as on win11).
+Plan: install -> SSH -> Access suite (Virus NOT attached) -> user installs/authorises Live -> snapshot ref-clean ->
+one attach. The old win10 VM stays until win10ref works (user decides). Virus checked on Linux after the VM crashes:
+tirevive-cc info OS 5.1.7.00, RAM A-D answer (libvirt left /dev/bus/usb node root:root; user ran udevadm trigger).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
