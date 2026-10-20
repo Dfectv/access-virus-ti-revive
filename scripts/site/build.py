@@ -418,7 +418,7 @@ def page_landing(latest, releases, sums):
       <details><summary>REAPER on Linux: stay in REAPER while a render runs</summary>
       <p>REAPER 7.82 on Linux can crash right after a render from the render dialog if another program had the focus
       when the render window closed, for example when you clicked into a terminal or a browser during the render.
-      Sometimes it froze for a few seconds instead. This is a bug in REAPER's window layer, not in TI Revive: it
+      Two short freezes in the same tests were probably the same bug (not measured). This is a bug in REAPER's window layer, not in TI Revive: it
       happens with REAPER's own ReaSynth as well, without TI Revive in the project. Until Cockos fixes it, stay in
       REAPER until the render window has closed.</p></details>
       <details><summary>&ldquo;A sync error occurred. Press Stop and Play to clear.&rdquo;</summary>

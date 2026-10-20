@@ -74,7 +74,10 @@ NEXT: wait for version, model/OS, where the libraries come from, LOAD vs project
    site's FAQ (build.py; site NOT rebuilt) and README-linux.txt. The two freezes of the same session (13:46, 13:59:50)
    have no stack; the user is sure they were the same situation (not measured). Cockos report: paste-ready draft at
    https://claude.ai/artifact/Vm7LSR65pJUDGLNBXgMRu1 (the user posts it on the Cockos forum; not posted yet). No
-   plug-in change.
+   plug-in change. Site check 2026-10-20 (skill): the only site/README change since main is this FAQ entry; claims
+   match E291 except the freezes (LOW there), now worded 'probably the same bug (not measured)'. TESTS stays 304
+   (= the release; the round has 305). Local build OK. Deploy blocked: the github-pages environment only deploys
+   from main, so the entry goes live with the 0.8.29 merge unless the docs commits go to main earlier.
 
 ## Round 0.8.28 (branch round-0.8.28, collecting; started 2026-10-19)
 

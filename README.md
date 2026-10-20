@@ -175,7 +175,7 @@ kernel log: `Not enough bandwidth`), connect the Virus directly to the computer,
 
 **REAPER on Linux: stay in REAPER while a render runs.** REAPER 7.82 on Linux can crash right after a render from
 the render dialog if another program had the focus when the render window closed, for example when you clicked into a
-terminal or a browser during the render. Sometimes it froze for a few seconds instead. This is a bug in REAPER's
+terminal or a browser during the render. Two short freezes in the same tests were probably the same bug (not measured). This is a bug in REAPER's
 window layer, not in TI Revive: it happens with REAPER's own ReaSynth as well, without TI Revive in the project. Until
 Cockos fixes it, stay in REAPER until the render window has closed.
 
