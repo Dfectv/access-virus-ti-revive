@@ -4,16 +4,26 @@
 // range from a misbehaving host gave a byte >= 0x80, which the Virus reads as a status byte (0xF4 is its DSP's
 // private command parser, AGENTS.md rule 2). And the MIDI clock's tick distance came from the host tempo as is: 0 or
 // a negative tempo made the clock loop endless on the audio thread (review 2026-10-19).
+// NaN is caught from the bits: the VST3 SDK builds with /fp:fast (MSVC) and -ffast-math (Xcode), under which the
+// compiler may drop `!(v > 0)` for NaN - NaN gave 999 BPM, velocity 127 (Windows CI, 2026-10-20).
 #pragma once
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 
 namespace vti {
 
+inline bool usable(double v) // not NaN, not infinite: the exponent bits are not all set
+{
+    uint64_t b;
+    std::memcpy(&b, &v, sizeof b);
+    return (b >> 52 & 0x7FF) != 0x7FF;
+}
+
 inline uint8_t data7(double v01) // 0..1 -> 0..127
 {
-    if (!(v01 > 0)) // also NaN
+    if (!usable(v01) || !(v01 > 0))
         return 0;
     return (uint8_t)std::lround(std::min(v01, 1.0) * 127);
 }
@@ -22,7 +32,7 @@ inline uint8_t note7(int pitch) { return (uint8_t)std::max(0, std::min(127, pitc
 
 inline int bend14(double v01) // 0..1 -> 0..16383
 {
-    if (!(v01 > 0))
+    if (!usable(v01) || !(v01 > 0))
         return 0;
     return (int)std::lround(std::min(v01, 1.0) * 16383);
 }
@@ -30,7 +40,7 @@ inline int bend14(double v01) // 0..1 -> 0..16383
 // BPM for the MIDI clock: 120 without a usable tempo, else 1..999 (at most ~5 ticks per 512-sample block)
 inline double clock_tempo(double bpm)
 {
-    if (!(bpm > 0))
+    if (!usable(bpm) || !(bpm > 0))
         return 120.0;
     return std::max(1.0, std::min(999.0, bpm));
 }

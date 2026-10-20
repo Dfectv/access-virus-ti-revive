@@ -32,6 +32,9 @@ TEST(hostmidi_clock_tempo_is_sane)
     CHECK(clock_tempo(0.0) == 120.0);   // no tempo: the default, like without a process context
     CHECK(clock_tempo(-60.0) == 120.0);
     CHECK(clock_tempo(std::numeric_limits<double>::quiet_NaN()) == 120.0);
+    CHECK(clock_tempo(std::numeric_limits<double>::infinity()) == 120.0); // no usable tempo either
+    CHECK(data7(std::numeric_limits<double>::infinity()) == 0);
+    CHECK(bend14(-std::numeric_limits<double>::infinity()) == 0);
     CHECK(clock_tempo(5000.0) == 999.0); // at most ~5 ticks per 512-sample block
     CHECK(clock_tempo(0.5) == 1.0);
 }
