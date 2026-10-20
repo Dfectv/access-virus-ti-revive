@@ -188,8 +188,11 @@ std::vector<float> find_osc_waves(const std::vector<uint8_t> &bin)
         for (int k = 0; k < 64 && ok; k++)
             ok = std::fabs(at(i + 4 * k) - std::sin(two_pi * k / 64)) < 1e-3; // the shipped sine is rounded (~1e-4)
         for (size_t k = 64; k < n && ok; k++) {
-            float v = at(i + 4 * k);
-            ok = std::isfinite(v) && std::fabs(v) <= 1.0001f;
+            // finite from the bits: the Mac and Windows builds use fast-math (VST3 SDK), where std::isfinite may be
+            // folded to true and a NaN row passed (reproduced with g++ -ffast-math, 2026-10-20)
+            uint32_t b;
+            memcpy(&b, &bin[i + 4 * k], 4);
+            ok = (b >> 23 & 0xFF) != 0xFF && std::fabs(at(i + 4 * k)) <= 1.0001f;
         }
         if (!ok)
             continue;

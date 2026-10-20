@@ -318,6 +318,8 @@ TEST(accessfiles_osc_waves_by_content)
     }
     CHECK(vti::find_osc_waves(waves_blob(4098, 0.5f)).size() == 64 * 64); // not 4-byte aligned in the file
     CHECK(vti::find_osc_waves(waves_blob(4096, 5.0f)).empty());            // a row out of +-1: not the table
+    CHECK(vti::find_osc_waves(waves_blob(4096, std::nanf(""))).empty());    // NaN: also under fast-math (Mac, Windows)
+    CHECK(vti::find_osc_waves(waves_blob(4096, -INFINITY)).empty());
     CHECK(vti::find_osc_waves(std::vector<uint8_t>(20000, 0)).empty());     // zeros are no sine
     auto cut = waves_blob(16, 0.5f);
     cut.resize(16 + 64 * 64 * 4 - 8); // truncated

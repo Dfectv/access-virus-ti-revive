@@ -2,6 +2,8 @@
 #include "check.h"
 #include "device/resampler.h"
 #include <cmath>
+#include <cstdint>
+#include <cstring>
 
 using namespace vti;
 
@@ -58,6 +60,14 @@ TEST(resampler_unity_step)
 // Mutation run 2026-10-20: frames_needed is exactly the range process() reads (more = latency the ring must cover,
 // less = reads past the data), and process() writes n outputs, not n + 1. NaN marks every frame outside the range:
 // one read of it makes an output NaN (also with a tap weight of 0).
+// NaN from the bits: under fast-math (the SDK's Mac and Windows flags) std::isnan/isfinite may be folded to constants
+static bool nan_bits(float v)
+{
+    uint32_t b;
+    std::memcpy(&b, &v, sizeof b);
+    return (b & 0x7FFFFFFF) > 0x7F800000;
+}
+
 TEST(resampler_reads_exactly_frames_needed)
 {
     Resampler r;
@@ -76,7 +86,7 @@ TEST(resampler_reads_exactly_frames_needed)
             r.process(buf.data() + G, first, pos, step, out, n);
             bool finite = true;
             for (int i = 0; i < n; i++)
-                finite = finite && std::isfinite(out[i]);
+                finite = finite && !nan_bits(out[i]);
             CHECK(finite);       // nothing outside the range was read
             CHECK(out[n] == 7.0f); // nothing written past n
             for (int edge : {G, G + count - 1}) { // the first and the last frame of the range are both read
@@ -84,7 +94,7 @@ TEST(resampler_reads_exactly_frames_needed)
                 r.process(buf.data() + G, first, pos, step, out, n);
                 bool nan = false;
                 for (int i = 0; i < n; i++)
-                    nan = nan || std::isnan(out[i]);
+                    nan = nan || nan_bits(out[i]);
                 CHECK(nan);
                 buf[(size_t)edge] = 0.25f;
             }
