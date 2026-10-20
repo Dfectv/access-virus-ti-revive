@@ -3,6 +3,7 @@ Run: python3 -I -m unittest discover -s scripts/tests"""
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -10,6 +11,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 HOOK = os.path.join(HERE, "..", "..", ".claude", "hooks", "handoff-check.sh")
 
 
+# The hook is a bash script for the maintainers' Linux machine; the Windows CI runner's bash cannot run it.
+@unittest.skipIf(sys.platform == "win32", "bash hook, not used on Windows")
 class HandoffHook(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
