@@ -170,7 +170,8 @@ Plugins' Virus Editor — take the same interfaces, and TI Revive then shows "Vi
 **Connected but silent?** The Virus decides per part where its sound goes (analog outputs or USB 1-3). If another
 editor or driver changed that, the plug-in shows the right setting but the Virus still sends to an analog output:
 in the plug-in, switch the part's output to "Out 1" and back to "USB 1" (this sends the setting to the Virus again).
-On macOS also check that your DAW may use the microphone (System Settings → Privacy & Security → Microphone).
+On macOS also check that your DAW may use the microphone (System Settings → Privacy & Security → Microphone). On Linux, if notes and knobs work but no audio comes over USB (log: `usbaudio: alternate setting 1 failed`,
+kernel log: `Not enough bandwidth`), connect the Virus directly to the computer, not through a USB hub.
 
 **Third USB output (USB 3).** Like the original, the Virus sends a third stereo output over USB only when you choose
 it: in the plug-in, open PATCH UTILITY → Preferences and set "Input and Output Configuration" to "3 Outs / No Input".

@@ -391,7 +391,8 @@ def page_landing(latest, releases, sums):
       <details><summary>Connected, but no sound</summary>
       <p>The Virus decides per part where its sound goes. Switch the part's output to &ldquo;Out 1&rdquo; and back to
       &ldquo;USB 1&rdquo; in the plug-in to send the setting again. On macOS also check that your DAW may use the
-      microphone.</p></details>
+      microphone. On Linux, if notes and knobs work but no audio comes over USB, connect the Virus directly to the
+      computer, not through a USB hub.</p></details>
       <details><summary>Three separate outputs (USB 3)</summary>
       <p>PATCH UTILITY <span class='sep'>&rsaquo;</span> Preferences <span class='sep'>&rsaquo;</span> &ldquo;Input and Output Configuration&rdquo; = &ldquo;3 Outs / No
       Input&rdquo;. Then a part's output can be &ldquo;USB3 L+R&rdquo; and its sound comes out of the plug-in's Out 3.
