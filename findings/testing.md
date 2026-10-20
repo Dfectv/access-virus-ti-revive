@@ -141,6 +141,16 @@ vs `>=` adds 0 tokens at equal times, `tokens > burst` vs `>=` and `tokens < 0` 
 boundary), so every mutant that changes behaviour is killed. One new test also found a real flaw (an earlier time
 was granted twice; harmless with steady_clock, fixed).
 
-Next: usbmidi.h and stamprule.h:32; many `<` / `<=`
-survivors mean a boundary value has no test. Some survivors may be equivalent (no behaviour change); check each
-before writing a test. Results: run.log / results.json of that run (scratch, not in git).
+**2026-10-20, second run, batch 1** (copy of af9e21f, the send path: stamprule.h, usbmidi.h, dumppacer.h and the
+round's new audiogate.h, hostmidi.h, gapfill.h; 110 mutants): 87 killed (79 %). Each of the 23 survivors checked in the
+code: 16 were missing tests, now added (test_stamprule: ping-shaped SysEx that is not Access, too short or not F0;
+test_usbmidi: note-off 0x80, no read past the message when packing, a real-time byte inside a SysEx and a 1-byte
+system common message; test_gapfill: the MAX_FILL and SLACK boundaries) - all 16 killed in a rerun of exactly those
+mutants. 7 are equivalent: dumppacer.h:37 and :46 (same value at the boundary), hostmidi.h:16 and :25 (`> 0` vs
+`>= 0` gives 0 both ways), audiogate.h:39 (the constructor always sets `ok_`), usbmidi.h:27 `< 0xF0` (F0 is taken by
+the branch above) and usbmidi.h:68 (a SysEx buffer is always a multiple of 3 long there, so the +3 boundary is never
+met). **Result: 103 of 110 killed (94 %), every surviving mutant equivalent.** The first run's survivor list was
+lost with its scratch folder; batch 2 (the smaller headers) follows.
+
+Note: several survivors were reads past a message's end (usbmidi_pack); a plain unit test sees them only when the
+bytes past the end are known, so the test leaves a marker in the vector's spare capacity.

@@ -55,3 +55,19 @@ TEST(gapfill_sleep_is_a_new_stream_not_a_fill)
     CHECK_EQ(g.update(1512 + 19 * 44100 + 512, 1536), 0);
     CHECK_EQ(g.filled(), 0);
 }
+
+// The boundaries (mutation run 2026-10-20): exactly MAX_FILL is still a gap, SLACK frames either way are rounding
+TEST(gapfill_boundaries)
+{
+    GapFill a;
+    a.update(1000, 0);
+    CHECK_EQ(a.update(1000 + 512 + GapFill::MAX_FILL, 512), GapFill::MAX_FILL);
+    GapFill b;
+    b.update(1000, 0);
+    CHECK_EQ(b.update(1512 + GapFill::SLACK, 512), 0);
+    CHECK_EQ(b.update(2024 + GapFill::SLACK + 1, 1024), GapFill::SLACK + 1);
+    GapFill c;
+    c.update(1000, 0);
+    CHECK_EQ(c.update(1512 - GapFill::SLACK, 512), 0); // early by SLACK: no re-base
+    CHECK_EQ(c.update(2024 + 1, 1024), 0);             // so one frame late against the old origin stays rounding
+}

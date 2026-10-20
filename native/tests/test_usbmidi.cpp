@@ -52,6 +52,38 @@ TEST(usbmidi_sysex_every_length)
     }
 }
 
+// Mutation run 2026-10-20: the lowest status byte and the unused bytes of a packet were not pinned down.
+TEST(usbmidi_note_off_is_a_channel_message)
+{
+    auto pk = usbmidi_pack({0x80, 60, 0}, 2);
+    CHECK(pk.size() == 4 && pk[0] == 0x28); // code index 8, not a system message
+}
+
+// A packet's unused bytes are 0; packing must not read past the message (here: spare capacity holding 0x55)
+TEST(usbmidi_pack_pads_with_zero_not_with_bytes_past_the_message)
+{
+    for (Bytes msg : {Bytes{0xF0, 0x11, 0x22, 0xF7}, Bytes{0xF0, 0x11, 0x22, 0x33, 0xF7}, Bytes{0xD3}, Bytes{0xD3, 77},
+                      Bytes{0xF8}, Bytes{0xF3, 0x05}}) {
+        Bytes v = msg;
+        const size_t n = v.size();
+        v.insert(v.end(), {0x55, 0x55, 0x55});
+        v.resize(n);
+        for (uint8_t b : usbmidi_pack(v, 2))
+            CHECK(b != 0x55);
+    }
+}
+
+// MIDI lets real-time bytes appear inside a SysEx (USB-MIDI: code index F on the same cable); they are their own
+// message and leave the SysEx whole. A single-byte system common message (code index 5) outside a SysEx is delivered.
+TEST(usbmidi_real_time_inside_sysex_and_single_byte_common)
+{
+    Bytes pk = {0x24, 0xF0, 0x00, 0x20, 0x2F, 0xF8, 0, 0, 0x26, 0x33, 0xF7, 0, 0x25, 0xF6, 0, 0};
+    auto m = parse(pk);
+    CHECK_EQ(m.size(), 3u);
+    CHECK(m.size() == 3 && m[0].second == Bytes{0xF8} && m[1].second == (Bytes{0xF0, 0x00, 0x20, 0x33, 0xF7}) &&
+          m[2].second == Bytes{0xF6});
+}
+
 TEST(usbmidi_interleaved_cables)
 {
     Bytes a = {0xF0, 1, 2, 3, 4, 5, 0xF7}, b = {0xF0, 9, 8, 7, 6, 0xF7};
