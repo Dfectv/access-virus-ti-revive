@@ -53,6 +53,10 @@ before): the original also steps through the Virus' RAM slots on +/- after a lib
 the preset on the library"). Not a TI Revive bug; no code change. Reply to the reporter: user.
 Web text the user found ("Allow hardware control over the librarian patches") checked: not in the 5.1.7 DLL or
 manuals (E292). VM: win10 running with the Virus attached - close Live, detach, shut down, start the broker socket.
+Workaround the user confirmed in the original (2026-10-20): Browser page, a RAM bank in the second (lower) browser,
+drag library patches into its slots, then +/- on the Virus steps through them. TI Revive: one browser only
+(Browser 0), browser drag goes onto part strips only; per patch: load + SAVE into a RAM slot (store_patch). Feature
+gap (not scheduled): second browser + drop onto a RAM slot - look up the original's layout/behaviour first (REA, VM).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
