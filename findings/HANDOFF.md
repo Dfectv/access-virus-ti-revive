@@ -77,6 +77,10 @@ install-access-reference.ps1 (exit 0, UpdateFirmware + InstallRunOnceEntry skipp
 The MSI's DIFx driver step failed silently (e0000242, publisher not trusted - /qn cannot show the prompt): the
 Kemper signer (catalogs Valid) put into LocalMachine\TrustedPublisher, then pnputil /add-driver for VirusUSB,
 vtiaudio, vtimidi - now part of the script. Virus not attached yet. Next: Live 11 (user), snapshot ref-clean, attach.
+~22:10: Live 11.3.43 installed by the user, snapshot ref-clean (no Virus), Virus attached once (VirusUSB/vtiaudio/vtimidi
+OK); user doing the first sync, then clean quit -> detach -> snapshot ref-synced. CI run 39477408077 (b8eb7e3, 0.8.29)
+ALL GREEN incl. mac (earlier mac jobs: GitHub runner queue). Mac zip pushed + unzipped in ~/Downloads/TI-Revive-0.8.29-mac
+(sha e66eec0c.. = CI); user: M tests not now, round continues with a new +/- related change first.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
