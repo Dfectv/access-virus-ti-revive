@@ -95,8 +95,27 @@ NEXT: wait for version, model/OS, where the libraries come from, LOAD vs project
    compare), compiles with -W error; the tool itself not run (needs a display and the uicompare setup). clang-tidy
    21.1.8 (misc-unused-*, bugprone-unused-*, -Wunused incl. member functions/templates/internal declarations) over
    the 90 native files in compile_commands.json (Linux build, tests included): one hit, AudioIn::mac_ "not used",
-   a false positive (all uses under __APPLE__); no change. Windows/macOS-only code is not seen by this pass. Not
-   covered: src/wrapper (reference only). Linux build + ctest 5/5; Windows/macOS not built. Like item 1, this came after CI test build 39441322803 (Control Center binary differs).
+   a false positive (all uses under __APPLE__); no change. Windows/macOS-only code is not seen by this pass. cppcheck
+   on src/wrapper: 58 hits, nothing to remove (46 VST3/COM/ASIO ABI struct members, 10 DLL/host entry points, and
+   vua_set_out/vua_rate_lost, which the Windows broker calls - see item 6). Linux build + ctest 5/5; Windows/macOS
+   not built. Like item 1, this came after CI test build 39441322803 (Control Center binary differs).
+
+6. **vtiusbaudio.c/.h moved from src/wrapper to src/broker (2026-10-20).** Found by the item 5 scan: the shipped
+   Windows broker (src/broker/Makefile, vtibroker.exe) compiled ../wrapper/vtiusbaudio.c - the WinUSB audio streaming
+   and the 48 kHz check (E241) - while AGENTS.md calls src/wrapper "not shipped since 0.8.0" and risk.json gave
+   src/wrapper/* class A, so a change to it alone would have planned no Windows test. So far nothing slipped: its
+   only recent changes (round 0.8.28 items 1 and 2, the review fixes) came with other Windows files and that round
+   ran its Windows items (VM 5/5). Now: git mv to src/broker, includes and both Makefiles adjusted (the wrapper builds it from
+   ../broker/ like its other broker files), risk.json: the Windows USB-layer rule (class C, windows: cold, reopen,
+   power, sleep) names both files. Proof that nothing changed: mingw cross-builds before/after; vtibroker.exe and
+   the other EXEs byte-identical with PE TimeDateStamp/CheckSum zeroed (two builds of the same tree differ only
+   there); the wrapper DLLs differ between two builds of the SAME source (non-reproducible, not usable), so for all
+   six affected sources the preprocessed output (mingw gcc -E -P) old tree vs new is identical. Linux broker builds;
+   ctest scripts_py passes (risk rules). Not on hardware. risk.py --round 0.8.29 now asks Windows by hand: cold,
+   reopen, export, power, sleep (before: cold, export) - DECIDE with the user whether the identical binary justifies
+   skipping the three new items; checklist round-0.8.29.json NOT regenerated. Left as is: the comment in
+   src/inf/vti_winusb.inf still names src/wrapper/vtiusbaudio.c (changing the driver package for a comment is not
+   worth it) and the evidence entries (E076, E078, E081: paths as they were then).
 
 ## Round 0.8.28 (branch round-0.8.28, collecting; started 2026-10-19)
 
