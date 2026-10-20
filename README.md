@@ -173,6 +173,12 @@ in the plug-in, switch the part's output to "Out 1" and back to "USB 1" (this se
 On macOS also check that your DAW may use the microphone (System Settings → Privacy & Security → Microphone). On Linux, if notes and knobs work but no audio comes over USB (log: `usbaudio: alternate setting 1 failed`,
 kernel log: `Not enough bandwidth`), connect the Virus directly to the computer, not through a USB hub.
 
+**REAPER on Linux: stay in REAPER while a render runs.** REAPER 7.82 on Linux can crash right after a render from
+the render dialog if another program had the focus when the render window closed, for example when you clicked into a
+terminal or a browser during the render. Two short freezes in the same tests were probably the same bug (not
+measured). This is a bug in REAPER's window layer, not in TI Revive: it happens with REAPER's own ReaSynth as well,
+without TI Revive in the project. Until Cockos fixes it, stay in REAPER until the render window has closed.
+
 **Third USB output (USB 3).** Like the original, the Virus sends a third stereo output over USB only when you choose
 it: in the plug-in, open PATCH UTILITY → Preferences and set "Input and Output Configuration" to "3 Outs / No Input".
 Then a part's output can be "USB3 L+R" (greyed out before), and its sound comes out of the plug-in's **Out 3**. The

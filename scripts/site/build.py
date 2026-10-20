@@ -415,6 +415,12 @@ def page_landing(latest, releases, sums):
       Virus live. TI Revive supports it: when your DAW renders offline (export, freeze, offline bounce), the plug-in
       holds each block until the Virus has made its sound. The render is right, but not faster than the song: the
       Virus plays in real time. Right after a project opens, the render first waits a few seconds for the Virus.</p></details>
+      <details><summary>REAPER on Linux: stay in REAPER while a render runs</summary>
+      <p>REAPER 7.82 on Linux can crash right after a render from the render dialog if another program had the focus
+      when the render window closed, for example when you clicked into a terminal or a browser during the render.
+      Two short freezes in the same tests were probably the same bug (not measured). This is a bug in REAPER's
+      window layer, not in TI Revive: it happens with REAPER's own ReaSynth as well, without TI Revive in the
+      project. Until Cockos fixes it, stay in REAPER until the render window has closed.</p></details>
       <details><summary>&ldquo;A sync error occurred. Press Stop and Play to clear.&rdquo;</summary>
       <p>Like the original, the editor shows this when the Virus reports several notes in a row that arrived too late
       for their time stamp while your DAW plays. Stop and Play clears it. If it comes back, use a USB port the Virus does
