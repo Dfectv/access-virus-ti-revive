@@ -57,7 +57,7 @@ contains no Access material. No kernel code of its own is installed.
 | **In your DAW** | VST3 **"TI Revive Virus Control"**; ASIO device **"TI Revive Virus Audio"** (the Virus as sound card) | **"TI Revive Virus Control"** as VST3 and Audio Unit (Logic, GarageBand) | VST3 **"TI Revive Virus Control"** |
 | **Tested with** | Ableton Live 11 (Windows 11 PC and VM) | Ableton Live 12 on a MacBook Air M3 (VST3), GarageBand (AU) | REAPER 7.82 on Ubuntu 26.04 |
 
-- **Timing:** notes land sample-accurately on the grid (measured jitter 0.01 to 0.33 ms, std. dev.); the plug-in
+- **Timing:** notes land sample-accurately on the grid (measured jitter 0.04 to 0.33 ms, std. dev.); the plug-in
   reports its latency so the DAW compensates it. Any host sample rate works (the Virus runs at 44.1 kHz, the plug-in
   converts).
 - **First start:** the plug-in reads RAM A-D from the Virus (a few minutes without a cache); you can play meanwhile -
@@ -343,7 +343,7 @@ Revive rebuilds that plug-in, and we want to fix its problems instead of copying
 - Owners reported drifting notes, a delay through the plug-in and sync errors over USB
   ([Gearspace](https://gearspace.com/threads/fixing-access-virus-sync-issues.839737/),
   [Ableton forum](https://forum.ableton.com/viewtopic.php?p=938076)). TI Revive stamps every note on the Virus' own
-  clock and reports its latency to the DAW: in our tests every note lands on the grid, within 0.01 to 0.33 ms
+  clock and reports its latency to the DAW: in our tests every note lands on the grid, within 0.04 to 0.33 ms
   (standard deviation).
 - The original cannot export or freeze a Virus track faster than real time and shows a warning that offline rendering
   is not supported ([KVR](https://www.kvraudio.com/forum/viewtopic.php?p=1599326),
@@ -392,8 +392,8 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 | | Notes on the grid | Jitter (std. dev.) | Max. deviation | Drift |
 |---|---|---|---|---|
 | Classic plug-in 0.7.x (Linux, REAPER) | first note late, second missing | 0.06 ms | 1.31 ms | - |
-| **0.8.0, Linux** (REAPER render) | 256 / 256, first at exactly 2000.00 ms | **0.01 ms** | 0.05 ms | 0 ppm |
-| **0.8.0, macOS** (Ableton 12, M3) | 256 / 256 | **0.02 ms** | 0.28 ms | 0 ppm |
+| **0.8.27, Linux** (REAPER render, test round) | 63 / 63 | **0.16 ms** | 0.37 ms | -72 ppm |
+| **0.8.28, macOS** (Ableton 12 export, M3, test round) | 256 / 256 | **0.19 ms** | 2.57 ms | +1 ppm |
 | **0.8.23, Windows 11 PC** (Ableton Live 11 export) | 480 / 480 | **0.04 ms** | 0.71 ms | 0 ppm |
 | **0.8.24, Windows 11 PC** (Ableton Live 11 export, test round) | 256 / 256 | **0.33 ms** | 2.58 ms | -1 ppm |
 
@@ -416,7 +416,7 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 - **Automation rate limit** (250 messages/s, coalesced per parameter): unthrottled parameter floods hung the Virus'
   audio until a power cycle within 4 minutes; with the limit a 4-minute full-load test (16 channels of notes + 32
   automation lanes) passes.
-- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 262 unit
+- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 304 unit
   tests run with every release build on Windows and Linux, plus two end-to-end tests on Linux in a virtual display
   (two editors of a duplicated track; the Control Center's window and close button).
 

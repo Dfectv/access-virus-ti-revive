@@ -231,6 +231,14 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
+          **New in 0.8.28: a review of the whole send path.** The plug-in guards the values a host sends (velocity,
+          pitch bend, tempo; on Windows and macOS a NaN value got through before), sends one message per value while
+          you drag a knob, and keeps its audio ring safe while the Virus goes away. When the broker restarts, the
+          plug-in reconnects on its own. Popup menus and text fields close cleanly on every system; the patch name's
+          text now fits its field on macOS. On Linux, the log names the cause when a USB hub leaves too little
+          bandwidth for the Virus' audio. Tested on Linux (REAPER), macOS (Ableton Live 12) and Windows 11 (Ableton
+          Live 11, in a VM).
+
           **New in 0.8.27: patch changes while you play, like the original.** Choosing a patch for one part no longer
           stops the other parts for a moment. We recorded what the original plug-in sends and do the same now: the patch
           goes to the Virus in small pieces on its own USB-MIDI cable, and the notes of the other parts go on in between.
