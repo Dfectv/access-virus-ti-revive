@@ -83,7 +83,7 @@ for i in 1 2; do
 done
 
 # a DAW stops after a render and plays again later: 4 s of real-time blocks without notes between the two (going
-# straight from the render into playing notes puts the first note 12-14 ms late, also in 0.8.27: open, HANDOFF)
+# straight from the render into notes is fine too since nativehost waits one block at the switch, E286)
 say "H3 export: offline from 12 s to 36 s, stopped until 40 s, playback to 54 s (LC3; E243: the clock after an export)"
 if run H3 54 --offline 12 --offline-end 36 --notes-off 36:40; then
     check H3 --seconds 54 --offline "$out/H3.out" --gap 36:40

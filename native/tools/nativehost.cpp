@@ -489,7 +489,13 @@ int main(int argc, char **argv)
             t_offline = std::chrono::steady_clock::now();
         if (!offline && t_offline != std::chrono::steady_clock::time_point{} &&
             t_offline_end == std::chrono::steady_clock::time_point{})
-            t_offline_end = std::chrono::steady_clock::now(); // --offline-end: the render is over
+        {
+            // --offline-end: the render is over. The first real-time block comes one block period after the last
+            // offline one, like a device callback; called at once it ran a block ahead and its first note was
+            // ~12 ms late (E286)
+            std::this_thread::sleep_for(std::chrono::microseconds((long long)block * 1000000 / rate));
+            t_offline_end = t_next = std::chrono::steady_clock::now();
+        }
         data.processMode = offline ? kOffline : kRealtime;
         static ProcessContext pctx{};
         if (transport_at >= 0) { // a DAW transport: 120 BPM from transport_at on, looping every loop_bars bars

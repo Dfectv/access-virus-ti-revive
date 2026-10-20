@@ -54,8 +54,8 @@ The installed plug-in in `nativehost` (no DAW), C4 at the start of every second 
 - timing: every note within 5 ms of a fitted grid, jitter below 1 ms, drift below 100 ppm;
 - export: the offline part runs at 0.8-1.25x real time (paced to the Virus, E204); after a 4 s stop (real-time
   blocks without notes, like a DAW after a render) playback is on the grid again (the E243 kind of fault: the
-  stamp clock shifted after an export). Going from the render straight into notes puts the first one 12-14 ms
-  late, also in 0.8.27 (open, HANDOFF); H3 does not test that case.
+  stamp clock shifted after an export). Going from the render straight into notes put the first one 12-14 ms
+  late until nativehost waited one block period at the switch (E286: the test host's fault, not the plug-in's).
 
 Items: H1 cold start of the broker (LC1 without the power cycle), H2 two reopens after the broker's idle exit
 (LC2), H3 export, a stop and playback after it (LC3), H5 with `--sleep` a 45 s suspend while playing (LC5; needs
