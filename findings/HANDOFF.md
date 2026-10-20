@@ -25,6 +25,10 @@ buffer); all TI library files here have device id 0x10, bank byte 1, versions 8-
 original: it rewrites bytes 10..12 before sending a library patch (E156, 0x180083ae0), we send them as in the file.
 **Not reproduced** (user test 2026-10-20, Linux, REAPER, installed release 0.8.28): 2-3 patches each from OS5, OS4,
 OS2 New ... patches and Patches For Virus Tutorial (Virus C format) via LOAD > Personal Libraries, all played.
+Mac (same day, Cubase 15, macOS 26.6.2, second 0.8.28 test build 2f3b5ab, the four libraries copied over): user
+"all patches worked in cubase too". diag.log: one session 11:14:30-11:16:07, Virus ready 1.8 s, bank sync 3.5 s,
+audio drops 0, peaks on the Virus' outputs while playing, no errors; no second setState in it (the project
+reopen step is not in this log). Patch loads are not logged (no log line in load_dump).
 NEXT: ask the reporter for version, model/OS, where the libraries come from, LOAD vs project recall, one affected
 .mid file. No evidence entry until there is data.
 
