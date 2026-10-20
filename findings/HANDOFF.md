@@ -112,8 +112,10 @@ NEXT: wait for version, model/OS, where the libraries come from, LOAD vs project
    there); the wrapper DLLs differ between two builds of the SAME source (non-reproducible, not usable), so for all
    six affected sources the preprocessed output (mingw gcc -E -P) old tree vs new is identical. Linux broker builds;
    ctest scripts_py passes (risk rules). Not on hardware. risk.py --round 0.8.29 now asks Windows by hand: cold,
-   reopen, export, power, sleep (before: cold, export) - DECIDE with the user whether the identical binary justifies
-   skipping the three new items; checklist round-0.8.29.json NOT regenerated. Left as is: the comment in
+   reopen, export, power, sleep (before: cold, export). DECIDED with the user 2026-10-20: reopen, power and sleep on
+   Windows are skipped this round - the broker binary is identical (proof above), so they would test the same code
+   as the CI test build; round-0.8.29.json and the published checklist stay as they are (Windows: cold, export).
+   From round 0.8.30 on, risk.py's selection applies to these files without exception. Left as is: the comment in
    src/inf/vti_winusb.inf still names src/wrapper/vtiusbaudio.c (changing the driver package for a comment is not
    worth it) and the evidence entries (E076, E078, E081: paths as they were then).
 
