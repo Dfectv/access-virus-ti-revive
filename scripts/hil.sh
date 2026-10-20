@@ -8,7 +8,8 @@
 # --power CMD (or TIREVIVE_POWER): a command that switches the Virus' mains with "off" / "on" as its argument
 # (e.g. a script calling a switchable plug's local API); then H4 = LC4 runs too. Not tried with a real plug yet.
 # Rule 2: sends only what the plug-in sends in a DAW (start-up, the part states, notes); it replaces the Virus' edit
-# buffers like opening a project does, never stores anything. --sleep suspends this PC for 45 s (sudo rtcwake).
+# buffers like opening a project does, never stores anything. --sleep suspends this PC for 45 s (sudo rtcwake sets
+# the alarm, systemctl suspend sleeps; H5 fails when the PC did not really sleep).
 # Exit 0 when every item passes.
 set -uo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd)
@@ -24,7 +25,7 @@ while [ $# -gt 0 ]; do
         --out) out=$2; shift 2 ;;
         --sleep) sleep_test=1; shift ;;
         --power) power=$2; shift 2 ;;
-        *) sed -n '2,14p' "$0"; exit 2 ;;
+        *) sed -n '2,15p' "$0"; exit 2 ;;
     esac
 done
 
@@ -48,6 +49,9 @@ broker_gone() {
         sleep 2; t=$((t + 2))
     done
 }
+
+# seconds this PC has been suspended since boot: CLOCK_BOOTTIME counts the sleep, CLOCK_MONOTONIC does not
+slept_s() { python3 -c 'import time; print(int(time.clock_gettime(time.CLOCK_BOOTTIME) - time.monotonic()))'; }
 
 # run NAME SECONDS [nativehost args...]: play, record, check
 run() {
@@ -113,7 +117,15 @@ if [ $sleep_test = 1 ]; then
     if sudo -v; then
         run H5 150 & pid=$!
         sleep 25
-        sudo rtcwake -m mem -s 45 >"$out/H5.rtcwake" 2>&1
+        # through systemd, not `rtcwake -m mem`: that skips nvidia-suspend.service, the NVIDIA driver refuses and the
+        # kernel is back after 0.7 s (2026-10-20: H5 passed on a USB reset, not a sleep). rtcwake only sets the alarm.
+        slept0=$(slept_s)
+        sudo rtcwake -m no -s 45 >"$out/H5.rtcwake" 2>&1 && systemctl suspend >>"$out/H5.rtcwake" 2>&1
+        t=0
+        while [ $(( $(slept_s) - slept0 )) -lt 30 ] && [ $t -lt 90 ]; do sleep 1; t=$((t + 1)); done
+        slept=$(( $(slept_s) - slept0 ))
+        if [ $slept -ge 30 ]; then say "  pass  suspend: the PC slept ${slept} s"
+        else say "  FAIL  suspend: the PC slept only ${slept} s (see H5.rtcwake, journalctl 'PM: suspend')"; fails=$((fails + 1)); fi
         # judged from 30 s after the wake on: the plug-in sets up again (stood-still restart), the host catches up
         if wait $pid; then check H5 --seconds 150 --sleep --from 100; else fail H5; fi
     else

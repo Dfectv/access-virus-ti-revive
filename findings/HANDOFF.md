@@ -54,6 +54,14 @@ NEXT: wait for version, model/OS, where the libraries come from, LOAD vs project
    startprogress_sync_end_names_an_abort (failed first: not declared). Linux: 305 unit tests, ctest 5/5. Not on
    hardware (an abort needs a lost reply or a close during the sync; the next round's reopen test may show it).
 
+3. **hil.sh --sleep never slept (found 2026-10-20, fixed, rerun pending).** First --sleep run (release 0.8.28 in
+   ~/.vst3, work/hil/20261020-120224): H1, H2 x2, H3, H6 real passes (jitter 0.02-0.19 ms, 0 lost, export 1.00x);
+   H5 "pass" but the kernel log shows `rtcwake -m mem` -> nvidia pci_pm_suspend returns -5, "Some devices failed to
+   suspend", suspend exit after 0.7 s: H5 tested a ~1 s USB reset (disconnect, reconnect, ready 3.7 s, 50/50 notes),
+   not a sleep. rtcwake goes straight to the kernel and skips nvidia-suspend.service (the manual LC5 at 09:30 went
+   through systemd-sleep and slept). Now: rtcwake -m no sets the alarm, systemctl suspend sleeps, and H5 fails unless
+   CLOCK_BOOTTIME - CLOCK_MONOTONIC grew by >= 30 s. Syntax-checked only; needs the user's rerun.
+
 ## Round 0.8.28 (branch round-0.8.28, collecting; started 2026-10-19)
 
 1. **C++ review of round 0.8.27 (2026-10-19), fixes - built and unit-tested on Linux only, NOT on hardware.**
