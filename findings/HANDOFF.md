@@ -32,7 +32,7 @@ load_dump). Project recall then tested (Mac, Cubase 15, same build): "Envy" (OS5
 format 12) loaded on part 1, project saved, closed, reopened; user: "patch played after reopen". diag.log 11:26:28:
 setState 245 records, part 1 "Envy", state sent (244 messages), Virus ready 2.0 s, peaks while playing, drops 0.
 The four test libraries were removed from the Mac's ~/Documents/Access Music/Virus TI/Patches afterwards
-(My Patches.mid, New Library.mid kept). Reply to the reporter drafted 2026-10-20, the user sends it (Reddit).
+(My Patches.mid, New Library.mid kept). Reply to the reporter sent by the user 2026-10-20 (Reddit).
 NEXT: wait for version, model/OS, where the libraries come from, LOAD vs project recall, one affected .mid file. No evidence entry until there is data.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
