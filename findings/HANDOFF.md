@@ -17,6 +17,17 @@ original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md
 Evidence: [evidence.md](evidence.md) (E001-E289), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
+## Open report: personal library patches silent (Reddit, 2026-10-20)
+
+User from the Cubase issue (Reddit chat): "non RAM/ROM banks (personal libraries) aren't producing any sound".
+Code: library patches go the same way as RAM/ROM (load_patch -> load_dump, one single dump to the part's edit
+buffer); all TI library files here have device id 0x10, bank byte 1, versions 8-12. One known difference to the
+original: it rewrites bytes 10..12 before sending a library patch (E156, 0x180083ae0), we send them as in the file.
+**Not reproduced** (user test 2026-10-20, Linux, REAPER, installed release 0.8.28): 2-3 patches each from OS5, OS4,
+OS2 New ... patches and Patches For Virus Tutorial (Virus C format) via LOAD > Personal Libraries, all played.
+NEXT: ask the reporter for version, model/OS, where the libraries come from, LOAD vs project recall, one affected
+.mid file. No evidence entry until there is data.
+
 ## Round 0.8.28 (branch round-0.8.28, collecting; started 2026-10-19)
 
 1. **C++ review of round 0.8.27 (2026-10-19), fixes - built and unit-tested on Linux only, NOT on hardware.**
