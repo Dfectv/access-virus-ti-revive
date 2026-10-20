@@ -81,6 +81,14 @@ vtiaudio, vtimidi - now part of the script. Virus not attached yet. Next: Live 1
 OK); user doing the first sync, then clean quit -> detach -> snapshot ref-synced. CI run 39477408077 (b8eb7e3, 0.8.29)
 ALL GREEN incl. mac (earlier mac jobs: GitHub runner queue). Mac zip pushed + unzipped in ~/Downloads/TI-Revive-0.8.29-mac
 (sha e66eec0c.. = CI); user: M tests not now, round continues with a new +/- related change first.
+**RULE (E293): never `virsh screenshot` a VM that has the Virus attached under the Access driver** - it stalls the
+USB passthrough and the guest dies with 0x139 (the cause of tonight's crashes, not a corrupt VM). win10ref has a
+task for screenshots inside the guest: `VM=win10ref scripts/vm.sh ps 'Start-ScheduledTask vti-shot'` -> C:\ref\shots\
+<HHmmss-fff>.png (C:\ref\shot.ps1, task vti-shot, interactive user vti), then vm.sh pull. Snapshots win10ref: ref-clean
+(no Virus), ref-synced (Live 11 + Virus Control synced, cache written, Virus detached; the vti-shot task came after).
+Original's BROWSER page (screenshot 2026-10-20): two panes - upper with path dropdown, up/down, CATEGORY, search; lower
+"Virus TI2 (Virus TI2 Desktop)/RAM A" with dropdown and up/down only; 8x16 entries each. RAM A slots 1-3 hold
+library patches the user dragged in earlier with the original (survived a power cycle).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
