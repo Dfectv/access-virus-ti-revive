@@ -14,7 +14,7 @@ unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo install
 in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
 third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
 original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E289), protocol: [spec.md](spec.md); the native plug-in:
+Evidence: [evidence.md](evidence.md) (E001-E290), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
 
 ## Open report: personal library patches silent (Reddit, 2026-10-20)
@@ -54,13 +54,15 @@ NEXT: wait for version, model/OS, where the libraries come from, LOAD vs project
    startprogress_sync_end_names_an_abort (failed first: not declared). Linux: 305 unit tests, ctest 5/5. Not on
    hardware (an abort needs a lost reply or a close during the sync; the next round's reopen test may show it).
 
-3. **hil.sh --sleep never slept (found 2026-10-20, fixed, rerun pending).** First --sleep run (release 0.8.28 in
+3. **hil.sh --sleep never slept (found 2026-10-20, fixed, rerun passed).** First --sleep run (release 0.8.28 in
    ~/.vst3, work/hil/20261020-120224): H1, H2 x2, H3, H6 real passes (jitter 0.02-0.19 ms, 0 lost, export 1.00x);
    H5 "pass" but the kernel log shows `rtcwake -m mem` -> nvidia pci_pm_suspend returns -5, "Some devices failed to
    suspend", suspend exit after 0.7 s: H5 tested a ~1 s USB reset (disconnect, reconnect, ready 3.7 s, 50/50 notes),
    not a sleep. rtcwake goes straight to the kernel and skips nvidia-suspend.service (the manual LC5 at 09:30 went
    through systemd-sleep and slept). Now: rtcwake -m no sets the alarm, systemctl suspend sleeps, and H5 fails unless
-   CLOCK_BOOTTIME - CLOCK_MONOTONIC grew by >= 30 s. Syntax-checked only; needs the user's rerun.
+   CLOCK_BOOTTIME - CLOCK_MONOTONIC grew by >= 30 s. Rerun by the user (work/hil/20261020-121623): ALL PASS, the PC
+   slept 48 s, recovery via the stood-still path and the reconnect (two 'ready' lines, no double send), notes 50/50,
+   jitter 0.24 ms (E290). LC5 can now run automated on Linux (the user starts it: sudo).
 
 ## Round 0.8.28 (branch round-0.8.28, collecting; started 2026-10-19)
 
