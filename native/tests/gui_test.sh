@@ -27,6 +27,9 @@ duplicate)
     fi
     [ $rc -eq 0 ] || fail "nativehost exited with $rc"
     grep -q "this one takes over the Virus" "$out" || fail "the duplicate did not take over"
+    # the editor's open and close are in the log (E287: REAPER crashes only with the editor open)
+    [ "$(grep -c "editor opened" "$out")" -ge 2 ] || fail "the two editors' opening is not logged"
+    grep -q "editor closed" "$out" || fail "the first editor's close is not logged"
     ;;
 ccclose)
     # the app crashed on closing (its timer outlived VSTGUI's platform layer), and its window kept the size it was

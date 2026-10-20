@@ -2279,6 +2279,7 @@ bool PLUGIN_API VirusEditor::open(void *parent, const PlatformType &platformType
         frame->setZoom(zoom());
         resizing_ = false;
     }
+    plugin_->editor_event("opened");
     return true;
 }
 
@@ -2317,6 +2318,7 @@ void PLUGIN_API VirusEditor::close()
         if (open_frames == 0)
             pinned_runloop = nullptr; // nothing registered any more: the next editor sets up a fresh one
 #endif
+        plugin_->editor_event("closed");
     }
 }
 

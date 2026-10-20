@@ -264,6 +264,12 @@ public:
     // editor support (viruseditor.cpp)
     const AccessFiles &files() const { return *files_; }
     const EditorLayout &layout() const { return layout_; }
+    // the editor's open and close in the log: REAPER's crash after a render needs the editor open (E287)
+    void editor_event(const char *what)
+    {
+        if (out_)
+            out_->log("Virus TI native: editor %s\n", what);
+    }
     // the classic oscillator display's waves (E180), read from the binary on the first editor open, not at
     // initialize (plug-in scans stay fast); UI thread only
     const std::vector<float> &osc_waves()
