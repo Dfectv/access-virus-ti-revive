@@ -231,6 +231,12 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
+          **New in 0.8.29: small fixes.** When the plug-in's bank sync at start-up stops early (no answer from the
+          Virus, or the plug-in closed meanwhile), the log and the Virus' display no longer say the sync is done. A
+          check in the macOS and Windows builds that keeps broken values out of the classic oscillator display now
+          works with their compiler settings. On Linux, REAPER 7.82 can crash after a render when another program
+          had the focus as the render window closed: this is a bug in REAPER, see "Good to know" in the README.
+
           **New in 0.8.28: a review of the whole send path.** The plug-in guards the values a host sends (velocity,
           pitch bend, tempo; on Windows and macOS a NaN value got through before), sends one message per value while
           you drag a knob, and keeps its audio ring safe while the Virus goes away. When the broker restarts, the
