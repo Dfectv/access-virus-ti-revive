@@ -27,8 +27,10 @@ original: it rewrites bytes 10..12 before sending a library patch (E156, 0x18008
 OS2 New ... patches and Patches For Virus Tutorial (Virus C format) via LOAD > Personal Libraries, all played.
 Mac (same day, Cubase 15, macOS 26.6.2, second 0.8.28 test build 2f3b5ab, the four libraries copied over): user
 "all patches worked in cubase too". diag.log: one session 11:14:30-11:16:07, Virus ready 1.8 s, bank sync 3.5 s,
-audio drops 0, peaks on the Virus' outputs while playing, no errors. Project recall of a library patch NOT tested
-(user: load and play only). Patch loads are not logged (no log line in load_dump).
+audio drops 0, peaks on the Virus' outputs while playing, no errors. Patch loads are not logged (no log line in
+load_dump). Project recall then tested (Mac, Cubase 15, same build): "Envy" (OS5 New Features patches, program 21,
+format 12) loaded on part 1, project saved, closed, reopened; user: "patch played after reopen". diag.log 11:26:28:
+setState 245 records, part 1 "Envy", state sent (244 messages), Virus ready 2.0 s, peaks while playing, drops 0.
 NEXT: ask the reporter for version, model/OS, where the libraries come from, LOAD vs project recall, one affected
 .mid file. No evidence entry until there is data.
 
