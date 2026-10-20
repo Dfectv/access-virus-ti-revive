@@ -126,7 +126,7 @@ jobs:
           if-no-files-found: error
 
   mac:
-    runs-on: macos-latest # macos-15 got no runner 5x on 2026-10-20 (run 39441322803)
+    runs-on: macos-15
     timeout-minutes: 25 # a hanging step (e.g. a stuck package mirror) fails fast instead of blocking
     steps:
       - uses: actions/checkout@v7
