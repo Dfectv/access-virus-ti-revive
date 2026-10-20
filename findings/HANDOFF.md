@@ -92,7 +92,10 @@ NEXT: wait for version, model/OS, where the libraries come from, LOAD vs project
    imports wave (scripts/timing_analysis.py) and sys (native/tools/uicompare/capa.py); vulture's other hits are
    unittest classes, documented struct fields (macho_syms.py) and an in-place bytearray (vtitrace.py). Fixed too:
    uicompare/allpages.py line 20 had an invalid "\ " escape (SyntaxWarning); now "\\ ", the same string (AST
-   compare), compiles with -W error; the tool itself not run (needs a display and the uicompare setup). Not
+   compare), compiles with -W error; the tool itself not run (needs a display and the uicompare setup). clang-tidy
+   21.1.8 (misc-unused-*, bugprone-unused-*, -Wunused incl. member functions/templates/internal declarations) over
+   the 90 native files in compile_commands.json (Linux build, tests included): one hit, AudioIn::mac_ "not used",
+   a false positive (all uses under __APPLE__); no change. Windows/macOS-only code is not seen by this pass. Not
    covered: src/wrapper (reference only). Linux build + ctest 5/5; Windows/macOS not built. Like item 1, this came after CI test build 39441322803 (Control Center binary differs).
 
 ## Round 0.8.28 (branch round-0.8.28, collecting; started 2026-10-19)
