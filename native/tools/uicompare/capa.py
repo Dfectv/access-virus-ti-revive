@@ -1,4 +1,4 @@
-import st,subprocess,struct,sys,time,os
+import st,subprocess,struct,time,os
 from PIL import ImageGrab
 S=os.path.dirname(os.path.abspath(__file__))
 def run(tag, sets, extra_recs=None, tab=(626,54)):

@@ -88,8 +88,11 @@ NEXT: wait for version, model/OS, where the libraries come from, LOAD vs project
    SkinPage::set_status (native/ccapp/skinpage.cpp, no caller anywhere). Kept on purpose: ~80 false positives
    (members/statics/per-platform), the test-only API (RemoteTemplates knob_behaviour/set_knob_behaviour, help_count,
    broker on_state/pending_bytes/pending_replies/set_endpoint), the ASIO Dll* exports and ASIO struct members (ABI).
-   Not covered: Python scripts (no vulture/pyflakes installed), src/wrapper (reference only). Linux build + ctest
-   5/5; Windows/macOS not built. Like item 1, this came after CI test build 39441322803 (Control Center binary differs).
+   Python (22 tracked files, pyflakes 4.0.3 + vulture 2.16 from a scratchpad --target install): removed the unused
+   imports wave (scripts/timing_analysis.py) and sys (native/tools/uicompare/capa.py); vulture's other hits are
+   unittest classes, documented struct fields (macho_syms.py) and an in-place bytearray (vtitrace.py). Open:
+   uicompare/allpages.py line 20 has an invalid "\ " escape (SyntaxWarning now, an error in a later Python). Not
+   covered: src/wrapper (reference only). Linux build + ctest 5/5; Windows/macOS not built. Like item 1, this came after CI test build 39441322803 (Control Center binary differs).
 
 ## Round 0.8.28 (branch round-0.8.28, collecting; started 2026-10-19)
 

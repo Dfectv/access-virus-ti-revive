@@ -13,7 +13,6 @@ Reads 16/24/32-bit PCM and 32-bit float WAV (stdlib only).
 import argparse
 import struct
 import sys
-import wave
 
 
 def read_wav(path):
