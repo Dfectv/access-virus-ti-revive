@@ -231,6 +231,9 @@ first, 331 green): panel reports filtered by their condition. WC1/WC3/W1 marks a
 New CI build for the VM/Mac re-test (also carries the E305 package fix).
 Pushed; CI run 39582553971 (version 0.8.29) started 2026-10-21 ~12:10. NEXT: install on win11 (setup.exe /quiet), Linux
 (install.sh), Mac (push; the package must now replace the bundles by itself - verifies E305); redo W3, WC1, WC3, W1.
+CI 39582553971 ALL GREEN. Installed: win11 setup.exe /quiet exit 0, plug-in c45840bf.. = the new MSI's (Windows replaces
+same-version files; C:\tirevive-test\0.8.29-ci3); Linux install.sh, plug-in 90cf53f7..; Mac: pushed + unzipped in
+~/Downloads/TI-Revive-0.8.29-ci3-mac, user installs WITHOUT removing bundles first (E305 check). Packages work/ci/39582553971.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
