@@ -199,6 +199,9 @@ timer for Windows/macOS could follow. Test: REAPER 'last touched parameter' (Lin
 User test 2026-10-21 (REAPER Linux, dev 869f7690 = a81c568): knob on the Virus -> REAPER 'last touched' shows it; turning
 smooth (no echo jitter); Touch automation recorded from the Virus knob and played back - PASS. Ableton Configure mode
 (the reporter's case) still to test on the Mac / win11 in the round test.
+2026-10-21 ~11:28: round-0.8.29 pushed (7a4b98e), CI run 39577249656 (version 0.8.29) started. NEXT: when green -
+install on Linux (CI build), win11 VM (silent setup), Mac (push zip); round checklist incl. browser functions and
+Ableton Configure mode (#10); meanwhile E300 evidence on Linux.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
