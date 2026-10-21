@@ -141,6 +141,11 @@ then CI build + round checklist (Windows, Mac).
 Library recording done 2026-10-21 08:14-08:22 (E298): position = program byte (gaps), drop overwrites and sets the
 byte, file sorted by byte, undo covers library ops, swap in a library, delete removes the dump; drag highlight =
 filled 66,111,204 + white text on source and target. BUG to fix first: our library reader uses file order.
+FIXED (test first, 317 green, ctest 5/5): library.cpp places each dump at its program byte (gaps empty; file order
+when bytes repeat or > 128 dumps), save_library leaves gaps out; tirevive-cc list/export skip gaps. Effect: the
+factory libraries OS4/OS45/OS5 New Features now show the original's gaps (OS5: 54-63 empty, *Templates at 64 - as in
+the original's screenshot); before, TI Revive showed those patches shifted up. Library ops (copy/delete/sort/rename,
+undo for libraries) and the drag highlight: next.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 

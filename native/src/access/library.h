@@ -9,15 +9,16 @@ namespace vti {
 
 struct PatchLibrary {
     std::string name, path;                   // file name without ".mid"
-    std::vector<std::vector<uint8_t>> dumps; // 524-byte single dumps (TI format)
+    std::vector<std::vector<uint8_t>> dumps; // 524-byte single dumps (TI format) by position; empty = a gap
 };
 
-// one .mid or .syx file (`lib.name` is left to the caller); false if it cannot be read
+// one .mid or .syx file (`lib.name` is left to the caller); false if it cannot be read. Each patch at its program
+// byte like the original (E298), gaps empty; the file order when program bytes repeat
 bool load_library_file(const std::string &path, PatchLibrary &lib, const std::vector<uint8_t> &page_b = {});
 // `page_b`: AccessFiles::default_page_b() - with it, old Virus C (267-byte) dumps are upgraded to the TI format
 std::vector<PatchLibrary> load_libraries(const std::string &dir, const std::vector<uint8_t> &page_b = {});
 // writes `lib.dumps` to `lib.path` in the original's file layout (SMF type 0, one track, a SysEx per patch with
-// delta 120, bank byte 1, program = position, division 96)
+// delta 120, bank byte 1, program = position, division 96); gaps are left out
 bool save_library(const PatchLibrary &lib, std::string &error);
 // the original's "Create Empty Library" (E217): the name chosen in its save dialog ends in ".mid" (".midi" loses the
 // "i", any other name gets ".mid"; case-sensitive like the original)
