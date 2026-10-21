@@ -212,6 +212,9 @@ CI run 39577249656 (2940ef8.. = round tip 7a4b98e + HANDOFF, version 0.8.29) ALL
 (install.sh, plug-in dc13ca8b.., broker cdf3d914..; dev 869f7690 in ~/.vst3-backup/0.8.29-dev-869f7690); win11 VM =
 setup.exe /quiet exit 0 (C:\tirevive-test\0.8.29-ci; bundle entry visible, MSI entry SystemComponent=1), VM running;
 Mac: unreachable (ssh timeout) - push work/ci/39577249656/TI-Revive-mac zip when awake. Packages in work/ci/39577249656.
+Checklist republished 2026-10-21 ~11:41 (same link, version 2): https://claude.ai/artifact/FPLV3yBfZW6E25dP2Mdx5P - spec
+scripts/checklists/round-0.8.29.json: L1, L2 (browser + #10 short on CI); VM WC1, WC3, W1, W2 (browser), W3 (Ableton
+Configure #10); Mac MC1, MC3, M1, M2, M3 (browser), M4 (Configure #10). hil.sh running on the CI build.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
