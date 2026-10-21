@@ -255,6 +255,10 @@ CI run 39619240510 (4b819dd) all green (mac job needed one rerun: no runner, 'ca
 17:13:34, receipt 0.8.29, VST3 c92d9622.., AU 1be78fe9.., broker e234fccc.. = pkg payload. Live has Full Disk Access (user),
 so not TCC; VSTGUI's NSSavePanel sets directoryURL correctly -> M3 re-test: check the 'Where' menu before Save.
 Mac pushes now also get INSTALL-COMMAND.txt + 'Install test build.command' in the extracted folder (user request).
+MAC BLOCK PASSED (E308): MC1, MC3, M1-M4 all pass; M3 re-test on 39619240510 pass (Public Libraries, MacTest.mid in
+~/Documents/...). Checklist: all 13 marks pass (L1, L2, WC1, WC3, W1-W3, MC1, MC3, M1-M4). Not tested: the E307 change on
+Windows (menus from %APPDATA% / C:\ProgramData; the Access installer puts Windows libraries in Documents). NEXT: release
+decision with the user; E300 option open; restore the user's RAM A/B (work/libdrag/ram-backup-20261021-0921).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
