@@ -1318,6 +1318,8 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             auto it = params_.find(id);
             if (it == params_.end())
                 continue;
+            if (gestures_.echo(id, v, now_ms())) // our own edit of a knob moved on the Virus, handed back: not again
+                continue;
             int value = (int)std::lround(v * 127); // the original's automation scale (docs/formats.md)
             if (const Parameter *p = dev_.find(it->second.path))
                 value = std::min(std::max(value, p->min), p->max);
@@ -2972,6 +2974,30 @@ bool VirusPlugin::download_bank(int bank)
     return true;
 }
 
+void VirusPlugin::editor_opened()
+{
+    editors_open_++;
+}
+
+void VirusPlugin::editor_closed()
+{
+    if (--editors_open_ <= 0) {
+        editors_open_ = 0;
+        gestures_.flush([this](uint32_t id) { endEdit(id); });
+    }
+}
+
+void VirusPlugin::tick_gestures()
+{
+    gestures_.tick(
+        now_ms(), [this](uint32_t id) { beginEdit(id); },
+        [this](uint32_t id, double v) {
+            setParamNormalized(id, v);
+            performEdit(id, v);
+        },
+        [this](uint32_t id) { endEdit(id); });
+}
+
 bool VirusPlugin::can_undo_drop()
 {
     std::lock_guard<std::mutex> lk(banks_mu_);
@@ -3366,7 +3392,11 @@ void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
             meta_source(c.path, c.part, c.value, false); // e.g. the FX switches follow the send knobs on the Virus
         }
         auto it = ids_.find({c.path, c.part});
-        if (it != ids_.end()) {
+        if (it != ids_.end() && editors_open_.load() > 0 && !PanelFollow::is_preset_path(c.path)) {
+            // like the original: a knob moved on the Virus becomes a host edit (begin/perform/end, E304), which
+            // Ableton Live's Configure mode picks up (#10); patch selections do not (the original's loads do not)
+            gestures_.device_change(it->second, c.value / 127.0, now_ms());
+        } else if (it != ids_.end()) {
             // the latest value per parameter: bounded by the parameter count even when the host does not call
             // process() for a while (review 2026-10-19: it grew with every knob move)
             std::lock_guard<std::mutex> lk(pending_mu_);

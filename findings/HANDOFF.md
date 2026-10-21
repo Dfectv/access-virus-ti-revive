@@ -189,6 +189,13 @@ Ableton Live's automation list (Configure mode) - the plug-in window's changes a
 hardware knob. Code: UI -> beginEdit/performEdit/endEdit (virusplugin.cpp ~1851), panel -> only outputParameterChanges in
 process() (~1388). NEXT: REA on the original (how it hands panel changes to the host), evidence, then fix with the rate
 limit and no echo back to the Virus; test in Ableton (Mac + win11) Configure mode.
+#10 done (dev, not user-tested; 330 tests, ctest 5/5): E304 (REA sub-agent): the original sends begin/perform/end with
+a 250 ms end via its VST2 shim. New model/hostgestures.h (+4 tests): device_change -> tick (UI thread: beginEdit,
+setParamNormalized+performEdit latest value, endEdit 250 ms after the last change), echo() filters the value the host
+hands back (while open, 500 ms after), flush on editor close. Plug-in: while an editor is open, panel knob reports (not
+Bank/Patch) go to gestures_ instead of pending_; process() skips echoes; editor timer calls tick_gestures(). LIMIT: with
+the editor closed the old path (output parameter changes) - no UI-thread timer without an editor on Linux; a plug-in
+timer for Windows/macOS could follow. Test: REAPER 'last touched parameter' (Linux), Ableton Configure (Mac, win11).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 

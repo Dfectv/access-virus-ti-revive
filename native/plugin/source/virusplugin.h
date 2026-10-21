@@ -22,6 +22,7 @@
 #include "device/presencewatch.h"
 #include "device/stallwatch.h"
 #include "model/bankdrop.h"
+#include "model/hostgestures.h"
 #include "model/patchhistory.h"
 #include "model/syncalert.h"
 #include "device/resampler.h"
@@ -315,6 +316,9 @@ public:
     bool sort_library(int library);
     bool rename_in_library(int library, int program, const std::string &name);
     bool can_undo_drop();
+    void editor_opened();  // the editor's open(): knob moves from the Virus become host edits
+    void editor_closed();  // its close(): open edits end
+    void tick_gestures();  // the editor's timer (UI thread): beginEdit / performEdit / endEdit
     bool undo_drop(); // "Undo last operation": writes back what the last drop overwrote
     // the part's patch into a personal library (slot = position, == size: append) - writes the library file
     bool store_to_library(int part, int library, int slot);
@@ -631,6 +635,10 @@ private:
     std::mutex history_mu_;
     PatchHistory history_; // per part: Revert to / Recently Used (E220), this session only
     BankDrop drop_;        // the last browser drop onto RAM, for its undo (banks_mu_)
+    // knob moves on the Virus as host edits while an editor is open (its timer is the UI-thread tick; E304, #10);
+    // without an editor they go to the host as output parameter changes (pending_), as before
+    HostGestures gestures_;
+    std::atomic<int> editors_open_{0};
     bool send_ram_writes(const std::vector<BankDrop::Write> &w); // dumps into RAM slots + cache + cache files
     // a library operation: `op` makes the library's new patches from the current ones (empty = refused); the old
     // ones are kept for the undo, the file is saved

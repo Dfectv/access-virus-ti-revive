@@ -1064,6 +1064,7 @@ public:
             keep_runloop(); // a new instance's setHostContext may have replaced it (E183)
 #endif
             plugin_->diag_report();
+            plugin_->tick_gestures(); // knob moves on the Virus -> host edits (E304)
             if (plugin_->ui_changed() && !partial_) { // during a drag the drag repaints its own area
                 plugin_->diag.dirty_ticks++;
                 plugin_->lcd_changed();
@@ -2453,6 +2454,7 @@ bool PLUGIN_API VirusEditor::open(void *parent, const PlatformType &platformType
         resizing_ = false;
     }
     plugin_->editor_event("opened");
+    plugin_->editor_opened(); // only now: the early returns above leave no editor
     return true;
 }
 
@@ -2472,6 +2474,7 @@ Steinberg::tresult PLUGIN_API VirusEditor::removed()
 void PLUGIN_API VirusEditor::close()
 {
     if (frame) {
+        plugin_->editor_closed(); // open host edits end now (no more timer ticks)
 #if SMTG_OS_LINUX
         keep_runloop(); // first: the menu frames and the frame unregister their handlers through the adapter that
                         // registered them (E183; review 2026-10-19: the menu frames went before this)
