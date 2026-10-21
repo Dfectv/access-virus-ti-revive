@@ -202,6 +202,12 @@ smooth (no echo jitter); Touch automation recorded from the Virus knob and playe
 2026-10-21 ~11:28: round-0.8.29 pushed (7a4b98e), CI run 39577249656 (version 0.8.29) started. NEXT: when green -
 install on Linux (CI build), win11 VM (silent setup), Mac (push zip); round checklist incl. browser functions and
 Ableton Configure mode (#10); meanwhile E300 evidence on Linux.
+E300 analysis 2026-10-21 ~11:40 (logs only): today ~20 give-back cycles fine (gaps 35 s..1 h), one failed; the resetguard
+(E136, RESET_GAP_S) was not involved (4 min since the last reset); no kernel/PipeWire/WirePlumber messages between the
+hand-back 08:35:32 and the failed first write 08:39:54; the kernel's own resets failed too (the device's USB function
+hung). Idle card now: PCM closed (PipeWire node suspended). Trigger unknown - options for the user: (1) passive flight
+recorder in the broker (recommended), (2) longer idle exit (fewer hand-backs, Virus later back as Linux sound card),
+(3) note only.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
