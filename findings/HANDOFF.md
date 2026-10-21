@@ -115,6 +115,10 @@ fix 79e2286 resets the cursor via doAfterEventProcessing; installed dev 5d9ec5c9
 User re-test: cursor back to the arrow after a drop (also part strip), same-pane drag does nothing - pass.
 win10ref 2026-10-21 07:11 (E295): the original's undo TOGGLES within the last operation (old <-> dropped, any number
 of times), empty library entries drop nothing -> bankdrop.h take_undo now swaps undo/redo (test first, 312 green).
+Reddit (Deranger604, 2026-10-21 2:30): 'it doesn't stick with the bank loaded in the browser ... maybe it was always
+like that' -> E296: manuals + web say nothing of the kind, the Tutorial describes the RAM favourites drag; reply drafted
+(user sends). Tutorial lists more browser functions (E296 (2)): same-bank drag = SWAP (ours ignores it - fix), copy
+library->library, Alt+Click rename, delete selected (libraries), sort. NEXT: record those in win10ref, then implement.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
