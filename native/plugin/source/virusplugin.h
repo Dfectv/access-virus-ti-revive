@@ -367,6 +367,19 @@ public:
     }
     int library_count() { std::lock_guard<std::mutex> lk(banks_mu_); return (int)lib_names_.size(); }
     std::string library_name(int i) { std::lock_guard<std::mutex> lk(banks_mu_); return i < (int)lib_names_.size() ? lib_names_[i] : ""; }
+    // the menu a library is listed in ("Personal Libraries", "User Libraries", "Public Libraries", E307)
+    std::string library_root(int i) { std::lock_guard<std::mutex> lk(banks_mu_); return i < (int)lib_roots_.size() ? lib_roots_[i] : ""; }
+    // the menus to show, in the original's order: "Personal Libraries" always (it has "Create Empty Library"), the
+    // others when they hold a library
+    std::vector<std::string> library_menus()
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        std::vector<std::string> m = {"Personal Libraries"};
+        for (const char *r : {"User Libraries", "Public Libraries"})
+            if (std::find(lib_roots_.begin(), lib_roots_.end(), r) != lib_roots_.end())
+                m.push_back(r);
+        return m;
+    }
     int library_size(int i)
     {
         std::lock_guard<std::mutex> lk(banks_mu_);
@@ -382,7 +395,8 @@ public:
     {
         if (bank == SEARCH_BANK)
             return results_title();
-        return bank >= LIB_BASE ? "Personal Libraries/" + library_name(bank - LIB_BASE) : device_name() + "/" + bank_name(bank);
+        return bank >= LIB_BASE ? library_root(bank - LIB_BASE) + "/" + library_name(bank - LIB_BASE)
+                                : device_name() + "/" + bank_name(bank);
     }
     static std::string bank_name(int bank) // 0..3 = RAM A..D, 4.. = ROM A..
     {
@@ -542,7 +556,7 @@ private:
     void load_reported_presets();
     std::vector<std::vector<uint8_t>> startup_messages() const; // GlobalInit + ParamInit (+ USB IO configuration)
     std::map<int, std::vector<std::vector<uint8_t>>> banks_; // RAM A..D (bank cache, see load_banks), ROM, libraries
-    std::vector<std::string> lib_names_, lib_paths_;
+    std::vector<std::string> lib_names_, lib_paths_, lib_roots_; // lib_roots_: the library's menu
     std::mutex banks_mu_;
     void load_banks();
     std::unique_ptr<MemorySync> sync_;

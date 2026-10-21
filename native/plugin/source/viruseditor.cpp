@@ -1847,10 +1847,16 @@ private:
             }
             dev.push_back({VirusPlugin::bank_name(b), true, std::move(patches)});
         }
-        std::vector<vti::PopupItem> lib; // personal libraries (patch files); SAVE can also append
-        auto libs = std::make_shared<std::map<std::vector<int>, int>>(); // path below "Personal Libraries" -> library
-        std::map<std::string, std::vector<int>> folders;
+        // the library menus (E307): "Personal Libraries", and "User" / "Public Libraries" when they hold one; SAVE
+        // can also append. libs: the path below a library menu (menu's position first) -> library
+        const auto menus = plugin_->library_menus();
+        std::vector<std::vector<vti::PopupItem>> lib(menus.size());
+        auto libs = std::make_shared<std::map<std::vector<int>, int>>();
+        std::vector<std::map<std::string, std::vector<int>>> folders(menus.size());
         for (int i = 0; i < plugin_->library_count(); i++) {
+            const int m = (int)(std::find(menus.begin(), menus.end(), plugin_->library_root(i)) - menus.begin());
+            if (m >= (int)menus.size())
+                continue;
             std::vector<vti::PopupItem> patches;
             for (int p = 0; p < plugin_->library_size(i); p++) {
                 char t[40];
@@ -1865,13 +1871,15 @@ private:
             if (patches.empty()) // an empty library: a greyed placeholder keeps it a submenu
                 patches.push_back({"(empty)", false});
             vti::PopupItem entry("", true, std::move(patches));
-            (*libs)[vti::popup_add_path(lib, plugin_->library_name(i), std::move(entry), folders)] = i;
+            auto at = vti::popup_add_path(lib[m], plugin_->library_name(i), std::move(entry), folders[m]);
+            at.insert(at.begin(), m);
+            (*libs)[at] = i;
         }
-        int create = -1; // only SAVE has it, after a separator (0x180041a10; the original's menus, E297 (C))
+        int create = -1; // only SAVE has it, last in "Personal Libraries" after a separator (0x180041a10, E297 (C))
         if (save) {
-            lib.push_back(vti::PopupItem::line());
-            create = (int)lib.size();
-            lib.push_back({kCreateLibrary});
+            lib[0].push_back(vti::PopupItem::line());
+            create = (int)lib[0].size();
+            lib[0].push_back({kCreateLibrary});
         }
         std::vector<vti::PopupItem> items;
         int part = h.part;
@@ -1897,7 +1905,8 @@ private:
         }
         const int devi = (int)items.size(), libi = devi + 1;
         items.push_back({plugin_->device_name(), true, std::move(dev)});
-        items.push_back({"Personal Libraries", true, std::move(lib)});
+        for (size_t m = 0; m < menus.size(); m++)
+            items.push_back({menus[m], true, std::move(lib[m])});
         show_popup(std::move(items), -1, 0, where,
                    [this, part, save, libs, create, revert, recent, devi, libi](const std::vector<int> &path) {
             if (path.empty())
@@ -1921,8 +1930,10 @@ private:
             int bank = -1, slot = path.back();
             if (path[0] == devi && path.size() == 3)
                 bank = path[1];
-            else if (path[0] == libi) {
-                auto it = libs->find(std::vector<int>(path.begin() + 1, path.end() - 1));
+            else if (path[0] >= libi) {
+                std::vector<int> at(path.begin() + 1, path.end() - 1);
+                at.insert(at.begin(), path[0] - libi);
+                auto it = libs->find(at);
                 if (it != libs->end())
                     bank = VirusPlugin::LIB_BASE + it->second;
             }
@@ -1938,29 +1949,37 @@ private:
         });
     }
 
-    // the browser's bank selector: "<device> > RAM A .. ROM Z" and "Personal Libraries"
+    // the browser's bank selector: "<device> > RAM A .. ROM Z" and the library menus (E307)
     void bank_menu_popup(const Hit &h, const CPoint &where)
     {
         std::vector<vti::PopupItem> dev;
         for (int b = 0; b < plugin_->bank_count(); b++)
             dev.push_back({VirusPlugin::bank_name(b)});
-        std::vector<vti::PopupItem> lib;
-        auto libs = std::make_shared<std::map<std::vector<int>, int>>(); // path below "Personal Libraries" -> library
-        std::map<std::string, std::vector<int>> folders;
-        for (int i = 0; i < plugin_->library_count(); i++)
-            (*libs)[vti::popup_add_path(lib, plugin_->library_name(i), {""}, folders)] = i;
-        const int create = -1; // the browser's bank menu has no "Create Empty Library" (only SAVE has, E297 (C))
+        const auto menus = plugin_->library_menus();
+        std::vector<std::vector<vti::PopupItem>> lib(menus.size());
+        auto libs = std::make_shared<std::map<std::vector<int>, int>>(); // menu's position + path -> library
+        std::vector<std::map<std::string, std::vector<int>>> folders(menus.size());
+        for (int i = 0; i < plugin_->library_count(); i++) {
+            const int m = (int)(std::find(menus.begin(), menus.end(), plugin_->library_root(i)) - menus.begin());
+            if (m >= (int)menus.size())
+                continue;
+            auto at = vti::popup_add_path(lib[m], plugin_->library_name(i), {""}, folders[m]);
+            at.insert(at.begin(), m);
+            (*libs)[at] = i;
+        }
+        // the browser's bank menu has no "Create Empty Library" (only SAVE has, E297 (C))
         std::vector<vti::PopupItem> items;
         items.push_back({plugin_->device_name(), true, std::move(dev)});
-        items.push_back({"Personal Libraries", true, std::move(lib)});
+        for (size_t m = 0; m < menus.size(); m++)
+            items.push_back({menus[m], true, std::move(lib[m])});
         std::string param = h.element->get("Parameter");
-        show_popup(std::move(items), -1, 0, where, [this, param, libs, create](const std::vector<int> &path) {
-            if (path == std::vector<int>{1, create})
-                create_library_dialog();
-            else if (path.size() == 2 && path[0] == 0)
+        show_popup(std::move(items), -1, 0, where, [this, param, libs](const std::vector<int> &path) {
+            if (path.size() == 2 && path[0] == 0)
                 plugin_->ui_set(param, -1, path[1]);
-            else if (path.size() >= 2 && path[0] == 1) {
-                auto it = libs->find(std::vector<int>(path.begin() + 1, path.end()));
+            else if (path.size() >= 2 && path[0] >= 1) {
+                std::vector<int> at(path.begin() + 1, path.end());
+                at.insert(at.begin(), path[0] - 1);
+                auto it = libs->find(at);
                 if (it != libs->end())
                     plugin_->ui_set(param, -1, VirusPlugin::LIB_BASE + it->second);
             }

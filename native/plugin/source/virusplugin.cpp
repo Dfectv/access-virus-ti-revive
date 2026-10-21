@@ -2216,11 +2216,14 @@ std::vector<KnobTemplate> VirusPlugin::knob_templates()
 // (read only) - Windows/Wine: ProgramData/Access Music/Virus TI/Cache/<device>, Mac: /Library/Application Support/...
 void VirusPlugin::load_banks()
 {
-    for (auto &lib : load_libraries(library_dir(), files_ ? files_->default_page_b() : std::vector<uint8_t>())) {
-        banks_[LIB_BASE + (int)lib_names_.size()] = lib.dumps;
-        lib_names_.push_back(lib.name);
-        lib_paths_.push_back(lib.path);
-    }
+    // the original's three places (E307): on the Mac the factory libraries are in "Public Libraries"
+    for (auto &root : library_roots())
+        for (auto &lib : load_libraries(root.dir, files_ ? files_->default_page_b() : std::vector<uint8_t>())) {
+            banks_[LIB_BASE + (int)lib_names_.size()] = lib.dumps;
+            lib_names_.push_back(lib.name);
+            lib_paths_.push_back(lib.path);
+            lib_roots_.push_back(root.menu);
+        }
     // like the original: only the plug-in's own cache; without one the first start syncs the whole RAM
     std::string d = own_cache_dir();
     if (d.empty())
@@ -3079,6 +3082,7 @@ bool VirusPlugin::create_library(const std::string &chosen)
             banks_[LIB_BASE + (int)lib_names_.size()].clear();
             lib_names_.push_back(std::filesystem::path(path).stem().string());
             lib_paths_.push_back(path);
+            lib_roots_.push_back("Personal Libraries");
         }
     }
     ui_dirty_ = true;

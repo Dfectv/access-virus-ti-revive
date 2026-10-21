@@ -1,5 +1,6 @@
-// library.h - the original's "Personal Libraries": Standard MIDI files with Virus single dumps in
-// Documents/Access Music/Virus TI/Patches (Virus Control: "file://{mydocuments}/Access Music/Virus TI/Patches").
+// library.h - the original's patch libraries: Standard MIDI files with Virus single dumps in
+// Documents/Access Music/Virus TI/Patches ("Personal Libraries"; Virus Control: "file://{mydocuments}/Access
+// Music/Virus TI/Patches") and the same folder below the user's and the shared application data (E307).
 #pragma once
 #include <cstdint>
 #include <string>
@@ -29,6 +30,18 @@ bool write_empty_library(const std::string &path, std::string &error);
 // the folder for this platform. Linux: an existing ~/Documents/... (earlier installs), else the XDG documents folder
 // (localized, e.g. ~/Dokumente), else the Wine prefix's Documents when that one exists, else ~/Documents/...
 std::string library_dir();
+// a place the original lists libraries from: its menu name and folder
+struct LibraryRoot {
+    std::string menu, dir;
+};
+// the original's roots (E307) in its order: "Personal Libraries" = `personal`, "User Libraries" and "Public
+// Libraries" = `user` / `shared` + "/Access Music/Virus TI/Patches"; an empty base or a folder already listed is
+// left out
+std::vector<LibraryRoot> library_roots_for(const std::string &personal, const std::string &user,
+                                           const std::string &shared);
+// this platform's roots: Windows %APPDATA% / %PROGRAMDATA%, macOS ~/Library/Application Support and /Library/
+// Application Support (where the Access installer puts the factory libraries); Linux only library_dir()
+std::vector<LibraryRoot> library_roots();
 // XDG_DOCUMENTS_DIR from the text of user-dirs.dirs ($HOME expanded); empty if missing, relative or the home itself
 std::string xdg_documents_dir(const std::string &home, const std::string &user_dirs);
 

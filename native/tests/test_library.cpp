@@ -149,9 +149,28 @@ TEST(library_dir_xdg_documents)
     CHECK(vti::library_dir() == dir.string() + "/Dokumente" + tail);
     fs::create_directories(dir.string() + "/Documents" + tail); // an earlier install's folder wins
     CHECK(vti::library_dir() == dir.string() + "/Documents" + tail);
+    auto roots = vti::library_roots(); // Linux: only the personal one (no Access installer puts libraries elsewhere)
+    CHECK(roots.size() == 1 && roots[0].menu == "Personal Libraries" && roots[0].dir == vti::library_dir());
     fs::remove_all(dir);
 }
 #endif
+
+// the original's three roots (E307), in its order: Personal (Documents), User (%APPDATA%, ~/Library/Application
+// Support), Public (C:\ProgramData, /Library/Application Support), each + "/Access Music/Virus TI/Patches"; a missing
+// base or a folder already listed is left out
+TEST(library_roots_three)
+{
+    const std::string tail = "/Access Music/Virus TI/Patches";
+    auto r = vti::library_roots_for("/d" + tail, "/u", "/p");
+    CHECK(r.size() == 3);
+    if (r.size() == 3) {
+        CHECK(r[0].menu == "Personal Libraries" && r[0].dir == "/d" + tail);
+        CHECK(r[1].menu == "User Libraries" && r[1].dir == "/u" + tail);
+        CHECK(r[2].menu == "Public Libraries" && r[2].dir == "/p" + tail);
+    }
+    r = vti::library_roots_for("/d" + tail, "", "/d");
+    CHECK(r.size() == 1 && r[0].menu == "Personal Libraries");
+}
 
 // "Create Empty Library" (E217): the name from the save dialog gets ".mid" like in the original (".midi" -> ".mid",
 // anything else + ".mid"); the file is the original's empty library (a standard MIDI file with one empty track, 26

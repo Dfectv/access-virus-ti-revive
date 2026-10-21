@@ -220,4 +220,36 @@ std::string library_dir()
     return c.empty() ? std::string() : c.front();
 }
 
+std::vector<LibraryRoot> library_roots_for(const std::string &personal, const std::string &user,
+                                           const std::string &shared)
+{
+    const std::string tail = "/Access Music/Virus TI/Patches";
+    std::vector<LibraryRoot> r;
+    auto add = [&r](const char *menu, const std::string &dir) {
+        if (dir.empty() || std::any_of(r.begin(), r.end(), [&](const LibraryRoot &x) { return x.dir == dir; }))
+            return;
+        r.push_back({menu, dir});
+    };
+    add("Personal Libraries", personal);
+    add("User Libraries", user.empty() ? user : user + tail);
+    add("Public Libraries", shared.empty() ? shared : shared + tail);
+    return r;
+}
+
+std::vector<LibraryRoot> library_roots()
+{
+    std::string user, shared;
+#ifdef _WIN32
+    if (const char *a = getenv("APPDATA"))
+        user = a;
+    if (const char *p = getenv("PROGRAMDATA"))
+        shared = p;
+#elif defined(__APPLE__)
+    if (const char *home = getenv("HOME"))
+        user = std::string(home) + "/Library/Application Support";
+    shared = "/Library/Application Support";
+#endif
+    return library_roots_for(library_dir(), user, shared);
+}
+
 } // namespace vti
