@@ -146,6 +146,12 @@ when bytes repeat or > 128 dumps), save_library leaves gaps out; tirevive-cc lis
 factory libraries OS4/OS45/OS5 New Features now show the original's gaps (OS5: 54-63 empty, *Templates at 64 - as in
 the original's screenshot); before, TI Revive showed those patches shifted up. Library ops (copy/delete/sort/rename,
 undo for libraries) and the drag highlight: next.
+Done (dev, not user-tested): LibraryEdit (drop/overwrite, swap, remove = gap, sort, rename) + library undo in the
+shared BankDrop undo (toggle), plug-in drop_to_library/swap_in_library/delete_from_library/sort_library/
+rename_in_library (file only, edit_library + save_library_file; SAVE to a library forgets the undo); editor: drops
+onto library slots, Alt+Click rename in libraries, browser menu Delete selection (library, with a selection) + Sort
+(library; RAM sort still greyed), drag highlight (SelectedFont + fill 66,111,204 on source and target). 321 tests.
+Decided without evidence: a RAM -> library drop takes the target position (E297 (G) kept 27 - target not known).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 

@@ -1408,8 +1408,8 @@ public:
         if (e.type == "PatchBrowser") {
             int prog = EditorRenderer::browser_entry(h, (int)event.mousePosition.x, (int)event.mousePosition.y);
             int bank = plugin_->ui_value(e.get("Parameter"), -1);
-            if (prog >= 0 && event.modifiers.has(ModifierKey::Alt)) { // Alt+Click: rename (RAM; libraries later)
-                if (bank >= 0 && bank < 4)
+            if (prog >= 0 && event.modifiers.has(ModifierKey::Alt)) { // Alt+Click: rename (RAM or a library)
+                if ((bank >= 0 && bank < 4) || is_library(bank))
                     edit_browser_name(h, bank, prog);
                 event.consumed = true;
                 return;
@@ -1519,6 +1519,8 @@ public:
                 if (auto *f = getFrame())
                     f->setCursor(kCursorCopy);
             }
+            if (dnd_)
+                drag_highlight((int)event.mousePosition.x, (int)event.mousePosition.y);
             event.consumed = true;
             return;
         }
@@ -1587,6 +1589,7 @@ public:
             browser_sel_[dnd_bank_].release(dnd_prog_, dragged);
             show_selection(dnd_bank_);
         }
+        renderer_.highlighted.clear();
         drag_ = {};
         drag_rects_.clear();
         renderer_.pressed = nullptr;
@@ -1605,7 +1608,9 @@ public:
                 invalid();
                 return;
             }
-            if (edit_bank_ >= 0)
+            if (is_library(edit_bank_))
+                plugin_->rename_in_library(edit_bank_ - VirusPlugin::LIB_BASE, edit_prog_, t);
+            else if (edit_bank_ >= 0)
                 plugin_->rename_in_ram(edit_bank_, edit_prog_, t);
             else if (edit_param_.empty())
                 plugin_->rename_part(edit_part_, t);
@@ -2202,36 +2207,81 @@ private:
         renderer_.selected[bank] = std::set<int>(items.begin(), items.end());
     }
 
-    // the dragged selection dropped on a browser slot showing a RAM bank: from another bank it is written into the
-    // slots from there on (E294), within the same bank it swaps places with them (E297); ROM, libraries and the
-    // search results take no drop yet
+    static bool is_library(int bank) { return bank >= VirusPlugin::LIB_BASE && bank != VirusPlugin::SEARCH_BANK; }
+
+    // while dragging: the dragged browser entries and the slot under the cursor (if it takes the drop) drawn
+    // highlighted like the original's (E298 (L7)); a part's patch name only highlights its RAM target slot
+    void drag_highlight(int x, int y)
+    {
+        std::map<int, std::set<int>> hl;
+        const bool from_browser = drag_.element && drag_.element->type == "PatchBrowser" && dnd_prog_ >= 0;
+        if (from_browser) {
+            auto items = browser_sel_[dnd_bank_].items();
+            hl[dnd_bank_] = items.empty() ? std::set<int>{dnd_prog_} : std::set<int>(items.begin(), items.end());
+        }
+        Hit t = renderer_.hit_test(x, y);
+        if (t.element && t.element->type == "PatchBrowser") {
+            const int bank = plugin_->ui_value(t.element->get("Parameter"), -1), slot = EditorRenderer::browser_entry(t, x, y);
+            const bool ram = bank >= 0 && bank < 4;
+            if (slot >= 0 && (ram || (from_browser && is_library(bank))))
+                hl[bank].insert(slot);
+        }
+        if (hl != renderer_.highlighted) {
+            renderer_.highlighted = std::move(hl);
+            invalid();
+        }
+    }
+
+    // the dragged selection dropped on a browser slot: onto a RAM bank or a personal library it is written into the
+    // positions from there on (E294, E298), within the same bank/library it swaps places with them (E297, E298);
+    // ROM and the search results take no drop
     void drop_on_browser(const Hit &t, int x, int y)
     {
         const int bank = plugin_->ui_value(t.element->get("Parameter"), -1), slot = EditorRenderer::browser_entry(t, x, y);
-        if (bank < 0 || bank > 3 || slot < 0)
+        const bool ram = bank >= 0 && bank < 4;
+        if ((!ram && !is_library(bank)) || slot < 0)
             return;
         auto programs = browser_sel_[dnd_bank_].items();
         if (programs.empty())
             programs = {dnd_prog_};
-        if (bank == dnd_bank_)
+        if (ram && bank == dnd_bank_)
             plugin_->swap_in_ram(bank, programs, slot);
-        else
+        else if (ram)
             plugin_->drop_to_ram(dnd_bank_, programs, bank, slot);
+        else if (bank == dnd_bank_)
+            plugin_->swap_in_library(bank - VirusPlugin::LIB_BASE, programs, slot);
+        else
+            plugin_->drop_to_library(dnd_bank_, programs, bank - VirusPlugin::LIB_BASE, slot);
     }
 
     // the original's browser menu (E294 (4)): RAM/ROM "Undo last operation", "Download entire bank from Virus TI",
-    // "Sort alphabetically"; a library has "Delete selection" in the middle. Only the undo is done so far
+    // "Sort alphabetically"; a library has "Delete selection" in the middle (E297). Not done yet: Download entire
+    // bank, and Sort for RAM (it rewrites the whole bank on the Virus; not recorded)
     void browser_menu(const Hit &h, const CPoint &where)
     {
         const int bank = plugin_->ui_value(h.element->get("Parameter"), -1);
+        const bool lib = is_library(bank);
+        auto selection = browser_sel_[bank].items();
         std::vector<vti::PopupItem> items;
         items.push_back({"Undo last operation", plugin_->can_undo_drop()});
-        items.push_back({bank >= VirusPlugin::LIB_BASE && bank != VirusPlugin::SEARCH_BANK ? "Delete selection"
-                                                                                        : "Download entire bank from Virus TI",
-                         false});
-        items.push_back({"Sort alphabetically", false});
-        show_popup(std::move(items), -1, 0, where, [this](const std::vector<int> &path) {
-            if (!path.empty() && path.front() == 0 && plugin_->undo_drop())
+        items.push_back({lib ? "Delete selection" : "Download entire bank from Virus TI", lib && !selection.empty()});
+        items.push_back({"Sort alphabetically", lib});
+        show_popup(std::move(items), -1, 0, where, [this, bank, lib, selection](const std::vector<int> &path) {
+            if (path.empty())
+                return;
+            bool done = false;
+            if (path.front() == 0)
+                done = plugin_->undo_drop();
+            else if (path.front() == 1 && lib) {
+                done = plugin_->delete_from_library(bank - VirusPlugin::LIB_BASE, selection);
+                browser_sel_[bank].clear();
+                show_selection(bank);
+            } else if (path.front() == 2 && lib) {
+                done = plugin_->sort_library(bank - VirusPlugin::LIB_BASE);
+                browser_sel_[bank].clear();
+                show_selection(bank);
+            }
+            if (done)
                 invalid();
         });
     }

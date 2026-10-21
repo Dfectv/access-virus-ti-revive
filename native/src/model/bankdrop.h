@@ -106,7 +106,7 @@ public:
         }
         return remember(std::move(writes), current);
     }
-    bool can_undo() const { return !undo_.empty(); }
+    bool can_undo() const { return !undo_.empty() || lib_ >= 0; }
     // "Undo last operation": the writes that restore the slots as they were before the last drop - or, the next
     // time, as the drop left them (the original toggles, E295)
     std::vector<Write> take_undo()
@@ -116,7 +116,25 @@ public:
         return u;
     }
     // another store into RAM (SAVE, a bank read again): an undo would now write over newer patches
-    void forget() { undo_.clear(), redo_.clear(); }
+    void forget() { undo_.clear(), redo_.clear(), lib_ = -1, lib_undo_.clear(), lib_redo_.clear(); }
+
+    // a library operation is the last operation (E298 (L4): the original undoes those too): library `lib` was
+    // `before` and is now `after`; replaces a RAM undo
+    void remember_library(int lib, std::vector<Patch> before, std::vector<Patch> after)
+    {
+        undo_.clear(), redo_.clear();
+        lib_ = lib, lib_undo_ = std::move(before), lib_redo_ = std::move(after);
+    }
+    int undo_library() const { return lib_; } // the library the next undo restores, -1: the undo is a RAM one
+    // the library's patches to put back (and next time the ones after the operation again)
+    std::vector<Patch> take_library_undo()
+    {
+        if (lib_ < 0)
+            return {};
+        std::vector<Patch> u = lib_undo_;
+        lib_undo_.swap(lib_redo_);
+        return u;
+    }
 
 private:
     // keeps what `writes` overwrite (from the cache `current`) for the undo; empty if a slot is not cached
@@ -132,10 +150,96 @@ private:
         }
         undo_ = std::move(undo);
         redo_ = writes;
+        lib_ = -1, lib_undo_.clear(), lib_redo_.clear();
         return writes;
     }
 
-    std::vector<Write> undo_, redo_; // what the next undo writes, and what the one after it writes
+    std::vector<Write> undo_, redo_; // RAM: what the next undo writes, and what the one after it writes
+    int lib_ = -1;                   // a library undo: the library, its patches before and after the operation
+    std::vector<Patch> lib_undo_, lib_redo_;
+};
+
+// operations on a personal library's patches by position (empty = a gap), like the original's browser (E297, E298):
+// files only, nothing goes to the Virus. Each returns the library's new patches, empty when refused.
+struct LibraryEdit {
+    using Patch = BankDrop::Patch;
+    using Lib = std::vector<Patch>;
+    static constexpr int SLOTS = BankDrop::SLOTS;
+
+    // `sources` into the positions from `slot` on, overwriting (L2, L3); bank byte 1, program = position
+    static Lib drop(const Lib &lib, const std::vector<Patch> &sources, int slot)
+    {
+        if (sources.empty() || slot < 0 || slot >= SLOTS)
+            return {};
+        const int n = std::min((int)sources.size(), SLOTS - slot);
+        Lib r = lib;
+        if ((int)r.size() < slot + n)
+            r.resize(slot + n);
+        for (int i = 0; i < n; i++) {
+            if (!BankDrop::is_single(sources[i]))
+                return {};
+            r[slot + i] = sources[i];
+            BankDrop::address(r[slot + i], 0, slot + i);
+        }
+        return r;
+    }
+    // a drag within the library (L5): the selected positions and those from `slot` on change places; onto a gap the
+    // patch moves. Refused when the sets overlap or run past 128, or a selected position is a gap.
+    static Lib swap(const Lib &lib, const std::vector<int> &programs, int slot)
+    {
+        const int n = (int)programs.size();
+        if (n == 0 || slot < 0 || slot + n > SLOTS)
+            return {};
+        std::set<int> from(programs.begin(), programs.end());
+        if ((int)from.size() != n)
+            return {};
+        for (int i = 0; i < n; i++)
+            if (programs[i] < 0 || programs[i] >= (int)lib.size() || !BankDrop::is_single(lib[programs[i]]) ||
+                from.count(slot + i))
+                return {};
+        Lib r = lib;
+        if ((int)r.size() < slot + n)
+            r.resize(slot + n);
+        for (int i = 0; i < n; i++)
+            std::swap(r[programs[i]], r[slot + i]);
+        for (int p = 0; p < (int)r.size(); p++)
+            if (!r[p].empty())
+                BankDrop::address(r[p], 0, p);
+        return r;
+    }
+    // "Delete selection" (E297 (E)): the positions become gaps, the others stay where they are
+    static Lib remove(const Lib &lib, const std::vector<int> &programs)
+    {
+        Lib r = lib;
+        bool any = false;
+        for (int p : programs)
+            if (p >= 0 && p < (int)r.size() && !r[p].empty())
+                r[p].clear(), any = true;
+        return any ? r : Lib{};
+    }
+    // "Sort alphabetically" (E297 (F)): by name, the gaps closed, renumbered from 0
+    static Lib sort(const Lib &lib)
+    {
+        Lib r;
+        for (auto &d : lib)
+            if (BankDrop::is_single(d))
+                r.push_back(d);
+        std::stable_sort(r.begin(), r.end(), [](const Patch &a, const Patch &b) {
+            return std::lexicographical_compare(a.begin() + 249, a.begin() + 259, b.begin() + 249, b.begin() + 259);
+        });
+        for (int p = 0; p < (int)r.size(); p++)
+            BankDrop::address(r[p], 0, p);
+        return r;
+    }
+    // Alt+Click rename (E297 (D)); a gap has nothing to rename
+    static Lib rename(const Lib &lib, int prog, const std::string &name)
+    {
+        if (prog < 0 || prog >= (int)lib.size() || !BankDrop::is_single(lib[prog]))
+            return {};
+        Lib r = lib;
+        r[prog] = BankDrop::renamed(lib[prog], name);
+        return r;
+    }
 };
 
 // the browser's selected entries (programs 0..127 of the bank a pane shows)

@@ -122,6 +122,7 @@ public:
     // the browser entry (program 0..127) under a point inside a PatchBrowser hit, or -1
     static int browser_entry(const Hit &h, int x, int y);
     std::map<int, std::set<int>> selected; // bank -> selected programs in the browser (framed)
+    std::map<int, std::set<int>> highlighted; // bank -> entries of a drag: its source and the slot under the cursor
     std::string value_text(const std::string &param, int v) const;
     std::vector<std::pair<int, std::string>> menu_entries(const std::string &param) const; // (value, text), menu order
 

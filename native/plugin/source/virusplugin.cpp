@@ -2807,6 +2807,85 @@ bool VirusPlugin::rename_in_ram(int bank, int program, const std::string &name)
     return send_ram_writes({{bank, program, std::move(d)}});
 }
 
+bool VirusPlugin::save_library_file(int library)
+{
+    PatchLibrary lib;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        if (library < 0 || library >= (int)lib_paths_.size())
+            return false;
+        lib.name = lib_names_[library], lib.path = lib_paths_[library], lib.dumps = banks_[LIB_BASE + library];
+    }
+    std::string err;
+    bool ok = save_library(lib, err);
+    if (!ok && out_)
+        out_->log("Virus TI native: %s\n", err.c_str());
+    return ok;
+}
+
+bool VirusPlugin::edit_library(int library, const char *what,
+                               const std::function<LibraryEdit::Lib(const LibraryEdit::Lib &)> &op)
+{
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        if (library < 0 || library >= (int)lib_paths_.size())
+            return false;
+        auto &cur = banks_[LIB_BASE + library];
+        LibraryEdit::Lib after = op(cur);
+        if (after.empty()) {
+            if (out_)
+                out_->log("Virus TI native: %s in library %d refused\n", what, library + 1);
+            return false;
+        }
+        drop_.remember_library(library, cur, after);
+        cur = std::move(after);
+    }
+    if (out_)
+        out_->log("Virus TI native: %s in library %d\n", what, library + 1);
+    bool ok = save_library_file(library);
+    ui_dirty_ = true;
+    return ok;
+}
+
+bool VirusPlugin::drop_to_library(int src_bank, const std::vector<int> &programs, int library, int slot)
+{
+    std::vector<BankDrop::Patch> sources;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto src = banks_.find(src_bank);
+        if (src == banks_.end())
+            return false;
+        for (int p : programs)
+            if (p >= 0 && p < (int)src->second.size() && !src->second[p].empty()) {
+                sources.push_back(src->second[p]);
+                RemoteDevice::upgrade_single(sources.back());
+            }
+    }
+    return edit_library(library, "patch(es) dropped", [&](const LibraryEdit::Lib &l) {
+        return LibraryEdit::drop(l, sources, slot);
+    });
+}
+
+bool VirusPlugin::swap_in_library(int library, const std::vector<int> &programs, int slot)
+{
+    return edit_library(library, "swap", [&](const LibraryEdit::Lib &l) { return LibraryEdit::swap(l, programs, slot); });
+}
+
+bool VirusPlugin::delete_from_library(int library, const std::vector<int> &programs)
+{
+    return edit_library(library, "delete", [&](const LibraryEdit::Lib &l) { return LibraryEdit::remove(l, programs); });
+}
+
+bool VirusPlugin::sort_library(int library)
+{
+    return edit_library(library, "sort", [](const LibraryEdit::Lib &l) { return LibraryEdit::sort(l); });
+}
+
+bool VirusPlugin::rename_in_library(int library, int program, const std::string &name)
+{
+    return edit_library(library, "rename", [&](const LibraryEdit::Lib &l) { return LibraryEdit::rename(l, program, name); });
+}
+
 bool VirusPlugin::can_undo_drop()
 {
     std::lock_guard<std::mutex> lk(banks_mu_);
@@ -2816,9 +2895,21 @@ bool VirusPlugin::can_undo_drop()
 bool VirusPlugin::undo_drop()
 {
     std::vector<BankDrop::Write> w;
+    int library = -1;
     {
         std::lock_guard<std::mutex> lk(banks_mu_);
-        w = drop_.take_undo();
+        library = drop_.undo_library();
+        if (library >= 0 && library < (int)lib_paths_.size())
+            banks_[LIB_BASE + library] = drop_.take_library_undo();
+        else
+            w = drop_.take_undo();
+    }
+    if (library >= 0) { // a library operation was the last one (E298 (L4))
+        if (out_)
+            out_->log("Virus TI native: undo of the last operation in library %d\n", library + 1);
+        bool ok = save_library_file(library);
+        ui_dirty_ = true;
+        return ok;
     }
     if (w.empty())
         return false;
@@ -2907,6 +2998,7 @@ bool VirusPlugin::store_to_library(int part, int library, int slot)
             b.push_back(d);
         else
             b[slot] = d;
+        drop_.forget(); // an undo of an earlier operation must not write over this SAVE
         lib.name = lib_names_[library], lib.path = lib_paths_[library], lib.dumps = b;
     }
     std::string err;

@@ -247,3 +247,70 @@ TEST(bankdrop_renamed)
     CHECK(u[249] == ' ' && u[250] == ' ' && u[251] == ' ' && u[252] == 'x'); // UTF-8 bytes and controls -> spaces
     CHECK(BankDrop::renamed(std::vector<uint8_t>(10), "X").empty()); // not a single dump
 }
+
+namespace {
+std::vector<std::vector<uint8_t>> library(std::initializer_list<std::pair<int, const char *>> at)
+{
+    std::vector<std::vector<uint8_t>> l;
+    for (auto &a : at) {
+        if (a.first >= (int)l.size())
+            l.resize(a.first + 1);
+        l[a.first] = patch(a.second, a.first);
+    }
+    return l;
+}
+std::string name_at(const std::vector<std::vector<uint8_t>> &l, int p)
+{
+    if (p >= (int)l.size() || l[p].empty())
+        return "";
+    std::string s(l[p].begin() + 249, l[p].begin() + 259);
+    return s.substr(0, s.find_last_not_of(' ') + 1);
+}
+} // namespace
+
+// libraries (E298): a drop lands at the target position and overwrites (L2, L3), gaps fill, nothing moves; cut at 128
+TEST(libraryedit_drop)
+{
+    auto l = library({{0, "Awakening"}, {1, "LibRen"}, {27, "TuchDub"}});
+    auto r = LibraryEdit::drop(l, {patch("SineCrush", 9), patch("PulsHarp", 6)}, 10);
+    CHECK(r.size() == 28 && name_at(r, 10) == "SineCrush" && name_at(r, 11) == "PulsHarp" && name_at(r, 27) == "TuchDub");
+    CHECK(same_but_address(r[10], patch("SineCrush", 9))); // bytes 10..12 from the source
+    auto o = LibraryEdit::drop(l, {patch("PulsHarp", 6)}, 0);
+    CHECK(o.size() == 28 && name_at(o, 0) == "PulsHarp" && name_at(o, 1) == "LibRen"); // overwritten, nothing moved
+    auto far = LibraryEdit::drop({}, {patch("X", 0), patch("Y", 0)}, 127);
+    CHECK(far.size() == 128 && name_at(far, 127) == "X"); // cut at the end
+    CHECK(LibraryEdit::drop(l, {}, 3).empty() && LibraryEdit::drop(l, {patch("X", 0)}, 128).empty());
+}
+
+// within one library a drag swaps (L5), Delete selection leaves gaps (L6, E297 (E)), Sort closes them by name (E297 (F))
+TEST(libraryedit_swap_delete_sort_rename)
+{
+    auto l = library({{0, "Awakening"}, {1, "LibRen"}, {10, "SineCrush"}, {27, "TuchDub"}});
+    auto s = LibraryEdit::swap(l, {0}, 1);
+    CHECK(name_at(s, 0) == "LibRen" && name_at(s, 1) == "Awakening" && name_at(s, 10) == "SineCrush");
+    auto e = LibraryEdit::swap(l, {0}, 5); // onto an empty position: a move, the old one empty
+    CHECK(name_at(e, 5) == "Awakening" && name_at(e, 0).empty());
+    CHECK(LibraryEdit::swap(l, {0, 1}, 1).empty()); // overlapping sets: refused like in RAM
+    auto d = LibraryEdit::remove(l, {1, 10});
+    CHECK(d.size() == 28 && name_at(d, 0) == "Awakening" && d[1].empty() && d[10].empty() && name_at(d, 27) == "TuchDub");
+    auto t = LibraryEdit::sort(d);
+    CHECK(t.size() == 2 && name_at(t, 0) == "Awakening" && name_at(t, 1) == "TuchDub");
+    auto n = LibraryEdit::rename(l, 1, "NewName");
+    CHECK(name_at(n, 1) == "NewName" && name_at(n, 0) == "Awakening");
+    CHECK(LibraryEdit::rename(l, 5, "X").empty()); // a gap has nothing to rename
+}
+
+// "Undo last operation" also undoes a library operation (L4) and toggles; a RAM operation after it replaces it
+TEST(bankdrop_undo_library)
+{
+    BankDrop drop;
+    auto before = library({{0, "Awakening"}});
+    auto after = LibraryEdit::drop(before, {patch("PulsHarp", 6)}, 0);
+    drop.remember_library(3, before, after);
+    CHECK(drop.can_undo() && drop.undo_library() == 3);
+    CHECK(drop.take_library_undo() == before);
+    CHECK(drop.take_library_undo() == after);
+    CHECK(drop.take_undo().empty()); // not a RAM undo
+    drop.drop({patch("A", 0)}, 0, 0, ram_bank(0));
+    CHECK(drop.undo_library() == -1 && drop.take_library_undo().empty() && drop.take_undo().size() == 1);
+}

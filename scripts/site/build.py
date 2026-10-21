@@ -512,7 +512,8 @@ def features_section():
         single entries) from a library onto a RAM slot in the other pane, or drag a part's patch name onto a RAM slot;
         within one RAM bank a drag swaps the patches; Alt+click renames a RAM patch; right-click "Undo last operation"
         toggles the last change. Program +/- on the Virus then reaches those patches (it only steps through the Virus'
-        own banks, in the original too).</li>
+        own banks, in the original too). Personal libraries work the same way (copy into them, swap, rename, "Delete
+        selection", "Sort alphabetically"), and patches keep their positions with gaps like in the original.</li>
         <li>Presets and soft knobs chosen on the Virus itself are followed, as in the original.</li>
         <li>Three stereo outputs over USB, plus the analog outputs of the Virus.</li>
         <li>Audio from your DAW through the filters and effects of the Virus (sidechain input), as in the original.</li>

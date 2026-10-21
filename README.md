@@ -260,7 +260,8 @@ same with Access' own driver.
   entries) from a library onto a RAM slot in the other pane, or drag a part's patch name onto a RAM slot; within one
   RAM bank a drag swaps the patches; Alt+click renames a RAM patch; right-click "Undo last operation" toggles the
   last change. Program +/- on the Virus then reaches those patches (it only steps through the Virus' own banks, in the
-  original too).
+  original too). Personal libraries work the same way (copy into them, swap, rename, "Delete selection", "Sort
+  alphabetically"), and patches keep their positions with gaps like in the original.
 
 <p align="center">
   <img src="docs/images/plugin-menus.png" alt="The LOAD menu: the device entry, the bank list and RAM A's 128 patches in columns, beyond the plug-in window" width="680"><br>

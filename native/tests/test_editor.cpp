@@ -766,3 +766,37 @@ TEST(editor_system_font_text)
     CHECK(l.text == "Control Change Ch 1, 5" && l.size == 8 && l.x == 4 && l.y == 3 && l.w == 80 && l.h == 12);
     CHECK(l.c.r == 245 && l.c.g == 245 && l.c.a == 255);
 }
+
+// while dragging, the source entries and the slot under the cursor are drawn like the original's (E298 (L7)): filled
+// 66,111,204 with the browser's SelectedFont (white); the others in ControlFont
+TEST(editor_render_browser_drag_highlight)
+{
+    static const char *L = R"(<?xml version="1.0"?>
+<Editor><Frame width="700" height="200"><Container><Size left="0" top="0" width="700" height="200"/>
+ <PatchBrowser Parameter="Browser 0/Selected Bank" ControlFont="font.png" SelectedFont="fontsel.png"><Size left="0" top="0" width="680" height="180"/></PatchBrowser>
+</Container></Frame></Editor>)";
+    Rig g;
+    g.canvas.imgs["fontsel.png"] = {6, 7 * 96};
+    EditorLayout lay;
+    std::string err;
+    CHECK(lay.load(Bytes(L, L + strlen(L)), err));
+    EditorRenderer r(lay, *g.cond, g.dev, g.ed);
+    r.values = g.r->values;
+    r.bank_patch = [](int, int program) { return "P" + std::to_string(program); };
+    r.render(g.canvas);
+    size_t sel = 0, blue = 0;
+    for (auto &b : g.canvas.blits)
+        sel += b.img == "fontsel.png";
+    CHECK(sel == 0); // nothing highlighted
+    g.canvas.clear();
+    r.highlighted[0] = {3, 40};
+    r.render(g.canvas);
+    for (auto &b : g.canvas.blits)
+        sel += b.img == "fontsel.png";
+    for (auto &f : g.canvas.fills)
+        blue += f.c.r == 66 && f.c.g == 111 && f.c.b == 204;
+    if (sel != 5)
+        fprintf(stderr, "  highlighted glyphs: %zu\n", sel);
+    CHECK(sel == 5);  // "P3" and "P40": five glyphs in the white font
+    CHECK(blue == 2); // one filled box per entry
+}

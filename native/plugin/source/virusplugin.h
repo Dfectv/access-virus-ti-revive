@@ -305,6 +305,12 @@ public:
     // a drag within one RAM bank: `programs` swap places with the slots from `slot` on (E297); false = nothing sent
     bool swap_in_ram(int bank, const std::vector<int> &programs, int slot);
     bool rename_in_ram(int bank, int program, const std::string &name); // Alt+Click in the browser (E297 (D))
+    // personal libraries in the browser (E297, E298): files only, undoable like the RAM operations
+    bool drop_to_library(int src_bank, const std::vector<int> &programs, int library, int slot);
+    bool swap_in_library(int library, const std::vector<int> &programs, int slot);
+    bool delete_from_library(int library, const std::vector<int> &programs);
+    bool sort_library(int library);
+    bool rename_in_library(int library, int program, const std::string &name);
     bool can_undo_drop();
     bool undo_drop(); // "Undo last operation": writes back what the last drop overwrote
     // the part's patch into a personal library (slot = position, == size: append) - writes the library file
@@ -620,6 +626,10 @@ private:
     PatchHistory history_; // per part: Revert to / Recently Used (E220), this session only
     BankDrop drop_;        // the last browser drop onto RAM, for its undo (banks_mu_)
     bool send_ram_writes(const std::vector<BankDrop::Write> &w); // dumps into RAM slots + cache + cache files
+    // a library operation: `op` makes the library's new patches from the current ones (empty = refused); the old
+    // ones are kept for the undo, the file is saved
+    bool edit_library(int library, const char *what, const std::function<LibraryEdit::Lib(const LibraryEdit::Lib &)> &op);
+    bool save_library_file(int library); // banks_ -> its file
     std::vector<uint8_t> part_dump(int part); // the part's patch as it is now (edits included)
     std::mutex sync_alert_mu_;
     std::atomic<bool> host_playing_{false}; // audio thread -> worker
