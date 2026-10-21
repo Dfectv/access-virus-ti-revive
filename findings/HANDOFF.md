@@ -247,8 +247,10 @@ Libraries' (E217). Possibly also no Documents access for Live (TCC) -> asked the
 original's library roots (Windows + Mac). Maybe the cause of an earlier user report of missing libraries.
 E307 (REA): three roots - Personal = Documents, User = %APPDATA% / ~/Library/Application Support, Public = C:\ProgramData /
 /Library/Application Support (+ '/Access Music/Virus TI/Patches'); each its own submenu; Create Empty Library always saves
-to Documents. PLAN (ask the user): libraries from all three roots, menus Personal / User / Public Libraries (non-empty ones),
-Linux: Personal as now. Needs a new CI build + Mac re-test of M3.
+to Documents. DONE (user ok, 4b819dd): library_roots() reads all three (Windows/macOS; Linux Personal only), each its
+own menu in LOAD/SAVE/browser + bank title; Personal always shown (Create Empty Library), User/Public only with a library.
+Test library_roots_three; 332 tests, ctest 5/5 on Linux. Not run on hardware yet. Next: CI build, Mac re-test of M3.
+Still open: Create Empty Library's dialog on the Mac opened in ~/Downloads (Live's Documents permission? asked the user).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
