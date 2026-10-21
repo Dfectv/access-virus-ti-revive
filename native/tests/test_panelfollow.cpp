@@ -95,3 +95,22 @@ TEST(panel_restored_controllers_in_model)
           dev.find("Global Soft Knob Configuration/Value Softknob2"));
     CHECK(dev.find("Multi Parameters/Panel Part"));
 }
+
+// one report from the Virus that decodes to several parameters (CC 40 = "Filter 1 Cutoff" while the vocoder is off,
+// "Vocoder Carrier Center Frequency" while it is on): only those whose condition holds now - the original adds only
+// the visible one in Ableton Live's Configure mode (round 0.8.29 W3: both were added); none holds: all, nothing lost
+TEST(panel_reports_by_condition)
+{
+    using C = RemoteDevice::Change;
+    std::vector<C> two = {{"Filter 1/Cutoff", 0, 90}, {"Vocoder/Carrier Center Frequency", 0, 90}};
+    auto vocoder_off = [](const std::string &p, int) { return p == "Filter 1/Cutoff"; };
+    auto r = PanelFollow::reports_by_condition(two, vocoder_off);
+    CHECK(r.size() == 1 && r[0].path == "Filter 1/Cutoff");
+    auto vocoder_on = [](const std::string &p, int) { return p == "Vocoder/Carrier Center Frequency"; };
+    r = PanelFollow::reports_by_condition(two, vocoder_on);
+    CHECK(r.size() == 1 && r[0].path == "Vocoder/Carrier Center Frequency");
+    r = PanelFollow::reports_by_condition(two, [](const std::string &, int) { return false; });
+    CHECK(r.size() == 2);
+    std::vector<C> one = {{"Filter 1/Cutoff", 0, 90}}; // a single parameter is kept even if its condition is false
+    CHECK(PanelFollow::reports_by_condition(one, [](const std::string &, int) { return false; }).size() == 1);
+}

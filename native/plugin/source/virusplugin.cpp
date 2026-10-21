@@ -3350,7 +3350,13 @@ void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
             fprintf(stderr, "\n");
         }
     }
-    for (auto &c : dev_.decode(msg)) {
+    // one controller can stand for several parameters (CC 40: Filter 1 Cutoff / Vocoder Carrier Center Frequency):
+    // only the one whose condition holds now, else Ableton's Configure mode added both (round 0.8.29 W3)
+    auto holds = [this](const std::string &path, int part) {
+        const Parameter *p = cond_ ? cond_->find(path) : nullptr;
+        return !p || meta_cond(*p, part);
+    };
+    for (auto &c : PanelFollow::reports_by_condition(dev_.decode(msg), holds)) {
         // a soft knob turned on the Virus: in plug-in mode it only reports the knob's value and leaves the sound alone
         // (E152, user test in REAPER: no change until the host sends it). Like the original (0x180081980 -> the soft
         // knob's setter 0x1800a2840 -> the target's setter): the panel part's destination parameter takes the value

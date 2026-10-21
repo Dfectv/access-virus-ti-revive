@@ -226,6 +226,9 @@ Fix committed in c3dda38 (1bde9ed had only E305/HANDOFF - the script edit was bl
 removes both bundles + installs again; Claude checks VST3 = 44e2d989.., AU = a7d8a2fe..; then Mac items MC1, MC3, M1-M4
 after Linux (L1, L2) and the VM (WC1, WC3, W1-W3). Branch not pushed since 2940ef8.
 Mac reinstalled (bundles removed first): VST3 44e2d989.., AU a7d8a2fe.., broker e234fccc.. = the CI package (11:34 build).
+VM 2026-10-21 ~12:06: W2 pass; W3 FAIL - Configure added Filter 1 Cutoff AND Voc CarrCntFrq (both on CC 40, E306). Fixed (test
+first, 331 green): panel reports filtered by their condition. WC1/WC3/W1 marks are from 2026-10-20 (older build) - redo.
+New CI build for the VM/Mac re-test (also carries the E305 package fix).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
