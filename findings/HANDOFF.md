@@ -184,6 +184,11 @@ the original's order (0 differences); sort again: 0 slots; download 128 s with L
 bank read back from the Virus = the original's order, no empty slot - ALL PASS. The browser now has every function of
 the original's browser we know of (E294-E303). Still open in round 0.8.29: E300 give-back reset; push + CI build;
 round checklist (Windows VM, Mac); Reddit reply; RAM A/B contents back to the user's pre-test state (old caches).
+NEW round item (user 2026-10-21): issue #10 (Reddit report, reporter not named): knobs turned on the TI2 are not added to
+Ableton Live's automation list (Configure mode) - the plug-in window's changes are; once configured, Live records the
+hardware knob. Code: UI -> beginEdit/performEdit/endEdit (virusplugin.cpp ~1851), panel -> only outputParameterChanges in
+process() (~1388). NEXT: REA on the original (how it hands panel changes to the host), evidence, then fix with the rate
+limit and no echo back to the Virus; test in Ableton (Mac + win11) Configure mode.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
