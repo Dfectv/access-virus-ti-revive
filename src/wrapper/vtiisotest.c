@@ -1,6 +1,6 @@
 // vtiisotest.c - stand-alone test of the WinUSB audio streaming (vtiusbaudio.c, findings E075).
 // vtiisotest [seconds]: streams IN + mirrored OUT, prints frames/s against the PC clock and the input level.
-#include "vtiusbaudio.h"
+#include "../broker/vtiusbaudio.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>

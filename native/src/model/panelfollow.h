@@ -3,6 +3,7 @@
 // to send the patch into the edit buffer) and a soft knob turned on the Virus (it reports only the knob's value).
 // The decisions live here, without the plug-in, so the tests can check them; the plug-in does the sending.
 #pragma once
+#include "remotedevice.h"
 #include <chrono>
 #include <cstdint>
 #include <mutex>
@@ -23,6 +24,21 @@ public:
     bool preset_report(const std::string &path, int part, Clock::time_point now);
     // the parts (bit per part) whose report is PRESET_QUIET old, and forgets them; 0 if none is due
     unsigned presets_due(Clock::time_point now);
+
+    // a report that decodes to several parameters (the same controller, told apart by a condition: CC 40 = Filter 1
+    // Cutoff with the vocoder off, Vocoder Carrier Center Frequency with it on): only those whose condition holds now
+    // (`holds(path, part)`), like the original; if none holds, all (no value is lost). One parameter is always kept.
+    template <class Holds>
+    static std::vector<RemoteDevice::Change> reports_by_condition(const std::vector<RemoteDevice::Change> &changes, Holds holds)
+    {
+        if (changes.size() < 2)
+            return changes;
+        std::vector<RemoteDevice::Change> r;
+        for (auto &c : changes)
+            if (holds(c.path, c.part))
+                r.push_back(c);
+        return r.empty() ? changes : r;
+    }
 
     // "Global Soft Knob Configuration/Value Softknob0..2" -> soft knob 1..3, else 0
     static int softknob_report(const std::string &path);

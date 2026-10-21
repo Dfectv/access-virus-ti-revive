@@ -23,7 +23,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <wchar.h>
-#include "vtiusbaudio.h"
+#include "../broker/vtiusbaudio.h"
 #include "../broker/vticore.h"
 #include "../broker/vtiaudioshm.h"
 #include <stdio.h>

@@ -110,38 +110,26 @@ void EditorRenderer::image(Canvas &c, const std::string &name, void *img, int sy
         }
 }
 
-// 4 x 5 pixel digits for the browser's program numbers (drawn in code by the original)
-void EditorRenderer::digits(Canvas &c, int number, int right, int top)
-{
-    static const char *glyph[10][5] = {
-        {".##.", "#..#", "#..#", "#..#", ".##."}, {".##.", "#.#.", "..#.", "..#.", "..#."},
-        {"###.", "...#", ".##.", "#...", "####"}, {"###.", "...#", ".##.", "...#", "###."},
-        {"..##", ".#.#", "#..#", "####", "...#"}, {"####", "#...", "###.", "...#", "###."},
-        {".###", "#...", "###.", "#..#", ".##."}, {"####", "...#", "..#.", ".#..", ".#.."},
-        {".##.", "#..#", ".##.", "#..#", ".##."}, {".##.", "#..#", ".###", "...#", "###."}};
-    std::string s = std::to_string(number);
-    int x = right - (int)s.size() * 5 + 1;
-    for (char ch : s) {
-        for (int r = 0; r < 5; r++)
-            for (int k = 0; k < 4; k++)
-                if (glyph[ch - '0'][r][k] == '#')
-                    c.fill(x + k, top + r, 1, 1, Rgba{59, 59, 59, 255});
-        x += 5;
-    }
-}
-
-// the bank table of the browser page: 8 columns x 16 rows (program number + name), measured on the original
+// the bank table of the browser page: 8 columns x 16 rows, the names measured on the original. The program numbers
+// are not drawn: they are part of the page background (BG_Page_Browser) and show through the translucent table
+// bitmap (alpha 102), as in the original (E299)
 void EditorRenderer::patch_browser(Canvas &c, const Element &e, int x, int y, int bank)
 {
-    const std::string &font = e.get("ControlFont");
+    const std::string &font = e.get("ControlFont"), &hfont = e.get("SelectedFont");
+    auto hl = highlighted.find(bank);
     for (int p = 0; p < 128; p++) {
         int nx = x + 21 + (p / 16) * 84, ny = y + 1 + (p % 16) * 11;
-        digits(c, p, nx - 5, ny + 4);
         auto sel = selected.find(bank);
-        bool on = sel != selected.end() && sel->second == p;
+        bool on = sel != selected.end() && sel->second.count(p);
         bool match = !browser_match || browser_match(bank, p);
+        if (hl != highlighted.end() && hl->second.count(p) && !hfont.empty()) {
+            // a drag's source and target (E298 (L7)): filled in the selection blue, the name in the white font
+            c.fill(nx - 2, ny, 63, 11, Rgba{66, 111, 204, 255});
+            text(c, hfont, bank_patch(bank, p), nx, ny, 60, 9, "Top Left", 1.0);
+            continue;
+        }
         text(c, font, bank_patch(bank, p), nx, ny, 60, 9, "Top Left", match ? 1.0 : 0.3);
-        if (on) { // the original frames the selected entry (1 px, measured colour)
+        if (on) { // the original frames each selected entry (1 px, measured colour)
             const Rgba fc{65, 111, 204, 255};
             double l = nx - 2.5, t = ny - 0.5, r = nx + 60.5, b = ny + 10.5;
             c.line(l, t, r, t, fc), c.line(r, t, r, b, fc), c.line(r, b, l, b, fc), c.line(l, b, l, t, fc);

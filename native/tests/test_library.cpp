@@ -3,6 +3,7 @@
 #include "access/library.h"
 #include "cc/controlcenter.h"
 #include "check.h"
+#include <algorithm>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -86,13 +87,16 @@ TEST(library_edge_cases)
     write(dir / "sub" / "Mixed.SYX", file);
     write(dir / "notes.txt", single(3));
 
-    PatchLibrary plain, upgraded;
+    auto patches = [](const PatchLibrary &l) {
+        return std::count_if(l.dumps.begin(), l.dumps.end(), [](const Dump &d) { return !d.empty(); });
+    };
+    PatchLibrary plain, upgraded; // each patch at its program byte (E298): single() has 0x55, the Virus C dump 5
     CHECK(load_library_file((dir / "sub" / "Mixed.SYX").string(), plain));
-    CHECK(plain.dumps.size() == 1); // without page B a Virus C dump cannot be upgraded
+    CHECK(patches(plain) == 1 && plain.dumps.size() == 0x56); // without page B a Virus C dump cannot be upgraded
     CHECK(load_library_file((dir / "sub" / "Mixed.SYX").string(), upgraded, std::vector<uint8_t>(256, 0)));
-    CHECK(upgraded.dumps.size() == 2);
-    if (upgraded.dumps.size() == 2)
-        CHECK(upgraded.dumps[1].size() == 524 && upgraded.dumps[1][9] != 0 && upgraded.dumps[1][523] == 0xF7);
+    CHECK(patches(upgraded) == 2);
+    if (upgraded.dumps.size() > 5)
+        CHECK(upgraded.dumps[5].size() == 524 && upgraded.dumps[5][9] != 0 && upgraded.dumps[5][523] == 0xF7);
     PatchLibrary none;
     CHECK(!load_library_file((dir / "missing.mid").string(), none));
 
@@ -145,9 +149,28 @@ TEST(library_dir_xdg_documents)
     CHECK(vti::library_dir() == dir.string() + "/Dokumente" + tail);
     fs::create_directories(dir.string() + "/Documents" + tail); // an earlier install's folder wins
     CHECK(vti::library_dir() == dir.string() + "/Documents" + tail);
+    auto roots = vti::library_roots(); // Linux: only the personal one (no Access installer puts libraries elsewhere)
+    CHECK(roots.size() == 1 && roots[0].menu == "Personal Libraries" && roots[0].dir == vti::library_dir());
     fs::remove_all(dir);
 }
 #endif
+
+// the original's three roots (E307), in its order: Personal (Documents), User (%APPDATA%, ~/Library/Application
+// Support), Public (C:\ProgramData, /Library/Application Support), each + "/Access Music/Virus TI/Patches"; a missing
+// base or a folder already listed is left out
+TEST(library_roots_three)
+{
+    const std::string tail = "/Access Music/Virus TI/Patches";
+    auto r = vti::library_roots_for("/d" + tail, "/u", "/p");
+    CHECK(r.size() == 3);
+    if (r.size() == 3) {
+        CHECK(r[0].menu == "Personal Libraries" && r[0].dir == "/d" + tail);
+        CHECK(r[1].menu == "User Libraries" && r[1].dir == "/u" + tail);
+        CHECK(r[2].menu == "Public Libraries" && r[2].dir == "/p" + tail);
+    }
+    r = vti::library_roots_for("/d" + tail, "", "/d");
+    CHECK(r.size() == 1 && r[0].menu == "Personal Libraries");
+}
 
 // "Create Empty Library" (E217): the name from the save dialog gets ".mid" like in the original (".midi" -> ".mid",
 // anything else + ".mid"); the file is the original's empty library (a standard MIDI file with one empty track, 26
@@ -177,5 +200,39 @@ TEST(library_create_empty)
     CHECK(load_library_file(path, lib) && lib.dumps.empty());
     CHECK(load_libraries(dir.string()).size() == 1);
     CHECK(!write_empty_library((dir / "no-such-folder" / "x.mid").string(), err) && !err.empty());
+    fs::remove_all(dir);
+}
+
+// a library position is the dump's program byte, as in the original (E298): gaps stay empty (a deleted patch, a copy
+// from RAM A 27 shown at 27); the writer keeps each patch at its position and leaves the gaps out of the file
+TEST(library_position_is_program_byte)
+{
+    fs::path dir = fs::temp_directory_path() / "vtitests-library-pos";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    PatchLibrary lib;
+    lib.dumps.resize(28);
+    lib.dumps[0] = single(0), lib.dumps[1] = single(1), lib.dumps[27] = single(27);
+    lib.path = (dir / "gaps.mid").string();
+    std::string err;
+    CHECK(save_library(lib, err));
+    PatchLibrary back;
+    CHECK(load_library_file(lib.path, back));
+    CHECK(back.dumps.size() == 28);
+    if (back.dumps.size() == 28) {
+        CHECK(same_patch(back.dumps[0], single(0)) && same_patch(back.dumps[1], single(1)));
+        CHECK(same_patch(back.dumps[27], single(27)) && back.dumps[27][8] == 27);
+        for (int p = 2; p < 27; p++)
+            CHECK(back.dumps[p].empty());
+    }
+    CHECK(fs::file_size(lib.path) == 18 + 4 + 3 * (1 + 1 + 2 + 523) + 4); // three patches, no gap entries
+
+    // repeated program bytes (other tools' exports, several banks in one .syx): the file order, as before
+    Dump a = single(5), b = single(6), c = single(7);
+    a[8] = 0, b[8] = 0, c[8] = 5;
+    CHECK(cc::write_syx({a, b, c}, (dir / "dup.syx").string(), err));
+    PatchLibrary dup;
+    CHECK(load_library_file((dir / "dup.syx").string(), dup));
+    CHECK(dup.dumps.size() == 3 && dup.dumps[0] == a && dup.dumps[1] == b && dup.dumps[2] == c);
     fs::remove_all(dir);
 }

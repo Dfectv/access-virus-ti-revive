@@ -348,10 +348,15 @@ TEST(editor_render_browser)
     Rig g;
     g.r->bank_patch = [](int bank, int program) { return "B" + std::to_string(bank) + "P" + std::to_string(program); };
     g.r->browser_match = [](int, int program) { return program % 2 == 0; };
-    g.r->selected[0] = 5;
+    g.r->selected[0] = {5};
     g.r->render(g.canvas);
     auto &c = g.canvas;
-    // 128 entries: program digits (filled pixels) and names; odd programs dimmed
+    // 128 entries: names, odd programs dimmed; no program numbers of its own - the original's are part of the page
+    // background and show through the translucent table (E299), drawing them again doubled them
+    size_t digit_pixels = 0;
+    for (auto &f : c.fills)
+        digit_pixels += f.c.r == 59 && f.c.g == 59 && f.c.b == 59;
+    CHECK(digit_pixels == 0);
     size_t dim = 0, full = 0;
     for (auto &b : c.blits)
         if (b.img == "font.png" && b.dy >= 265)
@@ -680,15 +685,10 @@ TEST(editor_value_texts)
     CHECK(g.r->menu_entries("Unknown/Param").empty());
 }
 
-TEST(editor_digits_and_status)
+TEST(editor_status_text)
 {
     Rig g;
     RecCanvas &c = g.canvas;
-    g.r->digits(c, 127, 100, 10);
-    CHECK(!c.fills.empty());
-    for (auto &f : c.fills)
-        CHECK(f.x <= 100 && f.x > 100 - 15 && f.y >= 10 && f.y < 15);
-    c.clear();
     g.r->status_text(c, "font.png", "OK", 0, 0, 60, 20);
     CHECK(c.blits.size() == 2);
     c.clear();
@@ -765,4 +765,38 @@ TEST(editor_system_font_text)
     auto &l = g.canvas.labels[0];
     CHECK(l.text == "Control Change Ch 1, 5" && l.size == 8 && l.x == 4 && l.y == 3 && l.w == 80 && l.h == 12);
     CHECK(l.c.r == 245 && l.c.g == 245 && l.c.a == 255);
+}
+
+// while dragging, the source entries and the slot under the cursor are drawn like the original's (E298 (L7)): filled
+// 66,111,204 with the browser's SelectedFont (white); the others in ControlFont
+TEST(editor_render_browser_drag_highlight)
+{
+    static const char *L = R"(<?xml version="1.0"?>
+<Editor><Frame width="700" height="200"><Container><Size left="0" top="0" width="700" height="200"/>
+ <PatchBrowser Parameter="Browser 0/Selected Bank" ControlFont="font.png" SelectedFont="fontsel.png"><Size left="0" top="0" width="680" height="180"/></PatchBrowser>
+</Container></Frame></Editor>)";
+    Rig g;
+    g.canvas.imgs["fontsel.png"] = {6, 7 * 96};
+    EditorLayout lay;
+    std::string err;
+    CHECK(lay.load(Bytes(L, L + strlen(L)), err));
+    EditorRenderer r(lay, *g.cond, g.dev, g.ed);
+    r.values = g.r->values;
+    r.bank_patch = [](int, int program) { return "P" + std::to_string(program); };
+    r.render(g.canvas);
+    size_t sel = 0, blue = 0;
+    for (auto &b : g.canvas.blits)
+        sel += b.img == "fontsel.png";
+    CHECK(sel == 0); // nothing highlighted
+    g.canvas.clear();
+    r.highlighted[0] = {3, 40};
+    r.render(g.canvas);
+    for (auto &b : g.canvas.blits)
+        sel += b.img == "fontsel.png";
+    for (auto &f : g.canvas.fills)
+        blue += f.c.r == 66 && f.c.g == 111 && f.c.b == 204;
+    if (sel != 5)
+        fprintf(stderr, "  highlighted glyphs: %zu\n", sel);
+    CHECK(sel == 5);  // "P3" and "P40": five glyphs in the white font
+    CHECK(blue == 2); // one filled box per entry
 }

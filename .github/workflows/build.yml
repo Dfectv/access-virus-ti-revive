@@ -231,6 +231,30 @@ jobs:
           native plug-in **"TI Revive Virus Control"**: looks and works like the original Virus Control and runs
           natively on Windows, macOS (Apple Silicon and Intel) and Linux - no Rosetta, Wine or yabridge.
 
+          **New in 0.8.29: the browser works like the original's, and knobs on the Virus reach your DAW.**
+
+          - Browser drag and drop like the original: drag one or several patches from a library onto a RAM slot in
+            the other pane, or a part's patch name onto a RAM slot; within one bank a drag swaps the patches;
+            Alt+click renames; right-click "Undo last operation" toggles the last change. Personal libraries can be
+            copied into, swapped, renamed, sorted and have patches deleted; patches keep their positions with gaps.
+          - A RAM bank's right-click menu has "Download entire bank from Virus TI" (about 2 minutes, progress on the
+            LCD) and "Sort alphabetically". Menu entries that do not apply are hidden, as in the original.
+          - "Create Empty Library" is only in the SAVE menu's Personal Libraries, as in the original.
+          - Knobs you turn on the Virus reach your DAW while the plug-in window is open (issue #10): Ableton Live's
+            Configure mode adds them and automation records them. A knob that stands for two parameters (Filter 1
+            Cutoff or the vocoder's carrier frequency) reports only the active one.
+          - Libraries from the original's three places: Personal, User and Public Libraries. On the Mac the factory
+            libraries in /Library/Application Support now show (under Public Libraries).
+          - The browser's program numbers are no longer drawn twice.
+          - macOS: installing the same version again now replaces the plug-ins.
+          - When the bank sync at start-up stops early, the log and the Virus' display no longer say it is done. A
+            check that keeps broken values out of the classic oscillator display now works with the macOS and Windows
+            compiler settings. On Linux, REAPER 7.82 can crash after a render when another program had the focus as
+            the render window closed: this is a bug in REAPER, see "Good to know" in the README.
+
+          Tested on a Virus TI2 Desktop: Linux with REAPER, Windows 11 (VM) with Ableton Live 11, macOS (MacBook Air
+          M3) with Ableton Live 12; 13 of 13 test items passed.
+
           **New in 0.8.28: a review of the whole send path.** The plug-in guards the values a host sends (velocity,
           pitch bend, tempo; on Windows and macOS a NaN value got through before), sends one message per value while
           you drag a knob, and keeps its audio ring safe while the Virus goes away. When the broker restarts, the

@@ -34,6 +34,8 @@ Good to know
 - The plug-in reports its latency to the DAW, so recorded and played notes line up with the grid.
 - Notes and knobs work but no audio over USB (log: "usbaudio: alternate setting 1 failed", kernel log:
   "Not enough bandwidth"): connect the Virus directly to the computer, not through a USB hub.
+- REAPER: stay in REAPER while a render runs. If another program has the focus when the render window closes,
+  REAPER 7.82 can crash or freeze. This is a bug in REAPER itself (it happens with ReaSynth too, without TI Revive).
 - While TI Revive uses the Virus, Linux cannot use it as a normal sound card; it is handed back automatically when
   the plug-in is closed (about 30 seconds later).
 - One DAW at a time uses the Virus; the plug-in in a second one shows "Virus unavailable". The Control Center works

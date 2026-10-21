@@ -1,0 +1,128 @@
+{
+ "round": "0.8.29",
+ "core": "core.json",
+ "core_items": [
+  "WC1",
+  "WC3",
+  "MC1",
+  "MC3"
+ ],
+ "lead": "Test build 0.8.29 (CI run 39577249656). New since the first part of the round: the browser works like the original's - drag patches from a library onto a RAM slot or into a library, swap within a bank, Alt+click rename, Undo last operation, Delete selection, Sort alphabetically, Download entire bank (E294-E303); library positions with gaps like the original; single program numbers in the browser; knobs turned on the Virus become host edits while the plug-in window is open, so Ableton Live's Configure mode adds them (issue #10). Linux: the browser and #10 were tested on dev builds; hil.sh runs the core items on this CI build. Mark each item, add a note where something looks different, then copy the results at the bottom into the chat.",
+ "rules": [
+  "Never store a patch on the Virus with the Virus' own STORE button.",
+  "Browser tests write into the Virus' RAM: use only RAM A slots 24-31 and the test libraries (LinuxTest, WinTest, MacTest). Undo puts a drop back.",
+  "Order: Linux first (the Virus is on this PC), then the Windows 11 VM, then macOS. Close the DAW before the Virus moves."
+ ],
+ "sections": [
+  {
+   "id": "linux",
+   "title": "Linux",
+   "where": "REAPER via pw-jack, Virus on this PC",
+   "prep": [
+    "Already installed by Claude: the CI build (install.sh; plug-in dc13ca8b.., broker cdf3d914..).",
+    "Claude runs hil.sh on this build (cold start, reopen x2, export, broker kill) and reports the result here."
+   ],
+   "items": [
+    {
+     "id": "L1",
+     "title": "Bank sync at start-up",
+     "steps": [
+      "Open a project with the plug-in (Virus on) and wait until the start page is gone; then watch the Virus' display until the bank sync has finished (about half a minute; you can play meanwhile)."
+     ],
+     "expect": "the Virus' display says the synchronization is done; Claude checks that the log says 'bank sync done in N s'."
+    },
+    {
+     "id": "L2",
+     "title": "Browser and #10 on the CI build (short)",
+     "steps": [
+      "BROWSER page: lower pane RAM A, upper pane a library. Drag one patch onto RAM A slot 24, then right-click: Undo last operation (the slot gets its old patch back).",
+      "Turn a knob on the Virus with the plug-in window open; REAPER's FX window: Param shows it as last touched."
+     ],
+     "expect": "the drop and the undo work, the numbers in both panes are single and sharp, the knob is REAPER's last touched parameter."
+    }
+   ]
+  },
+  {
+   "id": "vm",
+   "title": "Windows 11 VM",
+   "where": "win11 VM, Ableton Live 11, Virus attached by Claude",
+   "prep": [
+    "Already installed by Claude: setup.exe /quiet (entry 0.8.29, same plug-in as the CI MSI), C:\\tirevive-test\\0.8.29-ci.",
+    "Ask Claude to attach the Virus to the VM (it stops the Linux broker first)."
+   ],
+   "items": [
+    {
+     "id": "W1",
+     "title": "Classic oscillator display",
+     "steps": [
+      "Open the editor's oscillator page and choose a few classic waves (saw, pulse, a few wave table entries) on oscillator 1 and 2."
+     ],
+     "expect": "the wave picture follows the choice and looks like a normal wave, no empty or broken drawing."
+    },
+    {
+     "id": "W2",
+     "title": "Browser",
+     "steps": [
+      "SAVE on part 1 > Personal Libraries > Create Empty Library, name it WinTest.",
+      "Upper pane OS5 New Features, lower pane WinTest: drag 2 patches onto position 0. Lower pane RAM A: drag 1 patch onto slot 25, then Undo last operation.",
+      "Alt+click a WinTest entry and rename it; right-click Sort alphabetically."
+     ],
+     "expect": "the patches land where dropped, undo restores slot 25, rename and sort work, the dragged entries and the target slot turn blue while dragging."
+    },
+    {
+     "id": "W3",
+     "title": "Ableton Configure mode (#10)",
+     "steps": [
+      "Plug-in window open. In Live click Configure on the TI Revive device, then turn a knob on the Virus (e.g. Cutoff), then click Configure again."
+     ],
+     "expect": "the parameter of that knob is added to the device's parameter list (as with the original Virus Control)."
+    }
+   ]
+  },
+  {
+   "id": "mac",
+   "title": "macOS",
+   "where": "MacBook Air M3, Ableton Live 12",
+   "prep": [
+    "Claude copies the package (CI run 39577249656) to ~/Downloads/TI-Revive-0.8.29-ci2-mac when the Mac is awake; then: <code>sudo installer -pkg \"$HOME/Downloads/TI-Revive-0.8.29-ci2-mac/TI-Revive-0.8.29-mac/TI Revive.pkg\" -target /</code>. Virus on the Mac.",
+    "Claude puts <code>diag.on</code> in the plug-in's folder and renames the old diag.log."
+   ],
+   "items": [
+    {
+     "id": "M1",
+     "title": "Classic oscillator display",
+     "steps": [
+      "Open the editor's oscillator page and choose a few classic waves (saw, pulse, a few wave table entries) on oscillator 1 and 2."
+     ],
+     "expect": "the wave picture follows the choice and looks like a normal wave, no empty or broken drawing."
+    },
+    {
+     "id": "M2",
+     "title": "Bank sync at start-up",
+     "steps": [
+      "Open a project with the plug-in (Virus on) and wait until the start page is gone; then watch the Virus' display until the bank sync has finished (about half a minute; you can play meanwhile)."
+     ],
+     "expect": "the Virus' display says the synchronization is done; Claude checks that the log says 'bank sync done in N s'."
+    },
+    {
+     "id": "M3",
+     "title": "Browser",
+     "steps": [
+      "SAVE on part 1 > Personal Libraries > Create Empty Library, name it MacTest.",
+      "Upper pane OS5 New Features, lower pane MacTest: drag 2 patches onto position 0. Lower pane RAM A: drag 1 patch onto slot 26, then Undo last operation.",
+      "Alt+click a MacTest entry and rename it; right-click Sort alphabetically."
+     ],
+     "expect": "the patches land where dropped, undo restores slot 26, rename and sort work, the dragged entries and the target slot turn blue while dragging."
+    },
+    {
+     "id": "M4",
+     "title": "Ableton Configure mode (#10)",
+     "steps": [
+      "Plug-in window open. In Live 12 click Configure on the TI Revive device, then turn a knob on the Virus (e.g. Cutoff), then click Configure again."
+     ],
+     "expect": "the parameter of that knob is added to the device's parameter list (the case of the issue's reporter)."
+    }
+   ]
+  }
+ ]
+}

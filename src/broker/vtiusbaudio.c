@@ -12,7 +12,7 @@
 // rejects the plugin's timestamps ("Sync Information Event", global 0x54).
 // Sample rate: SET_CUR SAMPLING_FREQ (class request to the endpoint) 44100 on both endpoints, as the driver does.
 #include "vtiusbaudio.h"
-#include "../broker/pktstat.h"
+#include "pktstat.h"
 #include <setupapi.h>
 #include <winusb.h>
 #include <stdio.h>

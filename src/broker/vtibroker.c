@@ -19,7 +19,7 @@
 #include "ratelever.h"
 #include "vtipipe_io.h"
 #include "vtiaudioshm.h"
-#include "../wrapper/vtiusbaudio.h"
+#include "vtiusbaudio.h"
 #include <windows.h>
 #include <stdarg.h>
 #include <stdio.h>

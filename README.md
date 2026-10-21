@@ -254,7 +254,19 @@ same with Access' own driver.
   original's plug-in ID; tested in Ableton Live 11 and 12, also a Windows project on the Mac); the saved state is byte
   for byte the same. Projects with the original's VST2 version do not open: TI Revive is VST3 only.
 - **LOAD menu:** the original's "Revert to" (back to the patch before the last load, edits included) and "Recently
-  Used" (the last 10 patches of each part); Personal Libraries has "Create Empty Library" (since 0.8.25).
+  Used" (the last 10 patches of each part); "Create Empty Library" is in the SAVE menu's Personal Libraries, as in the
+  original (since 0.8.25; until 0.8.28 also in LOAD and the browser).
+- **Browser drag and drop like the original** (since 0.8.29): drag one or several patches (Shift = range, Ctrl = single
+  entries) from a library onto a RAM slot in the other pane, or drag a part's patch name onto a RAM slot; within one
+  RAM bank a drag swaps the patches; Alt+click renames a RAM patch; right-click "Undo last operation" toggles the
+  last change. Program +/- on the Virus then reaches those patches (it only steps through the Virus' own banks, in the
+  original too). Personal libraries work the same way (copy into them, swap, rename, "Delete selection", "Sort
+  alphabetically"), and patches keep their positions with gaps like in the original. A RAM bank's right-click menu
+  has "Download entire bank from Virus TI" (reads all 128 again, about 2 minutes, progress on the LCD) and "Sort alphabetically" (writes
+  only the slots that change; like the original, it cannot be undone).
+- **Library folders like the original's** (since 0.8.29): Patch libraries from the original's three places, each its own menu (since 0.8.29): Personal Libraries (your Documents folder), User Libraries and Public Libraries. On the Mac the factory libraries that Access installs in /Library/Application Support appear under Public Libraries. On Linux only Personal Libraries.
+- **Presets and soft knobs chosen on the Virus itself** are followed, as in the original.
+- **Knobs on the Virus reach your DAW:** knobs you turn on the Virus reach your DAW like the plug-in's own knobs while the plug-in window is open (since 0.8.29, [issue #10](https://github.com/derpsn/access-virus-ti-revive/issues/10)): Ableton Live's Configure mode adds them and automation records them. Tested in Ableton Live 11 (Windows 11, VM), Ableton Live 12 (macOS) and REAPER (Linux).
 
 <p align="center">
   <img src="docs/images/plugin-menus.png" alt="The LOAD menu: the device entry, the bank list and RAM A's 128 patches in columns, beyond the plug-in window" width="680"><br>
@@ -399,7 +411,7 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 |---|---|---|---|---|
 | Classic plug-in 0.7.x (Linux, REAPER) | first note late, second missing | 0.06 ms | 1.31 ms | - |
 | **0.8.27, Linux** (REAPER render, test round) | 63 / 63 | **0.16 ms** | 0.37 ms | -72 ppm |
-| **0.8.28, macOS** (Ableton 12 export, M3, test round) | 256 / 256 | **0.19 ms** | 2.57 ms | +1 ppm |
+| **0.8.29, macOS** (Ableton 12 export, M3, test round) | 256 / 256 | **0.19 ms** | 1.35 ms | 0 ppm |
 | **0.8.23, Windows 11 PC** (Ableton Live 11 export) | 480 / 480 | **0.04 ms** | 0.71 ms | 0 ppm |
 | **0.8.24, Windows 11 PC** (Ableton Live 11 export, test round) | 256 / 256 | **0.33 ms** | 2.58 ms | -1 ppm |
 
@@ -422,7 +434,7 @@ hardware (TI2 Desktop) - details and raw numbers in [`findings/evidence.md`](fin
 - **Automation rate limit** (250 messages/s, coalesced per parameter): unthrottled parameter floods hung the Virus'
   audio until a power cycle within 4 minutes; with the limit a 4-minute full-load test (16 channels of notes + 32
   automation lanes) passes.
-- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 304 unit
+- Checked with ThreadSanitizer and AddressSanitizer (one race in the broker connection found and fixed); 332 unit
   tests run with every release build on Windows and Linux, plus two end-to-end tests on Linux in a virtual display
   (two editors of a duplicated track; the Control Center's window and close button).
 
@@ -588,7 +600,7 @@ measurements: [`findings/design-linux.md`](findings/design-linux.md), evidence E
 | Reverse engineering of driver, protocol and plug-in interface | done (`findings/`) |
 | **0.8.0: native plug-in "TI Revive Virus Control" (all platforms)** | |
 | Plug-in (editor, browser, libraries, bank sync, automation, project state), opens projects of the classic plug-in | done: tested in REAPER (Linux), Ableton Live 12 (macOS M3), Ableton Live 11 (Windows 11 PC) |
-| Timing: sample-accurate, latency reported to the DAW, any sample rate | done: 0.01-0.33 ms jitter, 0 ppm drift (E139-E143, E209, E216) |
+| Timing: sample-accurate, latency reported to the DAW, any sample rate | done: 0.04-0.33 ms jitter, drift -72 to 0 ppm (E139-E143, E209, E216, E278, E289, E308) |
 | ASIO sound card "TI Revive Virus Audio" (Windows, 6 in / 2 out, no Access driver) | done: clean on a real PC |
 | Installers: Access software only unpacked (Windows/Linux), clean-up of earlier versions | done |
 | Virus TI Snow | works per user reports (macOS, 0.8.3+; USB 3 and soft knobs with 0.8.20); not tested by us |

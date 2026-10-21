@@ -19,6 +19,7 @@ bool load_library_file(const std::string &path, PatchLibrary &lib, const std::ve
     std::vector<uint8_t> d((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     lib.path = path;
     lib.dumps.clear();
+    std::vector<std::vector<uint8_t>> found; // in file order
     // SysEx single dumps anywhere in the file (SMF sysex events or raw .syx): 00 20 33 01 <dev> 10 ... F7
     for (size_t i = 0; i + 8 < d.size(); i++) {
         if (!(d[i] == 0x00 && d[i + 1] == 0x20 && d[i + 2] == 0x33 && d[i + 3] == 0x01 && d[i + 5] == 0x10))
@@ -29,14 +30,35 @@ bool load_library_file(const std::string &path, PatchLibrary &lib, const std::ve
         std::vector<uint8_t> m = {0xF0};
         m.insert(m.end(), d.begin() + i, end + 1);
         if (m.size() == 524) {
-            lib.dumps.push_back(m);
+            found.push_back(m);
         } else if (m.size() == 267 && page_b.size() == 256) { // Virus C: page A only -> upgrade like the original
             m.resize(524, 0);
             m[523] = 0xF7;
             if (RemoteDevice::upgrade_single(m, page_b))
-                lib.dumps.push_back(m);
+                found.push_back(m);
         }
         i = end - d.begin();
+    }
+    // the original shows each patch at its program byte (byte 8), gaps stay empty (E298); when the bytes repeat
+    // (other tools' exports, several banks in one file) the file order, as before
+    std::vector<bool> used(128, false);
+    bool by_program = found.size() <= 128;
+    for (auto &m : found) {
+        if (!by_program)
+            break;
+        if (m[8] >= 128 || used[m[8]])
+            by_program = false;
+        else
+            used[m[8]] = true;
+    }
+    if (!by_program) {
+        lib.dumps = std::move(found);
+        return true;
+    }
+    for (auto &m : found) {
+        if (m[8] >= lib.dumps.size())
+            lib.dumps.resize(m[8] + 1);
+        lib.dumps[m[8]] = std::move(m);
     }
     return true;
 }
@@ -105,7 +127,7 @@ bool save_library(const PatchLibrary &lib, std::string &error)
     };
     for (size_t i = 0; i < lib.dumps.size() && i < 128; i++) {
         std::vector<uint8_t> m = lib.dumps[i];
-        if (m.size() != 524)
+        if (m.size() != 524) // a gap: no patch at this position (the original leaves it out, E298)
             continue;
         m[7] = 1, m[8] = (uint8_t)i;
         unsigned a = 0;
@@ -196,6 +218,38 @@ std::string library_dir()
         if (fs::is_directory(d, ec))
             return d;
     return c.empty() ? std::string() : c.front();
+}
+
+std::vector<LibraryRoot> library_roots_for(const std::string &personal, const std::string &user,
+                                           const std::string &shared)
+{
+    const std::string tail = "/Access Music/Virus TI/Patches";
+    std::vector<LibraryRoot> r;
+    auto add = [&r](const char *menu, const std::string &dir) {
+        if (dir.empty() || std::any_of(r.begin(), r.end(), [&](const LibraryRoot &x) { return x.dir == dir; }))
+            return;
+        r.push_back({menu, dir});
+    };
+    add("Personal Libraries", personal);
+    add("User Libraries", user.empty() ? user : user + tail);
+    add("Public Libraries", shared.empty() ? shared : shared + tail);
+    return r;
+}
+
+std::vector<LibraryRoot> library_roots()
+{
+    std::string user, shared;
+#ifdef _WIN32
+    if (const char *a = getenv("APPDATA"))
+        user = a;
+    if (const char *p = getenv("PROGRAMDATA"))
+        shared = p;
+#elif defined(__APPLE__)
+    if (const char *home = getenv("HOME"))
+        user = std::string(home) + "/Library/Application Support";
+    shared = "/Library/Application Support";
+#endif
+    return library_roots_for(library_dir(), user, shared);
 }
 
 } // namespace vti

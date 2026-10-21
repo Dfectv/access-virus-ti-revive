@@ -48,6 +48,12 @@ public:
     // `stop` (optional) cancels between two requests: returns -2, `cache` keeps what was fetched so far.
     int sync_bank(int bank, Bank &cache, const std::function<void(int, bool)> &progress = nullptr,
                   const std::atomic<bool> *stop = nullptr);
+    // "Download entire bank from Virus TI" like the original (E301): RAM bank 1..4, all 128 programs in order, each
+    // request after the display message 74 01 7E 04 (Actions/Rise Message 4: "syncing" on the Virus), cached or not.
+    // progress(program) per program read. Returns 128, -1 when a request gets no reply, -2 when cancelled (like
+    // sync_bank); `cache` keeps what was read, the rest unchanged.
+    int read_bank(int bank, Bank &cache, const std::function<void(int)> &progress = nullptr,
+                  const std::atomic<bool> *stop = nullptr);
     // called before every request: may block (e.g. while the host plays - the Virus delays notes while it answers
     // dump requests); returning false cancels like `stop`
     std::function<bool()> before_request;

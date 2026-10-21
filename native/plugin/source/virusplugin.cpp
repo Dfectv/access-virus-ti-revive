@@ -929,6 +929,11 @@ tresult PLUGIN_API VirusPlugin::terminate()
     if (sync_thread_.joinable())
         sync_thread_.join();
     {
+        std::lock_guard<std::mutex> g(download_mu_);
+        if (download_thread_.joinable())
+            download_thread_.join();
+    }
+    {
         // the worker starts a reconnect thread in after_reconnect(): under the same lock, and not after stop_warm_,
         // so none starts after this join (a joinable std::thread destroyed = std::terminate; review M6)
         std::lock_guard<std::mutex> g(reconnect_mu_);
@@ -1312,6 +1317,8 @@ tresult PLUGIN_API VirusPlugin::process(ProcessData &data)
             }
             auto it = params_.find(id);
             if (it == params_.end())
+                continue;
+            if (gestures_.echo(id, v, now_ms())) // our own edit of a knob moved on the Virus, handed back: not again
                 continue;
             int value = (int)std::lround(v * 127); // the original's automation scale (docs/formats.md)
             if (const Parameter *p = dev_.find(it->second.path))
@@ -2209,11 +2216,14 @@ std::vector<KnobTemplate> VirusPlugin::knob_templates()
 // (read only) - Windows/Wine: ProgramData/Access Music/Virus TI/Cache/<device>, Mac: /Library/Application Support/...
 void VirusPlugin::load_banks()
 {
-    for (auto &lib : load_libraries(library_dir(), files_ ? files_->default_page_b() : std::vector<uint8_t>())) {
-        banks_[LIB_BASE + (int)lib_names_.size()] = lib.dumps;
-        lib_names_.push_back(lib.name);
-        lib_paths_.push_back(lib.path);
-    }
+    // the original's three places (E307): on the Mac the factory libraries are in "Public Libraries"
+    for (auto &root : library_roots())
+        for (auto &lib : load_libraries(root.dir, files_ ? files_->default_page_b() : std::vector<uint8_t>())) {
+            banks_[LIB_BASE + (int)lib_names_.size()] = lib.dumps;
+            lib_names_.push_back(lib.name);
+            lib_paths_.push_back(lib.path);
+            lib_roots_.push_back(root.menu);
+        }
     // like the original: only the plug-in's own cache; without one the first start syncs the whole RAM
     std::string d = own_cache_dir();
     if (d.empty())
@@ -2447,6 +2457,7 @@ void VirusPlugin::sync_banks()
     // check of a current cache shows nothing. The original keeps "synchronising" on the Virus display while it
     // syncs (74 01 7E 07 about once a second) - also only then
     SyncPage page;
+    int result = 0; // the last bank's sync_bank result: < 0 = the sync stopped there
     if (sync_expected)
         page.expect();
     std::atomic<bool> rise{true}, fetching{page.shown()};
@@ -2495,11 +2506,14 @@ void VirusPlugin::sync_banks()
         out_->log("Virus TI native: RAM %c sync: %d fetched\n", 'A' + b, n); // also diag.log: the sync's duration
         if (n == -2 && !dir.empty()) // closed while syncing: keep what was fetched, the next start continues
             save_bank_file(dir + "/RAM " + (char)('A' + b), bank);
+        result = n;
         if (n < 0)
             break;
         {
             std::lock_guard<std::mutex> lk(banks_mu_);
             banks_[b].assign(bank.begin(), bank.end());
+            if (n > 0)
+                drop_.forget(); // the Virus' RAM changed elsewhere: an undo could write over it
         }
         if (!dir.empty())
             save_bank_file(dir + "/RAM " + (char)('A' + b), bank);
@@ -2510,10 +2524,10 @@ void VirusPlugin::sync_banks()
     syncing_ = false;
     sync_eta_s_ = -1;
     set_sync_progress(127);
-    out_->log("Virus TI native: bank sync done in %.1f s\n", (now_ms() - sync_t0) / 1000.0);
+    out_->log("Virus TI native: bank sync %s in %.1f s\n", sync_end(result), (now_ms() - sync_t0) / 1000.0);
     if (page.shown()) {
         std::lock_guard<std::mutex> lk(values_mu_);
-        lcd_param_ = "Synchronization done";
+        lcd_param_ = result < 0 ? "" : "Synchronization done";
         lcd_value_.clear();
         lcd_orig_.clear();
     }
@@ -2710,12 +2724,342 @@ bool VirusPlugin::store_patch(int part, int bank, int program)
         b[program] = d;
         for (int p = 0; p < 128; p++)
             cache[p] = b[p];
+        drop_.forget(); // an undo of an earlier drop must not write over this store
     }
     std::string dir = own_cache_dir();
     if (!dir.empty()) {
         std::error_code ec;
         std::filesystem::create_directories(dir, ec);
         save_bank_file(dir + "/RAM " + (char)('A' + bank), cache);
+    }
+    ui_dirty_ = true;
+    return true;
+}
+
+bool VirusPlugin::drop_to_ram(int src_bank, const std::vector<int> &programs, int bank, int slot)
+{
+    if (syncing_.load() || downloading_.load()) { // a sync/download writes its read of the bank back: it would undo the drop's cache
+        if (out_)
+            out_->log("Virus TI native: drop onto RAM %c refused, bank sync running\n", 'A' + std::max(0, bank));
+        return false;
+    }
+    std::vector<BankDrop::Write> w;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto src = banks_.find(src_bank), dst = banks_.find(bank);
+        if (src == banks_.end() || dst == banks_.end())
+            return false;
+        std::vector<BankDrop::Patch> sources;
+        for (int p : programs)
+            if (p >= 0 && p < (int)src->second.size() && !src->second[p].empty()) {
+                sources.push_back(src->second[p]);
+                RemoteDevice::upgrade_single(sources.back()); // older library formats, as a load does
+            }
+        w = drop_.drop(sources, bank, slot, dst->second);
+    }
+    if (w.empty()) {
+        if (out_)
+            out_->log("Virus TI native: drop of %d patch(es) onto RAM %c %d refused (RAM bank not synced?)\n",
+                      (int)programs.size(), 'A' + std::max(0, std::min(3, bank)), slot + 1);
+        return false;
+    }
+    if (out_)
+        out_->log("Virus TI native: %d patch(es) dropped onto RAM %c from %d\n", (int)w.size(), 'A' + bank, slot + 1);
+    return send_ram_writes(w);
+}
+
+bool VirusPlugin::swap_in_ram(int bank, const std::vector<int> &programs, int slot)
+{
+    if (syncing_.load() || downloading_.load()) { // see drop_to_ram
+        if (out_)
+            out_->log("Virus TI native: swap in RAM %c refused, bank sync running\n", 'A' + std::max(0, bank));
+        return false;
+    }
+    std::vector<BankDrop::Write> w;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto b = banks_.find(bank);
+        if (b == banks_.end())
+            return false;
+        w = drop_.swap(programs, bank, slot, b->second);
+    }
+    if (w.empty()) {
+        if (out_)
+            out_->log("Virus TI native: swap of %d slot(s) in RAM %c onto %d refused\n", (int)programs.size(),
+                      'A' + std::max(0, std::min(3, bank)), slot + 1);
+        return false;
+    }
+    if (out_)
+        out_->log("Virus TI native: %d slot(s) swapped in RAM %c with %d..\n", (int)programs.size(), 'A' + bank, slot + 1);
+    return send_ram_writes(w);
+}
+
+// one dump to the slot with the new name, like the original (E297 (D)); its undo is not known: an earlier drop's
+// undo is forgotten as after a SAVE
+bool VirusPlugin::rename_in_ram(int bank, int program, const std::string &name)
+{
+    if (bank < 0 || bank > 3 || program < 0 || program > 127 || syncing_.load() || downloading_.load())
+        return false;
+    BankDrop::Patch d;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto b = banks_.find(bank);
+        if (b == banks_.end() || program >= (int)b->second.size())
+            return false;
+        d = BankDrop::renamed(b->second[program], name);
+        if (d.empty())
+            return false;
+        BankDrop::address(d, bank, program);
+        drop_.forget();
+    }
+    if (out_)
+        out_->log("Virus TI native: RAM %c %d renamed\n", 'A' + bank, program + 1);
+    return send_ram_writes({{bank, program, std::move(d)}});
+}
+
+bool VirusPlugin::save_library_file(int library)
+{
+    PatchLibrary lib;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        if (library < 0 || library >= (int)lib_paths_.size())
+            return false;
+        lib.name = lib_names_[library], lib.path = lib_paths_[library], lib.dumps = banks_[LIB_BASE + library];
+    }
+    std::string err;
+    bool ok = save_library(lib, err);
+    if (!ok && out_)
+        out_->log("Virus TI native: %s\n", err.c_str());
+    return ok;
+}
+
+bool VirusPlugin::edit_library(int library, const char *what,
+                               const std::function<LibraryEdit::Lib(const LibraryEdit::Lib &)> &op)
+{
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        if (library < 0 || library >= (int)lib_paths_.size())
+            return false;
+        auto &cur = banks_[LIB_BASE + library];
+        LibraryEdit::Lib after = op(cur);
+        if (after.empty()) {
+            if (out_)
+                out_->log("Virus TI native: %s in library %d refused\n", what, library + 1);
+            return false;
+        }
+        drop_.remember_library(library, cur, after);
+        cur = std::move(after);
+    }
+    if (out_)
+        out_->log("Virus TI native: %s in library %d\n", what, library + 1);
+    bool ok = save_library_file(library);
+    ui_dirty_ = true;
+    return ok;
+}
+
+bool VirusPlugin::drop_to_library(int src_bank, const std::vector<int> &programs, int library, int slot)
+{
+    std::vector<BankDrop::Patch> sources;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto src = banks_.find(src_bank);
+        if (src == banks_.end())
+            return false;
+        for (int p : programs)
+            if (p >= 0 && p < (int)src->second.size() && !src->second[p].empty()) {
+                sources.push_back(src->second[p]);
+                RemoteDevice::upgrade_single(sources.back());
+            }
+    }
+    return edit_library(library, "patch(es) dropped", [&](const LibraryEdit::Lib &l) {
+        return LibraryEdit::drop(l, sources, slot);
+    });
+}
+
+bool VirusPlugin::swap_in_library(int library, const std::vector<int> &programs, int slot)
+{
+    return edit_library(library, "swap", [&](const LibraryEdit::Lib &l) { return LibraryEdit::swap(l, programs, slot); });
+}
+
+bool VirusPlugin::delete_from_library(int library, const std::vector<int> &programs)
+{
+    return edit_library(library, "delete", [&](const LibraryEdit::Lib &l) { return LibraryEdit::remove(l, programs); });
+}
+
+bool VirusPlugin::sort_library(int library)
+{
+    return edit_library(library, "sort", [](const LibraryEdit::Lib &l) { return LibraryEdit::sort(l); });
+}
+
+bool VirusPlugin::rename_in_library(int library, int program, const std::string &name)
+{
+    return edit_library(library, "rename", [&](const LibraryEdit::Lib &l) { return LibraryEdit::rename(l, program, name); });
+}
+
+bool VirusPlugin::sort_ram_bank(int bank)
+{
+    if (syncing_.load() || downloading_.load())
+        return false;
+    std::vector<BankDrop::Write> w;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto b = banks_.find(bank);
+        if (b == banks_.end())
+            return false;
+        w = drop_.sort_ram(bank, b->second);
+    }
+    if (out_)
+        out_->log("Virus TI native: RAM %c sorted, %d slot(s) written\n", 'A' + std::max(0, std::min(3, bank)), (int)w.size());
+    return w.empty() || send_ram_writes(w);
+}
+
+// the original (E301): the bank's entries are emptied, then filled one by one as the Virus answers (~1 s each); the
+// bank sync's request path with its pause while notes play. Stopped (plug-in closing, no reply): the entries not read
+// again keep their cached patches
+bool VirusPlugin::download_bank(int bank)
+{
+    if (bank < 0 || bank > 3 || !sync_ || !out_ || !out_->connected() || syncing_.load())
+        return false;
+    std::lock_guard<std::mutex> g(download_mu_);
+    if (downloading_.exchange(true))
+        return false;
+    if (download_thread_.joinable())
+        download_thread_.join(); // the previous one has ended (downloading_ was false)
+    download_thread_ = std::thread([this, bank] {
+        Bank old, cache;
+        {
+            std::lock_guard<std::mutex> lk(banks_mu_);
+            auto &b = banks_[bank];
+            b.resize(128);
+            for (int p = 0; p < 128; p++)
+                old[p] = b[p], b[p].clear();
+            drop_.forget(); // the bank is read again: an undo could write over it
+        }
+        // our LCD shows the progress and the time left (the original shows it only on the Virus; user wish)
+        const int64_t t0 = now_ms();
+        auto lcd = [this, bank](const std::string &param, const std::string &value) {
+            std::lock_guard<std::mutex> lk(values_mu_);
+            lcd_param_ = param, lcd_value_ = value;
+            lcd_part_.clear(), lcd_orig_.clear();
+            lcd_dirty_ = true;
+        };
+        const std::string what = "Downloading " + bank_name(bank);
+        lcd(what, download_progress(0, 0));
+        ui_dirty_ = true;
+        if (out_)
+            out_->log("Virus TI native: download of RAM %c started\n", 'A' + bank);
+        int n = sync_->read_bank(bank + 1, cache, [&](int p) {
+            {
+                std::lock_guard<std::mutex> lk(banks_mu_);
+                banks_[bank][p] = cache[p];
+            }
+            lcd(what, download_progress(p + 1, now_ms() - t0));
+            ui_dirty_ = true;
+        }, &stop_warm_);
+        lcd(n == 128 ? "Download done" : "Download stopped", "");
+        {
+            std::lock_guard<std::mutex> lk(banks_mu_);
+            auto &b = banks_[bank];
+            for (int p = 0; p < 128; p++)
+                if (cache[p].empty())
+                    b[p] = old[p];
+                else
+                    old[p] = cache[p];
+        }
+        std::string dir = own_cache_dir();
+        if (!dir.empty())
+            save_bank_file(dir + "/RAM " + (char)('A' + bank), old);
+        if (out_)
+            out_->log("Virus TI native: download of RAM %c %s\n", 'A' + bank, n == 128 ? "done" : "stopped");
+        ui_dirty_ = true;
+        downloading_ = false;
+    });
+    return true;
+}
+
+void VirusPlugin::editor_opened()
+{
+    editors_open_++;
+}
+
+void VirusPlugin::editor_closed()
+{
+    if (--editors_open_ <= 0) {
+        editors_open_ = 0;
+        gestures_.flush([this](uint32_t id) { endEdit(id); });
+    }
+}
+
+void VirusPlugin::tick_gestures()
+{
+    gestures_.tick(
+        now_ms(), [this](uint32_t id) { beginEdit(id); },
+        [this](uint32_t id, double v) {
+            setParamNormalized(id, v);
+            performEdit(id, v);
+        },
+        [this](uint32_t id) { endEdit(id); });
+}
+
+bool VirusPlugin::can_undo_drop()
+{
+    std::lock_guard<std::mutex> lk(banks_mu_);
+    return drop_.can_undo();
+}
+
+bool VirusPlugin::undo_drop()
+{
+    std::vector<BankDrop::Write> w;
+    int library = -1;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        library = drop_.undo_library();
+        if (library >= 0 && library < (int)lib_paths_.size())
+            banks_[LIB_BASE + library] = drop_.take_library_undo();
+        else
+            w = drop_.take_undo();
+    }
+    if (library >= 0) { // a library operation was the last one (E298 (L4))
+        if (out_)
+            out_->log("Virus TI native: undo of the last operation in library %d\n", library + 1);
+        bool ok = save_library_file(library);
+        ui_dirty_ = true;
+        return ok;
+    }
+    if (w.empty())
+        return false;
+    if (out_)
+        out_->log("Virus TI native: undo of the last operation, %d slot(s) of RAM %c\n", (int)w.size(), 'A' + w[0].bank);
+    return send_ram_writes(w);
+}
+
+// one single dump per slot, in order (the original: one after the other, no reply, E294); the dump pacer spaces
+// them on cable 3 like any dump. Then the cache and its file, like a SAVE.
+bool VirusPlugin::send_ram_writes(const std::vector<BankDrop::Write> &w)
+{
+    if (out_)
+        for (auto &x : w)
+            out_->send(x.dump);
+    std::set<int> touched;
+    std::map<int, Bank> caches;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        for (auto &x : w) {
+            auto &b = banks_[x.bank];
+            b.resize(128);
+            b[x.slot] = x.dump;
+            touched.insert(x.bank);
+        }
+        for (int bank : touched)
+            for (int p = 0; p < 128; p++)
+                caches[bank][p] = banks_[bank][p];
+    }
+    std::string dir = own_cache_dir();
+    if (!dir.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+        for (auto &c : caches)
+            save_bank_file(dir + "/RAM " + (char)('A' + c.first), c.second);
     }
     ui_dirty_ = true;
     return true;
@@ -2738,6 +3082,7 @@ bool VirusPlugin::create_library(const std::string &chosen)
             banks_[LIB_BASE + (int)lib_names_.size()].clear();
             lib_names_.push_back(std::filesystem::path(path).stem().string());
             lib_paths_.push_back(path);
+            lib_roots_.push_back("Personal Libraries");
         }
     }
     ui_dirty_ = true;
@@ -2769,6 +3114,7 @@ bool VirusPlugin::store_to_library(int part, int library, int slot)
             b.push_back(d);
         else
             b[slot] = d;
+        drop_.forget(); // an undo of an earlier operation must not write over this SAVE
         lib.name = lib_names_[library], lib.path = lib_paths_[library], lib.dumps = b;
     }
     std::string err;
@@ -3008,7 +3354,13 @@ void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
             fprintf(stderr, "\n");
         }
     }
-    for (auto &c : dev_.decode(msg)) {
+    // one controller can stand for several parameters (CC 40: Filter 1 Cutoff / Vocoder Carrier Center Frequency):
+    // only the one whose condition holds now, else Ableton's Configure mode added both (round 0.8.29 W3)
+    auto holds = [this](const std::string &path, int part) {
+        const Parameter *p = cond_ ? cond_->find(path) : nullptr;
+        return !p || meta_cond(*p, part);
+    };
+    for (auto &c : PanelFollow::reports_by_condition(dev_.decode(msg), holds)) {
         // a soft knob turned on the Virus: in plug-in mode it only reports the knob's value and leaves the sound alone
         // (E152, user test in REAPER: no change until the host sends it). Like the original (0x180081980 -> the soft
         // knob's setter 0x1800a2840 -> the target's setter): the panel part's destination parameter takes the value
@@ -3050,7 +3402,11 @@ void VirusPlugin::panel_message(const std::vector<uint8_t> &msg)
             meta_source(c.path, c.part, c.value, false); // e.g. the FX switches follow the send knobs on the Virus
         }
         auto it = ids_.find({c.path, c.part});
-        if (it != ids_.end()) {
+        if (it != ids_.end() && editors_open_.load() > 0 && !PanelFollow::is_preset_path(c.path)) {
+            // like the original: a knob moved on the Virus becomes a host edit (begin/perform/end, E304), which
+            // Ableton Live's Configure mode picks up (#10); patch selections do not (the original's loads do not)
+            gestures_.device_change(it->second, c.value / 127.0, now_ms());
+        } else if (it != ids_.end()) {
             // the latest value per parameter: bounded by the parameter count even when the host does not call
             // process() for a while (review 2026-10-19: it grew with every knob move)
             std::lock_guard<std::mutex> lk(pending_mu_);

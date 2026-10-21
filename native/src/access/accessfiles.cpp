@@ -173,11 +173,18 @@ std::vector<uint8_t> AccessFiles::find_dump(uint8_t cmd, size_t size, size_t nam
 
 std::vector<float> find_osc_waves(const std::vector<uint8_t> &bin)
 {
-    const size_t n = 64 * 64, bytes = n * 4;
+    const size_t n = size_t{64} * 64, bytes = n * 4;
     auto at = [&](size_t off) {
         float f;
         memcpy(&f, &bin[off], 4);
         return f;
+    };
+    // finite from the bits: the Mac and Windows builds use fast-math (VST3 SDK), where std::isfinite may be folded
+    // to true and a NaN row passed (reproduced with g++ -ffast-math, 2026-10-20)
+    auto finite_at = [&](size_t off) {
+        uint32_t b;
+        memcpy(&b, &bin[off], 4);
+        return (b >> 23 & 0xFF) != 0xFF;
     };
     const double two_pi = 2 * 3.14159265358979323846;
     for (size_t i = 0; i + bytes <= bin.size(); i++) {
@@ -185,12 +192,10 @@ std::vector<float> find_osc_waves(const std::vector<uint8_t> &bin)
         if (bin[i] || bin[i + 1] || bin[i + 2] || bin[i + 3] || std::fabs(at(i + 4) - 0.0980171f) > 1e-4f)
             continue;
         bool ok = true;
-        for (int k = 0; k < 64 && ok; k++)
-            ok = std::fabs(at(i + 4 * k) - std::sin(two_pi * k / 64)) < 1e-3; // the shipped sine is rounded (~1e-4)
-        for (size_t k = 64; k < n && ok; k++) {
-            float v = at(i + 4 * k);
-            ok = std::isfinite(v) && std::fabs(v) <= 1.0001f;
-        }
+        for (size_t k = 0; k < 64 && ok; k++) // the shipped sine is rounded (~1e-4)
+            ok = finite_at(i + 4 * k) && std::fabs(at(i + 4 * k) - std::sin(two_pi * (double)k / 64)) < 1e-3;
+        for (size_t k = 64; k < n && ok; k++)
+            ok = finite_at(i + 4 * k) && std::fabs(at(i + 4 * k)) <= 1.0001f;
         if (!ok)
             continue;
         std::vector<float> t(n);

@@ -21,6 +21,8 @@
 #include "device/offlinepace.h"
 #include "device/presencewatch.h"
 #include "device/stallwatch.h"
+#include "model/bankdrop.h"
+#include "model/hostgestures.h"
 #include "model/patchhistory.h"
 #include "model/syncalert.h"
 #include "device/resampler.h"
@@ -298,6 +300,26 @@ public:
     bool load_dump(std::vector<uint8_t> d, int part);    // a single dump into a part's edit buffer
     bool rename_part(int part, const std::string &name); // the part's patch name (10 characters) -> dump + Virus
     bool store_patch(int part, int bank, int program);   // the part's patch into a RAM slot of the Virus (+ cache)
+    // browser drag and drop onto a RAM slot of the other pane (E294): `programs` of `src_bank` into RAM `bank` from
+    // `slot` on, like the original; false = nothing sent (no RAM target, not synced, bank sync running)
+    bool drop_to_ram(int src_bank, const std::vector<int> &programs, int bank, int slot);
+    // a drag within one RAM bank: `programs` swap places with the slots from `slot` on (E297); false = nothing sent
+    bool swap_in_ram(int bank, const std::vector<int> &programs, int slot);
+    bool rename_in_ram(int bank, int program, const std::string &name); // Alt+Click in the browser (E297 (D))
+    bool sort_ram_bank(int bank);  // "Sort alphabetically" on RAM: only the changed slots, not undoable (E302)
+    bool download_bank(int bank);  // "Download entire bank from Virus TI": all 128 read again in the background (E301)
+    bool downloading() const { return downloading_.load(); }
+    // personal libraries in the browser (E297, E298): files only, undoable like the RAM operations
+    bool drop_to_library(int src_bank, const std::vector<int> &programs, int library, int slot);
+    bool swap_in_library(int library, const std::vector<int> &programs, int slot);
+    bool delete_from_library(int library, const std::vector<int> &programs);
+    bool sort_library(int library);
+    bool rename_in_library(int library, int program, const std::string &name);
+    bool can_undo_drop();
+    void editor_opened();  // the editor's open(): knob moves from the Virus become host edits
+    void editor_closed();  // its close(): open edits end
+    void tick_gestures();  // the editor's timer (UI thread): beginEdit / performEdit / endEdit
+    bool undo_drop(); // "Undo last operation": writes back what the last drop overwrote
     // the part's patch into a personal library (slot = position, == size: append) - writes the library file
     bool store_to_library(int part, int library, int slot);
     // the original's "Create Empty Library" (E217): an empty library file at the path chosen in the save dialog
@@ -345,6 +367,19 @@ public:
     }
     int library_count() { std::lock_guard<std::mutex> lk(banks_mu_); return (int)lib_names_.size(); }
     std::string library_name(int i) { std::lock_guard<std::mutex> lk(banks_mu_); return i < (int)lib_names_.size() ? lib_names_[i] : ""; }
+    // the menu a library is listed in ("Personal Libraries", "User Libraries", "Public Libraries", E307)
+    std::string library_root(int i) { std::lock_guard<std::mutex> lk(banks_mu_); return i < (int)lib_roots_.size() ? lib_roots_[i] : ""; }
+    // the menus to show, in the original's order: "Personal Libraries" always (it has "Create Empty Library"), the
+    // others when they hold a library
+    std::vector<std::string> library_menus()
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        std::vector<std::string> m = {"Personal Libraries"};
+        for (const char *r : {"User Libraries", "Public Libraries"})
+            if (std::find(lib_roots_.begin(), lib_roots_.end(), r) != lib_roots_.end())
+                m.push_back(r);
+        return m;
+    }
     int library_size(int i)
     {
         std::lock_guard<std::mutex> lk(banks_mu_);
@@ -360,7 +395,8 @@ public:
     {
         if (bank == SEARCH_BANK)
             return results_title();
-        return bank >= LIB_BASE ? "Personal Libraries/" + library_name(bank - LIB_BASE) : device_name() + "/" + bank_name(bank);
+        return bank >= LIB_BASE ? library_root(bank - LIB_BASE) + "/" + library_name(bank - LIB_BASE)
+                                : device_name() + "/" + bank_name(bank);
     }
     static std::string bank_name(int bank) // 0..3 = RAM A..D, 4.. = ROM A..
     {
@@ -520,7 +556,7 @@ private:
     void load_reported_presets();
     std::vector<std::vector<uint8_t>> startup_messages() const; // GlobalInit + ParamInit (+ USB IO configuration)
     std::map<int, std::vector<std::vector<uint8_t>>> banks_; // RAM A..D (bank cache, see load_banks), ROM, libraries
-    std::vector<std::string> lib_names_, lib_paths_;
+    std::vector<std::string> lib_names_, lib_paths_, lib_roots_; // lib_roots_: the library's menu
     std::mutex banks_mu_;
     void load_banks();
     std::unique_ptr<MemorySync> sync_;
@@ -538,6 +574,9 @@ private:
     void sync_banks(); // brings the bank cache up to date with the Virus (background thread)
     void load_rom_banks(); // ROM A.. from the user's firmware.bin for the connected model
     std::atomic<bool> syncing_{false};
+    std::atomic<bool> downloading_{false}; // download_bank's thread is reading a bank
+    std::thread download_thread_;
+    std::mutex download_mu_; // starting / joining download_thread_
     std::atomic<bool> sync_expected_{false}; // a RAM bank has no cache file: the start-up reads it (sync page early)
     std::atomic<bool> starting_{false}; // start-up messages + state on their way: note-ons are held back
     // the Virus answered the readiness probe (wait_virus_ready): it has worked through the start-up messages and the
@@ -609,6 +648,16 @@ private:
     SyncAlert sync_alert_;
     std::mutex history_mu_;
     PatchHistory history_; // per part: Revert to / Recently Used (E220), this session only
+    BankDrop drop_;        // the last browser drop onto RAM, for its undo (banks_mu_)
+    // knob moves on the Virus as host edits while an editor is open (its timer is the UI-thread tick; E304, #10);
+    // without an editor they go to the host as output parameter changes (pending_), as before
+    HostGestures gestures_;
+    std::atomic<int> editors_open_{0};
+    bool send_ram_writes(const std::vector<BankDrop::Write> &w); // dumps into RAM slots + cache + cache files
+    // a library operation: `op` makes the library's new patches from the current ones (empty = refused); the old
+    // ones are kept for the undo, the file is saved
+    bool edit_library(int library, const char *what, const std::function<LibraryEdit::Lib(const LibraryEdit::Lib &)> &op);
+    bool save_library_file(int library); // banks_ -> its file
     std::vector<uint8_t> part_dump(int part); // the part's patch as it is now (edits included)
     std::mutex sync_alert_mu_;
     std::atomic<bool> host_playing_{false}; // audio thread -> worker

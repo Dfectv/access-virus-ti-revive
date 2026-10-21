@@ -168,7 +168,8 @@ static int list(const char *path)
     if (!load(path, lib))
         return 1;
     for (size_t i = 0; i < lib.dumps.size(); i++)
-        printf("%3zu %s\n", i + 1, vti::cc::patch_name(lib.dumps[i]).c_str());
+        if (!lib.dumps[i].empty()) // a gap: no patch at this position (E298)
+            printf("%3zu %s\n", i + 1, vti::cc::patch_name(lib.dumps[i]).c_str());
     return 0;
 }
 
@@ -195,7 +196,10 @@ static int export_(const char *in, const char *out)
         fprintf(stderr, "tirevive-cc: %s\n", err.c_str());
         return 1;
     }
-    printf("%zu patches -> %s\n", std::min<size_t>(lib.dumps.size(), ext == ".mid" ? 128 : SIZE_MAX), out);
+    size_t n = 0;
+    for (size_t i = 0; i < lib.dumps.size() && (ext != ".mid" || i < 128); i++)
+        n += !lib.dumps[i].empty();
+    printf("%zu patches -> %s\n", n, out);
     return 0;
 }
 

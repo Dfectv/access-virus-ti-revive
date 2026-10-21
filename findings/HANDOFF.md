@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Last updated: 2026-10-20. **v0.8.28 RELEASED 2026-10-20** (merge 2d81a7b of round-0.8.28 into main, tag v0.8.28 on it, release CI run 39395027961 all green, 6 assets, Latest; site rebuilt by hand, run 39395731478, live shows Download 0.8.28 / 304 tests / the new timing rows / the hub hint). Round 0.8.28 checklist 18/18 pass (Linux 6, VM 5, Mac 7; E287-E289) plus the Mac re-test of the patch name font on CI run 39392580073. Test machines: Linux = release (install.sh; plug-in sha 7a40d595.., broker 6c99ab7a..; the dev build in ~/.vst3 replaced; CI test build backup in ~/.vst3-backup/0.8.28-ci); win11 VM = release (setup.exe /quiet, exit 0, plug-in = the release MSI, C:\tirevive-test\0.8.28-release), VM shut down; Mac: NOT reachable over ssh after the release (asleep) - still the second test build 0.8.28 (2f3b5ab); push the release zip (scratchpad release-0.8.28) to ~/Downloads/TI-Revive-0.8.28-release-mac and let the user run the sudo installer. Open: REAPER crash after a GUI render with the editor open (E287: intermittent, REAPER's SWELL/GDK, editor open needed; editor open/close now logged); 'bank sync done' after an aborted sync (E289, LOW); accessfiles.cpp:192 isfinite under fast-math (check); real PC timing. Before (round notes): **round 0.8.28 (branch round-0.8.28): new testing strategy (findings/testing.md, user: "start with step 1 and all others"), plus the review fixes for the dump pacing (two review rounds, clean), see below.** Testing strategy done 2026-10-19: risk classes A/B/C per path (scripts/checklists/risk.json, scripts/risk.py --round X: which core items by hand, which automated, which rotated; core.json items got "key", checklist.py "core_items" filter; unit test: every tracked file has a rule); automated Linux run scripts/hil.sh + hil_check.py (H1 cold, H2 reopen x2, H3 export + playback after it, H4 with --power CMD, H5 with --sleep): first run on the TI Desktop ALL PASS (jitter 0.03-0.15 ms, export 1.00x, 42/42 notes in H3); --sleep and --power not run yet (sleep needs the user's sudo, power needs a switchable plug); rotation of reopen/power (no findings 0.8.23-0.8.27, yield table in testing.md); pre-release tags vX.Y.Z-rcN in build.yml (untested until a tag is pushed); mutation.py: first run (221 mutants, 19 device headers + ctrlguard/resetguard, copy of b7b9ed0^) started 2026-10-19 ~20:00, ~50 s per mutant; results in /tmp/claude-1000/-home-datoml-virus-ti-re/00756ea2-c6e6-4e70-a79e-7eb20f7d1883/scratchpad/mut/run.log and results.json (summary lines at the end) -> NEXT: copy the score and the survived mutants into testing.md "Mutation runs", add tests for the survivors; scripts_py in ctest (5/5 pass). C++ review 2026-10-19 (two cpp-reviewer agents, native/src/device + native/plugin/source; findings verified by hand for the HIGH ones): fixed H2 (send_state: project records through blocked_to_virus + one_message, 1433af6) and H1 (audio ring unmapped under process(): audiogate.h, 6846f2f); then (all 2026-10-19, TDD, hardware-checked on Linux) sendbudget tests + last_ns monotonic (mutation: every non-equivalent mutant killed), hil.sh H3 with a 4 s stop (nativehost --notes-off, hil_check --gap), H3 reconnect after the broker dies + control() clamp + dump/held reset (c8eb139), USB-MIDI parser restart at F0 + 64 KiB cap (5021d6b), MemorySync one request at a time (41672fe), hil.sh H6 (E284: 3/3 + full run H1-H3+H6 pass); editor drags one message per value (dragsend.h; a real drag on the next checklist), host values clamped + clock tempo (hostmidi.h); ALL review findings fixed 2026-10-19 (each verified in the code first; commits 1f2d32b M2/M4/M5/M7/M8, 9dbd210 M6, lows: rt overflow note-offs, scan_audio +66 frames, late control replies, pending_ coalesced, empty messages (ed8b751), editor: run-loop order, removed(), ~VirusEditor, open() result, ref, text edit removal; popups: X11 double destroy, desktop bound, Win32 class unregister (9f62cc4, Win32 only mingw syntax-checked); broker socket peer uid + shm fstat owner/size (46e4bcb, the test reproduced the SIGBUS); unchanged on purpose: wait_offline 20 s (intended); not confirmed by the reviewer, for the REAPER test: the pinned run loop of the first plugFrame after it closes). Final hil.sh run on the dev build: H1, H2 x2, H3, H6 ALL PASS; 292 tests, ctest 5/5. CI test build 0.8.28 STARTED 2026-10-19 21:57 (branch pushed, run 39315263357, version 0.8.28). **2026-10-20: run 39315263357 FAILED on native-windows only** (MSVC: broker.cpp:349 `std::min({..})` hit by windows.h's min macro, added in c8eb139; mac, linux, native-linux, binaries green); fixed as `std::min<size_t>({..})` like line 312 (reproduced with a min macro under g++: old form fails, new compiles; Linux build + ctest 5/5); needs a new CI run. Mutation run 2 (2026-10-20, findings/testing.md): 174 mutants of the send path and the device
+_Last updated: 2026-10-20. **v0.8.28 RELEASED 2026-10-20** (merge 2d81a7b of round-0.8.28 into main, tag v0.8.28 on it, release CI run 39395027961 all green, 6 assets, Latest; site rebuilt by hand, run 39395731478, live shows Download 0.8.28 / 304 tests / the new timing rows / the hub hint). Round 0.8.28 checklist 18/18 pass (Linux 6, VM 5, Mac 7; E287-E289) plus the Mac re-test of the patch name font on CI run 39392580073. Test machines: Linux = release (install.sh; plug-in sha 7a40d595.., broker 6c99ab7a..; the dev build in ~/.vst3 replaced; CI test build backup in ~/.vst3-backup/0.8.28-ci); win11 VM = release (setup.exe /quiet, exit 0, plug-in = the release MSI, C:\tirevive-test\0.8.28-release), VM shut down; Mac = release (installed by the user 2026-10-20 11:46, receipt 0.8.28; broker, VST3, AU, AU's inner VST3 and Control Center binaries = the release pkg payload by sha256; no DAW session with it in diag.log yet, the last one (11:45, editor closed, setActive 0) was the test build before the install). Open: REAPER crash after a GUI render with the editor open (E287: intermittent, REAPER's SWELL/GDK, editor open needed; editor open/close now logged); real PC timing. **Round 0.8.29 (branch round-0.8.29, pushed, collecting; state 2026-10-20 ~12:30):** (1) accessfiles NaN check survives fast-math (+ test_resampler bit check), (2) E289 fixed: 'bank sync done / failed / stopped', (3) hil.sh H5 sleeps through systemd and checks that the PC slept - rerun ALL PASS, slept 48 s (E290; the first --sleep run had not slept). All Linux only, 305 unit tests, ctest 5/5; no CI build of the round yet. Reddit library report: reply sent, waiting for the reporter; the four test libraries removed from the Mac. Still not run: hil.sh --power (needs a switchable plug), a vX.Y.Z-rcN pre-release tag. E287 SOLVED 2026-10-20 ~14:31: REAPER/SWELL bug, reproduced without TI Revive (E291, round item 4). User note in README/site FAQ/README-linux.txt (site live 2026-10-20 via 1efad04 on main); Cockos report drafted (https://claude.ai/artifact/Vm7LSR65pJUDGLNBXgMRu1), the user posts it. Release prep 2026-10-20 ~16:40 (user: 'prepare the next release so we have everything on main'): local main reset to origin/main (its three HANDOFF commits were on the round already); native version 0.8.29, release notes in build.yml, 305 tests in README/site; risk.py: class C (version bump) -> Linux hil.sh cold/reopen/export, Windows + Mac cold and export by hand, reopen rotated out; spec scripts/checklists/round-0.8.29.json (L1 bank sync, W1/M1 classic oscillator display, M2 bank sync). CI test build run 39441322803 (version 0.8.29): linux, native-linux, binaries, msi, native-windows (unit tests) green; mac CANCELLED by GitHub ('job was not acquired by Runner of type hosted', no build started), reruns at 16:55 and 17:11 local cancelled the same way (no macos-15 runner within 15 min each; GitHub status: Actions operational; the same label built the 0.8.28 release at 10:39 local) - no Mac package yet, retry later, do not change the runner label without the user. Checklist published 2026-10-20 ~17:35: https://claude.ai/artifact/FPLV3yBfZW6E25dP2Mdx5P (db, marks in rounds/0.8.29/marks; Mac block says 'not ready yet' until the package exists, then republish the same file). Linux = CI build (install.sh as the user, no sudo; plug-in c77cea04.., broker cdf3d914.. = the tarball; 0.8.28 release plug-in backed up in ~/.vst3-backup/0.8.28-release; unpacked in ~/Downloads/TI-Revive-0.8.29-test). hil.sh on it (work/hil/20261020-165642): H1, H2 x2, H3, H6 ALL PASS (H3 export 1.00x, 45/45 notes, max 0.92 ms; H6 26/26); diag.log shows the new 'bank sync done in 33.4 s / 35.2 s' lines. MISTAKE: that first VM install went to win10 (scripts/vm.sh defaults to VM=win10; VM=win11 was not set): win10 got 0.8.29 via setup.exe /quiet (exit 0, C:\tirevive-test\0.8.29) and the Virus was attached to it briefly; the user noticed; Virus detached, win10 shut down - decide with the user whether to revert win10 to a snapshot. Then win11 (VM=win11): setup.exe /quiet over 0.8.28, exit 0, entries 0.8.29, plug-in 6ae8cade.. = the CI MSI (C:\tirevive-test\0.8.29); Virus attached ~17:45, MI_00/03/04 OK. Linux block: L1 marked pass, log 'bank sync done in 3.5 s / 6.5 s'. VM block 3/3 marked pass (WC1, WC3, W1); win11 diag.log: ready 1.6 s, 'bank sync done in 5.4 s', offline render paced, 'sync error shown (4 late events since Play)' during the render as in every VM round (E288, VM USB timing). Mac CI job: rerun 4 (17:30) cancelled the same way, no runner - 4 of 4 tries, try 5 (18:08-18:23) the same, GitHub status: no unresolved incidents; reruns stopped; user chose to try another label: macos-latest (6cf964f, run 39457214833) got no runner either (cancelled after 15 min, same message; all other jobs green), so not the label - reverted to macos-15 (fa7889d). No other run in progress in any derpsn repo. The release job needs mac (needs: [msi, mac, linux]): no release until GitHub gives a macOS runner. Billing: the user checked the usage page - macOS minutes Oct 20 gross $1.49, billed $0.00 (fully discounted), so billing is NOT the cause. The user reran run 39457214833 (commit 6cf964f, macos-latest; only the label differs from the branch): its log said 'about to start running on the hosted runner', then queued again at ~19:00. google/sbsim #126 (macos-13 retired) does not apply: macos-15 is supported and built 0.8.28 this morning. POSTPONED by the user to 2026-10-21. Run 39457214833 ended: mac cancelled again (7th try). GitHub support's answer (generic checklist) matches only queue/capacity; user: no free runners right now, no label change. Tomorrow: a NEW run on macos-15 (must include ee36986, the review fix after the test build, and the cleanup up to d275c1f: round items 5 and 6 - two stale path comments fixed after the C++ review (comment-only, the extra risk.py items skipped by decision), dead code removed, unused Python imports, vtiusbaudio.c/.h moved from src/wrapper to src/broker with a byte-identical vtibroker.exe, AGENTS.md's Mac path corrected (docs only); decided: Windows reopen/power/sleep that risk.py now adds are skipped this round, checklist unchanged). 2026-10-20 ~20:35 (user: try again): NEW run 39475965421 on 8c48c03 (macos-15, version 0.8.29; includes ee36986 and items 5+6), mac queued at the start; native-windows FAILED in scripts_py: my new test_handoff_hook.py (5 failures, bash exits 1 without output on the Windows runner), so msi skipped -> test skipped on win32 (Linux 51 tests OK); needs a new run for the MSI. 39475965421 cancelled (mac still queued); NEW run 39477408077 on b8eb7e3 (version 0.8.29) started ~20:50. NEXT: check run 39477408077 (before: 39475965421, 39457214833) (else rerun run 39441322803 or a new run on macos-15); when a Mac package exists: mac.sh push, unzip, add the install command to the checklist (republish the same file, marks stay), user tests M1 + M2 on the Mac; then merge round-0.8.29 -> main with -F <file>, verify, tag v0.8.29 separately, release CI, site check + rebuild, install the release on Linux/win11 (VM=win11!)/Mac. Local fallback if CI stays stuck: scripts/mac-build-release.sh on the Mac for the test; Mac block M1/M2 open, no Mac package. win10 reverted by the user's choice: snapshot-revert failed (the running snapshot pins the Virus at bus 1 device 5), so disk only: the user ran sudo qemu-img snapshot -a before-original-driver on win10.clean; booted once without the Virus: 0.8.29 test folder gone, entries TI Revive 0.8.17 (its pre-snapshot state), shut down cleanly. win11 stopped at 18:07:37 (not by me, no OOM in the kernel log; maybe the user); the Virus is back on Linux, broker socket started again. NEXT (old line): run green -> install on Linux, win11 VM, Mac; hil.sh on Linux; publish the checklist (capabilities db); after all pass: merge with -F, verify, tag v0.8.29. Before (round notes): **round 0.8.28 (branch round-0.8.28): new testing strategy (findings/testing.md, user: "start with step 1 and all others"), plus the review fixes for the dump pacing (two review rounds, clean), see below.** Testing strategy done 2026-10-19: risk classes A/B/C per path (scripts/checklists/risk.json, scripts/risk.py --round X: which core items by hand, which automated, which rotated; core.json items got "key", checklist.py "core_items" filter; unit test: every tracked file has a rule); automated Linux run scripts/hil.sh + hil_check.py (H1 cold, H2 reopen x2, H3 export + playback after it, H4 with --power CMD, H5 with --sleep): first run on the TI Desktop ALL PASS (jitter 0.03-0.15 ms, export 1.00x, 42/42 notes in H3); --sleep and --power not run yet at that time (sleep: first real run 2026-10-20, E290; power needs a switchable plug); rotation of reopen/power (no findings 0.8.23-0.8.27, yield table in testing.md); pre-release tags vX.Y.Z-rcN in build.yml (untested until a tag is pushed); mutation.py: first run (221 mutants, 19 device headers + ctrlguard/resetguard, copy of b7b9ed0^) started 2026-10-19 ~20:00, ~50 s per mutant; results in /tmp/claude-1000/-home-datoml-virus-ti-re/00756ea2-c6e6-4e70-a79e-7eb20f7d1883/scratchpad/mut/run.log and results.json (summary lines at the end) -> NEXT: copy the score and the survived mutants into testing.md "Mutation runs", add tests for the survivors; scripts_py in ctest (5/5 pass). C++ review 2026-10-19 (two cpp-reviewer agents, native/src/device + native/plugin/source; findings verified by hand for the HIGH ones): fixed H2 (send_state: project records through blocked_to_virus + one_message, 1433af6) and H1 (audio ring unmapped under process(): audiogate.h, 6846f2f); then (all 2026-10-19, TDD, hardware-checked on Linux) sendbudget tests + last_ns monotonic (mutation: every non-equivalent mutant killed), hil.sh H3 with a 4 s stop (nativehost --notes-off, hil_check --gap), H3 reconnect after the broker dies + control() clamp + dump/held reset (c8eb139), USB-MIDI parser restart at F0 + 64 KiB cap (5021d6b), MemorySync one request at a time (41672fe), hil.sh H6 (E284: 3/3 + full run H1-H3+H6 pass); editor drags one message per value (dragsend.h; a real drag on the next checklist), host values clamped + clock tempo (hostmidi.h); ALL review findings fixed 2026-10-19 (each verified in the code first; commits 1f2d32b M2/M4/M5/M7/M8, 9dbd210 M6, lows: rt overflow note-offs, scan_audio +66 frames, late control replies, pending_ coalesced, empty messages (ed8b751), editor: run-loop order, removed(), ~VirusEditor, open() result, ref, text edit removal; popups: X11 double destroy, desktop bound, Win32 class unregister (9f62cc4, Win32 only mingw syntax-checked); broker socket peer uid + shm fstat owner/size (46e4bcb, the test reproduced the SIGBUS); unchanged on purpose: wait_offline 20 s (intended); not confirmed by the reviewer, for the REAPER test: the pinned run loop of the first plugFrame after it closes). Final hil.sh run on the dev build: H1, H2 x2, H3, H6 ALL PASS; 292 tests, ctest 5/5. CI test build 0.8.28 STARTED 2026-10-19 21:57 (branch pushed, run 39315263357, version 0.8.28). **2026-10-20: run 39315263357 FAILED on native-windows only** (MSVC: broker.cpp:349 `std::min({..})` hit by windows.h's min macro, added in c8eb139; mac, linux, native-linux, binaries green); fixed as `std::min<size_t>({..})` like line 312 (reproduced with a min macro under g++: old form fails, new compiles; Linux build + ctest 5/5); needs a new CI run. Mutation run 2 (2026-10-20, findings/testing.md): 174 mutants of the send path and the device
 headers, 30 survivors with missing tests now killed by 11 new tests (303 unit tests), 17 equivalent, 2 sanitizer-only;
 user's order for today: mutation first, then the issue #9 changes (reply posted, close left to the user; DONE: E285, the Linux broker's
 alternate-setting log names the interface, libusb's error and the hub hint; README, README-linux.txt and the site's FAQ
@@ -13,9 +13,347 @@ win11 VM = release (silent, 0.8.25c uninstalled first, plug-in 13:27 UTC); Linux
 unzipped in ~/Downloads/TI-Revive-0.8.25-release-mac, user runs the sudo installer; real PC still 0.8.24 (0.8.25b setup
 in C:\tirevive-test\0.8.25b, release not copied). **Next round: 0.8.26 started (branch round-0.8.26), see below.** Open: Snow original id 1B4C380B.. as a
 third entry (only if Snow users ask), E175 (not reproduced in E226, watch), Mac double notes E209 (7) (not reproduced in E225, watch). Not relevant (user 2026-10-18): VST2 projects of the
-original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md).
-Evidence: [evidence.md](evidence.md) (E001-E289), protocol: [spec.md](spec.md); the native plug-in:
+original (no converter, no VST2 build). Chronological notes: [HANDOFF-history.md](HANDOFF-history.md). Enforced since 2026-10-20: the Stop hook .claude/hooks/handoff-check.sh (registered in the git-ignored .claude/settings.local.json) blocks the end of a turn while commits sit after the last HANDOFF commit (test: scripts/tests/test_handoff_hook.py).
+Evidence: [evidence.md](evidence.md) (E001-E291), protocol: [spec.md](spec.md); the native plug-in:
 [../native/docs/](../native/docs/architecture.md) (its development log: native/docs/status.md)._
+
+## Open report: personal library patches silent (Reddit, 2026-10-20)
+
+User from the Cubase issue (Reddit chat): "non RAM/ROM banks (personal libraries) aren't producing any sound".
+Code: library patches go the same way as RAM/ROM (load_patch -> load_dump, one single dump to the part's edit
+buffer); all TI library files here have device id 0x10, bank byte 1, versions 8-12. One known difference to the
+original: it rewrites bytes 10..12 before sending a library patch (E156, 0x180083ae0), we send them as in the file.
+**Not reproduced** (user test 2026-10-20, Linux, REAPER, installed release 0.8.28): 2-3 patches each from OS5, OS4,
+OS2 New ... patches and Patches For Virus Tutorial (Virus C format) via LOAD > Personal Libraries, all played.
+Mac (same day, Cubase 15, macOS 26.6.2, second 0.8.28 test build 2f3b5ab, the four libraries copied over): user
+"all patches worked in cubase too". diag.log: one session 11:14:30-11:16:07, Virus ready 1.8 s, bank sync 3.5 s,
+audio drops 0, peaks on the Virus' outputs while playing, no errors. Patch loads are not logged (no log line in
+load_dump). Project recall then tested (Mac, Cubase 15, same build): "Envy" (OS5 New Features patches, program 21,
+format 12) loaded on part 1, project saved, closed, reopened; user: "patch played after reopen". diag.log 11:26:28:
+setState 245 records, part 1 "Envy", state sent (244 messages), Virus ready 2.0 s, peaks while playing, drops 0.
+The four test libraries were removed from the Mac's ~/Documents/Access Music/Virus TI/Patches afterwards
+(My Patches.mid, New Library.mid kept). Reply to the reporter sent by the user 2026-10-20 (Reddit).
+NEXT: wait for version, model/OS, where the libraries come from, LOAD vs project recall, one affected .mid file. No evidence entry until there is data.
+**Update 2026-10-20 evening:** reporter: "it seems to be fine today" (silent libraries not reproducible on their side
+either; closed unless it returns). New report from them: a personal library patch loaded in the browser, then
+program +/- on the Virus -> the next RAM/ROM preset is loaded, not the next library patch; "the original software
+didn't work this way". Ours: load_reported_presets loads (Bank, Patch) as the Virus reports them from the bank cache.
+Static (REA/Ghidra, Virus Control.dll 5.1.7 x64, sha256 a622f9a2..): the original does the same on a report -
+0x180083ae0 looks up (Multi Part Bank + 1, Patch) via 0x18008daa0, which only walks the repository's numbered banks
+(the Virus' RAM/ROM, CVirusBank); listener offsets in 0x180081980 are object offsets - 0x10 (ccd98/ccda0 = Multi Part
+Bank/Patch at ccda8/ccdb0 in 0x18006ed70). So any difference must come from the Virus: before sending a library
+patch the original sets byte 10 (Single Patchmanagement/Flags) = 0x20 and leaves bytes 11/12; a RAM/ROM patch gets
+00/bank/index (E156). We send library bytes 10..12 as in the file. Hypothesis (LOW, untested): with flag 0x20 the
+Virus' +/- does not step its RAM/ROM bank (or reports differently). Not checked: the firmware's handling of the
+flag; what the Virus reports on +/- in either case. Next (needs the user + TI2): read-only observer while +/- after
+a library load, then the same with a dev build that writes byte 10 = 0x20 like the original.
+**Resolved 2026-10-20 ~21:20 (E292):** tested the original in the win10 VM (Access driver 2.9.66 reinstalled there
+with pnputil from the extracted MSI, drivers only, no updater; WinUSB packages removed; snapshot pre-access-driver-2
+before): the original also steps through the Virus' RAM slots on +/- after a library patch (user: "It never switched
+the preset on the library"). Not a TI Revive bug; no code change. Reply to the reporter: user.
+Web text the user found ("Allow hardware control over the librarian patches") checked: not in the 5.1.7 DLL or
+manuals (E292). VM: win10 running with the Virus attached - close Live, detach, shut down, start the broker socket.
+Workaround the user confirmed in the original (2026-10-20): Browser page, a RAM bank in the second (lower) browser,
+drag library patches into its slots, then +/- on the Virus steps through them. TI Revive: one browser only
+(Browser 0), browser drag goes onto part strips only; per patch: load + SAVE into a RAM slot (store_patch). Feature
+gap (not scheduled): second browser + drop onto a RAM slot - look up the original's layout/behaviour first (REA, VM).
+Recording attempt of that drag (2026-10-20 ~21:31-21:45): Virus Control showed "No Virus TI connected" after a
+Live restart (stale WinUSB devnodes removed with pnputil /remove-device, did not help before a VM reboot); the user
+power-cycled the Virus, reattach -> two bug checks 0x139 (param 3, list corruption) in the VM at 21:41/21:42 host time
+(minidumps 102026-5062-01, 102026-4203-01); after the reboot Control Center showed a wrong model / old firmware / OS
+unknown although the Virus' USB identity was normal (Access Music / Virus TI / bcd 0x0300). Captures orig-libdrag-1/-2
+and screenshots in work/libdrag/ hold no drag (not connected). Next time: dual-boot PC or a clean VM boot with one
+attach; never power-cycle the Virus while it is in the VM.
+**New reference VM `win10ref` (user, 2026-10-20 ~22:00):** fresh Windows 10 Pro (de-DE, Windows_10.iso) only for the
+original 5.1.7 with the Access drivers; scripts/win10ref/ (create-vm.sh: q35, legacy BIOS, 8 GB, 80 GB SATA, e1000e;
+autounattend.xml from win11's, MBR; make-unattend-iso.sh; install-access-reference.ps1 = MSI copy with only
+ConnectDevicesDialog/InstallRunOnceEntry/ApplyOptimization/UpdateFirmware off, drivers stay). vm.sh: VM=win10ref, user
+vti. Ableton 11.3.43 zip + web installer copied from win11 to work/vm-transfer/ (sha256 65d3bc8f.. same as on win11).
+Plan: install -> SSH -> Access suite (Virus NOT attached) -> user installs/authorises Live -> snapshot ref-clean ->
+one attach. The old win10 VM stays until win10ref works (user decides). Virus checked on Linux after the VM crashes:
+tirevive-cc info OS 5.1.7.00, RAM A-D answer (libvirt left /dev/bus/usb node root:root; user ran udevadm trigger).
+win10ref state 2026-10-20 ~22:00: Windows 10 Pro 19045 de-DE installed unattended, SSH ok; Access suite 5.1.7 via
+install-access-reference.ps1 (exit 0, UpdateFirmware + InstallRunOnceEntry skipped; no Access Run/RunOnce/task).
+The MSI's DIFx driver step failed silently (e0000242, publisher not trusted - /qn cannot show the prompt): the
+Kemper signer (catalogs Valid) put into LocalMachine\TrustedPublisher, then pnputil /add-driver for VirusUSB,
+vtiaudio, vtimidi - now part of the script. Virus not attached yet. Next: Live 11 (user), snapshot ref-clean, attach.
+~22:10: Live 11.3.43 installed by the user, snapshot ref-clean (no Virus), Virus attached once (VirusUSB/vtiaudio/vtimidi
+OK); user doing the first sync, then clean quit -> detach -> snapshot ref-synced. CI run 39477408077 (b8eb7e3, 0.8.29)
+ALL GREEN incl. mac (earlier mac jobs: GitHub runner queue). Mac zip pushed + unzipped in ~/Downloads/TI-Revive-0.8.29-mac
+(sha e66eec0c.. = CI); user: M tests not now, round continues with a new +/- related change first.
+**RULE (E293): never `virsh screenshot` a VM that has the Virus attached under the Access driver** - it stalls the
+USB passthrough and the guest dies with 0x139 (the cause of tonight's crashes, not a corrupt VM). win10ref has a
+task for screenshots inside the guest: `VM=win10ref scripts/vm.sh ps 'Start-ScheduledTask vti-shot'` -> C:\ref\shots\
+<HHmmss-fff>.png (C:\ref\shot.ps1, task vti-shot, interactive user vti), then vm.sh pull. Snapshots win10ref: ref-clean
+(no Virus), ref-synced (Live 11 + Virus Control synced, cache written, Virus detached; the vti-shot task came after).
+Original's BROWSER page (screenshot 2026-10-20): two panes - upper with path dropdown, up/down, CATEGORY, search; lower
+"Virus TI2 (Virus TI2 Desktop)/RAM A" with dropdown and up/down only; 8x16 entries each. RAM A slots 1-3 hold
+library patches the user dragged in earlier with the original (survived a power cycle).
+**Verified 2026-10-20 ~22:35 (E294):** the original's library -> RAM drag works as the web text said: drop = one
+single dump to (bank, slot) per patch, file bytes 10..12 unchanged, no read-back, multi-drop fills consecutive slots;
++/- on the Virus then plays them from the original's RAM cache. NEXT (feature, option 1): second browser pane + drop
+onto a RAM slot in TI Revive (TDD; store path like store_patch, cache update, rule 2: only user-dropped stores).
+Step 6 done: Live restart in win10ref connects again (the old VM's 'not connected after restart' was not a 2nd-session
+rule - probably the screenshot loop / driver state). Virus detached, win10ref off; RAM A checked on Linux after a power
+cycle (13 changed programs, dropped names in place; work/libdrag/ramcheck). Broker socket started again.
+**Round 0.8.29 item 7: browser drop onto RAM (E294), dev build 2026-10-20 ~23:00, NOT tested by the user yet.**
+Correction: TI Revive already had both browser panes (Browser 0/1); missing were drop + undo + menu. New
+native/src/model/bankdrop.h (BankDrop: consecutive slots, cut at 128, only bytes 7/8 + checksums new, one-level
+undo, refused when an overwritten slot is not cached; BrowserSelection: click / Shift range / Ctrl toggle) + 7 tests
+(312 total, ctest 5/5). Plug-in: drop_to_ram (sources upgraded like a load; refused while the bank sync runs),
+undo_drop, send_ram_writes (dumps + cache + cache file); store_patch and a sync that fetched changes forget the undo.
+Editor: multi-selection framed, drop onto a RAM slot of the OTHER pane, right-click browser menu (Undo works;
+Download bank / Sort / Delete selection greyed). Not verified with the original: drop into the same pane (ignored),
+ROM/library targets (no drop), Ctrl selections with gaps (ascending order), older library formats (upgraded first).
+Installed: ~/.vst3 = this dev build (sha a3d67ecf..), previous in ~/.vst3-backup/0.8.29-before-drop. NEXT: user smoke
+test in REAPER (Linux), then risk.py / checklist item, CI.
+User smoke test 2026-10-21 ~00:20 (REAPER, dev a3d67ecf): drop 1 onto RAM A 18 and 5 onto 19-23 (diag.log), undo
+restored the 5 (one level: the earlier drop on 18 cannot be undone - OPEN: check in win10ref whether the original
+undoes more than one step), +/- on the Virus to RAM A 18: right preset. Bug (old, also the part-strip drag): cursor
+stayed the copy hand after a drop until leaving the window - X11 VSTGUI delivers mouse-up inside its pointer grab;
+fix 79e2286 resets the cursor via doAfterEventProcessing; installed dev 5d9ec5c9.., user re-test pending.
+User re-test: cursor back to the arrow after a drop (also part strip), same-pane drag does nothing - pass.
+win10ref 2026-10-21 07:11 (E295): the original's undo TOGGLES within the last operation (old <-> dropped, any number
+of times), empty library entries drop nothing -> bankdrop.h take_undo now swaps undo/redo (test first, 312 green).
+Reddit (Deranger604, 2026-10-21 2:30): 'it doesn't stick with the bank loaded in the browser ... maybe it was always
+like that' -> E296: manuals + web say nothing of the kind, the Tutorial describes the RAM favourites drag; reply drafted
+(user sends). Tutorial lists more browser functions (E296 (2)): same-bank drag = SWAP (ours ignores it - fix), copy
+library->library, Alt+Click rename, delete selected (libraries), sort. NEXT: record those in win10ref, then implement.
+Recorded 2026-10-21 07:27-07:42 (E297): swap single/block (source slots first), Create Empty Library only in SAVE,
+copy into a library (file only), Alt+Click rename (RAM: one dump; library: file), delete leaves a gap, sort closes it
+and renumbers, RAM -> library keeps the dump (program byte too). win10ref off, Virus on Linux, broker socket active.
+NEXT (implementation, TDD, in this order): (1) same-pane drag = swap (single + block) instead of ignore; (2) drag into a
+library = copy (file); (3) part strip -> RAM slot = store; (4) Alt+Click rename; (5) library menu: Delete selection
+(gap) + Sort alphabetically; RAM Sort only with care (128 dumps); (6) check our Create Empty Library placement (E217
+says the bank/patch menu; the original shows it in SAVE only). Download entire bank: = re-read that bank (read-only).
+Done 2026-10-21 (dev, not user-tested yet): (1) swap c9608d7 (same RAM bank, either pane; refused when the sets
+overlap / run past 128); (3) part strip name -> RAM slot = store_patch; (4) Alt+Click rename in RAM (renamed(): name
+only + checksums, one dump; forgets the undo); (7) Create Empty Library only in SAVE (README + site texts updated, also
+the new browser bullet). 316 tests, ctest 5/5. Left: (2)/(5) library copy/delete/sort/rename - need one more
+recording: is a library position the program byte (delete left a gap with 2 dumps in the file; G kept byte 27)?
+(6) Download entire bank (forced re-read past the fingerprints) - greyed for now.
+User test 2026-10-21 (REAPER Linux, dev d2576e9c = 0012093): swap single + block, undo toggled 5x (6 slots each),
+Alt+Click rename in RAM (the Virus shows it after a program change, E157), part name -> RAM 30 = stored, Create Empty
+Library only in SAVE - ALL PASS. User wish: a drop indicator while dragging like the original's (needs a screenshot of
+the original mid-drag). NEXT: one win10ref recording for libraries (position = program byte? where a drop lands in a
+library, onto an occupied library slot, mid-drag indicator) -> library copy/delete/sort/rename; Download entire bank;
+then CI build + round checklist (Windows, Mac).
+Library recording done 2026-10-21 08:14-08:22 (E298): position = program byte (gaps), drop overwrites and sets the
+byte, file sorted by byte, undo covers library ops, swap in a library, delete removes the dump; drag highlight =
+filled 66,111,204 + white text on source and target. BUG to fix first: our library reader uses file order.
+FIXED (test first, 317 green, ctest 5/5): library.cpp places each dump at its program byte (gaps empty; file order
+when bytes repeat or > 128 dumps), save_library leaves gaps out; tirevive-cc list/export skip gaps. Effect: the
+factory libraries OS4/OS45/OS5 New Features now show the original's gaps (OS5: 54-63 empty, *Templates at 64 - as in
+the original's screenshot); before, TI Revive showed those patches shifted up. Library ops (copy/delete/sort/rename,
+undo for libraries) and the drag highlight: next.
+Done (dev, not user-tested): LibraryEdit (drop/overwrite, swap, remove = gap, sort, rename) + library undo in the
+shared BankDrop undo (toggle), plug-in drop_to_library/swap_in_library/delete_from_library/sort_library/
+rename_in_library (file only, edit_library + save_library_file; SAVE to a library forgets the undo); editor: drops
+onto library slots, Alt+Click rename in libraries, browser menu Delete selection (library, with a selection) + Sort
+(library; RAM sort still greyed), drag highlight (SelectedFont + fill 66,111,204 on source and target). 321 tests.
+Decided without evidence: a RAM -> library drop takes the target position (E297 (G) kept 27 - target not known).
+User saw doubled browser numbers (b7d188fd): E299 - the numbers are baked into BG_Page_Browser and show through
+the translucent table; our own digits (since baa6282) doubled them in both tables. digits() removed (test first).
+2026-10-21 08:39: the Virus hung on USB again (E300 = E136 repeated, after a give-back reset + snd-usb-audio
+hand-over; first write of the next broker failed, then error -71) - user power-cycles. Own round item: look at the
+give-back reset in vti_close (rate-limit / skip / no snd-usb-audio rebind) - evidence first, not mixed into the browser work.
+User test 2026-10-21 ~09:05 (REAPER Linux, dev 30f53946 = 5bafadd): numbers single (E299; the tight 3-digit numbers
+in the last columns are the original's look - user: leave it), OS5 gaps like the original, drag highlight, drops into
+libraries (LinuxTest/LinuxTest2), undo toggles, swap in RAM, rename RAM + library, delete selection (gap), sort -
+ALL PASS ('all tests done. Looks good!'). Only LinuxTest*.mid changed among the library files; RAM A index 0, 1, 7, 18
+touched by the test. Open in round 0.8.29: Download entire bank (greyed), RAM sort (greyed), give-back reset (E300),
+then CI build + round checklist (Windows VM, Mac) + Reddit reply.
+Download entire bank recorded 2026-10-21 09:45 (E301): 128 x (74 01 7E 04 + 30 0b pp -> 10 0b pp), ~1 s each, always all
+128, entries emptied then filled; RAM backup before (work/libdrag/ram-backup-20261021-0921, all 4 banks). Next: RAM sort
+recording (user picks a bank), then implement both.
+RAM sort recorded 09:51 (E302): only changed slots written (RAM B: 4 dumps), no question, no undo afterwards; the menu
+HIDES entries that do not apply (no greyed Undo). Implement: Download bank (E301), RAM sort (E302), menu without greyed
+entries; then VM off.
+Done (dev, not user-tested; 324 tests, ctest 5/5): MemorySync::read_bank (E301: rise 74 01 7E 04 + 30 -> 10 per
+program, all 128, stops on cancel/no reply) + VirusPlugin::download_bank (own thread, bank emptied then filled, old
+cache kept for unread slots, joined in terminate); BankDrop::sort_ram (E302: changed slots only, forgets the undo) +
+sort_ram_bank; browser menu leaves out entries that do not apply (no greyed ones). README + site updated. VM off.
+User test 2026-10-21 ~10:13 (dev 54799088): menu ok, download RAM B 127 s (original 131 s) ok; SORT WRONG - byte order,
+wrote 85 slots of RAM B (E303: the original ignores case). Fixed (test first, 325 green); re-sorting RAM B with the fix
+puts the original's order back. User idea: show the download's progress / time left on our LCD (the original shows it
+only on the Virus) - optional, ask.
+User: yes -> download_progress() ('37 / 128, about 1:31 left', test) on our LCD while downloading, then 'Download
+done/stopped'. README/site mention it.
+User test 2026-10-21 ~10:15 (dev c20a6678 = af82f34): sort RAM B with the fix wrote the 85 slots back, our cache =
+the original's order (0 differences); sort again: 0 slots; download 128 s with LCD progress ('LCD looked good'), the
+bank read back from the Virus = the original's order, no empty slot - ALL PASS. The browser now has every function of
+the original's browser we know of (E294-E303). Still open in round 0.8.29: E300 give-back reset; push + CI build;
+round checklist (Windows VM, Mac); Reddit reply; RAM A/B contents back to the user's pre-test state (old caches).
+NEW round item (user 2026-10-21): issue #10 (Reddit report, reporter not named): knobs turned on the TI2 are not added to
+Ableton Live's automation list (Configure mode) - the plug-in window's changes are; once configured, Live records the
+hardware knob. Code: UI -> beginEdit/performEdit/endEdit (virusplugin.cpp ~1851), panel -> only outputParameterChanges in
+process() (~1388). NEXT: REA on the original (how it hands panel changes to the host), evidence, then fix with the rate
+limit and no echo back to the Virus; test in Ableton (Mac + win11) Configure mode.
+#10 done (dev, not user-tested; 330 tests, ctest 5/5): E304 (REA sub-agent): the original sends begin/perform/end with
+a 250 ms end via its VST2 shim. New model/hostgestures.h (+4 tests): device_change -> tick (UI thread: beginEdit,
+setParamNormalized+performEdit latest value, endEdit 250 ms after the last change), echo() filters the value the host
+hands back (while open, 500 ms after), flush on editor close. Plug-in: while an editor is open, panel knob reports (not
+Bank/Patch) go to gestures_ instead of pending_; process() skips echoes; editor timer calls tick_gestures(). LIMIT: with
+the editor closed the old path (output parameter changes) - no UI-thread timer without an editor on Linux; a plug-in
+timer for Windows/macOS could follow. Test: REAPER 'last touched parameter' (Linux), Ableton Configure (Mac, win11).
+User test 2026-10-21 (REAPER Linux, dev 869f7690 = a81c568): knob on the Virus -> REAPER 'last touched' shows it; turning
+smooth (no echo jitter); Touch automation recorded from the Virus knob and played back - PASS. Ableton Configure mode
+(the reporter's case) still to test on the Mac / win11 in the round test.
+2026-10-21 ~11:28: round-0.8.29 pushed (7a4b98e), CI run 39577249656 (version 0.8.29) started. NEXT: when green -
+install on Linux (CI build), win11 VM (silent setup), Mac (push zip); round checklist incl. browser functions and
+Ableton Configure mode (#10); meanwhile E300 evidence on Linux.
+E300 analysis 2026-10-21 ~11:40 (logs only): today ~20 give-back cycles fine (gaps 35 s..1 h), one failed; the resetguard
+(E136, RESET_GAP_S) was not involved (4 min since the last reset); no kernel/PipeWire/WirePlumber messages between the
+hand-back 08:35:32 and the failed first write 08:39:54; the kernel's own resets failed too (the device's USB function
+hung). Idle card now: PCM closed (PipeWire node suspended). Trigger unknown - options for the user: (1) passive flight
+recorder in the broker (recommended), (2) longer idle exit (fewer hand-backs, Virus later back as Linux sound card),
+(3) note only.
+CI run 39577249656 (2940ef8.. = round tip 7a4b98e + HANDOFF, version 0.8.29) ALL GREEN. Installed: Linux = CI
+(install.sh, plug-in dc13ca8b.., broker cdf3d914..; dev 869f7690 in ~/.vst3-backup/0.8.29-dev-869f7690); win11 VM =
+setup.exe /quiet exit 0 (C:\tirevive-test\0.8.29-ci; bundle entry visible, MSI entry SystemComponent=1), VM running;
+Mac: unreachable (ssh timeout) - push work/ci/39577249656/TI-Revive-mac zip when awake. Packages in work/ci/39577249656.
+Checklist republished 2026-10-21 ~11:41 (same link, version 2): https://claude.ai/artifact/FPLV3yBfZW6E25dP2Mdx5P - spec
+scripts/checklists/round-0.8.29.json: L1, L2 (browser + #10 short on CI); VM WC1, WC3, W1, W2 (browser), W3 (Ableton
+Configure #10); Mac MC1, MC3, M1, M2, M3 (browser), M4 (Configure #10). hil.sh running on the CI build.
+hil.sh on the CI build 2026-10-21 11:39: H1 cold, H2 reopen x2, H3 export, H6 broker kill ALL PASS (max 1.20 ms, jitter
+0.41 ms; work/hil/20261021-113937). Linux core items done; L1/L2 by the user.
+Mac awake 2026-10-21: CI zip pushed + unzipped in ~/Downloads/TI-Revive-0.8.29-ci2-mac (sha 8cc52f81.. = CI), diag.on set,
+old diag.log -> diag.log.pre-0.8.29-ci2; the user runs the installer.
+Mac install 11:48: receipt 0.8.29 but VST3/AU NOT replaced (old 0.8.29 test build of yesterday, E305: BundleIsVersionChecked
+default) - workaround given (sudo rm -rf both bundles, install again); fix in mac-build-release.sh (version check off, needs
+the next CI package to verify).
+Fix committed in c3dda38 (1bde9ed had only E305/HANDOFF - the script edit was blocked by the gate hook). NEXT: user
+removes both bundles + installs again; Claude checks VST3 = 44e2d989.., AU = a7d8a2fe..; then Mac items MC1, MC3, M1-M4
+after Linux (L1, L2) and the VM (WC1, WC3, W1-W3). Branch not pushed since 2940ef8.
+Mac reinstalled (bundles removed first): VST3 44e2d989.., AU a7d8a2fe.., broker e234fccc.. = the CI package (11:34 build).
+VM 2026-10-21 ~12:06: W2 pass; W3 FAIL - Configure added Filter 1 Cutoff AND Voc CarrCntFrq (both on CC 40, E306). Fixed (test
+first, 331 green): panel reports filtered by their condition. WC1/WC3/W1 marks are from 2026-10-20 (older build) - redo.
+New CI build for the VM/Mac re-test (also carries the E305 package fix).
+Pushed; CI run 39582553971 (version 0.8.29) started 2026-10-21 ~12:10. NEXT: install on win11 (setup.exe /quiet), Linux
+(install.sh), Mac (push; the package must now replace the bundles by itself - verifies E305); redo W3, WC1, WC3, W1.
+CI 39582553971 ALL GREEN. Installed: win11 setup.exe /quiet exit 0, plug-in c45840bf.. = the new MSI's (Windows replaces
+same-version files; C:\tirevive-test\0.8.29-ci3); Linux install.sh, plug-in 90cf53f7..; Mac: pushed + unzipped in
+~/Downloads/TI-Revive-0.8.29-ci3-mac, user installs WITHOUT removing bundles first (E305 check). Packages work/ci/39582553971.
+VM block DONE 2026-10-21 ~12:20: W3 pass on the new build (10:18Z, installed 10:17Z: only Filter 1 Cutoff added); WC1, WC3,
+W1 redone 10:12Z on CI 39577249656 (no start/audio change since); W2 pass. WC3.wav 256/256, -32 ppm, sd 9.14 ms, max 51 ms
+(VM USB timing as before; work/hil/vm-0.8.29). NEXT: Virus to the Mac, install ci3 without removing bundles (E305 check),
+MC1, MC3, M1-M4.
+Mac 2026-10-21 ~12:16: installed ci3 over ci2 WITHOUT removing bundles: VST3 b3706d1a.., AU a3526065.., broker e234fccc.. =
+the package (E305 fix VERIFIED). User testing MC1, MC3, M1-M4 now (diag.on set).
+M3 (Mac): 'libraries not showing', Create Empty Library saved MacTest.mid to ~/Downloads. Found: our library_dir() on macOS =
+~/Documents/... only (has My Patches + New Library); the factory libraries are in /Library/Application Support/Access
+Music/Virus TI/Patches (Access installer; Tutorial's Mac path) - never read. The original has 'Personal' and 'Public
+Libraries' (E217). Possibly also no Documents access for Live (TCC) -> asked the user. REA sub-agent running on the
+original's library roots (Windows + Mac). Maybe the cause of an earlier user report of missing libraries.
+E307 (REA): three roots - Personal = Documents, User = %APPDATA% / ~/Library/Application Support, Public = C:\ProgramData /
+/Library/Application Support (+ '/Access Music/Virus TI/Patches'); each its own submenu; Create Empty Library always saves
+to Documents. DONE (user ok, 4b819dd): library_roots() reads all three (Windows/macOS; Linux Personal only), each its
+own menu in LOAD/SAVE/browser + bank title; Personal always shown (Create Empty Library), User/Public only with a library.
+Test library_roots_three; 332 tests, ctest 5/5 on Linux. Not run on hardware yet. Next: CI build, Mac re-test of M3.
+Still open: Create Empty Library's dialog on the Mac opened in ~/Downloads (Live's Documents permission? asked the user).
+CI run 39619240510 (4b819dd) all green (mac job needed one rerun: no runner, 'capacity constraints'); Mac installed
+17:13:34, receipt 0.8.29, VST3 c92d9622.., AU 1be78fe9.., broker e234fccc.. = pkg payload. Live has Full Disk Access (user),
+so not TCC; VSTGUI's NSSavePanel sets directoryURL correctly -> M3 re-test: check the 'Where' menu before Save.
+Mac pushes now also get INSTALL-COMMAND.txt + 'Install test build.command' in the extracted folder (user request).
+MAC BLOCK PASSED (E308): MC1, MC3, M1-M4 all pass; M3 re-test on 39619240510 pass (Public Libraries, MacTest.mid in
+~/Documents/...). Checklist: all 13 marks pass (L1, L2, WC1, WC3, W1-W3, MC1, MC3, M1-M4). Not tested: the E307 change on
+Windows (menus from %APPDATA% / C:\ProgramData) -> checked by the user on win11, CI 39619240510 (setup.exe /quiet exit 0,
+C:\tirevive-test\0.8.29-ci3): LOAD + browser library menus 'works'. NEXT: release
+decision with the user (user: release now, then a new round); site check 2026-10-21 (agent + spot checks): TESTS 305->332, Mac timing
+row 0.8.29 (E308, 0 ppm, max 1.35 ms), README status row 0.04-0.33 ms / -72 to 0 ppm, new lines for #10 and the library
+folders (site + README identical), README got the 'Presets and soft knobs' line, release notes rewritten; site built locally,
+not deployed. E300 option open; restore the user's RAM A/B (work/libdrag/ram-backup-20261021-0921).
+
+## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
+
+1. **accessfiles.cpp: NaN in the oscillator wave table under fast-math (fixed, test first).** find_osc_waves checked
+   the rows with std::isfinite; the Mac (Xcode -ffast-math) and Windows (/fp:fast) builds may fold it to true, so a
+   candidate with a NaN row passed the +-1 check (reproduced with g++ -O2 -ffast-math: NaN row accepted; without the
+   flag rejected). Effect if it ever happened: NaN in the classic oscillator display, the real table has none (low
+   risk, but the check was meant for it). Now the exponent bits decide, as in hostmidi.h. Test: NaN and -inf rows
+   rejected (NaN check failed first under -ffast-math). Same pass: test_resampler's NaN marker test used
+   std::isnan/isfinite and failed under g++ -ffast-math (18 checks; MSVC /fp:fast keeps them, so Windows CI was green);
+   now a bit check (test only). Built and tested on Linux: normal build ctest 5/5, a -ffast-math build of vtitests
+   304 tests 0 failed. Not on hardware (no device path touched). C++ review 2026-10-20 (evening): the sine row
+   (row 0) is now bit-checked too (finite_at for all 64 rows, test: NaN in row 0 rejected), size_t widening
+   fixed (clang-tidy clean on the function), test_resampler flag renamed to no_nan. Linux build + ctest 5/5; this
+   came AFTER the CI test build 39441322803, so the release build differs from the tested one in find_osc_waves.
+
+2. **E289: "bank sync done" after an aborted sync (fixed, test first).** The bank loop stops at the first bank whose
+   sync_bank returns < 0 (-1 no answer, -2 closed while syncing), but the line after the loop always logged "bank
+   sync done" and the LCD said "Synchronization done". Now sync_end() (startprogress.h) names the end: "bank sync
+   done / failed / stopped in N s", and the LCD only says done after a full sync (else its line is cleared). Test
+   startprogress_sync_end_names_an_abort (failed first: not declared). Linux: 305 unit tests, ctest 5/5. Not on
+   hardware (an abort needs a lost reply or a close during the sync; the next round's reopen test may show it).
+
+3. **hil.sh --sleep never slept (found 2026-10-20, fixed, rerun passed).** First --sleep run (release 0.8.28 in
+   ~/.vst3, work/hil/20261020-120224): H1, H2 x2, H3, H6 real passes (jitter 0.02-0.19 ms, 0 lost, export 1.00x);
+   H5 "pass" but the kernel log shows `rtcwake -m mem` -> nvidia pci_pm_suspend returns -5, "Some devices failed to
+   suspend", suspend exit after 0.7 s: H5 tested a ~1 s USB reset (disconnect, reconnect, ready 3.7 s, 50/50 notes),
+   not a sleep. rtcwake goes straight to the kernel and skips nvidia-suspend.service (the manual LC5 at 09:30 went
+   through systemd-sleep and slept). Now: rtcwake -m no sets the alarm, systemctl suspend sleeps, and H5 fails unless
+   CLOCK_BOOTTIME - CLOCK_MONOTONIC grew by >= 30 s. Rerun by the user (work/hil/20261020-121623): ALL PASS, the PC
+   slept 48 s, recovery via the stood-still path and the reconnect (two 'ready' lines, no double send), notes 50/50,
+   jitter 0.24 ms (E290). LC5 can now run automated on Linux (the user starts it: sudo).
+
+4. **E287 REAPER crash after a GUI render: SOLVED, it is REAPER's bug, not ours (E291, 2026-10-20).** SWELL keeps a
+   closed modal dialog's window as a "spare" and destroys it 100/500 ms later without clearing its focused-window
+   global; when another application has the focus as the render window closes, nothing resets the global and the
+   next cursor update crashes (SWELL_SetCursor -> gdk_window_set_cursor, the E265 stack). Caught 3x under gdb
+   (work/timing/e287-watch.py, X focus logger e287-focuslog.c, ping watcher e287-pingwatch.c; all git-ignored) and
+   **reproduced with ReaSynth only, TI Revive not loaded** (user clicked into the terminal during the render).
+   Workaround for users: stay in REAPER until the render window has closed - now in the README ("Good to know"), the
+   site's FAQ (build.py; site NOT rebuilt) and README-linux.txt. The two freezes of the same session (13:46, 13:59:50)
+   have no stack; the user is sure they were the same situation (not measured). Cockos report: paste-ready draft at
+   https://claude.ai/artifact/Vm7LSR65pJUDGLNBXgMRu1 (the user posts it on the Cockos forum; not posted yet). No
+   plug-in change. Site check 2026-10-20 (skill): the only site/README change since main is this FAQ entry; claims
+   match E291 except the freezes (LOW there), now worded 'probably the same bug (not measured)'. TESTS stays 304
+   (= the release; the round has 305). Local build OK. The github-pages environment only deploys from main, so (user's
+   choice) the docs diff went to main alone as 1efad04 (README + build.py only); its push ran site run 39434812956,
+   green, live page checked (FAQ entry, Download 0.8.28). The 0.8.29 merge will see the same text on both sides.
+
+5. **Dead code cleanup (2026-10-20, /ecc:refactor-clean).** cppcheck unusedFunction + style over native/ (src,
+   plugin, ccapp, asio, au, tools) and src/broker, every hit grep-checked against production code and tests. Removed:
+   SkinPage::set_status (native/ccapp/skinpage.cpp, no caller anywhere). Kept on purpose: ~80 false positives
+   (members/statics/per-platform), the test-only API (RemoteTemplates knob_behaviour/set_knob_behaviour, help_count,
+   broker on_state/pending_bytes/pending_replies/set_endpoint), the ASIO Dll* exports and ASIO struct members (ABI).
+   Python (22 tracked files, pyflakes 4.0.3 + vulture 2.16 from a scratchpad --target install): removed the unused
+   imports wave (scripts/timing_analysis.py) and sys (native/tools/uicompare/capa.py); vulture's other hits are
+   unittest classes, documented struct fields (macho_syms.py) and an in-place bytearray (vtitrace.py). Fixed too:
+   uicompare/allpages.py line 20 had an invalid "\ " escape (SyntaxWarning); now "\\ ", the same string (AST
+   compare), compiles with -W error; the tool itself not run (needs a display and the uicompare setup). clang-tidy
+   21.1.8 (misc-unused-*, bugprone-unused-*, -Wunused incl. member functions/templates/internal declarations) over
+   the 90 native files in compile_commands.json (Linux build, tests included): one hit, AudioIn::mac_ "not used",
+   a false positive (all uses under __APPLE__); no change. Windows/macOS-only code is not seen by this pass. cppcheck
+   on src/wrapper: 58 hits, nothing to remove (46 VST3/COM/ASIO ABI struct members, 10 DLL/host entry points, and
+   vua_set_out/vua_rate_lost, which the Windows broker calls - see item 6). cppcheck on src/mac/bridge (C++ mode,
+   VST3 SDK headers; the .mm files grep-checked): nothing to remove (6 BridgeCore/Conn members used by its methods,
+   45 hits in the SDK). Found there: AGENTS.md still described the 0.7.x Mac path (bridge = the Audio Unit,
+   mac-build-bridge.sh = the development build) - fixed to match README and mac-build-release.sh (since 0.8.0 the
+   native plug-in is the VST3 and the AU; src/mac/* is reference only, risk.json class A is right there). Linux
+   build + ctest 5/5; Windows/macOS not built. Like item 1, this came after CI test build 39441322803 (Control Center binary differs).
+
+6. **vtiusbaudio.c/.h moved from src/wrapper to src/broker (2026-10-20).** Found by the item 5 scan: the shipped
+   Windows broker (src/broker/Makefile, vtibroker.exe) compiled ../wrapper/vtiusbaudio.c - the WinUSB audio streaming
+   and the 48 kHz check (E241) - while AGENTS.md calls src/wrapper "not shipped since 0.8.0" and risk.json gave
+   src/wrapper/* class A, so a change to it alone would have planned no Windows test. So far nothing slipped: its
+   only recent changes (round 0.8.28 items 1 and 2, the review fixes) came with other Windows files and that round
+   ran its Windows items (VM 5/5). Now: git mv to src/broker, includes and both Makefiles adjusted (the wrapper builds it from
+   ../broker/ like its other broker files), risk.json: the Windows USB-layer rule (class C, windows: cold, reopen,
+   power, sleep) names both files. Proof that nothing changed: mingw cross-builds before/after; vtibroker.exe and
+   the other EXEs byte-identical with PE TimeDateStamp/CheckSum zeroed (two builds of the same tree differ only
+   there); the wrapper DLLs differ between two builds of the SAME source (non-reproducible, not usable), so for all
+   six affected sources the preprocessed output (mingw gcc -E -P) old tree vs new is identical. Linux broker builds;
+   ctest scripts_py passes (risk rules). Not on hardware. risk.py --round 0.8.29 now asks Windows by hand: cold,
+   reopen, export, power, sleep (before: cold, export). DECIDED with the user 2026-10-20: reopen, power and sleep on
+   Windows are skipped this round - the broker binary is identical (proof above), so they would test the same code
+   as the CI test build; round-0.8.29.json and the published checklist stay as they are (Windows: cold, export).
+   From round 0.8.30 on, risk.py's selection applies to these files without exception. Left as is: the evidence
+   entries (E076, E078, E081: paths as they were then). Comments fixed later the same day (C++ review of the round,
+   user's choice): src/inf/vti_winusb.inf and src/broker/vtiusbaudio_libusb.c now name src/broker/vtiusbaudio.c.
+   Both files are class C, so risk.py now also asks Linux power + sleep and Mac reopen, power + sleep. DECIDED with
+   the user 2026-10-20: these are skipped this round, comment-only (vtiusbaudio_libusb.c: gcc -E -P output old vs
+   new identical; the .inf differs only in a ';' comment line, its catalog is generated at install time).
 
 ## Round 0.8.28 (branch round-0.8.28, collecting; started 2026-10-19)
 

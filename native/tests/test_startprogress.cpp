@@ -3,6 +3,7 @@
 // really fetched (InitialSyncProgress). 0..126 shows a page, 127 hides it (editordevice.xml conditions).
 #include "check.h"
 #include "device/startprogress.h"
+#include <string>
 
 using namespace vti;
 
@@ -37,4 +38,14 @@ TEST(startprogress_sync_page_at_once_when_a_bank_is_missing)
     CHECK(s.shown());
     CHECK(s.progress(0, false) == 0);
     CHECK(s.progress(256, false) == 63);
+}
+
+TEST(startprogress_sync_end_names_an_abort)
+{
+    // the sync stops at the first bank that fails (-1: a request without an answer) or is cancelled (-2: closed
+    // while syncing); the log said "bank sync done" after such a stop (E289)
+    CHECK(std::string(sync_end(0)) == "done");
+    CHECK(std::string(sync_end(128)) == "done");
+    CHECK(std::string(sync_end(-1)) == "failed");
+    CHECK(std::string(sync_end(-2)) == "stopped");
 }

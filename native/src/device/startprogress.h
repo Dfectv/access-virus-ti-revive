@@ -39,4 +39,8 @@ struct SyncPage {
     }
 };
 
+// how the bank sync ended, for the log: it stops at the first bank that fails (-1, a request without an answer) or
+// is cancelled (-2, closed while syncing); "bank sync done" after such a stop read like a full sync (E289)
+inline const char *sync_end(int result) { return result == -1 ? "failed" : result == -2 ? "stopped" : "done"; }
+
 } // namespace vti

@@ -283,11 +283,6 @@ private:
     }
     void add_model_button(SkinNode &page) { add_model_button_in(page.children); }
 
-    void set_status(const std::string &s)
-    {
-        std::lock_guard<std::mutex> l(mu_);
-        status_ = s;
-    }
     template <class F> void run(F &&f)
     {
         if (busy_.exchange(true))

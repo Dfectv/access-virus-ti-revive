@@ -17,7 +17,7 @@ args=[]
 for i,(name,x) in enumerate(tabs):
     args += ['--click','%d,24@%.1f'%(x,2+i*1.2),'--shot','u-%s.ppm@%.1f'%(name,2.6+i*1.2)]
 subprocess.run(['bwrap','--dev-bind','/','/','--tmpfs','/tmp','--bind','/tmp/.X11-unix','/tmp/.X11-unix','--bind','/tmp/claude-1000','/tmp/claude-1000','bash','-c',
-  'cd %s && DISPLAY=:77 timeout 60 ~/virus-ti-native/build/bin/Release/nativehost ~/virus-ti-native/build/VST3/Release/TI\ Revive\ Virus\ Control.vst3 --state base.comp --editor %s --seconds %d'%(S,' '.join(args),4+len(tabs)*1.2)],capture_output=True)
+  'cd %s && DISPLAY=:77 timeout 60 ~/virus-ti-native/build/bin/Release/nativehost ~/virus-ti-native/build/VST3/Release/TI\\ Revive\\ Virus\\ Control.vst3 --state base.comp --editor %s --seconds %d'%(S,' '.join(args),4+len(tabs)*1.2)],capture_output=True)
 for name,x in tabs:
     o=Image.open(S+'/o-%s.png'%name).convert('RGB'); u=Image.open(S+'/u-%s.ppm'%name).convert('RGB')
     # ignore the part strip column + LCD (sync text) - compare the page area

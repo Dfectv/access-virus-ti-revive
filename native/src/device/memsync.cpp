@@ -179,4 +179,21 @@ int MemorySync::sync_bank(int bank, Bank &cache, const std::function<void(int, b
     return fetched;
 }
 
+int MemorySync::read_bank(int bank, Bank &cache, const std::function<void(int)> &progress, const std::atomic<bool> *stop)
+{
+    const std::vector<uint8_t> rise = {0xF0, 0x00, 0x20, 0x33, 0x01, (uint8_t)dev_, 0x74, 0x01, 0x7E, 0x04, 0xF7};
+    for (int p = 0; p < 128; p++) {
+        if ((stop && *stop) || (before_request && !before_request()))
+            return -2;
+        send_(rise);
+        Dump d = single(bank, p);
+        if (d.empty())
+            return -1;
+        cache[p] = std::move(d);
+        if (progress)
+            progress(p);
+    }
+    return 128;
+}
+
 } // namespace vti

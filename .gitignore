@@ -20,9 +20,10 @@
 !/docs/
 /docs/*
 !/docs/images/
-# the repository's Claude Code skills only (a contributor's local .claude settings stay out)
+# the repository's Claude Code skills and hooks only (a contributor's local .claude settings stay out)
 !/.claude/
 /.claude/*
 !/.claude/skills/
+!/.claude/hooks/
 __pycache__/
 *.pyc

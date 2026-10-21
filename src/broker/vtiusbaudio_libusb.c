@@ -1,4 +1,4 @@
-// vtiusbaudio_libusb.c - Virus TI USB audio streaming on libusb (Linux), the port of src/wrapper/vtiusbaudio.c
+// vtiusbaudio_libusb.c - Virus TI USB audio streaming on libusb (Linux), the port of src/broker/vtiusbaudio.c
 // (WinUSB, E075) for the Linux broker (findings/design-linux.md). The broker owns the whole device: the audio function
 // (interface 0 control, 1 = OUT EP 0x01, 2 = IN EP 0x82) is taken from snd-usb-audio and streamed here:
 //   - IN: 6 ch x 16 bit, one packet per 1 ms frame (44 or 45 frames at 44.1 kHz, the synth's clock decides),

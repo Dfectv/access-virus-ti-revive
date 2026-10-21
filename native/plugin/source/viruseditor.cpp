@@ -1064,6 +1064,7 @@ public:
             keep_runloop(); // a new instance's setHostContext may have replaced it (E183)
 #endif
             plugin_->diag_report();
+            plugin_->tick_gestures(); // knob moves on the Virus -> host edits (E304)
             if (plugin_->ui_changed() && !partial_) { // during a drag the drag repaints its own area
                 plugin_->diag.dirty_ticks++;
                 plugin_->lcd_changed();
@@ -1330,6 +1331,12 @@ public:
                 return;
             }
         }
+        // right-click on a browser entry: the original's browser menu (E294 (4))
+        if (event.buttonState.isRight() && !help_ && h.element && h.element->type == "PatchBrowser") {
+            browser_menu(h, event.mousePosition);
+            event.consumed = true;
+            return;
+        }
         // right-click where there is no control: the editor's size (the original has no such setting)
         if (event.buttonState.isRight() && (!h.element || h.element->get("Parameter").empty())) {
             size_menu(event.mousePosition);
@@ -1397,13 +1404,23 @@ public:
             event.consumed = true;
             return;
         }
-        if (e.type == "PatchBrowser") { // click selects, double click loads into the current part
+        // click selects (Shift: a range, Ctrl: one more), double click loads into the current part; the selection
+        // may be dragged onto a part strip or a RAM slot of the other pane (E294)
+        if (e.type == "PatchBrowser") {
             int prog = EditorRenderer::browser_entry(h, (int)event.mousePosition.x, (int)event.mousePosition.y);
             int bank = plugin_->ui_value(e.get("Parameter"), -1);
+            if (prog >= 0 && event.modifiers.has(ModifierKey::Alt)) { // Alt+Click: rename (RAM or a library)
+                if ((bank >= 0 && bank < 4) || is_library(bank))
+                    edit_browser_name(h, bank, prog);
+                event.consumed = true;
+                return;
+            }
             if (prog >= 0) {
-                dnd_bank_ = bank, dnd_prog_ = prog; // may be dragged onto a part strip
-                renderer_.selected[bank] = prog;
-                if (event.clickCount >= 2)
+                const bool shift = event.modifiers.has(ModifierKey::Shift), ctrl = event.modifiers.has(ModifierKey::Control);
+                dnd_bank_ = bank, dnd_prog_ = prog;
+                browser_sel_[bank].press(prog, shift, ctrl);
+                show_selection(bank);
+                if (event.clickCount >= 2 && !shift && !ctrl)
                     plugin_->load_patch_remembered(bank, prog, plugin_->ui_value(plugin_->layout().frame_parameter, -1));
                 invalid();
             }
@@ -1503,6 +1520,8 @@ public:
                 if (auto *f = getFrame())
                     f->setCursor(kCursorCopy);
             }
+            if (dnd_)
+                drag_highlight((int)event.mousePosition.x, (int)event.mousePosition.y);
             event.consumed = true;
             return;
         }
@@ -1544,17 +1563,34 @@ public:
 
     void onMouseUpEvent(MouseUpEvent &event) override
     {
-        if (dnd_ && drag_.element) { // dropped: onto a part strip (the part panel, x < 192)?
-            if (auto *f = getFrame())
+        const bool dragged = dnd_;
+        if (dnd_ && drag_.element) { // dropped: onto a part strip (the part panel, x < 192) or a browser slot?
+            // the cursor goes back after this event: X11 VSTGUI still holds the pointer grab here and releases it
+            // after the mouse-up, a cursor set inside the grab stayed on screen (the copy hand, user 2026-10-21)
+            if (auto *f = getFrame(); f && !f->doAfterEventProcessing([f]() { f->setCursor(kCursorDefault); }))
                 f->setCursor(kCursorDefault);
-            Hit t = renderer_.hit_test((int)event.mousePosition.x, (int)event.mousePosition.y);
+            const int x = (int)event.mousePosition.x, y = (int)event.mousePosition.y;
+            Hit t = renderer_.hit_test(x, y);
             bool strip = t.element && event.mousePosition.x < 192 && t.part >= 0 && t.part < 16;
             if (strip && drag_.element->type == "NameEdit")
                 plugin_->copy_part(drag_.part, t.part);
             else if (strip && dnd_prog_ >= 0)
                 plugin_->load_patch_remembered(dnd_bank_, dnd_prog_, t.part);
+            else if (dnd_prog_ >= 0 && t.element && t.element->type == "PatchBrowser")
+                drop_on_browser(t, x, y);
+            else if (drag_.element->type == "NameEdit" && t.element && t.element->type == "PatchBrowser") {
+                // a part's patch dropped on a RAM slot: stored there, like SAVE (the original's Tutorial)
+                const int bank = plugin_->ui_value(t.element->get("Parameter"), -1), slot = EditorRenderer::browser_entry(t, x, y);
+                if (bank >= 0 && bank < 4 && slot >= 0)
+                    plugin_->store_patch(drag_.part, bank, slot);
+            }
             dnd_ = false;
         }
+        if (drag_.element && drag_.element->type == "PatchBrowser" && dnd_prog_ >= 0) {
+            browser_sel_[dnd_bank_].release(dnd_prog_, dragged);
+            show_selection(dnd_bank_);
+        }
+        renderer_.highlighted.clear();
         drag_ = {};
         drag_rects_.clear();
         renderer_.pressed = nullptr;
@@ -1573,11 +1609,16 @@ public:
                 invalid();
                 return;
             }
-            if (edit_param_.empty())
+            if (is_library(edit_bank_))
+                plugin_->rename_in_library(edit_bank_ - VirusPlugin::LIB_BASE, edit_prog_, t);
+            else if (edit_bank_ >= 0)
+                plugin_->rename_in_ram(edit_bank_, edit_prog_, t);
+            else if (edit_param_.empty())
                 plugin_->rename_part(edit_part_, t);
             else // a REMOTE page field: saved with the templates and sent like the original's
                 plugin_->set_remote_text(edit_param_, t);
             edit_param_.clear();
+            edit_bank_ = -1;
             remove_edit(te); // after the current event
             invalid();
         }
@@ -1751,6 +1792,7 @@ private:
     }
     int edit_part_ = 0;
     std::string edit_param_; // edit_name: the REMOTE page field being edited, empty for a patch name
+    int edit_bank_ = -1, edit_prog_ = -1; // edit_browser_name: the RAM slot being renamed (-1: none)
     std::vector<CRect> meter_rects_; // the part strips' meters
     EditorRenderer::Deps deps_;      // what the controls read (filled by full repaints)
     struct StaticLayer {
@@ -1805,10 +1847,16 @@ private:
             }
             dev.push_back({VirusPlugin::bank_name(b), true, std::move(patches)});
         }
-        std::vector<vti::PopupItem> lib; // personal libraries (patch files); SAVE can also append
-        auto libs = std::make_shared<std::map<std::vector<int>, int>>(); // path below "Personal Libraries" -> library
-        std::map<std::string, std::vector<int>> folders;
+        // the library menus (E307): "Personal Libraries", and "User" / "Public Libraries" when they hold one; SAVE
+        // can also append. libs: the path below a library menu (menu's position first) -> library
+        const auto menus = plugin_->library_menus();
+        std::vector<std::vector<vti::PopupItem>> lib(menus.size());
+        auto libs = std::make_shared<std::map<std::vector<int>, int>>();
+        std::vector<std::map<std::string, std::vector<int>>> folders(menus.size());
         for (int i = 0; i < plugin_->library_count(); i++) {
+            const int m = (int)(std::find(menus.begin(), menus.end(), plugin_->library_root(i)) - menus.begin());
+            if (m >= (int)menus.size())
+                continue;
             std::vector<vti::PopupItem> patches;
             for (int p = 0; p < plugin_->library_size(i); p++) {
                 char t[40];
@@ -1823,11 +1871,16 @@ private:
             if (patches.empty()) // an empty library: a greyed placeholder keeps it a submenu
                 patches.push_back({"(empty)", false});
             vti::PopupItem entry("", true, std::move(patches));
-            (*libs)[vti::popup_add_path(lib, plugin_->library_name(i), std::move(entry), folders)] = i;
+            auto at = vti::popup_add_path(lib[m], plugin_->library_name(i), std::move(entry), folders[m]);
+            at.insert(at.begin(), m);
+            (*libs)[at] = i;
         }
-        lib.push_back(vti::PopupItem::line()); // as in the original (0x180041a10): a separator, then the entry
-        const int create = (int)lib.size();
-        lib.push_back({kCreateLibrary});
+        int create = -1; // only SAVE has it, last in "Personal Libraries" after a separator (0x180041a10, E297 (C))
+        if (save) {
+            lib[0].push_back(vti::PopupItem::line());
+            create = (int)lib[0].size();
+            lib[0].push_back({kCreateLibrary});
+        }
         std::vector<vti::PopupItem> items;
         int part = h.part;
         // LOAD only, like the original (E220): "Revert to "<name>"" after a load, "Recently Used" > "<n> <name>"
@@ -1852,7 +1905,8 @@ private:
         }
         const int devi = (int)items.size(), libi = devi + 1;
         items.push_back({plugin_->device_name(), true, std::move(dev)});
-        items.push_back({"Personal Libraries", true, std::move(lib)});
+        for (size_t m = 0; m < menus.size(); m++)
+            items.push_back({menus[m], true, std::move(lib[m])});
         show_popup(std::move(items), -1, 0, where,
                    [this, part, save, libs, create, revert, recent, devi, libi](const std::vector<int> &path) {
             if (path.empty())
@@ -1876,8 +1930,10 @@ private:
             int bank = -1, slot = path.back();
             if (path[0] == devi && path.size() == 3)
                 bank = path[1];
-            else if (path[0] == libi) {
-                auto it = libs->find(std::vector<int>(path.begin() + 1, path.end() - 1));
+            else if (path[0] >= libi) {
+                std::vector<int> at(path.begin() + 1, path.end() - 1);
+                at.insert(at.begin(), path[0] - libi);
+                auto it = libs->find(at);
                 if (it != libs->end())
                     bank = VirusPlugin::LIB_BASE + it->second;
             }
@@ -1893,31 +1949,37 @@ private:
         });
     }
 
-    // the browser's bank selector: "<device> > RAM A .. ROM Z" and "Personal Libraries"
+    // the browser's bank selector: "<device> > RAM A .. ROM Z" and the library menus (E307)
     void bank_menu_popup(const Hit &h, const CPoint &where)
     {
         std::vector<vti::PopupItem> dev;
         for (int b = 0; b < plugin_->bank_count(); b++)
             dev.push_back({VirusPlugin::bank_name(b)});
-        std::vector<vti::PopupItem> lib;
-        auto libs = std::make_shared<std::map<std::vector<int>, int>>(); // path below "Personal Libraries" -> library
-        std::map<std::string, std::vector<int>> folders;
-        for (int i = 0; i < plugin_->library_count(); i++)
-            (*libs)[vti::popup_add_path(lib, plugin_->library_name(i), {""}, folders)] = i;
-        lib.push_back(vti::PopupItem::line()); // as in the original (0x180041a10): a separator, then the entry
-        const int create = (int)lib.size();
-        lib.push_back({kCreateLibrary});
+        const auto menus = plugin_->library_menus();
+        std::vector<std::vector<vti::PopupItem>> lib(menus.size());
+        auto libs = std::make_shared<std::map<std::vector<int>, int>>(); // menu's position + path -> library
+        std::vector<std::map<std::string, std::vector<int>>> folders(menus.size());
+        for (int i = 0; i < plugin_->library_count(); i++) {
+            const int m = (int)(std::find(menus.begin(), menus.end(), plugin_->library_root(i)) - menus.begin());
+            if (m >= (int)menus.size())
+                continue;
+            auto at = vti::popup_add_path(lib[m], plugin_->library_name(i), {""}, folders[m]);
+            at.insert(at.begin(), m);
+            (*libs)[at] = i;
+        }
+        // the browser's bank menu has no "Create Empty Library" (only SAVE has, E297 (C))
         std::vector<vti::PopupItem> items;
         items.push_back({plugin_->device_name(), true, std::move(dev)});
-        items.push_back({"Personal Libraries", true, std::move(lib)});
+        for (size_t m = 0; m < menus.size(); m++)
+            items.push_back({menus[m], true, std::move(lib[m])});
         std::string param = h.element->get("Parameter");
-        show_popup(std::move(items), -1, 0, where, [this, param, libs, create](const std::vector<int> &path) {
-            if (path == std::vector<int>{1, create})
-                create_library_dialog();
-            else if (path.size() == 2 && path[0] == 0)
+        show_popup(std::move(items), -1, 0, where, [this, param, libs](const std::vector<int> &path) {
+            if (path.size() == 2 && path[0] == 0)
                 plugin_->ui_set(param, -1, path[1]);
-            else if (path.size() >= 2 && path[0] == 1) {
-                auto it = libs->find(std::vector<int>(path.begin() + 1, path.end()));
+            else if (path.size() >= 2 && path[0] >= 1) {
+                std::vector<int> at(path.begin() + 1, path.end());
+                at.insert(at.begin(), path[0] - 1);
+                auto it = libs->find(at);
                 if (it != libs->end())
                     plugin_->ui_set(param, -1, VirusPlugin::LIB_BASE + it->second);
             }
@@ -1998,6 +2060,7 @@ private:
             return;
         edit_part_ = h.part;
         edit_param_ = param;
+        edit_bank_ = -1;
         editing_search_ = false;
         CRect r(h.x, h.y, h.x + h.element->w, h.y + h.element->h);
         std::string text = param.empty() ? plugin_->patch_name(h.part) : plugin_->live_text(param);
@@ -2011,6 +2074,30 @@ private:
             te->setHoriAlign(kLeftText);
             te->setTextInset(CPoint(1, 0));
         }
+        f->addView(te);
+        te->takeFocus();
+    }
+
+    // Alt+Click on a RAM entry in the browser: a field over the entry (the browser table's geometry,
+    // EditorRenderer::patch_browser), committed like the part name's
+    void edit_browser_name(const Hit &h, int bank, int prog)
+    {
+        auto *f = getFrame();
+        if (!f)
+            return;
+        edit_bank_ = bank, edit_prog_ = prog;
+        edit_param_.clear();
+        editing_search_ = false;
+        const int nx = h.x + 21 + (prog / 16) * 84, ny = h.y + 1 + (prog % 16) * 11;
+        CRect r(nx - 2, ny - 1, nx + 61, ny + 11);
+        std::string text = plugin_->bank_patch(bank, prog);
+        auto *te = new CTextEdit(r, this, 0, text.c_str());
+        te->setBackColor(CColor(255, 255, 255, 255));
+        te->setFontColor(CColor(0, 0, 0, 255));
+        te->setFrameColor(CColor(255, 255, 255, 255));
+        te->setFont(makeOwned<CFontDesc>(kSystemFont->getName(), text_field_font(r.getHeight())));
+        te->setHoriAlign(kLeftText);
+        te->setTextInset(CPoint(1, 0));
         f->addView(te);
         te->takeFocus();
     }
@@ -2133,6 +2220,109 @@ private:
     VirusPlugin *plugin_;
     VirusEditor *editor_;
 
+    // the selection of a bank as the renderer frames it
+    void show_selection(int bank)
+    {
+        auto items = browser_sel_[bank].items();
+        renderer_.selected[bank] = std::set<int>(items.begin(), items.end());
+    }
+
+    static bool is_library(int bank) { return bank >= VirusPlugin::LIB_BASE && bank != VirusPlugin::SEARCH_BANK; }
+
+    // while dragging: the dragged browser entries and the slot under the cursor (if it takes the drop) drawn
+    // highlighted like the original's (E298 (L7)); a part's patch name only highlights its RAM target slot
+    void drag_highlight(int x, int y)
+    {
+        std::map<int, std::set<int>> hl;
+        const bool from_browser = drag_.element && drag_.element->type == "PatchBrowser" && dnd_prog_ >= 0;
+        if (from_browser) {
+            auto items = browser_sel_[dnd_bank_].items();
+            hl[dnd_bank_] = items.empty() ? std::set<int>{dnd_prog_} : std::set<int>(items.begin(), items.end());
+        }
+        Hit t = renderer_.hit_test(x, y);
+        if (t.element && t.element->type == "PatchBrowser") {
+            const int bank = plugin_->ui_value(t.element->get("Parameter"), -1), slot = EditorRenderer::browser_entry(t, x, y);
+            const bool ram = bank >= 0 && bank < 4;
+            if (slot >= 0 && (ram || (from_browser && is_library(bank))))
+                hl[bank].insert(slot);
+        }
+        if (hl != renderer_.highlighted) {
+            renderer_.highlighted = std::move(hl);
+            invalid();
+        }
+    }
+
+    // the dragged selection dropped on a browser slot: onto a RAM bank or a personal library it is written into the
+    // positions from there on (E294, E298), within the same bank/library it swaps places with them (E297, E298);
+    // ROM and the search results take no drop
+    void drop_on_browser(const Hit &t, int x, int y)
+    {
+        const int bank = plugin_->ui_value(t.element->get("Parameter"), -1), slot = EditorRenderer::browser_entry(t, x, y);
+        const bool ram = bank >= 0 && bank < 4;
+        if ((!ram && !is_library(bank)) || slot < 0)
+            return;
+        auto programs = browser_sel_[dnd_bank_].items();
+        if (programs.empty())
+            programs = {dnd_prog_};
+        if (ram && bank == dnd_bank_)
+            plugin_->swap_in_ram(bank, programs, slot);
+        else if (ram)
+            plugin_->drop_to_ram(dnd_bank_, programs, bank, slot);
+        else if (bank == dnd_bank_)
+            plugin_->swap_in_library(bank - VirusPlugin::LIB_BASE, programs, slot);
+        else
+            plugin_->drop_to_library(dnd_bank_, programs, bank - VirusPlugin::LIB_BASE, slot);
+    }
+
+    // the original's browser menu (E294 (4), E297, E302): "Undo last operation" when there is something to undo,
+    // then for RAM "Download entire bank from Virus TI" and "Sort alphabetically", for a personal library "Delete
+    // selection" (with a selection) and "Sort alphabetically". Entries that do not apply are left out, not greyed
+    void browser_menu(const Hit &h, const CPoint &where)
+    {
+        const int bank = plugin_->ui_value(h.element->get("Parameter"), -1);
+        const bool lib = is_library(bank), ram = bank >= 0 && bank < 4;
+        auto selection = browser_sel_[bank].items();
+        enum Act { Undo, Download, Delete, Sort };
+        std::vector<vti::PopupItem> items;
+        std::vector<Act> acts;
+        auto add = [&](const char *t, Act a) { items.push_back({t}), acts.push_back(a); };
+        if (plugin_->can_undo_drop())
+            add("Undo last operation", Undo);
+        if (ram && !plugin_->downloading())
+            add("Download entire bank from Virus TI", Download);
+        if (lib && !selection.empty())
+            add("Delete selection", Delete);
+        if ((ram && !plugin_->downloading()) || lib)
+            add("Sort alphabetically", Sort);
+        if (items.empty())
+            return;
+        show_popup(std::move(items), -1, 0, where, [this, bank, lib, selection, acts](const std::vector<int> &path) {
+            if (path.empty() || path.front() < 0 || path.front() >= (int)acts.size())
+                return;
+            bool done = false;
+            switch (acts[path.front()]) {
+            case Undo:
+                done = plugin_->undo_drop();
+                break;
+            case Download:
+                done = plugin_->download_bank(bank);
+                break;
+            case Delete:
+                done = plugin_->delete_from_library(bank - VirusPlugin::LIB_BASE, selection);
+                break;
+            case Sort:
+                done = lib ? plugin_->sort_library(bank - VirusPlugin::LIB_BASE) : plugin_->sort_ram_bank(bank);
+                break;
+            }
+            if (acts[path.front()] == Delete || acts[path.front()] == Sort) {
+                browser_sel_[bank].clear();
+                show_selection(bank);
+            }
+            if (done)
+                invalid();
+        });
+    }
+
     void size_menu(const CPoint &where)
     {
         static const double sizes[] = {1.0, 1.25, 1.5, 1.75, 2.0};
@@ -2162,6 +2352,7 @@ private:
     double drag_y_ = 0, drag_x_ = 0;
     bool dnd_ = false;             // a patch is being dragged
     int dnd_bank_ = 0, dnd_prog_ = -1;
+    std::map<int, vti::BrowserSelection> browser_sel_; // bank -> its selection in the browser panes
     int drag_value_ = 0;
 };
 
@@ -2282,6 +2473,7 @@ bool PLUGIN_API VirusEditor::open(void *parent, const PlatformType &platformType
         resizing_ = false;
     }
     plugin_->editor_event("opened");
+    plugin_->editor_opened(); // only now: the early returns above leave no editor
     return true;
 }
 
@@ -2301,6 +2493,7 @@ Steinberg::tresult PLUGIN_API VirusEditor::removed()
 void PLUGIN_API VirusEditor::close()
 {
     if (frame) {
+        plugin_->editor_closed(); // open host edits end now (no more timer ticks)
 #if SMTG_OS_LINUX
         keep_runloop(); // first: the menu frames and the frame unregister their handlers through the adapter that
                         // registered them (E183; review 2026-10-19: the menu frames went before this)

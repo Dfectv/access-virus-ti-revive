@@ -271,3 +271,49 @@ TEST(memsync_cancel_ends_a_waiting_request_at_once)
     CHECK(sync.transact({0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x39, 0x01, 0xF7}, {0x14, 0x01}, 10000, 3).empty());
     CHECK(std::chrono::steady_clock::now() - t0 < std::chrono::milliseconds(100));
 }
+
+// "Download entire bank from Virus TI" like the original (E301): all 128 programs in order, each request preceded by
+// the display message 74 01 7E 04 (Actions/Rise Message 4), no bank info, every program read again even if cached
+TEST(memsync_read_bank_reads_all)
+{
+    FakeVirus v;
+    MemorySync sync(v.send());
+    v.sync = &sync;
+    Bank cache;
+    for (int p = 0; p < 128; p++) {
+        v.ram[2][p] = fake_single(2, p, p + 7);
+        cache[p] = fake_single(2, p, p + 7); // already current: read anyway
+    }
+    cache[5] = fake_single(2, 5, 999);
+    std::vector<int> order;
+    int n = sync.read_bank(2, cache, [&](int p) { order.push_back(p); });
+    CHECK_EQ(n, 128);
+    CHECK_EQ(order.size(), 128u);
+    CHECK(order.front() == 0 && order.back() == 127);
+    CHECK(cache[5] == v.ram[2][5]);
+    CHECK_EQ(v.requests.size(), 256u);
+    const Bytes rise = {0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x74, 0x01, 0x7E, 0x04, 0xF7};
+    CHECK(v.requests[0] == rise);
+    CHECK((v.requests[1] == Bytes{0xF0, 0x00, 0x20, 0x33, 0x01, 0x10, 0x30, 0x02, 0x00, 0xF7}));
+    CHECK(v.requests[254] == rise && v.requests[255][8] == 127);
+}
+
+// cancelled or a request without reply: stops, what was read stays, the rest of `cache` is untouched
+TEST(memsync_read_bank_stops)
+{
+    FakeVirus v;
+    MemorySync sync(v.send());
+    v.sync = &sync;
+    Bank cache;
+    for (int p = 0; p < 128; p++) {
+        v.ram[1][p] = fake_single(1, p, p);
+        cache[p] = fake_single(1, p, 500);
+    }
+    int calls = 0;
+    sync.before_request = [&] { return ++calls <= 3; }; // 3 programs, then the plug-in closes
+    CHECK_EQ(sync.read_bank(1, cache), -2);
+    CHECK(cache[2] == v.ram[1][2] && cache[3] == fake_single(1, 3, 500));
+    sync.before_request = nullptr;
+    std::atomic<bool> stop{true};
+    CHECK_EQ(sync.read_bank(1, cache, nullptr, &stop), -2);
+}
