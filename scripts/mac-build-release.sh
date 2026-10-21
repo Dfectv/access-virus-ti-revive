@@ -64,11 +64,15 @@ chmod -R go-w "$ROOT"
 
 echo "== pkg"
 pkgbuild --analyze --root "$ROOT" "$BUILD/components.plist" >/dev/null
-# never relocate the bundle onto another copy with the same identifier (e.g. a development install in ~/Library)
+# never relocate the bundle onto another copy with the same identifier (e.g. a development install in ~/Library), and
+# always write it: with the default version check the installer kept an installed bundle of the same version (a test
+# build over another one of 0.8.29 kept yesterday's plug-ins, only the broker was new - E305)
 n=$(/usr/libexec/PlistBuddy -c "Print" "$BUILD/components.plist" | grep -c "RootRelativeBundlePath" || true)
 for ((i = 0; i < n; i++)); do
-    /usr/libexec/PlistBuddy -c "Delete :$i:BundleIsRelocatable" "$BUILD/components.plist" 2>/dev/null || true
-    /usr/libexec/PlistBuddy -c "Add :$i:BundleIsRelocatable bool false" "$BUILD/components.plist"
+    for key in BundleIsRelocatable BundleIsVersionChecked; do
+        /usr/libexec/PlistBuddy -c "Delete :$i:$key" "$BUILD/components.plist" 2>/dev/null || true
+        /usr/libexec/PlistBuddy -c "Add :$i:$key bool false" "$BUILD/components.plist"
+    done
 done
 STAGE="$BUILD/TI-Revive-$VERSION-mac"
 mkdir -p "$STAGE"
