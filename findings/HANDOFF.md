@@ -173,6 +173,10 @@ Done (dev, not user-tested; 324 tests, ctest 5/5): MemorySync::read_bank (E301: 
 program, all 128, stops on cancel/no reply) + VirusPlugin::download_bank (own thread, bank emptied then filled, old
 cache kept for unread slots, joined in terminate); BankDrop::sort_ram (E302: changed slots only, forgets the undo) +
 sort_ram_bank; browser menu leaves out entries that do not apply (no greyed ones). README + site updated. VM off.
+User test 2026-10-21 ~10:13 (dev 54799088): menu ok, download RAM B 127 s (original 131 s) ok; SORT WRONG - byte order,
+wrote 85 slots of RAM B (E303: the original ignores case). Fixed (test first, 325 green); re-sorting RAM B with the fix
+puts the original's order back. User idea: show the download's progress / time left on our LCD (the original shows it
+only on the Virus) - optional, ask.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 

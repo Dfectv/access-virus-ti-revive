@@ -345,3 +345,22 @@ TEST(bankdrop_sort_ram_writes_changed_only)
     gap[7].clear();
     CHECK(drop.sort_ram(1, gap).empty() && drop.sort_ram(4, bank).empty()); // not cached / not RAM
 }
+
+// the original sorts by name without regard to case (E303): its sorted RAM B has "eTalking M" before "EXLightsRD" and
+// "Felon    M" before "FMeUp   BC"; a bank already in that order needs no write
+TEST(bankdrop_sort_ignores_case)
+{
+    BankDrop drop;
+    std::vector<std::vector<uint8_t>> bank;
+    const char *names[] = {"eTalking M", "EXLightsRD", "Felon    M", "FMeUp   BC", "IconArp XM", "IOC 3-4 XM"};
+    for (int p = 0; p < 128; p++) {
+        char n[11];
+        snprintf(n, sizeof n, "Z%03d", p);
+        auto d = patch(p < 6 ? names[p] : n, p);
+        BankDrop::address(d, 2, p);
+        bank.push_back(d);
+    }
+    CHECK(drop.sort_ram(2, bank).empty());
+    auto lib = LibraryEdit::sort({bank[1], bank[0], bank[3], bank[2]});
+    CHECK(name_at(lib, 0) == "eTalking M" && name_at(lib, 1) == "EXLightsRD" && name_at(lib, 2) == "Felon    M");
+}

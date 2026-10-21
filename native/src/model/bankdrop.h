@@ -7,6 +7,7 @@
 // caller locks.
 #pragma once
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <set>
 #include <string>
@@ -48,6 +49,12 @@ public:
         }
         checksums(r);
         return r;
+    }
+    // the original's name order: without regard to case (E303), spaces and other characters as they are
+    static bool name_less(const Patch &a, const Patch &b)
+    {
+        return std::lexicographical_compare(a.begin() + 249, a.begin() + 259, b.begin() + 249, b.begin() + 259,
+                                            [](uint8_t x, uint8_t y) { return std::tolower(x) < std::tolower(y); });
     }
     static void checksums(Patch &d)
     {
@@ -118,10 +125,7 @@ public:
                 return {};
             order[p] = p;
         }
-        std::stable_sort(order.begin(), order.end(), [&](int a, int b) {
-            return std::lexicographical_compare(current[a].begin() + 249, current[a].begin() + 259,
-                                                current[b].begin() + 249, current[b].begin() + 259);
-        });
+        std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return name_less(current[a], current[b]); });
         std::vector<Write> writes;
         for (int p = 0; p < SLOTS; p++)
             if (order[p] != p) {
@@ -244,16 +248,14 @@ struct LibraryEdit {
                 r[p].clear(), any = true;
         return any ? r : Lib{};
     }
-    // "Sort alphabetically" (E297 (F)): by name, the gaps closed, renumbered from 0
+    // "Sort alphabetically" (E297 (F)): by name like the original (case ignored, E303), gaps closed, renumbered
     static Lib sort(const Lib &lib)
     {
         Lib r;
         for (auto &d : lib)
             if (BankDrop::is_single(d))
                 r.push_back(d);
-        std::stable_sort(r.begin(), r.end(), [](const Patch &a, const Patch &b) {
-            return std::lexicographical_compare(a.begin() + 249, a.begin() + 259, b.begin() + 249, b.begin() + 259);
-        });
+        std::stable_sort(r.begin(), r.end(), BankDrop::name_less);
         for (int p = 0; p < (int)r.size(); p++)
             BankDrop::address(r[p], 0, p);
         return r;
