@@ -238,6 +238,8 @@ VM block DONE 2026-10-21 ~12:20: W3 pass on the new build (10:18Z, installed 10:
 W1 redone 10:12Z on CI 39577249656 (no start/audio change since); W2 pass. WC3.wav 256/256, -32 ppm, sd 9.14 ms, max 51 ms
 (VM USB timing as before; work/hil/vm-0.8.29). NEXT: Virus to the Mac, install ci3 without removing bundles (E305 check),
 MC1, MC3, M1-M4.
+Mac 2026-10-21 ~12:16: installed ci3 over ci2 WITHOUT removing bundles: VST3 b3706d1a.., AU a3526065.., broker e234fccc.. =
+the package (E305 fix VERIFIED). User testing MC1, MC3, M1-M4 now (diag.on set).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
