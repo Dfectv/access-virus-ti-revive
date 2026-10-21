@@ -1,7 +1,8 @@
 // bankdrop.h - patches dragged from one browser pane onto a RAM slot of the other, like the original (E294): each
 // source dump goes into the next slot from the drop target on, in order, cut at the bank's end, without asking; the
 // original changes nothing but bank/program (bytes 7, 8) and the checksums (bytes 10..12, the patch's origin, stay
-// as in the source). "Undo last operation" writes back what the last drop overwrote, once. Plus the browser's
+// as in the source). "Undo last operation" writes back what the last drop overwrote; used again it puts the drop
+// back, and so on - the original toggles within its last operation (E295). Plus the browser's
 // selection (click, Shift range, Ctrl toggle). Patches are 524-byte single dumps. Header only. Not thread safe: the
 // caller locks.
 #pragma once
@@ -60,21 +61,23 @@ public:
             undo.push_back({bank, s, std::move(old)});
         }
         undo_ = std::move(undo);
+        redo_ = writes;
         return writes;
     }
     bool can_undo() const { return !undo_.empty(); }
-    // "Undo last operation": the writes that restore the slots the last drop overwrote (then nothing to undo)
+    // "Undo last operation": the writes that restore the slots as they were before the last drop - or, the next
+    // time, as the drop left them (the original toggles, E295)
     std::vector<Write> take_undo()
     {
-        std::vector<Write> u;
-        u.swap(undo_);
+        std::vector<Write> u = undo_;
+        undo_.swap(redo_);
         return u;
     }
     // another store into RAM (SAVE, a bank read again): an undo would now write over newer patches
-    void forget() { undo_.clear(); }
+    void forget() { undo_.clear(), redo_.clear(); }
 
 private:
-    std::vector<Write> undo_;
+    std::vector<Write> undo_, redo_; // what the next undo writes, and what the one after it writes
 };
 
 // the browser's selected entries (programs 0..127 of the bank a pane shows)

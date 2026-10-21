@@ -98,17 +98,22 @@ TEST(bankdrop_cut_at_bank_end)
     CHECK(w[0].slot == 125 && w[2].slot == 127);
 }
 
-// undo writes back what the drop overwrote, addressed to the same slots, once
-TEST(bankdrop_undo_restores_overwritten)
+// undo writes back what the drop overwrote, addressed to the same slots (the old dump's bytes 10..12 kept); the
+// original's "Undo last operation" toggles: the next undo puts the dropped patches back, and so on (E295)
+TEST(bankdrop_undo_toggles_last_operation)
 {
     BankDrop drop;
     auto before = ram_bank(2);
-    drop.drop({patch("A", 0), patch("B", 1)}, 2, 10, before);
+    auto w = drop.drop({patch("A", 0), patch("B", 1)}, 2, 10, before);
     auto u = drop.take_undo();
     CHECK(u.size() == 2);
     CHECK(u[0].bank == 2 && u[0].slot == 10 && u[0].dump == before[10]);
     CHECK(u[1].bank == 2 && u[1].slot == 11 && u[1].dump == before[11]);
-    CHECK(!drop.can_undo() && drop.take_undo().empty()); // one level, like "Undo last operation"
+    CHECK(drop.can_undo());
+    auto r = drop.take_undo(); // again: the drop comes back
+    CHECK(r.size() == 2 && r[0].slot == 10 && r[0].dump == w[0].dump && r[1].dump == w[1].dump);
+    auto u2 = drop.take_undo(); // and again the old patches
+    CHECK(u2.size() == 2 && u2[0].dump == before[10] && u2[1].dump == before[11]);
 }
 
 // a later drop replaces the undo; another store into RAM (SAVE) clears it so undo never writes over newer patches
@@ -120,6 +125,7 @@ TEST(bankdrop_undo_is_last_operation_only)
     drop.drop({patch("B", 0)}, 0, 5, bank);
     auto u = drop.take_undo();
     CHECK(u.size() == 1 && u[0].slot == 5);
+    CHECK(drop.take_undo().size() == 1); // toggles within slot 5 only, never back to the first drop (slot 0)
     drop.drop({patch("C", 0)}, 0, 6, bank);
     drop.forget();
     CHECK(!drop.can_undo());

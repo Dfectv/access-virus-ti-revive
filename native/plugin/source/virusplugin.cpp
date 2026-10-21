@@ -2774,7 +2774,7 @@ bool VirusPlugin::undo_drop()
     if (w.empty())
         return false;
     if (out_)
-        out_->log("Virus TI native: undo of the last drop, %d slot(s) of RAM %c\n", (int)w.size(), 'A' + w[0].bank);
+        out_->log("Virus TI native: undo of the last operation, %d slot(s) of RAM %c\n", (int)w.size(), 'A' + w[0].bank);
     return send_ram_writes(w);
 }
 

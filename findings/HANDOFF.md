@@ -112,6 +112,9 @@ restored the 5 (one level: the earlier drop on 18 cannot be undone - OPEN: check
 undoes more than one step), +/- on the Virus to RAM A 18: right preset. Bug (old, also the part-strip drag): cursor
 stayed the copy hand after a drop until leaving the window - X11 VSTGUI delivers mouse-up inside its pointer grab;
 fix 79e2286 resets the cursor via doAfterEventProcessing; installed dev 5d9ec5c9.., user re-test pending.
+User re-test: cursor back to the arrow after a drop (also part strip), same-pane drag does nothing - pass.
+win10ref 2026-10-21 07:11 (E295): the original's undo TOGGLES within the last operation (old <-> dropped, any number
+of times), empty library entries drop nothing -> bankdrop.h take_undo now swaps undo/redo (test first, 312 green).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
