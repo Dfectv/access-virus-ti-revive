@@ -2784,6 +2784,29 @@ bool VirusPlugin::swap_in_ram(int bank, const std::vector<int> &programs, int sl
     return send_ram_writes(w);
 }
 
+// one dump to the slot with the new name, like the original (E297 (D)); its undo is not known: an earlier drop's
+// undo is forgotten as after a SAVE
+bool VirusPlugin::rename_in_ram(int bank, int program, const std::string &name)
+{
+    if (bank < 0 || bank > 3 || program < 0 || program > 127 || syncing_.load())
+        return false;
+    BankDrop::Patch d;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto b = banks_.find(bank);
+        if (b == banks_.end() || program >= (int)b->second.size())
+            return false;
+        d = BankDrop::renamed(b->second[program], name);
+        if (d.empty())
+            return false;
+        BankDrop::address(d, bank, program);
+        drop_.forget();
+    }
+    if (out_)
+        out_->log("Virus TI native: RAM %c %d renamed\n", 'A' + bank, program + 1);
+    return send_ram_writes({{bank, program, std::move(d)}});
+}
+
 bool VirusPlugin::can_undo_drop()
 {
     std::lock_guard<std::mutex> lk(banks_mu_);

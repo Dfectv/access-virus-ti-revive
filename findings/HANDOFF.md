@@ -126,6 +126,12 @@ NEXT (implementation, TDD, in this order): (1) same-pane drag = swap (single + b
 library = copy (file); (3) part strip -> RAM slot = store; (4) Alt+Click rename; (5) library menu: Delete selection
 (gap) + Sort alphabetically; RAM Sort only with care (128 dumps); (6) check our Create Empty Library placement (E217
 says the bank/patch menu; the original shows it in SAVE only). Download entire bank: = re-read that bank (read-only).
+Done 2026-10-21 (dev, not user-tested yet): (1) swap c9608d7 (same RAM bank, either pane; refused when the sets
+overlap / run past 128); (3) part strip name -> RAM slot = store_patch; (4) Alt+Click rename in RAM (renamed(): name
+only + checksums, one dump; forgets the undo); (7) Create Empty Library only in SAVE (README + site texts updated, also
+the new browser bullet). 316 tests, ctest 5/5. Left: (2)/(5) library copy/delete/sort/rename - need one more
+recording: is a library position the program byte (delete left a gap with 2 dumps in the file; G kept byte 27)?
+(6) Download entire bank (forced re-read past the fingerprints) - greyed for now.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 

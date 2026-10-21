@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <set>
+#include <string>
 #include <vector>
 
 namespace vti {
@@ -32,6 +33,24 @@ public:
     static void address(Patch &d, int bank, int slot)
     {
         d[7] = (uint8_t)(bank + 1), d[8] = (uint8_t)slot;
+        checksums(d);
+    }
+    // the patch with another name (10 characters; printable ASCII, the rest spaces), nothing else changed but the
+    // checksums - the original's Alt+Click rename in RAM (E297 (D)); empty if `d` is no single dump
+    static Patch renamed(const Patch &d, const std::string &name)
+    {
+        if (!is_single(d))
+            return {};
+        Patch r = d;
+        for (size_t i = 0; i < 10; i++) {
+            const unsigned char c = i < name.size() ? (unsigned char)name[i] : ' ';
+            r[249 + i] = c >= 32 && c < 127 ? c : ' ';
+        }
+        checksums(r);
+        return r;
+    }
+    static void checksums(Patch &d)
+    {
         unsigned a = 0;
         for (int i = 5; i < 265; i++)
             a += d[i];

@@ -254,7 +254,13 @@ same with Access' own driver.
   original's plug-in ID; tested in Ableton Live 11 and 12, also a Windows project on the Mac); the saved state is byte
   for byte the same. Projects with the original's VST2 version do not open: TI Revive is VST3 only.
 - **LOAD menu:** the original's "Revert to" (back to the patch before the last load, edits included) and "Recently
-  Used" (the last 10 patches of each part); Personal Libraries has "Create Empty Library" (since 0.8.25).
+  Used" (the last 10 patches of each part); "Create Empty Library" is in the SAVE menu's Personal Libraries, as in the
+  original (since 0.8.25; until 0.8.28 also in LOAD and the browser).
+- **Browser drag and drop like the original** (since 0.8.29): drag one or several patches (Shift = range, Ctrl = single
+  entries) from a library onto a RAM slot in the other pane, or drag a part's patch name onto a RAM slot; within one
+  RAM bank a drag swaps the patches; Alt+click renames a RAM patch; right-click "Undo last operation" toggles the
+  last change. Program +/- on the Virus then reaches those patches (it only steps through the Virus' own banks, in the
+  original too).
 
 <p align="center">
   <img src="docs/images/plugin-menus.png" alt="The LOAD menu: the device entry, the bank list and RAM A's 128 patches in columns, beyond the plug-in window" width="680"><br>

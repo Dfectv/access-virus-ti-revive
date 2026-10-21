@@ -506,7 +506,13 @@ def features_section():
         Live 11 and 12, also a Windows project on the Mac); the saved state is byte for byte the same. Projects with the
         original's VST2 version do not open: TI Revive is VST3 only.</li>
         <li>The LOAD menu has the original's "Revert to" (back to the patch before the last load, edits included) and
-        "Recently Used" (the last 10 patches of each part); Personal Libraries has "Create Empty Library" (since 0.8.25).</li>
+        "Recently Used" (the last 10 patches of each part); "Create Empty Library" is in the SAVE menu's Personal
+        Libraries, as in the original (since 0.8.25; until 0.8.28 also in LOAD and the browser).</li>
+        <li>Browser drag and drop like the original (since 0.8.29): drag one or several patches (Shift = range, Ctrl =
+        single entries) from a library onto a RAM slot in the other pane, or drag a part's patch name onto a RAM slot;
+        within one RAM bank a drag swaps the patches; Alt+click renames a RAM patch; right-click "Undo last operation"
+        toggles the last change. Program +/- on the Virus then reaches those patches (it only steps through the Virus'
+        own banks, in the original too).</li>
         <li>Presets and soft knobs chosen on the Virus itself are followed, as in the original.</li>
         <li>Three stereo outputs over USB, plus the analog outputs of the Virus.</li>
         <li>Audio from your DAW through the filters and effects of the Virus (sidechain input), as in the original.</li>

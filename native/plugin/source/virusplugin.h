@@ -304,6 +304,7 @@ public:
     bool drop_to_ram(int src_bank, const std::vector<int> &programs, int bank, int slot);
     // a drag within one RAM bank: `programs` swap places with the slots from `slot` on (E297); false = nothing sent
     bool swap_in_ram(int bank, const std::vector<int> &programs, int slot);
+    bool rename_in_ram(int bank, int program, const std::string &name); // Alt+Click in the browser (E297 (D))
     bool can_undo_drop();
     bool undo_drop(); // "Undo last operation": writes back what the last drop overwrote
     // the part's patch into a personal library (slot = position, == size: append) - writes the library file

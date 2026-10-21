@@ -1408,6 +1408,12 @@ public:
         if (e.type == "PatchBrowser") {
             int prog = EditorRenderer::browser_entry(h, (int)event.mousePosition.x, (int)event.mousePosition.y);
             int bank = plugin_->ui_value(e.get("Parameter"), -1);
+            if (prog >= 0 && event.modifiers.has(ModifierKey::Alt)) { // Alt+Click: rename (RAM; libraries later)
+                if (bank >= 0 && bank < 4)
+                    edit_browser_name(h, bank, prog);
+                event.consumed = true;
+                return;
+            }
             if (prog >= 0) {
                 const bool shift = event.modifiers.has(ModifierKey::Shift), ctrl = event.modifiers.has(ModifierKey::Control);
                 dnd_bank_ = bank, dnd_prog_ = prog;
@@ -1569,6 +1575,12 @@ public:
                 plugin_->load_patch_remembered(dnd_bank_, dnd_prog_, t.part);
             else if (dnd_prog_ >= 0 && t.element && t.element->type == "PatchBrowser")
                 drop_on_browser(t, x, y);
+            else if (drag_.element->type == "NameEdit" && t.element && t.element->type == "PatchBrowser") {
+                // a part's patch dropped on a RAM slot: stored there, like SAVE (the original's Tutorial)
+                const int bank = plugin_->ui_value(t.element->get("Parameter"), -1), slot = EditorRenderer::browser_entry(t, x, y);
+                if (bank >= 0 && bank < 4 && slot >= 0)
+                    plugin_->store_patch(drag_.part, bank, slot);
+            }
             dnd_ = false;
         }
         if (drag_.element && drag_.element->type == "PatchBrowser" && dnd_prog_ >= 0) {
@@ -1593,11 +1605,14 @@ public:
                 invalid();
                 return;
             }
-            if (edit_param_.empty())
+            if (edit_bank_ >= 0)
+                plugin_->rename_in_ram(edit_bank_, edit_prog_, t);
+            else if (edit_param_.empty())
                 plugin_->rename_part(edit_part_, t);
             else // a REMOTE page field: saved with the templates and sent like the original's
                 plugin_->set_remote_text(edit_param_, t);
             edit_param_.clear();
+            edit_bank_ = -1;
             remove_edit(te); // after the current event
             invalid();
         }
@@ -1771,6 +1786,7 @@ private:
     }
     int edit_part_ = 0;
     std::string edit_param_; // edit_name: the REMOTE page field being edited, empty for a patch name
+    int edit_bank_ = -1, edit_prog_ = -1; // edit_browser_name: the RAM slot being renamed (-1: none)
     std::vector<CRect> meter_rects_; // the part strips' meters
     EditorRenderer::Deps deps_;      // what the controls read (filled by full repaints)
     struct StaticLayer {
@@ -1845,9 +1861,12 @@ private:
             vti::PopupItem entry("", true, std::move(patches));
             (*libs)[vti::popup_add_path(lib, plugin_->library_name(i), std::move(entry), folders)] = i;
         }
-        lib.push_back(vti::PopupItem::line()); // as in the original (0x180041a10): a separator, then the entry
-        const int create = (int)lib.size();
-        lib.push_back({kCreateLibrary});
+        int create = -1; // only SAVE has it, after a separator (0x180041a10; the original's menus, E297 (C))
+        if (save) {
+            lib.push_back(vti::PopupItem::line());
+            create = (int)lib.size();
+            lib.push_back({kCreateLibrary});
+        }
         std::vector<vti::PopupItem> items;
         int part = h.part;
         // LOAD only, like the original (E220): "Revert to "<name>"" after a load, "Recently Used" > "<n> <name>"
@@ -1924,9 +1943,7 @@ private:
         std::map<std::string, std::vector<int>> folders;
         for (int i = 0; i < plugin_->library_count(); i++)
             (*libs)[vti::popup_add_path(lib, plugin_->library_name(i), {""}, folders)] = i;
-        lib.push_back(vti::PopupItem::line()); // as in the original (0x180041a10): a separator, then the entry
-        const int create = (int)lib.size();
-        lib.push_back({kCreateLibrary});
+        const int create = -1; // the browser's bank menu has no "Create Empty Library" (only SAVE has, E297 (C))
         std::vector<vti::PopupItem> items;
         items.push_back({plugin_->device_name(), true, std::move(dev)});
         items.push_back({"Personal Libraries", true, std::move(lib)});
@@ -2018,6 +2035,7 @@ private:
             return;
         edit_part_ = h.part;
         edit_param_ = param;
+        edit_bank_ = -1;
         editing_search_ = false;
         CRect r(h.x, h.y, h.x + h.element->w, h.y + h.element->h);
         std::string text = param.empty() ? plugin_->patch_name(h.part) : plugin_->live_text(param);
@@ -2031,6 +2049,30 @@ private:
             te->setHoriAlign(kLeftText);
             te->setTextInset(CPoint(1, 0));
         }
+        f->addView(te);
+        te->takeFocus();
+    }
+
+    // Alt+Click on a RAM entry in the browser: a field over the entry (the browser table's geometry,
+    // EditorRenderer::patch_browser), committed like the part name's
+    void edit_browser_name(const Hit &h, int bank, int prog)
+    {
+        auto *f = getFrame();
+        if (!f)
+            return;
+        edit_bank_ = bank, edit_prog_ = prog;
+        edit_param_.clear();
+        editing_search_ = false;
+        const int nx = h.x + 21 + (prog / 16) * 84, ny = h.y + 1 + (prog % 16) * 11;
+        CRect r(nx - 2, ny - 1, nx + 61, ny + 11);
+        std::string text = plugin_->bank_patch(bank, prog);
+        auto *te = new CTextEdit(r, this, 0, text.c_str());
+        te->setBackColor(CColor(255, 255, 255, 255));
+        te->setFontColor(CColor(0, 0, 0, 255));
+        te->setFrameColor(CColor(255, 255, 255, 255));
+        te->setFont(makeOwned<CFontDesc>(kSystemFont->getName(), text_field_font(r.getHeight())));
+        te->setHoriAlign(kLeftText);
+        te->setTextInset(CPoint(1, 0));
         f->addView(te);
         te->takeFocus();
     }

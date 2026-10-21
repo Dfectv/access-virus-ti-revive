@@ -228,3 +228,22 @@ TEST(bankdrop_swap_refuses)
     auto u = drop.take_undo();
     CHECK(u.size() == 1 && u[0].slot == 0);
 }
+
+// Alt+Click rename of a RAM patch (E297 (D)): one dump with the new name (10 characters, printable ASCII, padded with
+// spaces), everything else as before - bytes 10..12 included - and both checksums new
+TEST(bankdrop_renamed)
+{
+    auto d = patch("Bubble PX", 24, 0x00, 0x01, 0x46);
+    BankDrop::address(d, 0, 24);
+    auto r = BankDrop::renamed(d, "RenTest");
+    CHECK(r.size() == 524 && std::string(r.begin() + 249, r.begin() + 259) == "RenTest   ");
+    CHECK(r[10] == 0x00 && r[11] == 0x01 && r[12] == 0x46 && r[7] == 1 && r[8] == 24 && checksums_ok(r));
+    for (int i = 0; i < 524; i++)
+        if (i < 249 || (i >= 259 && i != 265 && i != 522))
+            CHECK(r[i] == d[i]);
+    auto longer = BankDrop::renamed(d, "A very long name");
+    CHECK(std::string(longer.begin() + 249, longer.begin() + 259) == "A very lon");
+    auto u = BankDrop::renamed(d, "Ä\tx");
+    CHECK(u[249] == ' ' && u[250] == ' ' && u[251] == ' ' && u[252] == 'x'); // UTF-8 bytes and controls -> spaces
+    CHECK(BankDrop::renamed(std::vector<uint8_t>(10), "X").empty()); // not a single dump
+}
