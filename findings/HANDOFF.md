@@ -157,6 +157,12 @@ the translucent table; our own digits (since baa6282) doubled them in both table
 2026-10-21 08:39: the Virus hung on USB again (E300 = E136 repeated, after a give-back reset + snd-usb-audio
 hand-over; first write of the next broker failed, then error -71) - user power-cycles. Own round item: look at the
 give-back reset in vti_close (rate-limit / skip / no snd-usb-audio rebind) - evidence first, not mixed into the browser work.
+User test 2026-10-21 ~09:05 (REAPER Linux, dev 30f53946 = 5bafadd): numbers single (E299; the tight 3-digit numbers
+in the last columns are the original's look - user: leave it), OS5 gaps like the original, drag highlight, drops into
+libraries (LinuxTest/LinuxTest2), undo toggles, swap in RAM, rename RAM + library, delete selection (gap), sort -
+ALL PASS ('all tests done. Looks good!'). Only LinuxTest*.mid changed among the library files; RAM A index 0, 1, 7, 18
+touched by the test. Open in round 0.8.29: Download entire bank (greyed), RAM sort (greyed), give-back reset (E300),
+then CI build + round checklist (Windows VM, Mac) + Reddit reply.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
