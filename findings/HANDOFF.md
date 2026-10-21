@@ -166,6 +166,9 @@ then CI build + round checklist (Windows VM, Mac) + Reddit reply.
 Download entire bank recorded 2026-10-21 09:45 (E301): 128 x (74 01 7E 04 + 30 0b pp -> 10 0b pp), ~1 s each, always all
 128, entries emptied then filled; RAM backup before (work/libdrag/ram-backup-20261021-0921, all 4 banks). Next: RAM sort
 recording (user picks a bank), then implement both.
+RAM sort recorded 09:51 (E302): only changed slots written (RAM B: 4 dumps), no question, no undo afterwards; the menu
+HIDES entries that do not apply (no greyed Undo). Implement: Download bank (E301), RAM sort (E302), menu without greyed
+entries; then VM off.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
