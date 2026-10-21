@@ -215,6 +215,8 @@ Mac: unreachable (ssh timeout) - push work/ci/39577249656/TI-Revive-mac zip when
 Checklist republished 2026-10-21 ~11:41 (same link, version 2): https://claude.ai/artifact/FPLV3yBfZW6E25dP2Mdx5P - spec
 scripts/checklists/round-0.8.29.json: L1, L2 (browser + #10 short on CI); VM WC1, WC3, W1, W2 (browser), W3 (Ableton
 Configure #10); Mac MC1, MC3, M1, M2, M3 (browser), M4 (Configure #10). hil.sh running on the CI build.
+hil.sh on the CI build 2026-10-21 11:39: H1 cold, H2 reopen x2, H3 export, H6 broker kill ALL PASS (max 1.20 ms, jitter
+0.41 ms; work/hil/20261021-113937). Linux core items done; L1/L2 by the user.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
