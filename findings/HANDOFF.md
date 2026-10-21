@@ -119,6 +119,13 @@ Reddit (Deranger604, 2026-10-21 2:30): 'it doesn't stick with the bank loaded in
 like that' -> E296: manuals + web say nothing of the kind, the Tutorial describes the RAM favourites drag; reply drafted
 (user sends). Tutorial lists more browser functions (E296 (2)): same-bank drag = SWAP (ours ignores it - fix), copy
 library->library, Alt+Click rename, delete selected (libraries), sort. NEXT: record those in win10ref, then implement.
+Recorded 2026-10-21 07:27-07:42 (E297): swap single/block (source slots first), Create Empty Library only in SAVE,
+copy into a library (file only), Alt+Click rename (RAM: one dump; library: file), delete leaves a gap, sort closes it
+and renumbers, RAM -> library keeps the dump (program byte too). win10ref off, Virus on Linux, broker socket active.
+NEXT (implementation, TDD, in this order): (1) same-pane drag = swap (single + block) instead of ignore; (2) drag into a
+library = copy (file); (3) part strip -> RAM slot = store; (4) Alt+Click rename; (5) library menu: Delete selection
+(gap) + Sort alphabetically; RAM Sort only with care (128 dumps); (6) check our Create Empty Library placement (E217
+says the bank/patch menu; the original shows it in SAVE only). Download entire bank: = re-read that bank (read-only).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
