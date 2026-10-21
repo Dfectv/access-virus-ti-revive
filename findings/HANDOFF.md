@@ -154,6 +154,9 @@ onto library slots, Alt+Click rename in libraries, browser menu Delete selection
 Decided without evidence: a RAM -> library drop takes the target position (E297 (G) kept 27 - target not known).
 User saw doubled browser numbers (b7d188fd): E299 - the numbers are baked into BG_Page_Browser and show through
 the translucent table; our own digits (since baa6282) doubled them in both tables. digits() removed (test first).
+2026-10-21 08:39: the Virus hung on USB again (E300 = E136 repeated, after a give-back reset + snd-usb-audio
+hand-over; first write of the next broker failed, then error -71) - user power-cycles. Own round item: look at the
+give-back reset in vti_close (rate-limit / skip / no snd-usb-audio rebind) - evidence first, not mixed into the browser work.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
