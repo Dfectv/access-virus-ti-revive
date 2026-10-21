@@ -179,6 +179,11 @@ puts the original's order back. User idea: show the download's progress / time l
 only on the Virus) - optional, ask.
 User: yes -> download_progress() ('37 / 128, about 1:31 left', test) on our LCD while downloading, then 'Download
 done/stopped'. README/site mention it.
+User test 2026-10-21 ~10:15 (dev c20a6678 = af82f34): sort RAM B with the fix wrote the 85 slots back, our cache =
+the original's order (0 differences); sort again: 0 slots; download 128 s with LCD progress ('LCD looked good'), the
+bank read back from the Virus = the original's order, no empty slot - ALL PASS. The browser now has every function of
+the original's browser we know of (E294-E303). Still open in round 0.8.29: E300 give-back reset; push + CI build;
+round checklist (Windows VM, Mac); Reddit reply; RAM A/B contents back to the user's pre-test state (old caches).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
