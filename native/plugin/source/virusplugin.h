@@ -302,6 +302,8 @@ public:
     // browser drag and drop onto a RAM slot of the other pane (E294): `programs` of `src_bank` into RAM `bank` from
     // `slot` on, like the original; false = nothing sent (no RAM target, not synced, bank sync running)
     bool drop_to_ram(int src_bank, const std::vector<int> &programs, int bank, int slot);
+    // a drag within one RAM bank: `programs` swap places with the slots from `slot` on (E297); false = nothing sent
+    bool swap_in_ram(int bank, const std::vector<int> &programs, int slot);
     bool can_undo_drop();
     bool undo_drop(); // "Undo last operation": writes back what the last drop overwrote
     // the part's patch into a personal library (slot = position, == size: append) - writes the library file

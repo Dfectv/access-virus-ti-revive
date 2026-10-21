@@ -182,3 +182,49 @@ TEST(browserselection_click_shift_ctrl)
     s.clear();
     CHECK(s.items().empty());
 }
+
+// a drag within the same RAM bank swaps (E297 (A)): the source slot gets the target's patch first, then the target
+// gets the source's; each dump keeps its bytes 10..12 (the patch's origin travels with it)
+TEST(bankdrop_swap_single)
+{
+    BankDrop drop;
+    auto bank = ram_bank(0);
+    auto w = drop.swap({25}, 0, 27, bank);
+    CHECK(w.size() == 2);
+    CHECK(w[0].slot == 25 && same_but_address(w[0].dump, bank[27]) && w[0].dump[8] == 25 && checksums_ok(w[0].dump));
+    CHECK(w[1].slot == 27 && same_but_address(w[1].dump, bank[25]) && w[1].dump[8] == 27 && checksums_ok(w[1].dump));
+    auto u = drop.take_undo(); // back: both slots as before
+    CHECK(u.size() == 2 && u[0].slot == 25 && u[0].dump == bank[25] && u[1].slot == 27 && u[1].dump == bank[27]);
+    CHECK(drop.take_undo().size() == 2); // toggles like a drop
+}
+
+// a block 24-26 onto 29 (E297 (B)): six dumps, 24, 25, 26 first (29-31's patches), then 29, 30, 31 (the old 24-26)
+TEST(bankdrop_swap_block)
+{
+    BankDrop drop;
+    auto bank = ram_bank(1);
+    auto w = drop.swap({24, 25, 26}, 1, 29, bank);
+    CHECK(w.size() == 6);
+    const int slots[] = {24, 25, 26, 29, 30, 31}, from[] = {29, 30, 31, 24, 25, 26};
+    for (int i = 0; i < 6 && i < (int)w.size(); i++)
+        CHECK(w[i].bank == 1 && w[i].slot == slots[i] && same_but_address(w[i].dump, bank[from[i]]));
+}
+
+// refused, the undo kept: the selection overlaps its target (the original's result is unknown), the target runs past
+// the bank's end, a slot is not cached, not a RAM bank, the target is the slot itself
+TEST(bankdrop_swap_refuses)
+{
+    BankDrop drop;
+    auto bank = ram_bank(0);
+    drop.drop({patch("A", 0)}, 0, 0, bank);
+    CHECK(drop.swap({24, 25, 26}, 0, 25, bank).empty());
+    CHECK(drop.swap({10, 11, 12}, 0, 126, bank).empty());
+    CHECK(drop.swap({5}, 0, 5, bank).empty());
+    CHECK(drop.swap({5}, 4, 9, bank).empty());
+    CHECK(drop.swap({}, 0, 9, bank).empty());
+    auto gap = bank;
+    gap[9].clear();
+    CHECK(drop.swap({5}, 0, 9, gap).empty());
+    auto u = drop.take_undo();
+    CHECK(u.size() == 1 && u[0].slot == 0);
+}

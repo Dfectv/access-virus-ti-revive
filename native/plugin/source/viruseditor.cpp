@@ -1567,7 +1567,7 @@ public:
                 plugin_->copy_part(drag_.part, t.part);
             else if (strip && dnd_prog_ >= 0)
                 plugin_->load_patch_remembered(dnd_bank_, dnd_prog_, t.part);
-            else if (dnd_prog_ >= 0 && t.element && t.element->type == "PatchBrowser" && t.element != drag_.element)
+            else if (dnd_prog_ >= 0 && t.element && t.element->type == "PatchBrowser")
                 drop_on_browser(t, x, y);
             dnd_ = false;
         }
@@ -2160,8 +2160,9 @@ private:
         renderer_.selected[bank] = std::set<int>(items.begin(), items.end());
     }
 
-    // the dragged selection dropped on a slot of the other pane: written into the slots from there on when that pane
-    // shows a RAM bank (the original, E294); ROM, libraries and the search results take no drop
+    // the dragged selection dropped on a browser slot showing a RAM bank: from another bank it is written into the
+    // slots from there on (E294), within the same bank it swaps places with them (E297); ROM, libraries and the
+    // search results take no drop yet
     void drop_on_browser(const Hit &t, int x, int y)
     {
         const int bank = plugin_->ui_value(t.element->get("Parameter"), -1), slot = EditorRenderer::browser_entry(t, x, y);
@@ -2170,7 +2171,10 @@ private:
         auto programs = browser_sel_[dnd_bank_].items();
         if (programs.empty())
             programs = {dnd_prog_};
-        plugin_->drop_to_ram(dnd_bank_, programs, bank, slot);
+        if (bank == dnd_bank_)
+            plugin_->swap_in_ram(bank, programs, slot);
+        else
+            plugin_->drop_to_ram(dnd_bank_, programs, bank, slot);
     }
 
     // the original's browser menu (E294 (4)): RAM/ROM "Undo last operation", "Download entire bank from Virus TI",

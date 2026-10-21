@@ -2758,6 +2758,32 @@ bool VirusPlugin::drop_to_ram(int src_bank, const std::vector<int> &programs, in
     return send_ram_writes(w);
 }
 
+bool VirusPlugin::swap_in_ram(int bank, const std::vector<int> &programs, int slot)
+{
+    if (syncing_.load()) { // see drop_to_ram
+        if (out_)
+            out_->log("Virus TI native: swap in RAM %c refused, bank sync running\n", 'A' + std::max(0, bank));
+        return false;
+    }
+    std::vector<BankDrop::Write> w;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto b = banks_.find(bank);
+        if (b == banks_.end())
+            return false;
+        w = drop_.swap(programs, bank, slot, b->second);
+    }
+    if (w.empty()) {
+        if (out_)
+            out_->log("Virus TI native: swap of %d slot(s) in RAM %c onto %d refused\n", (int)programs.size(),
+                      'A' + std::max(0, std::min(3, bank)), slot + 1);
+        return false;
+    }
+    if (out_)
+        out_->log("Virus TI native: %d slot(s) swapped in RAM %c with %d..\n", (int)programs.size(), 'A' + bank, slot + 1);
+    return send_ram_writes(w);
+}
+
 bool VirusPlugin::can_undo_drop()
 {
     std::lock_guard<std::mutex> lk(banks_mu_);

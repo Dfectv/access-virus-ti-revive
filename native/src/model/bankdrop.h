@@ -48,21 +48,44 @@ public:
         if (bank < 0 || bank >= BANKS || slot < 0 || slot >= SLOTS || sources.empty())
             return {};
         const int n = std::min((int)sources.size(), SLOTS - slot);
-        std::vector<Write> writes, undo;
+        std::vector<Write> writes;
         for (int i = 0; i < n; i++) {
-            const int s = slot + i;
-            if (!is_single(sources[i]) || s >= (int)current.size() || !is_single(current[s]))
+            if (!is_single(sources[i]))
                 return {};
             Patch d = sources[i];
-            address(d, bank, s);
-            writes.push_back({bank, s, std::move(d)});
-            Patch old = current[s];
-            address(old, bank, s);
-            undo.push_back({bank, s, std::move(old)});
+            address(d, bank, slot + i);
+            writes.push_back({bank, slot + i, std::move(d)});
         }
-        undo_ = std::move(undo);
-        redo_ = writes;
-        return writes;
+        return remember(std::move(writes), current);
+    }
+
+    // a drag within the same RAM bank (E297 (A), (B)): `programs` swap places with the slots from `slot` on, in
+    // order; first the selected slots get the target patches, then the targets get the selected ones, like the
+    // original. Refused when the two sets overlap or run past the bank's end (the original's result is not known).
+    std::vector<Write> swap(const std::vector<int> &programs, int bank, int slot, const std::vector<Patch> &current)
+    {
+        const int n = (int)programs.size();
+        if (bank < 0 || bank >= BANKS || n == 0 || slot < 0 || slot + n > SLOTS || (int)current.size() < SLOTS)
+            return {};
+        std::set<int> from(programs.begin(), programs.end());
+        if ((int)from.size() != n)
+            return {};
+        for (int i = 0; i < n; i++)
+            if (programs[i] < 0 || programs[i] >= SLOTS || from.count(slot + i) || !is_single(current[programs[i]]) ||
+                !is_single(current[slot + i]))
+                return {};
+        std::vector<Write> writes;
+        for (int i = 0; i < n; i++) {
+            Patch d = current[slot + i];
+            address(d, bank, programs[i]);
+            writes.push_back({bank, programs[i], std::move(d)});
+        }
+        for (int i = 0; i < n; i++) {
+            Patch d = current[programs[i]];
+            address(d, bank, slot + i);
+            writes.push_back({bank, slot + i, std::move(d)});
+        }
+        return remember(std::move(writes), current);
     }
     bool can_undo() const { return !undo_.empty(); }
     // "Undo last operation": the writes that restore the slots as they were before the last drop - or, the next
@@ -77,6 +100,22 @@ public:
     void forget() { undo_.clear(), redo_.clear(); }
 
 private:
+    // keeps what `writes` overwrite (from the cache `current`) for the undo; empty if a slot is not cached
+    std::vector<Write> remember(std::vector<Write> writes, const std::vector<Patch> &current)
+    {
+        std::vector<Write> undo;
+        for (auto &w : writes) {
+            if (w.slot >= (int)current.size() || !is_single(current[w.slot]))
+                return {};
+            Patch old = current[w.slot];
+            address(old, w.bank, w.slot);
+            undo.push_back({w.bank, w.slot, std::move(old)});
+        }
+        undo_ = std::move(undo);
+        redo_ = writes;
+        return writes;
+    }
+
     std::vector<Write> undo_, redo_; // what the next undo writes, and what the one after it writes
 };
 
