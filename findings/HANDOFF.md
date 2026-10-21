@@ -196,6 +196,9 @@ hands back (while open, 500 ms after), flush on editor close. Plug-in: while an 
 Bank/Patch) go to gestures_ instead of pending_; process() skips echoes; editor timer calls tick_gestures(). LIMIT: with
 the editor closed the old path (output parameter changes) - no UI-thread timer without an editor on Linux; a plug-in
 timer for Windows/macOS could follow. Test: REAPER 'last touched parameter' (Linux), Ableton Configure (Mac, win11).
+User test 2026-10-21 (REAPER Linux, dev 869f7690 = a81c568): knob on the Virus -> REAPER 'last touched' shows it; turning
+smooth (no echo jitter); Touch automation recorded from the Virus knob and played back - PASS. Ableton Configure mode
+(the reporter's case) still to test on the Mac / win11 in the round test.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
