@@ -138,6 +138,9 @@ Library only in SAVE - ALL PASS. User wish: a drop indicator while dragging like
 the original mid-drag). NEXT: one win10ref recording for libraries (position = program byte? where a drop lands in a
 library, onto an occupied library slot, mid-drag indicator) -> library copy/delete/sort/rename; Download entire bank;
 then CI build + round checklist (Windows, Mac).
+Library recording done 2026-10-21 08:14-08:22 (E298): position = program byte (gaps), drop overwrites and sets the
+byte, file sorted by byte, undo covers library ops, swap in a library, delete removes the dump; drag highlight =
+filled 66,111,204 + white text on source and target. BUG to fix first: our library reader uses file order.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
