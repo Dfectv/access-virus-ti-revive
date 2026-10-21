@@ -222,6 +222,9 @@ old diag.log -> diag.log.pre-0.8.29-ci2; the user runs the installer.
 Mac install 11:48: receipt 0.8.29 but VST3/AU NOT replaced (old 0.8.29 test build of yesterday, E305: BundleIsVersionChecked
 default) - workaround given (sudo rm -rf both bundles, install again); fix in mac-build-release.sh (version check off, needs
 the next CI package to verify).
+Fix committed in c3dda38 (1bde9ed had only E305/HANDOFF - the script edit was blocked by the gate hook). NEXT: user
+removes both bundles + installs again; Claude checks VST3 = 44e2d989.., AU = a7d8a2fe..; then Mac items MC1, MC3, M1-M4
+after Linux (L1, L2) and the VM (WC1, WC3, W1-W3). Branch not pushed since 2940ef8.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
