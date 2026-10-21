@@ -251,6 +251,10 @@ to Documents. DONE (user ok, 4b819dd): library_roots() reads all three (Windows/
 own menu in LOAD/SAVE/browser + bank title; Personal always shown (Create Empty Library), User/Public only with a library.
 Test library_roots_three; 332 tests, ctest 5/5 on Linux. Not run on hardware yet. Next: CI build, Mac re-test of M3.
 Still open: Create Empty Library's dialog on the Mac opened in ~/Downloads (Live's Documents permission? asked the user).
+CI run 39619240510 (4b819dd) all green (mac job needed one rerun: no runner, 'capacity constraints'); Mac installed
+17:13:34, receipt 0.8.29, VST3 c92d9622.., AU 1be78fe9.., broker e234fccc.. = pkg payload. Live has Full Disk Access (user),
+so not TCC; VSTGUI's NSSavePanel sets directoryURL correctly -> M3 re-test: check the 'Where' menu before Save.
+Mac pushes now also get INSTALL-COMMAND.txt + 'Install test build.command' in the extracted folder (user request).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
