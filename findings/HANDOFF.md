@@ -132,6 +132,12 @@ only + checksums, one dump; forgets the undo); (7) Create Empty Library only in 
 the new browser bullet). 316 tests, ctest 5/5. Left: (2)/(5) library copy/delete/sort/rename - need one more
 recording: is a library position the program byte (delete left a gap with 2 dumps in the file; G kept byte 27)?
 (6) Download entire bank (forced re-read past the fingerprints) - greyed for now.
+User test 2026-10-21 (REAPER Linux, dev d2576e9c = 0012093): swap single + block, undo toggled 5x (6 slots each),
+Alt+Click rename in RAM (the Virus shows it after a program change, E157), part name -> RAM 30 = stored, Create Empty
+Library only in SAVE - ALL PASS. User wish: a drop indicator while dragging like the original's (needs a screenshot of
+the original mid-drag). NEXT: one win10ref recording for libraries (position = program byte? where a drop lands in a
+library, onto an occupied library slot, mid-drag indicator) -> library copy/delete/sort/rename; Download entire bank;
+then CI build + round checklist (Windows, Mac).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
