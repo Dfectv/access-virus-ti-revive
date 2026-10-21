@@ -1556,7 +1556,9 @@ public:
     {
         const bool dragged = dnd_;
         if (dnd_ && drag_.element) { // dropped: onto a part strip (the part panel, x < 192) or a browser slot?
-            if (auto *f = getFrame())
+            // the cursor goes back after this event: X11 VSTGUI still holds the pointer grab here and releases it
+            // after the mouse-up, a cursor set inside the grab stayed on screen (the copy hand, user 2026-10-21)
+            if (auto *f = getFrame(); f && !f->doAfterEventProcessing([f]() { f->setCursor(kCursorDefault); }))
                 f->setCursor(kCursorDefault);
             const int x = (int)event.mousePosition.x, y = (int)event.mousePosition.y;
             Hit t = renderer_.hit_test(x, y);
