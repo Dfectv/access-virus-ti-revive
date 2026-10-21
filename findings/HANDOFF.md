@@ -225,6 +225,7 @@ the next CI package to verify).
 Fix committed in c3dda38 (1bde9ed had only E305/HANDOFF - the script edit was blocked by the gate hook). NEXT: user
 removes both bundles + installs again; Claude checks VST3 = 44e2d989.., AU = a7d8a2fe..; then Mac items MC1, MC3, M1-M4
 after Linux (L1, L2) and the VM (WC1, WC3, W1-W3). Branch not pushed since 2940ef8.
+Mac reinstalled (bundles removed first): VST3 44e2d989.., AU a7d8a2fe.., broker e234fccc.. = the CI package (11:34 build).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
