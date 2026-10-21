@@ -262,7 +262,7 @@ same with Access' own driver.
   last change. Program +/- on the Virus then reaches those patches (it only steps through the Virus' own banks, in the
   original too). Personal libraries work the same way (copy into them, swap, rename, "Delete selection", "Sort
   alphabetically"), and patches keep their positions with gaps like in the original. A RAM bank's right-click menu
-  has "Download entire bank from Virus TI" (reads all 128 again, about 2 minutes) and "Sort alphabetically" (writes
+  has "Download entire bank from Virus TI" (reads all 128 again, about 2 minutes, progress on the LCD) and "Sort alphabetically" (writes
   only the slots that change; like the original, it cannot be undone).
 
 <p align="center">

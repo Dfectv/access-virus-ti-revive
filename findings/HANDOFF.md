@@ -177,6 +177,8 @@ User test 2026-10-21 ~10:13 (dev 54799088): menu ok, download RAM B 127 s (origi
 wrote 85 slots of RAM B (E303: the original ignores case). Fixed (test first, 325 green); re-sorting RAM B with the fix
 puts the original's order back. User idea: show the download's progress / time left on our LCD (the original shows it
 only on the Virus) - optional, ask.
+User: yes -> download_progress() ('37 / 128, about 1:31 left', test) on our LCD while downloading, then 'Download
+done/stopped'. README/site mention it.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 

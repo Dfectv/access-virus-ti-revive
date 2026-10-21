@@ -2930,14 +2930,28 @@ bool VirusPlugin::download_bank(int bank)
                 old[p] = b[p], b[p].clear();
             drop_.forget(); // the bank is read again: an undo could write over it
         }
+        // our LCD shows the progress and the time left (the original shows it only on the Virus; user wish)
+        const int64_t t0 = now_ms();
+        auto lcd = [this, bank](const std::string &param, const std::string &value) {
+            std::lock_guard<std::mutex> lk(values_mu_);
+            lcd_param_ = param, lcd_value_ = value;
+            lcd_part_.clear(), lcd_orig_.clear();
+            lcd_dirty_ = true;
+        };
+        const std::string what = "Downloading " + bank_name(bank);
+        lcd(what, download_progress(0, 0));
         ui_dirty_ = true;
         if (out_)
             out_->log("Virus TI native: download of RAM %c started\n", 'A' + bank);
         int n = sync_->read_bank(bank + 1, cache, [&](int p) {
-            std::lock_guard<std::mutex> lk(banks_mu_);
-            banks_[bank][p] = cache[p];
+            {
+                std::lock_guard<std::mutex> lk(banks_mu_);
+                banks_[bank][p] = cache[p];
+            }
+            lcd(what, download_progress(p + 1, now_ms() - t0));
             ui_dirty_ = true;
         }, &stop_warm_);
+        lcd(n == 128 ? "Download done" : "Download stopped", "");
         {
             std::lock_guard<std::mutex> lk(banks_mu_);
             auto &b = banks_[bank];

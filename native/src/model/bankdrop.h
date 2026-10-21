@@ -8,6 +8,7 @@
 #pragma once
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <cstdint>
 #include <set>
 #include <string>
@@ -189,6 +190,20 @@ private:
     int lib_ = -1;                   // a library undo: the library, its patches before and after the operation
     std::vector<Patch> lib_undo_, lib_redo_;
 };
+
+// the LCD text while "Download entire bank" runs: "37 / 128, about 1:31 left" - the time left from the average per
+// program so far, before the first reply the original's pace (131 s for 128, E301)
+inline std::string download_progress(int done, long long elapsed_ms)
+{
+    std::string t = std::to_string(done) + " / 128";
+    if (done >= 128)
+        return t;
+    const double per = done > 0 ? elapsed_ms / 1000.0 / done : 131.0 / 128;
+    const int left = (int)(per * (128 - done) + 0.5);
+    char b[32];
+    snprintf(b, sizeof b, ", about %d:%02d left", left / 60, left % 60);
+    return t + b;
+}
 
 // operations on a personal library's patches by position (empty = a gap), like the original's browser (E297, E298):
 // files only, nothing goes to the Virus. Each returns the library's new patches, empty when refused.

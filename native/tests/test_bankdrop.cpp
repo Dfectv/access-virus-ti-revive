@@ -364,3 +364,13 @@ TEST(bankdrop_sort_ignores_case)
     auto lib = LibraryEdit::sort({bank[1], bank[0], bank[3], bank[2]});
     CHECK(name_at(lib, 0) == "eTalking M" && name_at(lib, 1) == "EXLightsRD" && name_at(lib, 2) == "Felon    M");
 }
+
+// the LCD while a bank is downloaded (user wish 2026-10-21; the original shows progress only on the Virus): programs
+// read and the time left - from the average so far, before the first reply the original's pace (131 s / 128, E301)
+TEST(download_progress_text)
+{
+    CHECK(download_progress(0, 0) == "0 / 128, about 2:11 left");
+    CHECK(download_progress(37, 37000) == "37 / 128, about 1:31 left");
+    CHECK(download_progress(127, 130000) == "127 / 128, about 0:01 left");
+    CHECK(download_progress(128, 131000) == "128 / 128");
+}
