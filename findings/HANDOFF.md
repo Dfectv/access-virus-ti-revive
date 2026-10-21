@@ -107,6 +107,11 @@ Download bank / Sort / Delete selection greyed). Not verified with the original:
 ROM/library targets (no drop), Ctrl selections with gaps (ascending order), older library formats (upgraded first).
 Installed: ~/.vst3 = this dev build (sha a3d67ecf..), previous in ~/.vst3-backup/0.8.29-before-drop. NEXT: user smoke
 test in REAPER (Linux), then risk.py / checklist item, CI.
+User smoke test 2026-10-21 ~00:20 (REAPER, dev a3d67ecf): drop 1 onto RAM A 18 and 5 onto 19-23 (diag.log), undo
+restored the 5 (one level: the earlier drop on 18 cannot be undone - OPEN: check in win10ref whether the original
+undoes more than one step), +/- on the Virus to RAM A 18: right preset. Bug (old, also the part-strip drag): cursor
+stayed the copy hand after a drop until leaving the window - X11 VSTGUI delivers mouse-up inside its pointer grab;
+fix 79e2286 resets the cursor via doAfterEventProcessing; installed dev 5d9ec5c9.., user re-test pending.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
