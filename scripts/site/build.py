@@ -362,8 +362,8 @@ def page_landing(latest, releases, sums):
       for the Access files (measured {COVERAGE_DATE}).</p></div>
       <div><h3>On the synth</h3><p>Changes that touch the Virus are tried on our TI2 Desktop before a release; the
       release notes say on which systems and in which DAWs.</p></div>
-      <div><h3>Your reports</h3><p>The soft knobs (0.8.7, 0.8.8) and the third USB output (0.8.9) were fixed after a
-      user's report. <a href="#support">Bug reports</a> and <a href="{GH}/issues/new?template=test_report.yml">test
+      <div><h3>Your reports</h3><p>The soft knobs (0.8.7, 0.8.8), the third USB output (0.8.9) and knobs on the Virus
+      in Ableton's Configure mode (0.8.29) were fixed after a user's report. <a href="#support">Bug reports</a> and <a href="{GH}/issues/new?template=test_report.yml">test
       reports</a> from other setups show us what to fix next.</p></div>
     </div>
   </div>
@@ -516,7 +516,9 @@ def features_section():
         selection", "Sort alphabetically"), and patches keep their positions with gaps like in the original. A RAM
         bank's right-click menu has "Download entire bank from Virus TI" (reads all 128 again, about 2 minutes, progress on the LCD) and
         "Sort alphabetically" (writes only the slots that change; like the original, it cannot be undone).</li>
+        <li>Patch libraries from the original's three places, each its own menu (since 0.8.29): Personal Libraries (your Documents folder), User Libraries and Public Libraries. On the Mac the factory libraries that Access installs in /Library/Application Support appear under Public Libraries. On Linux only Personal Libraries.</li>
         <li>Presets and soft knobs chosen on the Virus itself are followed, as in the original.</li>
+        <li>Knobs you turn on the Virus reach your DAW like the plug-in's own knobs while the plug-in window is open (since 0.8.29, <a href="{GH}/issues/10">issue #10</a>): Ableton Live's Configure mode adds them and automation records them. Tested in Ableton Live 11 (Windows 11, VM), Ableton Live 12 (macOS) and REAPER (Linux).</li>
         <li>Three stereo outputs over USB, plus the analog outputs of the Virus.</li>
         <li>Audio from your DAW through the filters and effects of the Virus (sidechain input), as in the original.</li>
         <li>A help mode: the ? button explains every control, and why a greyed-out one is inactive.</li>
@@ -573,7 +575,7 @@ def features_section():
         <thead><tr><th>16th notes at 120 BPM</th><th>On the grid</th><th>Jitter</th><th>Drift</th></tr></thead>
         <tbody>
           <tr><th>Linux, REAPER (0.8.27)</th><td>63 / 63</td><td>0.16 ms</td><td>-72 ppm</td></tr>
-          <tr><th>macOS, Ableton 12 (M3, 0.8.28)</th><td>256 / 256</td><td>0.19 ms</td><td>+1 ppm</td></tr>
+          <tr><th>macOS, Ableton 12 (M3, 0.8.29)</th><td>256 / 256</td><td>0.19 ms</td><td>0 ppm</td></tr>
           <tr><th>Windows 11, Ableton Live</th><td>480 / 480</td><td>0.04 ms</td><td>0 ppm</td></tr>
           <tr><th>Windows 11, Ableton Live 11 (0.8.24)</th><td>256 / 256</td><td>0.33 ms</td><td>-1 ppm</td></tr>
           <tr class="old"><th>Classic plug-in 0.7.x</th><td>first late, second missing</td><td>0.06 ms</td><td>n/a</td></tr>
@@ -703,7 +705,7 @@ def page_changelog_landing(releases):
 # the README's screenshots that the site shows too (copied at build time)
 SHARED_IMAGES = ["control-center.png", "control-center-nerd-mode.png", "plugin-help-mode.png", "plugin-help-inactive.png",
                  "plugin-menus.png"]
-TESTS = 305 # unit tests in native/tests (vtitests), as of 2026-10-20 (round 0.8.29)
+TESTS = 332 # unit tests in native/tests (vtitests), as of 2026-10-21 (round 0.8.29)
 # line coverage of vticore, measured like CI (no Access files, empty home): gcov over the test run
 COVERAGE, COVERAGE_DATE = "94 %", "16 Oct 2026"
 

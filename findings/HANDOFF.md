@@ -259,7 +259,10 @@ MAC BLOCK PASSED (E308): MC1, MC3, M1-M4 all pass; M3 re-test on 39619240510 pas
 ~/Documents/...). Checklist: all 13 marks pass (L1, L2, WC1, WC3, W1-W3, MC1, MC3, M1-M4). Not tested: the E307 change on
 Windows (menus from %APPDATA% / C:\ProgramData) -> checked by the user on win11, CI 39619240510 (setup.exe /quiet exit 0,
 C:\tirevive-test\0.8.29-ci3): LOAD + browser library menus 'works'. NEXT: release
-decision with the user; E300 option open; restore the user's RAM A/B (work/libdrag/ram-backup-20261021-0921).
+decision with the user (user: release now, then a new round); site check 2026-10-21 (agent + spot checks): TESTS 305->332, Mac timing
+row 0.8.29 (E308, 0 ppm, max 1.35 ms), README status row 0.04-0.33 ms / -72 to 0 ppm, new lines for #10 and the library
+folders (site + README identical), README got the 'Presets and soft knobs' line, release notes rewritten; site built locally,
+not deployed. E300 option open; restore the user's RAM A/B (work/libdrag/ram-backup-20261021-0921).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
