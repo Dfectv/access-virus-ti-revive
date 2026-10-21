@@ -208,6 +208,10 @@ hand-back 08:35:32 and the failed first write 08:39:54; the kernel's own resets 
 hung). Idle card now: PCM closed (PipeWire node suspended). Trigger unknown - options for the user: (1) passive flight
 recorder in the broker (recommended), (2) longer idle exit (fewer hand-backs, Virus later back as Linux sound card),
 (3) note only.
+CI run 39577249656 (2940ef8.. = round tip 7a4b98e + HANDOFF, version 0.8.29) ALL GREEN. Installed: Linux = CI
+(install.sh, plug-in dc13ca8b.., broker cdf3d914..; dev 869f7690 in ~/.vst3-backup/0.8.29-dev-869f7690); win11 VM =
+setup.exe /quiet exit 0 (C:\tirevive-test\0.8.29-ci; bundle entry visible, MSI entry SystemComponent=1), VM running;
+Mac: unreachable (ssh timeout) - push work/ci/39577249656/TI-Revive-mac zip when awake. Packages in work/ci/39577249656.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
