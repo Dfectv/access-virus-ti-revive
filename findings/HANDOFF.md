@@ -240,6 +240,11 @@ W1 redone 10:12Z on CI 39577249656 (no start/audio change since); W2 pass. WC3.w
 MC1, MC3, M1-M4.
 Mac 2026-10-21 ~12:16: installed ci3 over ci2 WITHOUT removing bundles: VST3 b3706d1a.., AU a3526065.., broker e234fccc.. =
 the package (E305 fix VERIFIED). User testing MC1, MC3, M1-M4 now (diag.on set).
+M3 (Mac): 'libraries not showing', Create Empty Library saved MacTest.mid to ~/Downloads. Found: our library_dir() on macOS =
+~/Documents/... only (has My Patches + New Library); the factory libraries are in /Library/Application Support/Access
+Music/Virus TI/Patches (Access installer; Tutorial's Mac path) - never read. The original has 'Personal' and 'Public
+Libraries' (E217). Possibly also no Documents access for Live (TCC) -> asked the user. REA sub-agent running on the
+original's library roots (Windows + Mac). Maybe the cause of an earlier user report of missing libraries.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
