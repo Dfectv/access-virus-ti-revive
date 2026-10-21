@@ -152,6 +152,8 @@ rename_in_library (file only, edit_library + save_library_file; SAVE to a librar
 onto library slots, Alt+Click rename in libraries, browser menu Delete selection (library, with a selection) + Sort
 (library; RAM sort still greyed), drag highlight (SelectedFont + fill 66,111,204 on source and target). 321 tests.
 Decided without evidence: a RAM -> library drop takes the target position (E297 (G) kept 27 - target not known).
+User saw doubled browser numbers (b7d188fd): E299 - the numbers are baked into BG_Page_Browser and show through
+the translucent table; our own digits (since baa6282) doubled them in both tables. digits() removed (test first).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 

@@ -351,7 +351,12 @@ TEST(editor_render_browser)
     g.r->selected[0] = {5};
     g.r->render(g.canvas);
     auto &c = g.canvas;
-    // 128 entries: program digits (filled pixels) and names; odd programs dimmed
+    // 128 entries: names, odd programs dimmed; no program numbers of its own - the original's are part of the page
+    // background and show through the translucent table (E299), drawing them again doubled them
+    size_t digit_pixels = 0;
+    for (auto &f : c.fills)
+        digit_pixels += f.c.r == 59 && f.c.g == 59 && f.c.b == 59;
+    CHECK(digit_pixels == 0);
     size_t dim = 0, full = 0;
     for (auto &b : c.blits)
         if (b.img == "font.png" && b.dy >= 265)
@@ -680,15 +685,10 @@ TEST(editor_value_texts)
     CHECK(g.r->menu_entries("Unknown/Param").empty());
 }
 
-TEST(editor_digits_and_status)
+TEST(editor_status_text)
 {
     Rig g;
     RecCanvas &c = g.canvas;
-    g.r->digits(c, 127, 100, 10);
-    CHECK(!c.fills.empty());
-    for (auto &f : c.fills)
-        CHECK(f.x <= 100 && f.x > 100 - 15 && f.y >= 10 && f.y < 15);
-    c.clear();
     g.r->status_text(c, "font.png", "OK", 0, 0, 60, 20);
     CHECK(c.blits.size() == 2);
     c.clear();
