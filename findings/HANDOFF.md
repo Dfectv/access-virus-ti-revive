@@ -234,6 +234,10 @@ Pushed; CI run 39582553971 (version 0.8.29) started 2026-10-21 ~12:10. NEXT: ins
 CI 39582553971 ALL GREEN. Installed: win11 setup.exe /quiet exit 0, plug-in c45840bf.. = the new MSI's (Windows replaces
 same-version files; C:\tirevive-test\0.8.29-ci3); Linux install.sh, plug-in 90cf53f7..; Mac: pushed + unzipped in
 ~/Downloads/TI-Revive-0.8.29-ci3-mac, user installs WITHOUT removing bundles first (E305 check). Packages work/ci/39582553971.
+VM block DONE 2026-10-21 ~12:20: W3 pass on the new build (10:18Z, installed 10:17Z: only Filter 1 Cutoff added); WC1, WC3,
+W1 redone 10:12Z on CI 39577249656 (no start/audio change since); W2 pass. WC3.wav 256/256, -32 ppm, sd 9.14 ms, max 51 ms
+(VM USB timing as before; work/hil/vm-0.8.29). NEXT: Virus to the Mac, install ci3 without removing bundles (E305 check),
+MC1, MC3, M1-M4.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
