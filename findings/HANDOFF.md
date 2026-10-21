@@ -163,6 +163,9 @@ libraries (LinuxTest/LinuxTest2), undo toggles, swap in RAM, rename RAM + librar
 ALL PASS ('all tests done. Looks good!'). Only LinuxTest*.mid changed among the library files; RAM A index 0, 1, 7, 18
 touched by the test. Open in round 0.8.29: Download entire bank (greyed), RAM sort (greyed), give-back reset (E300),
 then CI build + round checklist (Windows VM, Mac) + Reddit reply.
+Download entire bank recorded 2026-10-21 09:45 (E301): 128 x (74 01 7E 04 + 30 0b pp -> 10 0b pp), ~1 s each, always all
+128, entries emptied then filled; RAM backup before (work/libdrag/ram-backup-20261021-0921, all 4 banks). Next: RAM sort
+recording (user picks a bank), then implement both.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
