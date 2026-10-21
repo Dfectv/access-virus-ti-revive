@@ -261,7 +261,9 @@ same with Access' own driver.
   RAM bank a drag swaps the patches; Alt+click renames a RAM patch; right-click "Undo last operation" toggles the
   last change. Program +/- on the Virus then reaches those patches (it only steps through the Virus' own banks, in the
   original too). Personal libraries work the same way (copy into them, swap, rename, "Delete selection", "Sort
-  alphabetically"), and patches keep their positions with gaps like in the original.
+  alphabetically"), and patches keep their positions with gaps like in the original. A RAM bank's right-click menu
+  has "Download entire bank from Virus TI" (reads all 128 again, about 2 minutes) and "Sort alphabetically" (writes
+  only the slots that change; like the original, it cannot be undone).
 
 <p align="center">
   <img src="docs/images/plugin-menus.png" alt="The LOAD menu: the device entry, the bank list and RAM A's 128 patches in columns, beyond the plug-in window" width="680"><br>

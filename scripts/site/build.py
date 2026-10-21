@@ -513,7 +513,9 @@ def features_section():
         within one RAM bank a drag swaps the patches; Alt+click renames a RAM patch; right-click "Undo last operation"
         toggles the last change. Program +/- on the Virus then reaches those patches (it only steps through the Virus'
         own banks, in the original too). Personal libraries work the same way (copy into them, swap, rename, "Delete
-        selection", "Sort alphabetically"), and patches keep their positions with gaps like in the original.</li>
+        selection", "Sort alphabetically"), and patches keep their positions with gaps like in the original. A RAM
+        bank's right-click menu has "Download entire bank from Virus TI" (reads all 128 again, about 2 minutes) and
+        "Sort alphabetically" (writes only the slots that change; like the original, it cannot be undone).</li>
         <li>Presets and soft knobs chosen on the Virus itself are followed, as in the original.</li>
         <li>Three stereo outputs over USB, plus the analog outputs of the Virus.</li>
         <li>Audio from your DAW through the filters and effects of the Virus (sidechain input), as in the original.</li>

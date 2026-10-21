@@ -929,6 +929,11 @@ tresult PLUGIN_API VirusPlugin::terminate()
     if (sync_thread_.joinable())
         sync_thread_.join();
     {
+        std::lock_guard<std::mutex> g(download_mu_);
+        if (download_thread_.joinable())
+            download_thread_.join();
+    }
+    {
         // the worker starts a reconnect thread in after_reconnect(): under the same lock, and not after stop_warm_,
         // so none starts after this join (a joinable std::thread destroyed = std::terminate; review M6)
         std::lock_guard<std::mutex> g(reconnect_mu_);
@@ -2728,7 +2733,7 @@ bool VirusPlugin::store_patch(int part, int bank, int program)
 
 bool VirusPlugin::drop_to_ram(int src_bank, const std::vector<int> &programs, int bank, int slot)
 {
-    if (syncing_.load()) { // the sync writes its read of the bank back at its end: it would undo the drop's cache
+    if (syncing_.load() || downloading_.load()) { // a sync/download writes its read of the bank back: it would undo the drop's cache
         if (out_)
             out_->log("Virus TI native: drop onto RAM %c refused, bank sync running\n", 'A' + std::max(0, bank));
         return false;
@@ -2760,7 +2765,7 @@ bool VirusPlugin::drop_to_ram(int src_bank, const std::vector<int> &programs, in
 
 bool VirusPlugin::swap_in_ram(int bank, const std::vector<int> &programs, int slot)
 {
-    if (syncing_.load()) { // see drop_to_ram
+    if (syncing_.load() || downloading_.load()) { // see drop_to_ram
         if (out_)
             out_->log("Virus TI native: swap in RAM %c refused, bank sync running\n", 'A' + std::max(0, bank));
         return false;
@@ -2788,7 +2793,7 @@ bool VirusPlugin::swap_in_ram(int bank, const std::vector<int> &programs, int sl
 // undo is forgotten as after a SAVE
 bool VirusPlugin::rename_in_ram(int bank, int program, const std::string &name)
 {
-    if (bank < 0 || bank > 3 || program < 0 || program > 127 || syncing_.load())
+    if (bank < 0 || bank > 3 || program < 0 || program > 127 || syncing_.load() || downloading_.load())
         return false;
     BankDrop::Patch d;
     {
@@ -2884,6 +2889,73 @@ bool VirusPlugin::sort_library(int library)
 bool VirusPlugin::rename_in_library(int library, int program, const std::string &name)
 {
     return edit_library(library, "rename", [&](const LibraryEdit::Lib &l) { return LibraryEdit::rename(l, program, name); });
+}
+
+bool VirusPlugin::sort_ram_bank(int bank)
+{
+    if (syncing_.load() || downloading_.load())
+        return false;
+    std::vector<BankDrop::Write> w;
+    {
+        std::lock_guard<std::mutex> lk(banks_mu_);
+        auto b = banks_.find(bank);
+        if (b == banks_.end())
+            return false;
+        w = drop_.sort_ram(bank, b->second);
+    }
+    if (out_)
+        out_->log("Virus TI native: RAM %c sorted, %d slot(s) written\n", 'A' + std::max(0, std::min(3, bank)), (int)w.size());
+    return w.empty() || send_ram_writes(w);
+}
+
+// the original (E301): the bank's entries are emptied, then filled one by one as the Virus answers (~1 s each); the
+// bank sync's request path with its pause while notes play. Stopped (plug-in closing, no reply): the entries not read
+// again keep their cached patches
+bool VirusPlugin::download_bank(int bank)
+{
+    if (bank < 0 || bank > 3 || !sync_ || !out_ || !out_->connected() || syncing_.load())
+        return false;
+    std::lock_guard<std::mutex> g(download_mu_);
+    if (downloading_.exchange(true))
+        return false;
+    if (download_thread_.joinable())
+        download_thread_.join(); // the previous one has ended (downloading_ was false)
+    download_thread_ = std::thread([this, bank] {
+        Bank old, cache;
+        {
+            std::lock_guard<std::mutex> lk(banks_mu_);
+            auto &b = banks_[bank];
+            b.resize(128);
+            for (int p = 0; p < 128; p++)
+                old[p] = b[p], b[p].clear();
+            drop_.forget(); // the bank is read again: an undo could write over it
+        }
+        ui_dirty_ = true;
+        if (out_)
+            out_->log("Virus TI native: download of RAM %c started\n", 'A' + bank);
+        int n = sync_->read_bank(bank + 1, cache, [&](int p) {
+            std::lock_guard<std::mutex> lk(banks_mu_);
+            banks_[bank][p] = cache[p];
+            ui_dirty_ = true;
+        }, &stop_warm_);
+        {
+            std::lock_guard<std::mutex> lk(banks_mu_);
+            auto &b = banks_[bank];
+            for (int p = 0; p < 128; p++)
+                if (cache[p].empty())
+                    b[p] = old[p];
+                else
+                    old[p] = cache[p];
+        }
+        std::string dir = own_cache_dir();
+        if (!dir.empty())
+            save_bank_file(dir + "/RAM " + (char)('A' + bank), old);
+        if (out_)
+            out_->log("Virus TI native: download of RAM %c %s\n", 'A' + bank, n == 128 ? "done" : "stopped");
+        ui_dirty_ = true;
+        downloading_ = false;
+    });
+    return true;
 }
 
 bool VirusPlugin::can_undo_drop()

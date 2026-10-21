@@ -314,3 +314,34 @@ TEST(bankdrop_undo_library)
     drop.drop({patch("A", 0)}, 0, 0, ram_bank(0));
     CHECK(drop.undo_library() == -1 && drop.take_library_undo().empty() && drop.take_undo().size() == 1);
 }
+
+// "Sort alphabetically" on a RAM bank (E302): by name, only the slots whose patch changes are written (in slot order),
+// and it cannot be undone - an earlier operation's undo is gone too (it would write over the sorted bank)
+TEST(bankdrop_sort_ram_writes_changed_only)
+{
+    BankDrop drop;
+    std::vector<std::vector<uint8_t>> bank;
+    const char *names[] = {"Awakening", "Acidia  AV", "Anaconda M", "Aphex   RD"};
+    for (int p = 0; p < 128; p++) {
+        char n[11];
+        snprintf(n, sizeof n, "Z%03d", p);
+        auto d = patch(p < 4 ? names[p] : n, p, 0x00, 0x02, (uint8_t)p);
+        BankDrop::address(d, 1, p);
+        bank.push_back(d);
+    }
+    drop.drop({patch("X", 0)}, 1, 50, bank);
+    auto w = drop.sort_ram(1, bank);
+    CHECK(w.size() == 4);
+    const int slot[] = {0, 1, 2, 3};
+    const int from[] = {1, 2, 3, 0}; // Acidia, Anaconda, Aphex, Awakening
+    for (int i = 0; i < 4 && i < (int)w.size(); i++)
+        CHECK(w[i].bank == 1 && w[i].slot == slot[i] && same_but_address(w[i].dump, bank[from[i]]) && checksums_ok(w[i].dump));
+    CHECK(!drop.can_undo());
+    std::vector<std::vector<uint8_t>> sorted = bank;
+    for (auto &x : w)
+        sorted[x.slot] = x.dump;
+    CHECK(drop.sort_ram(1, sorted).empty()); // already sorted: nothing to write
+    auto gap = bank;
+    gap[7].clear();
+    CHECK(drop.sort_ram(1, gap).empty() && drop.sort_ram(4, bank).empty()); // not cached / not RAM
+}

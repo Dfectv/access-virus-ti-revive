@@ -169,6 +169,10 @@ recording (user picks a bank), then implement both.
 RAM sort recorded 09:51 (E302): only changed slots written (RAM B: 4 dumps), no question, no undo afterwards; the menu
 HIDES entries that do not apply (no greyed Undo). Implement: Download bank (E301), RAM sort (E302), menu without greyed
 entries; then VM off.
+Done (dev, not user-tested; 324 tests, ctest 5/5): MemorySync::read_bank (E301: rise 74 01 7E 04 + 30 -> 10 per
+program, all 128, stops on cancel/no reply) + VirusPlugin::download_bank (own thread, bank emptied then filled, old
+cache kept for unread slots, joined in terminate); BankDrop::sort_ram (E302: changed slots only, forgets the undo) +
+sort_ram_bank; browser menu leaves out entries that do not apply (no greyed ones). README + site updated. VM off.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 

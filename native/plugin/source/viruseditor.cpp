@@ -2254,30 +2254,47 @@ private:
             plugin_->drop_to_library(dnd_bank_, programs, bank - VirusPlugin::LIB_BASE, slot);
     }
 
-    // the original's browser menu (E294 (4)): RAM/ROM "Undo last operation", "Download entire bank from Virus TI",
-    // "Sort alphabetically"; a library has "Delete selection" in the middle (E297). Not done yet: Download entire
-    // bank, and Sort for RAM (it rewrites the whole bank on the Virus; not recorded)
+    // the original's browser menu (E294 (4), E297, E302): "Undo last operation" when there is something to undo,
+    // then for RAM "Download entire bank from Virus TI" and "Sort alphabetically", for a personal library "Delete
+    // selection" (with a selection) and "Sort alphabetically". Entries that do not apply are left out, not greyed
     void browser_menu(const Hit &h, const CPoint &where)
     {
         const int bank = plugin_->ui_value(h.element->get("Parameter"), -1);
-        const bool lib = is_library(bank);
+        const bool lib = is_library(bank), ram = bank >= 0 && bank < 4;
         auto selection = browser_sel_[bank].items();
+        enum Act { Undo, Download, Delete, Sort };
         std::vector<vti::PopupItem> items;
-        items.push_back({"Undo last operation", plugin_->can_undo_drop()});
-        items.push_back({lib ? "Delete selection" : "Download entire bank from Virus TI", lib && !selection.empty()});
-        items.push_back({"Sort alphabetically", lib});
-        show_popup(std::move(items), -1, 0, where, [this, bank, lib, selection](const std::vector<int> &path) {
-            if (path.empty())
+        std::vector<Act> acts;
+        auto add = [&](const char *t, Act a) { items.push_back({t}), acts.push_back(a); };
+        if (plugin_->can_undo_drop())
+            add("Undo last operation", Undo);
+        if (ram && !plugin_->downloading())
+            add("Download entire bank from Virus TI", Download);
+        if (lib && !selection.empty())
+            add("Delete selection", Delete);
+        if ((ram && !plugin_->downloading()) || lib)
+            add("Sort alphabetically", Sort);
+        if (items.empty())
+            return;
+        show_popup(std::move(items), -1, 0, where, [this, bank, lib, selection, acts](const std::vector<int> &path) {
+            if (path.empty() || path.front() < 0 || path.front() >= (int)acts.size())
                 return;
             bool done = false;
-            if (path.front() == 0)
+            switch (acts[path.front()]) {
+            case Undo:
                 done = plugin_->undo_drop();
-            else if (path.front() == 1 && lib) {
+                break;
+            case Download:
+                done = plugin_->download_bank(bank);
+                break;
+            case Delete:
                 done = plugin_->delete_from_library(bank - VirusPlugin::LIB_BASE, selection);
-                browser_sel_[bank].clear();
-                show_selection(bank);
-            } else if (path.front() == 2 && lib) {
-                done = plugin_->sort_library(bank - VirusPlugin::LIB_BASE);
+                break;
+            case Sort:
+                done = lib ? plugin_->sort_library(bank - VirusPlugin::LIB_BASE) : plugin_->sort_ram_bank(bank);
+                break;
+            }
+            if (acts[path.front()] == Delete || acts[path.front()] == Sort) {
                 browser_sel_[bank].clear();
                 show_selection(bank);
             }

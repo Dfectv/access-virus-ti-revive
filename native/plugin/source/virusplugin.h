@@ -305,6 +305,9 @@ public:
     // a drag within one RAM bank: `programs` swap places with the slots from `slot` on (E297); false = nothing sent
     bool swap_in_ram(int bank, const std::vector<int> &programs, int slot);
     bool rename_in_ram(int bank, int program, const std::string &name); // Alt+Click in the browser (E297 (D))
+    bool sort_ram_bank(int bank);  // "Sort alphabetically" on RAM: only the changed slots, not undoable (E302)
+    bool download_bank(int bank);  // "Download entire bank from Virus TI": all 128 read again in the background (E301)
+    bool downloading() const { return downloading_.load(); }
     // personal libraries in the browser (E297, E298): files only, undoable like the RAM operations
     bool drop_to_library(int src_bank, const std::vector<int> &programs, int library, int slot);
     bool swap_in_library(int library, const std::vector<int> &programs, int slot);
@@ -553,6 +556,9 @@ private:
     void sync_banks(); // brings the bank cache up to date with the Virus (background thread)
     void load_rom_banks(); // ROM A.. from the user's firmware.bin for the connected model
     std::atomic<bool> syncing_{false};
+    std::atomic<bool> downloading_{false}; // download_bank's thread is reading a bank
+    std::thread download_thread_;
+    std::mutex download_mu_; // starting / joining download_thread_
     std::atomic<bool> sync_expected_{false}; // a RAM bank has no cache file: the start-up reads it (sync page early)
     std::atomic<bool> starting_{false}; // start-up messages + state on their way: note-ons are held back
     // the Virus answered the readiness probe (wait_virus_ready): it has worked through the start-up messages and the

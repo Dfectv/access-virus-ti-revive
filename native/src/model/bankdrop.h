@@ -106,6 +106,33 @@ public:
         }
         return remember(std::move(writes), current);
     }
+    // "Sort alphabetically" on a RAM bank (E302): by name; only the slots whose patch changes are written, in slot
+    // order; not undoable (an earlier undo is dropped too). Empty if nothing moves or a slot is not cached.
+    std::vector<Write> sort_ram(int bank, const std::vector<Patch> &current)
+    {
+        if (bank < 0 || bank >= BANKS || (int)current.size() < SLOTS)
+            return {};
+        std::vector<int> order(SLOTS);
+        for (int p = 0; p < SLOTS; p++) {
+            if (!is_single(current[p]))
+                return {};
+            order[p] = p;
+        }
+        std::stable_sort(order.begin(), order.end(), [&](int a, int b) {
+            return std::lexicographical_compare(current[a].begin() + 249, current[a].begin() + 259,
+                                                current[b].begin() + 249, current[b].begin() + 259);
+        });
+        std::vector<Write> writes;
+        for (int p = 0; p < SLOTS; p++)
+            if (order[p] != p) {
+                Patch d = current[order[p]];
+                address(d, bank, p);
+                writes.push_back({bank, p, std::move(d)});
+            }
+        if (!writes.empty())
+            forget();
+        return writes;
+    }
     bool can_undo() const { return !undo_.empty() || lib_ >= 0; }
     // "Undo last operation": the writes that restore the slots as they were before the last drop - or, the next
     // time, as the drop left them (the original toggles, E295)
