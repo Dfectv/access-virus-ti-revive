@@ -245,6 +245,10 @@ M3 (Mac): 'libraries not showing', Create Empty Library saved MacTest.mid to ~/D
 Music/Virus TI/Patches (Access installer; Tutorial's Mac path) - never read. The original has 'Personal' and 'Public
 Libraries' (E217). Possibly also no Documents access for Live (TCC) -> asked the user. REA sub-agent running on the
 original's library roots (Windows + Mac). Maybe the cause of an earlier user report of missing libraries.
+E307 (REA): three roots - Personal = Documents, User = %APPDATA% / ~/Library/Application Support, Public = C:\ProgramData /
+/Library/Application Support (+ '/Access Music/Virus TI/Patches'); each its own submenu; Create Empty Library always saves
+to Documents. PLAN (ask the user): libraries from all three roots, menus Personal / User / Public Libraries (non-empty ones),
+Linux: Personal as now. Needs a new CI build + Mac re-test of M3.
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
