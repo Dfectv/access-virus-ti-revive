@@ -219,6 +219,9 @@ hil.sh on the CI build 2026-10-21 11:39: H1 cold, H2 reopen x2, H3 export, H6 br
 0.41 ms; work/hil/20261021-113937). Linux core items done; L1/L2 by the user.
 Mac awake 2026-10-21: CI zip pushed + unzipped in ~/Downloads/TI-Revive-0.8.29-ci2-mac (sha 8cc52f81.. = CI), diag.on set,
 old diag.log -> diag.log.pre-0.8.29-ci2; the user runs the installer.
+Mac install 11:48: receipt 0.8.29 but VST3/AU NOT replaced (old 0.8.29 test build of yesterday, E305: BundleIsVersionChecked
+default) - workaround given (sudo rm -rf both bundles, install again); fix in mac-build-release.sh (version check off, needs
+the next CI package to verify).
 
 ## Round 0.8.29 (branch round-0.8.29, collecting; started 2026-10-20)
 
